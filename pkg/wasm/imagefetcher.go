@@ -217,9 +217,10 @@ func (o *ImageFetcher) PrepareFetch(url string) (binaryFetcher func() ([]byte, e
 	wasmLog.Infof("fetching image %s from registry %s with tag %s", ref.Context().RepositoryStr(),
 		ref.Context().RegistryStr(), ref.Identifier())
 
-	// Fallback to a plaintext HTTP request, inspired by [helm](https://github.com/helm/helm/blob/12f1bc0acdeb675a8c50a78462ed3917fb7b2e37/pkg/registry/client.go#L594).
+	// Fallback to a plaintext HTTP request, inspired by helm's registry client
+	// (https://github.com/helm/helm/blob/12f1bc0acdeb675a8c50a78462ed3917fb7b2e37/pkg/registry/client.go#L594).
 	// Only retried when shouldRetryPlaintext allows it - i.e. for a registry the operator has
-	// already allowlisted as insecure, never on the strength of the registry's response alone.
+	// already allowlisted as insecure, never on the base of the registry's response alone.
 	desc, err := remote.Get(ref, o.fetchOpts...)
 	if shouldRetryPlaintext(o.insecure, err) {
 		wasmLog.Infof("fetching image with plain text from %s", url)
