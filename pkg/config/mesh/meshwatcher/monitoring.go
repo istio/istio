@@ -1,5 +1,3 @@
-//go:build integ
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,19 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nftables
+package meshwatcher
 
-import (
-	"testing"
+import "istio.io/istio/pkg/monitoring"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/tests/integration/pilot/common"
+var meshConfigLoadErrors = monitoring.NewSum(
+	"istiod_mesh_config_load_errors_total",
+	"Total number of errors encountered while loading mesh configuration sources.",
 )
-
-func TestTraffic(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(t framework.TestContext) {
-			common.RunAllTrafficTests(t, i, apps)
-		})
-}

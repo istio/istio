@@ -151,7 +151,7 @@ func getLabelSelector(a any) map[string]string {
 	}
 	val := reflect.ValueOf(a)
 
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 

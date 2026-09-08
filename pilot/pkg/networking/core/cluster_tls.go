@@ -120,7 +120,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	// that would result in the CredentialName being supplied to all the sidecars which the DestinationRule is scoped to,
 	// resulting in delayed startup of sidecars who do not have access to the credentials.
 	// `filterAuthorizedResources` allows ConfigMap to anyone, so do not exclude it here.
-	privilegedCredentialLookup := tls.CredentialName != "" && !(strings.HasPrefix(tls.CredentialName, credentials.KubernetesConfigMapTypeURI))
+	privilegedCredentialLookup := tls.CredentialName != "" && !strings.HasPrefix(tls.CredentialName, credentials.KubernetesConfigMapTypeURI)
 	if privilegedCredentialLookup && cb.sidecarProxy() && !opts.isDrWithSelector {
 		if tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL {
 			return nil, nil

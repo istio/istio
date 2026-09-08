@@ -842,6 +842,7 @@ func TestConvertResources(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			stop := test.NewStop(t)
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator, tt.validationIgnorer)
 			kc := kube.NewFakeClient(input...)

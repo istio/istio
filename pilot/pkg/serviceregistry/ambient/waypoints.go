@@ -556,7 +556,7 @@ func (w WaypointSelector) Equals(other WaypointSelector) bool {
 	if w.FromNamespaces != other.FromNamespaces {
 		return false
 	}
-	if (w.Selector) == nil != (other.Selector == nil) {
+	if w.Selector == nil != (other.Selector == nil) {
 		return false
 	}
 	if w.Selector == nil && other.Selector == nil {

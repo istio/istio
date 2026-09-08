@@ -114,10 +114,6 @@ func (j *join[T]) List() []T {
 	return res
 }
 
-func (j *join[T]) Register(f func(o Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched(j, f)
-}
-
 func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
 	// Fast path for unchecked overlap: register directly with sub-collections (old behavior)
 	// This avoids the indirection layer of handleSubCollectionEvents and eventHandlers.Distribute
@@ -383,7 +379,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	}
 	synced := make(chan struct{})
 	c := slices.Map(cs, func(e Collection[T]) internalCollection[T] {
-		return e.(internalCollection[T])
+		return e.internal()
 	})
 	if o.stop == nil {
 		panic("no stop channel")
@@ -420,7 +416,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 			close(synced)
 			log.Infof("%v synced", o.name)
 		}()
-		return j
+		return newCollection[T](j)
 	}
 
 	// Checked mode: set up centralized event handling with conflict resolution
@@ -460,5 +456,5 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		}
 	}()
 
-	return j
+	return newCollection[T](j)
 }

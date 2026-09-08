@@ -47,7 +47,7 @@ func IsSlice(value any) bool {
 func IsSliceInterfacePtr(v any) bool {
 	// Must use ValueOf because Elem().Elem() type resolves dynamically.
 	vv := reflect.ValueOf(v)
-	return vv.Kind() == reflect.Ptr && vv.Elem().Kind() == reflect.Interface && vv.Elem().Elem().Kind() == reflect.Slice
+	return vv.Kind() == reflect.Pointer && vv.Elem().Kind() == reflect.Interface && vv.Elem().Elem().Kind() == reflect.Slice
 }
 
 // IsValueNil returns true if either value is nil, or has dynamic type {ptr,
@@ -57,7 +57,7 @@ func IsValueNil(value any) bool {
 		return true
 	}
 	switch kindOf(value) {
-	case reflect.Slice, reflect.Ptr, reflect.Map:
+	case reflect.Slice, reflect.Pointer, reflect.Map:
 		return reflect.ValueOf(value).IsNil()
 	}
 	return false
@@ -89,7 +89,7 @@ func InsertIntoMap(parentMap any, key any, value any) error {
 	kv := reflect.ValueOf(key)
 	vv := reflect.ValueOf(value)
 
-	if v.Type().Kind() == reflect.Ptr {
+	if v.Type().Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	if v.Type().Kind() == reflect.Interface {

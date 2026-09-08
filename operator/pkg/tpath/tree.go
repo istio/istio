@@ -121,7 +121,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 	}
 
 	v := reflect.ValueOf(nc.Node)
-	if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+	if v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
 		v = v.Elem()
 	}
 	ncNode := v.Interface()
@@ -389,7 +389,7 @@ func matchesRegex(pattern, str any) bool {
 // isSliceOrPtrInterface reports whether v is a slice, a ptr to slice or interface to slice.
 func isSliceOrPtrInterface(v any) bool {
 	vv := reflect.ValueOf(v)
-	if vv.Kind() == reflect.Ptr {
+	if vv.Kind() == reflect.Pointer {
 		vv = vv.Elem()
 	}
 	if vv.Kind() == reflect.Interface {

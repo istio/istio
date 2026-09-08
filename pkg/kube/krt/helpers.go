@@ -154,7 +154,7 @@ func GetApplyConfigKey[O any](a O) *string {
 	}
 	val := reflect.ValueOf(a)
 
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 	if val.Kind() != reflect.Struct {

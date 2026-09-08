@@ -31,7 +31,7 @@ func NewRoundRobin(conns []*WeightedConnection) network.Connection {
 	}
 
 	// Shuffle the connections.
-	rand.Shuffle(len(lbConns), func(i, j int) {
+	rand.Shuffle(len(lbConns), func(i, j int) { //nolint:gosec // simulation only, not security-sensitive
 		lbConns[i], lbConns[j] = lbConns[j], lbConns[i]
 	})
 

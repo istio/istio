@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: []
+releaseNotes:
+  - |
+    **Added** `failurePercentageThreshold` field to `DestinationRule.OutlierDetection`, allowing
+    hosts to be ejected based on their failure rate over the analysis `interval` instead of
+    requiring consecutive failures. Unlike `consecutive5xxErrors` and `consecutiveGatewayErrors`,
+    a host's errors do not need to occur back-to-back, so a host with a high failure rate is
+    still ejected even if its failures are interspersed with successful requests.

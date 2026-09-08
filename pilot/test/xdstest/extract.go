@@ -495,7 +495,7 @@ func DumpList[T any](t test.Failer, protoList []T) []string {
 
 func Dump(t test.Failer, p proto.Message) string {
 	v := reflect.ValueOf(p)
-	if p == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
+	if p == nil || (v.Kind() == reflect.Pointer && v.IsNil()) {
 		return "nil"
 	}
 	s, err := protomarshal.ToJSONWithIndent(p, "  ")

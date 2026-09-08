@@ -27,6 +27,7 @@ spec:
     port: 443
     targetPort: 15443
     protocol: TCP
+    nodePort: 30443
   - name: tls-istiod
     port: 15012
     targetPort: 15012

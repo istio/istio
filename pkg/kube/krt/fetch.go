@@ -71,7 +71,7 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 }
 
 func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool, opts ...FetchOption) []T {
-	c := cc.(internalCollection[T])
+	c := cc.internal()
 	d := &dependency{
 		id:             c.uid(),
 		collectionName: c.name(),

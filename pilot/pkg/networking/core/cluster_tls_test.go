@@ -394,7 +394,7 @@ func TestApplyUpstreamTLSSettingsHBONE(t *testing.T) {
 				inner := ""
 				if e.Name == internalUpstream {
 					us := xdstest.UnmarshalAny[internalupstream.InternalUpstreamTransport](t, e.GetTypedConfig())
-					inner = (us).TransportSocket.Name
+					inner = us.TransportSocket.Name
 				}
 				return transportSocket{Name: e.Name, Inner: inner}
 			}

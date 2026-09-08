@@ -210,6 +210,9 @@ func (f *fileConfigSource) AddEventHandler(handler func(key types.NamespacedName
 // file changing from cluster A to cluster B reconciles both keys so the old
 // cluster can be deleted and the new cluster can be added.
 func registerHandler(collection krt.Collection[KubeconfigFile], handler func(key types.NamespacedName, event controllers.EventType)) krt.HandlerRegistration {
+	if handler == nil || collection == nil {
+		return nil
+	}
 	return collection.Register(func(ev krt.Event[KubeconfigFile]) {
 		oldClusterID := ""
 		if ev.Old != nil {

@@ -8,6 +8,7 @@ spec:
       tls:
         port: 443
         targetPort: 15443
+        nodePort: 30443
       tls-istiod:
         port: 15012
         targetPort: 15012

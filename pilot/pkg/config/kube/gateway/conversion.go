@@ -631,19 +631,20 @@ func referenceAllowed(
 ) (*ParentError, *WaypointError) {
 	switch parentRef.Kind {
 	case gvk.Service:
-
 		key := parentRef.Namespace + "/" + parentRef.Name
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
 
 		// check that the referenced svc exists
 		if svc == nil {
-			return &ParentError{
-					Reason:  ParentErrorNotAccepted,
-					Message: fmt.Sprintf("parent service: %q not found", parentRef.Name),
-				}, &WaypointError{
-					Reason:  WaypointErrorReasonNoMatchingParent,
-					Message: WaypointErrorMsgNoMatchingParent,
-				}
+			parentErr := &ParentError{
+				Reason:  ParentErrorNotAccepted,
+				Message: fmt.Sprintf("parent service: %q not found", parentRef.Name),
+			}
+			waypointErr := &WaypointError{
+				Reason:  WaypointErrorReasonNoMatchingParent,
+				Message: WaypointErrorMsgNoMatchingParent,
+			}
+			return parentErr, waypointErr
 		}
 
 		// check that the reference has the use-waypoint label
@@ -664,13 +665,15 @@ func referenceAllowed(
 		key := parentRef.Namespace + "/" + parentRef.Name
 		svcEntry := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(key)))
 		if svcEntry == nil {
-			return &ParentError{
-					Reason:  ParentErrorNotAccepted,
-					Message: fmt.Sprintf("parent service entry: %q not found", parentRef.Name),
-				}, &WaypointError{
-					Reason:  WaypointErrorReasonNoMatchingParent,
-					Message: WaypointErrorMsgNoMatchingParent,
-				}
+			parentErr := &ParentError{
+				Reason:  ParentErrorNotAccepted,
+				Message: fmt.Sprintf("parent service entry: %q not found", parentRef.Name),
+			}
+			waypointErr := &WaypointError{
+				Reason:  WaypointErrorReasonNoMatchingParent,
+				Message: WaypointErrorMsgNoMatchingParent,
+			}
+			return parentErr, waypointErr
 		}
 
 		// check that the reference has the use-waypoint label
