@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue: []
+releaseNotes:
+  - |
+    **Fixed** several `sidecar.istio.io/*` annotations (`proxyImage`, `bootstrapOverride`,
+    `logLevel`, `componentLogLevel`, `agentLogLevel`) being interpolated into the sidecar/gateway
+    injection templates without output escaping, which could allow a crafted annotation value to
+    inject additional fields into the generated pod or deployment spec. These annotations are now
+    escaped consistently at every template sink.
+
+    **Credit**: This vulnerability was discovered and reported by localhost-detect.

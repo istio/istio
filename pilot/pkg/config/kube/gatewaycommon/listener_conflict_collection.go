@@ -27,7 +27,7 @@ import (
 // GatewayListenerConflicts holds listener conflict results for one Gateway.
 type GatewayListenerConflicts struct {
 	Gateway   types.NamespacedName
-	Conflicts map[types.NamespacedName]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason
+	Conflicts map[ConflictOwner]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason
 }
 
 func (g GatewayListenerConflicts) ResourceName() string {
@@ -60,7 +60,7 @@ func (g GatewayListenerConflicts) ConflictsForGateway(gw *gatewayv1.Gateway) map
 	if gw == nil || g.Conflicts == nil {
 		return nil
 	}
-	return g.Conflicts[types.NamespacedName{Namespace: gw.Namespace, Name: gw.Name}]
+	return g.Conflicts[ConflictOwner{Kind: ownerKindGateway, NamespacedName: types.NamespacedName{Namespace: gw.Namespace, Name: gw.Name}}]
 }
 
 // ConflictsFor returns conflict reasons for listeners on the given ListenerSet.
@@ -68,7 +68,7 @@ func (g GatewayListenerConflicts) ConflictsFor(ls *gatewayv1.ListenerSet) map[ga
 	if ls == nil || g.Conflicts == nil {
 		return nil
 	}
-	return g.Conflicts[types.NamespacedName{Namespace: ls.Namespace, Name: ls.Name}]
+	return g.Conflicts[ConflictOwner{Kind: ownerKindListenerSet, NamespacedName: types.NamespacedName{Namespace: ls.Namespace, Name: ls.Name}}]
 }
 
 // GatewayListenerConflictCollection computes listener conflicts once per Gateway.
@@ -88,11 +88,11 @@ func GatewayListenerConflictCollection(
 		gwNN := config.NamespacedName(gw)
 		class := fetchClass(ctx, gw.Spec.GatewayClassName)
 		if class == nil {
-			return &GatewayListenerConflicts{Gateway: gwNN, Conflicts: map[types.NamespacedName]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason{}}
+			return &GatewayListenerConflicts{Gateway: gwNN, Conflicts: map[ConflictOwner]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason{}}
 		}
 		classInfo, ok := ClassInfos[class.Controller]
 		if !ok || !classInfo.SupportsListenerSet {
-			return &GatewayListenerConflicts{Gateway: gwNN, Conflicts: map[types.NamespacedName]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason{}}
+			return &GatewayListenerConflicts{Gateway: gwNN, Conflicts: map[ConflictOwner]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason{}}
 		}
 
 		attached := listenerSetsByGateway.Fetch(ctx, gwNN)

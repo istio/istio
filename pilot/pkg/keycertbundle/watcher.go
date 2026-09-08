@@ -89,9 +89,8 @@ func (w *Watcher) SetAndNotifyCACRL(crl []byte) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	if len(crl) != 0 {
-		w.bundle.CRL = crl
-	}
+	// an empty crl clears a previously set CRL
+	w.bundle.CRL = crl
 
 	for _, ch := range w.watchers {
 		select {

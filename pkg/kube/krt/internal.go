@@ -63,6 +63,7 @@ func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
 	for _, o := range opts {
 		o(c)
 	}
+	c.stopProvided = c.stop != nil
 	if c.stop == nil {
 		// TODO: https://github.com/istio/istio/issues/58791
 		// if EnableAssertions {
@@ -80,9 +81,14 @@ func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
 
 // collectionOptions tracks options for a collection
 type collectionOptions struct {
-	name          string
-	augmentation  func(o any) any
-	stop          <-chan struct{}
+	name         string
+	augmentation func(o any) any
+	stop         <-chan struct{}
+	// stopProvided reports whether the caller explicitly supplied a stop channel (via WithStop).
+	// When false, `stop` is a manufactured default that is never closed, so any goroutine waiting
+	// on it would leak. Lifecycle goroutines (e.g. debugger unregistration) must not be started in
+	// that case.
+	stopProvided  bool
 	debugger      *DebugHandler
 	joinUnchecked bool
 

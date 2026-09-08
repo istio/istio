@@ -140,6 +140,32 @@ func SelectDNSLookupFamily(proxyIPAddresses []string) cluster.Cluster_DnsLookupF
 	}
 }
 
+// GetDNSProxyAddress returns the configured DNS proxy address. Localhost and fallback addresses
+// use the proxy's IP family; IPv4 is used when the proxy IPs are unknown or dual stack.
+func GetDNSProxyAddress(proxyIPAddresses []string, dnsProxyAddr string) *core.Address {
+	localhost := model.LocalhostAddressPrefix
+	if len(proxyIPAddresses) > 0 && networkutil.AllIPv6(proxyIPAddresses) {
+		localhost = model.LocalhostIPv6AddressPrefix
+	}
+	fallbackAddr := net.JoinHostPort(localhost, "15053")
+	if dnsProxyAddr == "" {
+		dnsProxyAddr = fallbackAddr
+	}
+	host, portStr, err := net.SplitHostPort(dnsProxyAddr)
+	if err != nil {
+		log.Warnf("failed to parse DNSProxyAddr %q, falling back to %s: %v", dnsProxyAddr, fallbackAddr, err)
+		host, portStr = localhost, "15053"
+	}
+	if host == "localhost" {
+		host = localhost
+	}
+	port, err := strconv.ParseUint(portStr, 10, 32)
+	if err != nil {
+		port = 15053
+	}
+	return BuildAddress(host, uint32(port))
+}
+
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
 var ALPNH2Only = pm.ALPNH2Only
 

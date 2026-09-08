@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/61036
+releaseNotes:
+- |
+  **Fixed** an issue where an agentgateway waypoint that a service referenced only as its canary,
+  via the `istio.io/use-waypoint-canary` label, was not programmed with the routes and policies
+  attached to that service. Connections shifted to the canary waypoint were rejected, because the
+  waypoint had no configuration for the service it was fronting.

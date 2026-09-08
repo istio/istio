@@ -58,7 +58,8 @@ type mergejoin[T any] struct {
 	queue    queue.Instance
 	metadata Metadata
 
-	syncer Syncer
+	syncer   Syncer
+	debugger *DebugHandler
 }
 
 type joinCollectionIndex[T any] struct {
@@ -359,6 +360,7 @@ func (j *mergejoin[T]) updateIndexLocked(e Event[T], key Key[T]) {
 }
 
 func (j *mergejoin[T]) runQueue() {
+	defer maybeUnregisterCollectionFromDebugger(j, j.debugger)
 	// Wait until all underlying collections are synced before registering
 	syncers := slices.Map(j.collections.getCollections(), func(c Collection[T]) cache.InformerSynced {
 		return c.HasSynced
@@ -426,6 +428,7 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 			name:   o.name,
 			synced: synced,
 		},
+		debugger: o.debugger,
 	}
 
 	maybeRegisterCollectionForDebugging(j, o.debugger)

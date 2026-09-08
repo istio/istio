@@ -221,16 +221,19 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 						},
 					})
 
-					// Ensure the namespace network is set in up in the collection before doing other assertions
-					assert.EventuallyEqual(t, func() bool {
-						networks := s.networks.SystemNamespaceNetworkByCluster.Lookup(client.clusterID)
-						if len(networks) == 0 {
-							return false
+					// A cluster's network is read from the topology label on its own system namespace, so wait
+					// for that namespace to reach the cluster's informer before making other assertions.
+					assert.EventuallyEqual(t, func() string {
+						cl := s.mcController.ClusterStore().GetByID(client.clusterID)
+						if cl == nil || !cl.HasSynced() {
+							return ""
 						}
-
-						nw := networks[0].Network
-						return string(nw) == clusterToNetwork[client.clusterID]
-					}, true)
+						ns := cl.Namespaces().GetKey(systemNS)
+						if ns == nil {
+							return ""
+						}
+						return (*ns).Labels[label.TopologyNetwork.Name]
+					}, clusterToNetwork[client.clusterID])
 				}
 				if networkGatewayIps[client.clusterID] != "" {
 					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], clusterToNetwork[client.clusterID], client.grc)

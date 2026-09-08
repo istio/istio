@@ -79,8 +79,7 @@ func TestAPIGen(t *testing.T) {
 			Generator: "api",
 		}}
 		adscConn := ds.ConnectUnstarted(ds.SetupProxy(proxy), xds.APIWatches())
-		store := memory.Make(collections.Pilot)
-		configController := memory.NewController(store)
+		configController := memory.NewController(collections.Pilot, false)
 		adscConn.Store = configController
 		err := adscConn.Run()
 		if err != nil {
@@ -111,7 +110,7 @@ func TestAPIGenRequiresControlPlaneIdentity(t *testing.T) {
 	// The generator captures the feature flag at construction, so each subtest builds its
 	// own generator after setting the flag.
 	newGen := func() *apigen.APIGenerator {
-		return apigen.NewGenerator(memory.NewController(memory.Make(collections.Pilot)))
+		return apigen.NewGenerator(memory.NewController(collections.Pilot, false))
 	}
 	w := &model.WatchedResource{TypeUrl: gvk.AuthorizationPolicy.String()}
 
@@ -175,8 +174,7 @@ func TestAPIGenWithMulAddresses(t *testing.T) {
 			Generator: "api",
 		}}
 		adscConn := ds.ConnectUnstarted(ds.SetupProxy(proxy), xds.APIWatches())
-		store := memory.Make(collections.Pilot)
-		configController := memory.NewController(store)
+		configController := memory.NewController(collections.Pilot, false)
 		adscConn.Store = configController
 		err := adscConn.Run()
 		if err != nil {

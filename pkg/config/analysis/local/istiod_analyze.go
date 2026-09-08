@@ -115,7 +115,7 @@ func NewIstiodAnalyzer(analyzer analysis.CombinedAnalyzer, namespace,
 		analyzer:           analyzer,
 		namespace:          namespace,
 		cluster:            "default",
-		internalStore:      memory.NewController(memory.Make(collection.SchemasFor(collections.MeshNetworks, collections.MeshConfig))),
+		internalStore:      memory.NewController(collection.SchemasFor(collections.MeshNetworks, collections.MeshConfig), false),
 		istioNamespace:     istioNamespace,
 		kubeResources:      kubeResources,
 		collectionReporter: cr,
@@ -322,7 +322,8 @@ func isIstioConfigMap(obj any) bool {
 
 var secretFieldSelector = fields.AndSelectors(
 	fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
-	fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
+	fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken)),
+).String()
 
 func (sa *IstiodAnalyzer) GetFiltersByGVK() map[config.GroupVersionKind]kubetypes.Filter {
 	return map[config.GroupVersionKind]kubetypes.Filter{

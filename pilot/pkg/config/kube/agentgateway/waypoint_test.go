@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/features"
@@ -252,13 +253,29 @@ func testService(labels map[string]string) *corev1.Service {
 	return &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: "ns1", Name: "svc1", Labels: labels}}
 }
 
+func testServiceAnnotated(labels, annotations map[string]string) *corev1.Service {
+	svc := testService(labels)
+	svc.Annotations = annotations
+	return svc
+}
+
 func testNamespace(labels map[string]string) *corev1.Namespace {
 	return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns1", Labels: labels}}
 }
 
+func testNamespaceAnnotated(labels, annotations map[string]string) *corev1.Namespace {
+	ns := testNamespace(labels)
+	ns.Annotations = annotations
+	return ns
+}
+
 func testGateway(name, class string) *gatewayv1.Gateway {
+	return testGatewayIn("ns1", name, class)
+}
+
+func testGatewayIn(namespace, name, class string) *gatewayv1.Gateway {
 	return &gatewayv1.Gateway{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "ns1", Name: name},
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
 		Spec:       gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName(class)},
 	}
 }
@@ -270,6 +287,16 @@ func staticCol[T any](opts krt.OptionsBuilder, name string, items ...T) krt.Coll
 func TestBuildWaypointServiceBindings(t *testing.T) {
 	useWaypoint := func(wp string) map[string]string {
 		return map[string]string{label.IoIstioUseWaypoint.Name: wp}
+	}
+	useWaypointWithCanary := func(wp, canary string) map[string]string {
+		return map[string]string{label.IoIstioUseWaypoint.Name: wp, label.IoIstioUseWaypointCanary.Name: canary}
+	}
+	canaryWeight := func(w string) map[string]string {
+		return map[string]string{annotation.IoIstioUseWaypointCanaryWeight.Name: w}
+	}
+	svcKey := types.NamespacedName{Namespace: "ns1", Name: "svc1"}
+	bindingTo := func(gw string) WaypointServiceBinding {
+		return WaypointServiceBinding{ServiceKey: svcKey, WaypointGateway: types.NamespacedName{Namespace: "ns1", Name: gw}}
 	}
 	tests := []struct {
 		name       string
@@ -326,6 +353,132 @@ func TestBuildWaypointServiceBindings(t *testing.T) {
 			gateways:   []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
 			want:       nil,
 		},
+		{
+			name:       "agw primary and agw canary both bind",
+			services:   []*corev1.Service{testServiceAnnotated(useWaypointWithCanary("wp", "wpc"), canaryWeight("50"))},
+			namespaces: []*corev1.Namespace{testNamespace(nil)},
+			gateways: []*gatewayv1.Gateway{
+				testGateway("wp", constants.AgentgatewayWaypointClassName),
+				testGateway("wpc", constants.AgentgatewayWaypointClassName),
+			},
+			want: []WaypointServiceBinding{bindingTo("wp"), bindingTo("wpc")},
+		},
+		{
+			// The mixed pairing: an Envoy waypoint fronts the service, connections shift to an AGW
+			// canary. Only the canary is ours, and it still needs the service's config.
+			name:       "envoy primary with agw canary binds only the canary",
+			services:   []*corev1.Service{testServiceAnnotated(useWaypointWithCanary("wp", "wpc"), canaryWeight("50"))},
+			namespaces: []*corev1.Namespace{testNamespace(nil)},
+			gateways: []*gatewayv1.Gateway{
+				testGateway("wp", constants.WaypointGatewayClassName),
+				testGateway("wpc", constants.AgentgatewayWaypointClassName),
+			},
+			want: []WaypointServiceBinding{bindingTo("wpc")},
+		},
+		{
+			name:       "agw primary with envoy canary binds only the primary",
+			services:   []*corev1.Service{testServiceAnnotated(useWaypointWithCanary("wp", "wpc"), canaryWeight("50"))},
+			namespaces: []*corev1.Namespace{testNamespace(nil)},
+			gateways: []*gatewayv1.Gateway{
+				testGateway("wp", constants.AgentgatewayWaypointClassName),
+				testGateway("wpc", constants.WaypointGatewayClassName),
+			},
+			want: []WaypointServiceBinding{bindingTo("wp")},
+		},
+		{
+			name:       "canary at weight 0 still binds",
+			services:   []*corev1.Service{testServiceAnnotated(useWaypointWithCanary("wp", "wpc"), canaryWeight("0"))},
+			namespaces: []*corev1.Namespace{testNamespace(nil)},
+			gateways: []*gatewayv1.Gateway{
+				testGateway("wp", constants.AgentgatewayWaypointClassName),
+				testGateway("wpc", constants.AgentgatewayWaypointClassName),
+			},
+			want: []WaypointServiceBinding{bindingTo("wp"), bindingTo("wpc")},
+		},
+		{
+			name:       "canary with invalid weight is ignored",
+			services:   []*corev1.Service{testServiceAnnotated(useWaypointWithCanary("wp", "wpc"), canaryWeight("nonsense"))},
+			namespaces: []*corev1.Namespace{testNamespace(nil)},
+			gateways: []*gatewayv1.Gateway{
+				testGateway("wp", constants.AgentgatewayWaypointClassName),
+				testGateway("wpc", constants.AgentgatewayWaypointClassName),
+			},
+			want: []WaypointServiceBinding{bindingTo("wp")},
+		},
+		{
+			name:       "canary equal to the primary binds once",
+			services:   []*corev1.Service{testServiceAnnotated(useWaypointWithCanary("wp", "wp"), canaryWeight("50"))},
+			namespaces: []*corev1.Namespace{testNamespace(nil)},
+			gateways:   []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
+			want:       []WaypointServiceBinding{bindingTo("wp")},
+		},
+		{
+			name: "canary without a primary produces no binding",
+			services: []*corev1.Service{testServiceAnnotated(
+				map[string]string{label.IoIstioUseWaypointCanary.Name: "wpc"}, canaryWeight("50"))},
+			namespaces: []*corev1.Namespace{testNamespace(nil)},
+			gateways:   []*gatewayv1.Gateway{testGateway("wpc", constants.AgentgatewayWaypointClassName)},
+			want:       nil,
+		},
+		{
+			name:       "canary none is ignored",
+			services:   []*corev1.Service{testService(useWaypointWithCanary("wp", "none"))},
+			namespaces: []*corev1.Namespace{testNamespace(nil)},
+			gateways: []*gatewayv1.Gateway{
+				testGateway("wp", constants.AgentgatewayWaypointClassName),
+				testGateway("none", constants.AgentgatewayWaypointClassName),
+			},
+			want: []WaypointServiceBinding{bindingTo("wp")},
+		},
+		{
+			name:     "namespace canary inherited alongside namespace primary",
+			services: []*corev1.Service{testService(nil)},
+			namespaces: []*corev1.Namespace{
+				testNamespaceAnnotated(useWaypointWithCanary("wp", "wpc"), canaryWeight("50")),
+			},
+			gateways: []*gatewayv1.Gateway{
+				testGateway("wp", constants.AgentgatewayWaypointClassName),
+				testGateway("wpc", constants.AgentgatewayWaypointClassName),
+			},
+			want: []WaypointServiceBinding{bindingTo("wp"), bindingTo("wpc")},
+		},
+		{
+			// The service declares its own primary, so it does not inherit the namespace's canary.
+			name:     "namespace canary ignored when the service sets its own primary",
+			services: []*corev1.Service{testService(useWaypoint("wp"))},
+			namespaces: []*corev1.Namespace{
+				testNamespaceAnnotated(useWaypointWithCanary("wp", "wpc"), canaryWeight("50")),
+			},
+			gateways: []*gatewayv1.Gateway{
+				testGateway("wp", constants.AgentgatewayWaypointClassName),
+				testGateway("wpc", constants.AgentgatewayWaypointClassName),
+			},
+			want: []WaypointServiceBinding{bindingTo("wp")},
+		},
+		{
+			name: "canary in another namespace binds there",
+			services: []*corev1.Service{testServiceAnnotated(map[string]string{
+				label.IoIstioUseWaypoint.Name:                "wp",
+				label.IoIstioUseWaypointCanary.Name:          "wpc",
+				label.IoIstioUseWaypointCanaryNamespace.Name: "ns2",
+			}, canaryWeight("50"))},
+			namespaces: []*corev1.Namespace{testNamespace(nil)},
+			gateways: []*gatewayv1.Gateway{
+				testGateway("wp", constants.AgentgatewayWaypointClassName),
+				testGatewayIn("ns2", "wpc", constants.AgentgatewayWaypointClassName),
+			},
+			want: []WaypointServiceBinding{
+				bindingTo("wp"),
+				{ServiceKey: svcKey, WaypointGateway: types.NamespacedName{Namespace: "ns2", Name: "wpc"}},
+			},
+		},
+		{
+			name:       "canary gateway missing produces only the primary binding",
+			services:   []*corev1.Service{testServiceAnnotated(useWaypointWithCanary("wp", "wpc"), canaryWeight("50"))},
+			namespaces: []*corev1.Namespace{testNamespace(nil)},
+			gateways:   []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
+			want:       []WaypointServiceBinding{bindingTo("wp")},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -355,6 +508,15 @@ func TestExtractWaypointGatewayRefs(t *testing.T) {
 		WaypointServiceBinding{
 			ServiceKey:      types.NamespacedName{Namespace: "ns2", Name: "svc2"},
 			WaypointGateway: types.NamespacedName{Namespace: "ns2", Name: "wp2"},
+		},
+		// svc3 is split between a primary and a canary waypoint.
+		WaypointServiceBinding{
+			ServiceKey:      types.NamespacedName{Namespace: "ns1", Name: "svc3"},
+			WaypointGateway: types.NamespacedName{Namespace: "ns1", Name: "wp1"},
+		},
+		WaypointServiceBinding{
+			ServiceKey:      types.NamespacedName{Namespace: "ns1", Name: "svc3"},
+			WaypointGateway: types.NamespacedName{Namespace: "ns1", Name: "wp3"},
 		},
 	)
 	bindings.WaitUntilSynced(test.NewStop(t))
@@ -387,6 +549,12 @@ func TestExtractWaypointGatewayRefs(t *testing.T) {
 			defaultNS: "ns1",
 			refs:      []gatewayv1.ParentReference{serviceRef("ns2", "svc2")},
 			want:      []types.NamespacedName{{Namespace: "ns2", Name: "wp2"}},
+		},
+		{
+			name:      "service ref resolves to both primary and canary waypoints",
+			defaultNS: "ns1",
+			refs:      []gatewayv1.ParentReference{serviceRef("", "svc3")},
+			want:      []types.NamespacedName{{Namespace: "ns1", Name: "wp1"}, {Namespace: "ns1", Name: "wp3"}},
 		},
 		{
 			name:      "gateway kind ref is ignored",
@@ -422,33 +590,49 @@ func TestExtractWaypointGatewayRefs(t *testing.T) {
 
 func TestRouteParentsFetchServiceParent(t *testing.T) {
 	opts := krttest.Options(t)
-	wpParentInfo := AgwParentInfo{
-		ParentGateway:          types.NamespacedName{Namespace: "ns1", Name: "wp"},
-		ParentGatewayClassName: constants.AgentgatewayWaypointClassName,
-		Protocol:               hboneProtocol,
-		Port:                   15008,
+	waypointListener := func(name string) *GatewayListener {
+		gw := types.NamespacedName{Namespace: "ns1", Name: name}
+		return &GatewayListener{
+			Name:          "ns1/" + name,
+			ParentGateway: gw,
+			ParentObject:  AgwParentKey{Kind: gvk.KubernetesGateway.Kubernetes(), Namespace: "ns1", Name: name},
+			ParentInfo: AgwParentInfo{
+				ParentGateway:          gw,
+				ParentGatewayClassName: constants.AgentgatewayWaypointClassName,
+				Protocol:               hboneProtocol,
+				Port:                   15008,
+			},
+			Valid: true,
+		}
 	}
 	wpKey := AgwParentKey{Kind: gvk.KubernetesGateway.Kubernetes(), Namespace: "ns1", Name: "wp"}
-	gateways := staticCol(opts, "Gateways", &GatewayListener{
-		Name:          "ns1/wp",
-		ParentGateway: types.NamespacedName{Namespace: "ns1", Name: "wp"},
-		ParentObject:  wpKey,
-		ParentInfo:    wpParentInfo,
-		Valid:         true,
-	})
+	gateways := staticCol(opts, "Gateways", waypointListener("wp"), waypointListener("wpc"))
 	gateways.WaitUntilSynced(test.NewStop(t))
-	bindings := staticCol(opts, "Bindings", WaypointServiceBinding{
-		ServiceKey:      types.NamespacedName{Namespace: "ns1", Name: "svc1"},
-		WaypointGateway: types.NamespacedName{Namespace: "ns1", Name: "wp"},
-	})
+	binding := func(svc, gw string) WaypointServiceBinding {
+		return WaypointServiceBinding{
+			ServiceKey:      types.NamespacedName{Namespace: "ns1", Name: svc},
+			WaypointGateway: types.NamespacedName{Namespace: "ns1", Name: gw},
+		}
+	}
+	// svc1 is fronted by one waypoint, svc2 is split between a primary and a canary waypoint.
+	bindings := staticCol(opts, "Bindings", binding("svc1", "wp"), binding("svc2", "wp"), binding("svc2", "wpc"))
 	bindings.WaitUntilSynced(test.NewStop(t))
 	parents := BuildRouteParents(gateways, bindings)
+
+	gatewayNames := func(got []*AgwParentInfo) []string {
+		return slices.Sort(slices.Map(got, func(p *AgwParentInfo) string { return p.ParentGateway.String() }))
+	}
 
 	t.Run("service parent resolves to waypoint listeners", func(t *testing.T) {
 		svcKey := AgwParentKey{Kind: gvk.Service.Kubernetes(), Namespace: "ns1", Name: "svc1"}
 		got := parents.fetch(krt.TestingDummyContext{}, svcKey)
-		assert.Equal(t, len(got), 1)
-		assert.Equal(t, got[0].ParentGateway, types.NamespacedName{Namespace: "ns1", Name: "wp"})
+		assert.Equal(t, gatewayNames(got), []string{"ns1/wp"})
+	})
+
+	t.Run("service parent resolves to both primary and canary waypoints", func(t *testing.T) {
+		svcKey := AgwParentKey{Kind: gvk.Service.Kubernetes(), Namespace: "ns1", Name: "svc2"}
+		got := parents.fetch(krt.TestingDummyContext{}, svcKey)
+		assert.Equal(t, gatewayNames(got), []string{"ns1/wp", "ns1/wpc"})
 	})
 
 	t.Run("service parent without binding resolves to nothing", func(t *testing.T) {
@@ -459,8 +643,7 @@ func TestRouteParentsFetchServiceParent(t *testing.T) {
 
 	t.Run("gateway parent resolves via gateway index", func(t *testing.T) {
 		got := parents.fetch(krt.TestingDummyContext{}, wpKey)
-		assert.Equal(t, len(got), 1)
-		assert.Equal(t, got[0].ParentGateway, types.NamespacedName{Namespace: "ns1", Name: "wp"})
+		assert.Equal(t, gatewayNames(got), []string{"ns1/wp"})
 	})
 }
 

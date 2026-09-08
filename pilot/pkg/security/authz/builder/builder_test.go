@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -431,7 +432,7 @@ func convertTCP(in []*listener.Filter) []proto.Message {
 }
 
 func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.AuthorizationPolicies {
-	store := memory.Make(collections.Pilot)
+	store := memory.Make(collections.Pilot, false, test.NewStop(t))
 	for _, p := range policies {
 		if _, err := store.Create(*p); err != nil {
 			t.Fatalf("newAuthzPolicies: %v", err)

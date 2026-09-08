@@ -82,6 +82,23 @@ func TestWatcher(t *testing.T) {
 	}
 }
 
+// TestSetAndNotifyCACRLClear verifies that an empty CRL clears a previously set
+// CRL, so that emptying ca-crl.pem removes the revocation from the propagated
+// istio-ca-crl ConfigMap.
+func TestSetAndNotifyCACRLClear(t *testing.T) {
+	watcher := NewWatcher()
+
+	watcher.SetAndNotifyCACRL([]byte("crl"))
+	if got := watcher.GetCRL(); !bytes.Equal(got, []byte("crl")) {
+		t.Errorf("expected CRL to be set, got %q", got)
+	}
+
+	watcher.SetAndNotifyCACRL([]byte{})
+	if got := watcher.GetCRL(); len(got) != 0 {
+		t.Errorf("expected CRL to be cleared, got %q", got)
+	}
+}
+
 func TestWatcherFromFile(t *testing.T) {
 	watcher := NewWatcher()
 

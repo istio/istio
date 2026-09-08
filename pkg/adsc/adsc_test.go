@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -406,7 +407,7 @@ func TestADSC_handleMCP(t *testing.T) {
 	rev := "test-rev"
 	adsc := &ADSC{
 		VersionInfo: map[string]string{},
-		Store:       memory.Make(collections.Pilot),
+		Store:       memory.Make(collections.Pilot, false, test.NewStop(t)),
 		cfg: &ADSConfig{
 			Config: Config{
 				Revision: rev,

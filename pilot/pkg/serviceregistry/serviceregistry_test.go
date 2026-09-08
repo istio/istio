@@ -81,7 +81,7 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 			MeshServiceController: aggregate.NewController(aggregate.Options{MeshHolder: meshWatcher}),
 		},
 	)
-	configController := memory.NewController(memory.Make(collections.Pilot))
+	configController := memory.NewController(collections.Pilot, false)
 
 	stop := istiotest.NewStop(t)
 	go configController.Run(stop)

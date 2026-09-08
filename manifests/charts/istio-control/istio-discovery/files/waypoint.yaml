@@ -101,7 +101,7 @@ spec:
           protocol: TCP
           name: http-envoy-prom
         {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+        image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
         {{- else }}
         image: "{{ .ProxyImage }}"
         {{- end }}

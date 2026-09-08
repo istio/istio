@@ -347,7 +347,7 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 	}
 }
 
-// The test of NewVerifiedKeyCertBundleFromPem, VerifyAndSetAll can be covered by this test.
+// The test of NewVerifiedKeyCertBundleFromPem can be covered by this test.
 func TestNewVerifiedKeyCertBundleFromFileWithCrl(t *testing.T) {
 	testCases := map[string]struct {
 		caCertFile    string
@@ -373,6 +373,14 @@ func TestNewVerifiedKeyCertBundleFromFileWithCrl(t *testing.T) {
 			crlFile:       badCrlFile,
 			expectedErr:   "missing CRL signed by certificates",
 		},
+		"crl does not exist": {
+			caCertFile:    crlCertFile,
+			caKeyFile:     crlKeyFile,
+			certChainFile: []string{crlCertChainFile},
+			rootCertFile:  crlRootCertFile,
+			crlFile:       "notfound",
+			expectedErr:   "",
+		},
 	}
 	for id, tc := range testCases {
 		t.Run(id, func(t *testing.T) {
@@ -388,6 +396,35 @@ func TestNewVerifiedKeyCertBundleFromFileWithCrl(t *testing.T) {
 				t.Errorf("%s: Expected error %s but succeeded", id, tc.expectedErr)
 			}
 		})
+	}
+}
+
+func TestVerifyAndSetAll(t *testing.T) {
+	b, err := NewVerifiedKeyCertBundleFromFile(crlCertFile, crlKeyFile, []string{crlCertChainFile}, crlRootCertFile, crlFile)
+	if err != nil {
+		t.Fatalf("Unexpected err: %v", err)
+	}
+
+	if len(b.GetCRLPem()) == 0 {
+		t.Fatalf("expected CRL to be set")
+	}
+
+	cert, key, certChain, root := b.GetAllPem()
+
+	// preserve the existing CRL.
+	if err := b.VerifyAndSetAll(cert, key, certChain, root, nil); err != nil {
+		t.Fatalf("nil CRL failed: %v", err)
+	}
+	if len(b.GetCRLPem()) == 0 {
+		t.Fatalf("CRL not preserved")
+	}
+
+	// clear the CRL
+	if err := b.VerifyAndSetAll(cert, key, certChain, root, []byte{}); err != nil {
+		t.Fatalf("empty CRL failed: %v", err)
+	}
+	if len(b.GetCRLPem()) != 0 {
+		t.Fatalf("CRL not cleared, got %q", b.GetCRLPem())
 	}
 }
 

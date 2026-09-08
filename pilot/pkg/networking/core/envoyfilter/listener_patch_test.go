@@ -63,7 +63,7 @@ var testMesh = &meshconfig.MeshConfig{
 }
 
 func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.ConfigStoreController {
-	store := memory.NewController(memory.Make(collections.Pilot))
+	store := memory.NewController(collections.Pilot, false)
 
 	for i, cp := range configPatches {
 		_, err := store.Create(config.Config{
@@ -84,7 +84,7 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 }
 
 func buildEnvoyFilterConfigStoreWithPriorities(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch, priorities []int32) model.ConfigStoreController {
-	store := memory.NewController(memory.Make(collections.Pilot))
+	store := memory.NewController(collections.Pilot, false)
 
 	for i, cp := range configPatches {
 		_, err := store.Create(config.Config{

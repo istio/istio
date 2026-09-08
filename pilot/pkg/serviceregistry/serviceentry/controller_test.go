@@ -90,8 +90,7 @@ func initServiceDiscovery(t test.Failer) (model.ConfigStore, *Controller, *xdsfa
 // initServiceDiscoveryWithoutEvents initializes a test setup with no events. This avoids excessive attempts to push
 // EDS updates to a full queue
 func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Controller) {
-	store := memory.Make(collections.Pilot)
-	configController := memory.NewController(store)
+	configController := memory.NewController(collections.Pilot, false)
 
 	stop := test.NewStop(t)
 	go configController.Run(stop)
@@ -124,8 +123,7 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 }
 
 func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Option) (model.ConfigStore, *Controller, *xdsfake.Updater) {
-	store := memory.Make(collections.Pilot)
-	configController := memory.NewController(store)
+	configController := memory.NewController(collections.Pilot, false)
 
 	stop := test.NewStop(t)
 	go configController.Run(stop)

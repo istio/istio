@@ -255,7 +255,7 @@ func newTestEnvironment(t *testing.T) *model.Environment {
 		},
 	})
 
-	configStore := memory.NewController(memory.Make(collections.Pilot))
+	configStore := memory.NewController(collections.Pilot, false)
 	configStore.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "test",

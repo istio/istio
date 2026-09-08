@@ -561,10 +561,10 @@ func InternalGatewayName(gwNamespace, gwName, lName string) string {
 type RouteParents struct {
 	gatewayIndex krt.Index[AgwParentKey, *GatewayListener]
 
-	// waypointBindings maps services to their AGW waypoint gateways.
-	// When a route references a Service as parentRef, this collection is used to
-	// resolve the service to its waypoint gateway, enabling route attachment.
-	waypointBindings krt.Collection[WaypointServiceBinding]
+	// waypointBindingsByService maps services to their AGW waypoint gateways.
+	// When a route references a Service as parentRef, this index is used to
+	// resolve the service to its waypoint gateways, enabling route attachment.
+	waypointBindingsByService krt.Index[types.NamespacedName, WaypointServiceBinding]
 }
 
 func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
@@ -577,30 +577,28 @@ func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParen
 	})
 }
 
-// fetchServiceParent resolves a Service parentRef to the waypoint gateway that fronts it.
-// If the service has a use-waypoint label pointing to an AGW waypoint gateway, the route
-// is attached to that waypoint gateway's listeners.
+// fetchServiceParent resolves a Service parentRef to the waypoint gateways that front it.
+// If the service has a use-waypoint or use-waypoint-canary label pointing to an AGW waypoint
+// gateway, the route is attached to that waypoint gateway's listeners. A service split between a
+// primary and a canary waypoint resolves to both.
 func (p RouteParents) fetchServiceParent(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
-	if p.waypointBindings == nil {
+	if p.waypointBindingsByService == nil {
 		return nil
 	}
 
-	// Look up the waypoint binding for this service
-	svcKey := pk.Namespace + "/" + pk.Name
-	binding := krt.FetchOne(ctx, p.waypointBindings, krt.FilterKey(svcKey))
-	if binding == nil {
-		return nil
+	svcKey := types.NamespacedName{Namespace: pk.Namespace, Name: pk.Name}
+	var parents []*AgwParentInfo
+	for _, binding := range p.waypointBindingsByService.Fetch(ctx, svcKey) {
+		wpKey := AgwParentKey{
+			Kind:      gvk.KubernetesGateway.Kubernetes(),
+			Name:      binding.WaypointGateway.Name,
+			Namespace: binding.WaypointGateway.Namespace,
+		}
+		parents = append(parents, slices.Map(p.gatewayIndex.Fetch(ctx, wpKey), func(gw *GatewayListener) *AgwParentInfo {
+			return &gw.ParentInfo
+		})...)
 	}
-
-	// Found a waypoint binding, look up the waypoint's listeners
-	wpKey := AgwParentKey{
-		Kind:      gvk.KubernetesGateway.Kubernetes(),
-		Name:      binding.WaypointGateway.Name,
-		Namespace: binding.WaypointGateway.Namespace,
-	}
-	return slices.Map(p.gatewayIndex.Fetch(ctx, wpKey), func(gw *GatewayListener) *AgwParentInfo {
-		return &gw.ParentInfo
-	})
+	return parents
 }
 
 func BuildRouteParents(
@@ -610,11 +608,14 @@ func BuildRouteParents(
 	idx := krt.NewIndex(gateways, "parent", func(o *GatewayListener) []AgwParentKey {
 		return []AgwParentKey{o.ParentObject}
 	})
-	return RouteParents{
-		gatewayIndex: idx,
-		// waypointBindings maps services to their AGW waypoint gateways
-		waypointBindings: waypointBindings,
+	p := RouteParents{gatewayIndex: idx}
+	if waypointBindings != nil {
+		p.waypointBindingsByService = krt.NewIndex(waypointBindings, "waypoint-by-service",
+			func(b WaypointServiceBinding) []types.NamespacedName {
+				return []types.NamespacedName{b.ServiceKey}
+			})
 	}
+	return p
 }
 
 // AgwRoute is a wrapper type that contains the route on the gateway, as well as the status for the route.

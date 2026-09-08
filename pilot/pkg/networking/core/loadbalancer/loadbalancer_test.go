@@ -1535,7 +1535,7 @@ func buildEnvForClustersWithDistribute(t *testing.T, distribute []*networking.Lo
 		},
 	}
 
-	configStore := memory.NewController(memory.Make(collections.Pilot))
+	configStore := memory.NewController(collections.Pilot, false)
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
@@ -1602,7 +1602,7 @@ func buildEnvForClustersWithFailover(t *testing.T) *model.Environment {
 		},
 	}
 
-	configStore := memory.NewController(memory.Make(collections.Pilot))
+	configStore := memory.NewController(collections.Pilot, false)
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
@@ -1664,7 +1664,7 @@ func buildEnvForClustersWithFailoverPriority(t *testing.T, failoverPriority []st
 		},
 	}
 
-	configStore := memory.NewController(memory.Make(collections.Pilot))
+	configStore := memory.NewController(collections.Pilot, false)
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
@@ -1732,7 +1732,7 @@ func buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(t *testing.
 		},
 	}
 
-	configStore := memory.NewController(memory.Make(collections.Pilot))
+	configStore := memory.NewController(collections.Pilot, false)
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery

@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -328,7 +329,8 @@ func TestEffectiveProxyConfig(t *testing.T) {
 					"test": "selector",
 				}, map[string]string{
 					annotation.ProxyConfig.Name: "{ \"concurrency\": 5 }",
-				}),
+				},
+			),
 			expected: &meshconfig.ProxyConfig{
 				Concurrency: v(3),
 				Image: &v1beta1.ProxyImage{
@@ -393,7 +395,8 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				"test-ns",
 				map[string]string{
 					"test": "selector",
-				}, map[string]string{}),
+				}, map[string]string{},
+			),
 			expected: &meshconfig.ProxyConfig{ProxyMetadata: map[string]string{
 				"A": "1",
 			}},
@@ -422,7 +425,8 @@ func TestEffectiveProxyConfig(t *testing.T) {
 			},
 			proxy: newMeta(
 				"test-ns",
-				map[string]string{}, map[string]string{}),
+				map[string]string{}, map[string]string{},
+			),
 			expected: &meshconfig.ProxyConfig{ProxyMetadata: map[string]string{
 				"A": "1",
 			}},
@@ -468,6 +472,7 @@ func newProxyConfigStore(t *testing.T, configs []config.Config) ConfigStore {
 	t.Helper()
 
 	store := NewFakeStore()
+	go store.Run(test.NewStop(t))
 	for _, cfg := range configs {
 		store.Create(cfg)
 	}

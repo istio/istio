@@ -192,7 +192,10 @@ func FuzzInitContext(data []byte) int {
 	}
 
 	env := &model.Environment{}
+	stop := make(chan struct{})
+	defer close(stop)
 	store := model.NewFakeStore()
+	go store.Run(stop)
 
 	env.ConfigStore = store
 	sd := memory.NewServiceDiscovery(services...)
