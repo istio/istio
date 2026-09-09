@@ -52,14 +52,14 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 			Selector: o.Spec.Selector,
 		}
 	}, opts.WithName("SimpleServices")...)
-	MultiServices := krt.NewStaticCollection(
+	MultiServices := krt.NewMutableCollection(
 		nil,
 		[]krt.Collection[SimpleService]{SimpleServices},
 		opts.WithName("MultiServices")...,
 	)
 
 	AllServices := krt.NestedJoinWithMergeCollection(
-		MultiServices,
+		MultiServices.AsCollection(),
 		func(ts []SimpleService) *SimpleService {
 			if len(ts) == 0 {
 				return nil
@@ -196,13 +196,13 @@ func (c testCluster) ResourceName() string {
 func TestNestedJoinWithMergeCollectionSwap(t *testing.T) {
 	opts := testOptions(t)
 
-	clusters := krt.NewStaticCollection(nil, []testCluster{{name: "c0", gen: 1, service: "a", version: "v1"}},
+	clusters := krt.NewMutableCollection(nil, []testCluster{{name: "c0", gen: 1, service: "a", version: "v1"}},
 		opts.WithName("Clusters")...)
-	perCluster := krt.NewCollection(clusters, func(ctx krt.HandlerContext, c testCluster) *krt.Collection[SimpleService] {
+	perCluster := krt.NewCollection(clusters.AsCollection(), func(ctx krt.HandlerContext, c testCluster) *krt.Collection[SimpleService] {
 		// The collection's name depends only on the cluster, not on its generation, so a rebuilt
 		// collection replaces the previous one under the same key. This mirrors how the per-cluster
 		// informers are named in multicluster.
-		var col krt.Collection[SimpleService] = krt.NewStaticCollection(nil, []SimpleService{{
+		col := krt.NewStaticCollection(nil, []SimpleService{{
 			Named:    Named{"namespace", c.service},
 			Selector: map[string]string{"app": c.version},
 		}}, opts.With(krt.WithName(fmt.Sprintf("Services[%s]", c.name)))...)
@@ -298,14 +298,14 @@ func TestNestedJoinWithMergeAndIndexSimpleCollection(t *testing.T) {
 			IP:       o.Spec.ClusterIP,
 		}
 	}, opts.WithName("SimpleServices")...)
-	MultiServices := krt.NewStaticCollection(
+	MultiServices := krt.NewMutableCollection(
 		nil,
 		[]krt.Collection[SimpleService]{SimpleServices},
 		opts.WithName("MultiServices")...,
 	)
 
 	AllServices := krt.NestedJoinWithMergeCollection(
-		MultiServices,
+		MultiServices.AsCollection(),
 		func(ts []SimpleService) *SimpleService {
 			if len(ts) == 0 {
 				return nil

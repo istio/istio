@@ -45,8 +45,8 @@ func TestStatusCollections(t *testing.T) {
 		Obj:    &v1.ConfigMap{},
 		Status: "hello world",
 	}
-	fakeCol := krt.NewStaticCollection[Status](nil, []Status{obj1}, krt.WithStop(stop))
-	status.RegisterStatus(c.status, fakeCol, func(i *v1.ConfigMap) string {
+	fakeCol := krt.NewMutableCollection[Status](nil, []Status{obj1}, krt.WithStop(stop))
+	status.RegisterStatus(c.status, fakeCol.AsCollection(), func(i *v1.ConfigMap) string {
 		return ""
 	}, c.tagWatcher.AccessUnprotected())
 

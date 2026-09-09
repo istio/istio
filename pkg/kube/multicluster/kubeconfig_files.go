@@ -55,7 +55,7 @@ func NewKubeconfigCollection(
 		return &k
 	}, opts...)
 
-	return collection, nil
+	return collection.AsCollection(), nil
 }
 
 func parseKubeconfig(data []byte) ([]KubeconfigFile, error) {

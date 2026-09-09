@@ -64,32 +64,30 @@ func (p DebugCollection) MarshalJSON() ([]byte, error) {
 }
 
 // maybeRegisterCollectionForDebugging registers the collection in the debugger, if one is enabled
-func maybeRegisterCollectionForDebugging[T any](c Collection[T], handler *DebugHandler) {
+func maybeRegisterCollectionForDebugging[T any](c internalCollection[T], handler *DebugHandler) {
 	if handler == nil {
 		return
 	}
-	cc := c.(internalCollection[T])
 	handler.mu.Lock()
 	defer handler.mu.Unlock()
 	if handler.debugCollections == nil {
 		handler.debugCollections = make(map[collectionUID]DebugCollection)
 	}
-	handler.debugCollections[cc.uid()] = DebugCollection{
-		name: cc.name(),
-		dump: cc.dump,
-		uid:  cc.uid(),
+	handler.debugCollections[c.uid()] = DebugCollection{
+		name: c.name(),
+		dump: c.dump,
+		uid:  c.uid(),
 	}
 }
 
 // maybeUnregisterCollectionFromDebugger removes the collection from the debugger, if one is enabled
-func maybeUnregisterCollectionFromDebugger[T any](c Collection[T], handler *DebugHandler) {
+func maybeUnregisterCollectionFromDebugger[T any](c internalCollection[T], handler *DebugHandler) {
 	if handler == nil {
 		return
 	}
-	cc := c.(internalCollection[T])
 	handler.mu.Lock()
 	defer handler.mu.Unlock()
-	delete(handler.debugCollections, cc.uid())
+	delete(handler.debugCollections, c.uid())
 }
 
 // nolint: unused // (not true, not sure why it thinks it is!)

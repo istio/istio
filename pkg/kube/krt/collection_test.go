@@ -226,7 +226,7 @@ func TestCollectionSimple(t *testing.T) {
 	c.RunAndWait(stop)
 	SimplePods := SimplePodCollection(pods, opts)
 
-	assert.Equal(t, fetcherSorted(SimplePods)(), nil)
+	assert.Equal(t, SimplePods.ListSorted(), nil)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "name",
@@ -234,15 +234,15 @@ func TestCollectionSimple(t *testing.T) {
 		},
 	}
 	pc.Create(pod)
-	assert.Equal(t, fetcherSorted(SimplePods)(), nil)
+	assert.Equal(t, SimplePods.ListSorted(), nil)
 
 	pod.Status = corev1.PodStatus{PodIP: "1.2.3.4"}
 	pc.UpdateStatus(pod)
-	assert.EventuallyEqual(t, fetcherSorted(SimplePods), []SimplePod{{NewNamed(pod), Labeled{}, "1.2.3.4"}})
+	assert.EventuallyEqual(t, SimplePods.ListSorted, []SimplePod{{NewNamed(pod), Labeled{}, "1.2.3.4"}})
 
 	pod.Status.PodIP = "1.2.3.5"
 	pc.UpdateStatus(pod)
-	assert.EventuallyEqual(t, fetcherSorted(SimplePods), []SimplePod{{NewNamed(pod), Labeled{}, "1.2.3.5"}})
+	assert.EventuallyEqual(t, SimplePods.ListSorted, []SimplePod{{NewNamed(pod), Labeled{}, "1.2.3.5"}})
 
 	// check we get updates if we add a handler later
 	tt := assert.NewTracker[string](t)
@@ -250,7 +250,7 @@ func TestCollectionSimple(t *testing.T) {
 	tt.WaitUnordered("add/namespace/name")
 
 	pc.Delete(pod.Name, pod.Namespace)
-	assert.EventuallyEqual(t, fetcherSorted(SimplePods), nil)
+	assert.EventuallyEqual(t, SimplePods.ListSorted, nil)
 	tt.WaitUnordered("delete/namespace/name")
 }
 
@@ -648,13 +648,13 @@ func TestCollectionMultipleFetchAllAndKey(t *testing.T) {
 func TestCollectionFetchWithSuppressChange(t *testing.T) {
 	stop := test.NewStop(t)
 	opts := testOptions(t)
-	source := krt.NewStaticCollection[SimplePod](nil, nil, opts.WithName("SimplePod")...)
+	source := krt.NewMutableCollection[SimplePod](nil, nil, opts.WithName("SimplePod")...)
 	tt := assert.NewTracker[string](t)
 	counts := atomic.NewUint64(0)
 
 	Collection := krt.NewSingleton(func(ctx krt.HandlerContext) *Static {
 		counts.Inc()
-		pods := krt.PartialFetchComparable(ctx, source,
+		pods := krt.PartialFetchComparable(ctx, source.AsCollection(),
 			func(a SimplePod) Named {
 				return a.Named
 			},

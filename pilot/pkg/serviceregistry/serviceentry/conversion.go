@@ -341,7 +341,7 @@ func convertServiceEntryToInstances(
 	meshConfig krt.Collection[meshwatcher.MeshConfigResource],
 	clusterID cluster.ID,
 	networkIDFn networkIDCallback,
-) []*model.ServiceInstance {
+) []*WorkloadServiceInstance {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	endpointsNum := len(serviceEntry.Endpoints)
 	hostnameToServiceInstance := false
@@ -350,7 +350,7 @@ func convertServiceEntryToInstances(
 		endpointsNum = 1
 	}
 
-	out := make([]*model.ServiceInstance, 0, len(serviceEntry.Ports)*endpointsNum)
+	out := make([]*WorkloadServiceInstance, 0, len(serviceEntry.Ports)*endpointsNum)
 	if hostnameToServiceInstance {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			// Note: only convert the hostname to service instance if WorkloadSelector is not set
@@ -361,7 +361,9 @@ func convertServiceEntryToInstances(
 			if serviceEntryPort.TargetPort > 0 {
 				endpointPort = serviceEntryPort.TargetPort
 			}
-			out = append(out, &model.ServiceInstance{
+			out = append(out, &WorkloadServiceInstance{
+				Namespace: cfg.Namespace,
+				Name:      cfg.Name,
 				Endpoint: &model.IstioEndpoint{
 					Addresses:            []string{string(service.Hostname)},
 					EndpointPort:         endpointPort,
@@ -387,7 +389,7 @@ func convertServiceEntryToInstances(
 				Name:      cfg.Name + "-" + strconv.Itoa(i),
 			}
 			wli := convertWorkloadEntryToWorkloadInstance(ctx, endpoint, meta, meshConfig, cfg.Namespace, clusterID, networkIDFn)
-			out = append(out, convertWorkloadInstanceToServiceInstance(wli, service, serviceEntry.Ports)...)
+			out = append(out, convertWorkloadInstanceToInstances(wli, service, serviceEntry.Ports)...)
 		}
 	}
 	return out
@@ -408,10 +410,10 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 
 // The workload instance has pointer to the service and its service port.
 // We need to create our own but we can retain the endpoint already created.
-func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadInstance, service *model.Service,
+func convertWorkloadInstanceToInstances(workloadInstance *model.WorkloadInstance, service *model.Service,
 	serviceEntryPorts []*networking.ServicePort,
-) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0, len(serviceEntryPorts))
+) []*WorkloadServiceInstance {
+	out := make([]*WorkloadServiceInstance, 0, len(serviceEntryPorts))
 	for _, serviceEntryPort := range serviceEntryPorts {
 		var targetPort uint32
 		addrs := workloadInstance.Endpoint.Addresses
@@ -439,7 +441,9 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 			ep.WorkloadName = workloadInstance.Name
 		}
 
-		out = append(out, &model.ServiceInstance{
+		out = append(out, &WorkloadServiceInstance{
+			Namespace:   workloadInstance.Namespace,
+			Name:        workloadInstance.Name,
 			Endpoint:    ep,
 			Service:     service,
 			ServicePort: convertPort(serviceEntryPort),
@@ -588,10 +592,10 @@ func services(
 				TargetPorts: slices.Map(se.Ports, func(p *networking.ServicePort) uint32 {
 					return p.TargetPort
 				}),
-				Instances: make([]*model.ServiceInstance, 0, len(selectedWorkloads)*len(se.Ports)),
+				Instances: make([]*WorkloadServiceInstance, 0, len(selectedWorkloads)*len(se.Ports)),
 			}
 			for _, wi := range selectedWorkloads {
-				swi.Instances = append(swi.Instances, convertWorkloadInstanceToServiceInstance(wi, service, se.Ports)...)
+				swi.Instances = append(swi.Instances, convertWorkloadInstanceToInstances(wi, service, se.Ports)...)
 			}
 			res = append(res, swi)
 		}
@@ -620,7 +624,7 @@ func mergeServicesInstancesByNamespaceHost(
 		sortServicesByCreationTime(s.Objects)
 
 		ports := sets.New[int]()
-		instances := make([]*model.ServiceInstance, 0)
+		instances := make([]*WorkloadServiceInstance, 0)
 		anyDNSServiceEndpoint := false
 		for _, swi := range s.Objects {
 			for _, si := range swi.Instances {

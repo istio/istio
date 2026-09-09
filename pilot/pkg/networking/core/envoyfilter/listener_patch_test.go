@@ -2697,3 +2697,123 @@ func applyGatewayListenerPatches(t *testing.T, patches []*networking.EnvoyFilter
 	gatewayNode := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
 	return ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, push.EnvoyFilters(gatewayNode), listeners, false)
 }
+
+func TestFilterChainMatchTransportSocket(t *testing.T) {
+	rawBufferChain := &listener.FilterChain{
+		Name:             "raw-buffer",
+		FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
+		TransportSocket:  &core.TransportSocket{Name: wellknown.TransportSocketRawBuffer},
+	}
+	tlsChain := &listener.FilterChain{
+		Name:             "tls",
+		FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
+		TransportSocket:  &core.TransportSocket{Name: wellknown.TransportSocketTLS},
+	}
+	quicChain := &listener.FilterChain{
+		Name:            "quic",
+		TransportSocket: &core.TransportSocket{Name: wellknown.TransportSocketQuic},
+	}
+	// A filter chain with no transport socket configured uses raw_buffer, Envoy's default.
+	noTransportSocketChain := &listener.FilterChain{
+		Name:             "no-transport-socket",
+		FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "raw_buffer"},
+	}
+
+	tests := []struct {
+		name  string
+		match *networking.EnvoyFilter_ListenerMatch_FilterChainMatch
+		fc    *listener.FilterChain
+		want  bool
+	}{
+		{
+			name:  "no transport socket match matches any filter chain",
+			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportProtocol: "tls"},
+			fc:    tlsChain,
+			want:  true,
+		},
+		{
+			name:  "tls transport socket matches tls chain",
+			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketTLS},
+			fc:    tlsChain,
+			want:  true,
+		},
+		{
+			name:  "tls transport socket does not match raw buffer chain",
+			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketTLS},
+			fc:    rawBufferChain,
+			want:  false,
+		},
+		{
+			name:  "tls transport socket does not match chain without transport socket",
+			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketTLS},
+			fc:    noTransportSocketChain,
+			want:  false,
+		},
+		{
+			name:  "raw buffer transport socket matches raw buffer chain",
+			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketRawBuffer},
+			fc:    rawBufferChain,
+			want:  true,
+		},
+		{
+			name:  "raw buffer transport socket matches chain without transport socket",
+			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketRawBuffer},
+			fc:    noTransportSocketChain,
+			want:  true,
+		},
+		{
+			name:  "raw buffer transport socket does not match tls chain",
+			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketRawBuffer},
+			fc:    tlsChain,
+			want:  false,
+		},
+		{
+			name:  "quic transport socket matches quic chain",
+			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketQuic},
+			fc:    quicChain,
+			want:  true,
+		},
+		{
+			name:  "quic transport socket does not match tls chain",
+			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketQuic},
+			fc:    tlsChain,
+			want:  false,
+		},
+		{
+			// transportProtocol is the traffic the chain accepts, transportSocket is what processes it.
+			// The two are independent, and both must match when both are set.
+			name: "transport protocol and transport socket are combined",
+			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+				TransportProtocol: "tls",
+				TransportSocket:   wellknown.TransportSocketRawBuffer,
+			},
+			fc:   rawBufferChain,
+			want: true,
+		},
+		{
+			name: "transport socket match with mismatched transport protocol",
+			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+				TransportProtocol: "tls",
+				TransportSocket:   wellknown.TransportSocketRawBuffer,
+			},
+			fc:   noTransportSocketChain,
+			want: false,
+		},
+	}
+
+	lis := &listener.Listener{Name: "some-listener"}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lp := &model.EnvoyFilterConfigPatchWrapper{
+				Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+						Listener: &networking.EnvoyFilter_ListenerMatch{FilterChain: tt.match},
+					},
+				},
+			}
+			if got := filterChainMatch(lis, tt.fc, lp); got != tt.want {
+				t.Errorf("filterChainMatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

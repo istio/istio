@@ -231,7 +231,7 @@ func validateValues(raw *apis.IstioOperator) (Warnings, util.Errors) {
 	runKubeList(values.GetGlobal().GetWaypoint().GetTopologySpreadConstraints(), &corev1.TopologySpreadConstraint{},
 		"global.waypoint.topologySpreadConstraints")
 	runKube(values.GetGlobal().GetWaypoint().GetNodeSelector(), &corev1.NodeSelector{}, "global.waypoint.nideSelector")
-	runKubeList(values.GetGlobal().GetWaypoint().GetToleration(), &corev1.Toleration{}, "global.waypoint.toleration")
+	runKubeList(values.GetGlobal().GetWaypoint().GetTolerations(), &corev1.Toleration{}, "global.waypoint.tolerations")
 	return warnings, errs
 }
 

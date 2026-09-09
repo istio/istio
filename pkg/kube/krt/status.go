@@ -40,7 +40,7 @@ func NewStatusManyCollection[I controllers.Object, IStatus, O any](
 		name:   o.name + " status",
 		synced: statusCh,
 	}
-	status := NewStaticCollection[ObjectWithStatus[I, IStatus]](statusSynced, nil, statusOpts...)
+	status := NewMutableCollection[ObjectWithStatus[I, IStatus]](statusSynced, nil, statusOpts...)
 	// When input is deleted, the transformation function wouldn't run.
 	// So we need to handle that explicitly
 	cleanupOnRemoval := func(i []Event[I]) {
@@ -72,7 +72,7 @@ func NewStatusManyCollection[I controllers.Object, IStatus, O any](
 		}
 	}()
 
-	return status, primary
+	return newCollection[ObjectWithStatus[I, IStatus]](status), newCollection[O](primary)
 }
 
 func NewStatusCollection[I controllers.Object, IStatus, O any](

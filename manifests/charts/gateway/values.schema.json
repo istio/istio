@@ -287,6 +287,9 @@
               },
               "protocol": {
                 "type": "string"
+              },
+              "nodePort": {
+                "type": "integer"
               }
             },
             "required": ["port"]

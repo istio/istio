@@ -75,7 +75,7 @@ func TestNestedCollectionsRebuiltOnClusterUpdate(t *testing.T) {
 
 	opts := krt.NewOptionsBuilder(stop, "test", krt.GlobalDebugHandler)
 	local := krt.NewStaticCollection[*v1.Service](nil, nil, opts.WithName("LocalServices")...)
-	var localCollection krt.Collection[*v1.Service] = local
+	localCollection := local
 	nested := NestedCollectionFromLocalAndRemote(
 		c.controller,
 		localCollection,
