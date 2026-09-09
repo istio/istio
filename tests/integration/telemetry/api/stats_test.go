@@ -536,7 +536,7 @@ func ValidateBucket(cluster cluster.Cluster, prom prometheus.Instance, sourceApp
 // TestGRPCCountMetrics tests that istio_[request/response]_messages_total are present https://github.com/istio/istio/issues/44144
 // Kiali depends on these metrics
 func TestGRPCCountMetrics(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			// Metrics to be queried and tested
 			metrics := []string{"istio_request_messages_total", "istio_response_messages_total"}

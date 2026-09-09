@@ -39,6 +39,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Label(label.Full).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(namespace.Setup(&echoNS, namespace.Config{Prefix: "echo", Inject: true})).

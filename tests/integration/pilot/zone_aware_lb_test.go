@@ -168,7 +168,7 @@ type zoneAwareInput struct {
 func TestZoneAwareLoadBalancer(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			// Deploy a dedicated caller with ISTIO_META_ENABLE_SELF_DISCOVERY=true so that

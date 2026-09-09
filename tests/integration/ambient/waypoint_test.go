@@ -59,7 +59,7 @@ import (
 
 func TestWaypointStatus(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			skipIfGatewayAPIUnsupported(t)
 			t.NewSubTest("gateway class").Run(func(t framework.TestContext) {
@@ -231,7 +231,7 @@ func checkWaypointIsReadyInCluster(c cluster.Cluster, ns, name string) error {
 
 func TestSimpleHTTPSandwich(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			skipIfGatewayAPIUnsupported(t)
 			config := `
@@ -558,7 +558,7 @@ func TestWaypointAsEgressGateway(t *testing.T) {
 		})
 	}
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			skipIfGatewayAPIUnsupported(t)
 			egressNamespace, err := namespace.Claim(t, namespace.Config{
@@ -899,7 +899,7 @@ spec:
 }
 
 func TestIngressToWaypoint(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		// Apply a deny-all waypoint policy. This allows us to test the traffic traverses the waypoint
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
@@ -1128,7 +1128,7 @@ spec:
 }
 
 func TestTCPRoute(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
@@ -1190,7 +1190,7 @@ spec:
 }
 
 func TestTLSRoute(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
@@ -1273,7 +1273,7 @@ func TestWaypointAsEgressGatewayForWildcardEntries(t *testing.T) {
 		})
 	}
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			skipIfGatewayAPIUnsupported(t)
 			if _, v6 := getSupportedIPFamilies(t); v6 {
@@ -1462,7 +1462,7 @@ func setIngressUseWaypoint(t framework.TestContext, name string, patcher func(cl
 
 func TestWaypointDNSConnectStrategy(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			skipIfGatewayAPIUnsupported(t)
 			egressNamespace, err := namespace.Claim(t, namespace.Config{

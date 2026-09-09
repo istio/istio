@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	wasmImageName               = "istio-testing/wasm/header-injector"
-	wasmInjectedHeader          = "x-resp-injection"
+	wasmImageName                = "istio-testing/wasm/header-injector"
+	wasmInjectedHeader           = "x-resp-injection"
 	trafficExtensionWasmFile     = "testdata/trafficextension-wasm.yaml"
 	trafficExtensionWasmHTTPFile = "testdata/trafficextension-wasm-http.yaml"
 )
@@ -86,9 +86,9 @@ func applyTrafficExtensionWasmConfig(ctx framework.TestContext, ns string, args 
 func installWasmTrafficExtension(ctx framework.TestContext, filterName, wasmModuleURL, imagePullPolicy, filterVersion, path string) error {
 	args := map[string]any{
 		"TrafficExtensionName": filterName,
-		"TestWasmModuleURL":   wasmModuleURL,
-		"FilterVersion":       filterVersion,
-		"TargetAppName":       GetTarget().(echo.Instances).NamespacedName().Name,
+		"TestWasmModuleURL":    wasmModuleURL,
+		"FilterVersion":        filterVersion,
+		"TargetAppName":        GetTarget().(echo.Instances).NamespacedName().Name,
 	}
 
 	if len(imagePullPolicy) != 0 {
@@ -114,7 +114,7 @@ func uninstallWasmTrafficExtension(ctx framework.TestContext, filterName, path s
 
 // TestTrafficExtension_ImagePullPolicy tests WASM image pull policies with TrafficExtension
 func TestTrafficExtension_ImagePullPolicy(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
 			applyAndTestTrafficExtensionWithOCI(t, trafficExtensionWasmTestConfig{
@@ -160,7 +160,7 @@ func TestTrafficExtension_ImagePullPolicy(t *testing.T) {
 
 // TestTrafficExtension_ImagePullPolicyWithHTTP tests WASM HTTP URLs with TrafficExtension
 func TestTrafficExtension_ImagePullPolicyWithHTTP(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
 			applyAndTestTrafficExtensionWithHTTP(t, trafficExtensionWasmTestConfig{
@@ -200,7 +200,7 @@ func resetTrafficExtensionWasmHTTP(ctx framework.TestContext, filterName string)
 
 // TestTrafficExtension_BadWasmRemoteLoad tests WASM load failures with TrafficExtension
 func TestTrafficExtension_BadWasmRemoteLoad(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			// This test verifies that a bad WASM module fails to load
 			// Using a non-existent OCI image should cause the filter to fail
@@ -220,7 +220,7 @@ func TestTrafficExtension_BadWasmRemoteLoad(t *testing.T) {
 
 // TestTrafficExtension_SelectorMatching tests selector-based WASM filter targeting
 func TestTrafficExtension_SelectorMatching(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
 			mapWasmTagToVersionOrFail(t, tag, "0.0.1")
@@ -241,7 +241,7 @@ func TestTrafficExtension_SelectorMatching(t *testing.T) {
 
 // TestTrafficExtension_GatewaySelection tests TrafficExtension targeting a Gateway resource
 func TestTrafficExtension_GatewaySelection(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
 			args := map[string]any{
@@ -255,9 +255,9 @@ func TestTrafficExtension_GatewaySelection(t *testing.T) {
 
 			gatewayArgs := map[string]any{
 				"TrafficExtensionName": "gateway-wasm-filter",
-				"TestWasmModuleURL":   wasmModuleURL,
-				"FilterVersion":       "v1",
-				"TargetGatewayName":   GetTarget().(echo.Instances).ServiceName() + "-gateway",
+				"TestWasmModuleURL":    wasmModuleURL,
+				"FilterVersion":        "v1",
+				"TargetGatewayName":    GetTarget().(echo.Instances).ServiceName() + "-gateway",
 			}
 
 			if err := applyTrafficExtensionWasmConfig(t, apps.Namespace.Name(), gatewayArgs, "testdata/trafficextension-gateway-wasm.yaml"); err != nil {
@@ -277,7 +277,7 @@ func TestTrafficExtension_GatewaySelection(t *testing.T) {
 
 // TestTrafficExtension_BadWasmWithFailOpen tests WASM load failures with fail_open strategy
 func TestTrafficExtension_BadWasmWithFailOpen(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			// Enable logging for debugging
 			applyTelemetryResource(t, true)

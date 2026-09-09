@@ -393,7 +393,7 @@ func TestServerSideLB(t *testing.T) {
 }
 
 func TestWaypointChanges(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		waypointName := "waypoint-service"
 		getGracePeriod := func(want int64) bool {
@@ -430,7 +430,7 @@ func TestWaypointChanges(t *testing.T) {
 }
 
 func TestOtherRevisionIgnored(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		// This is a negative test, ensuring gateways with tags other
 		// than my tags do not get controlled by me.
@@ -471,7 +471,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 }
 
 func TestRemoveAddWaypoint(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		for _, c := range t.Clusters() {
 			istioctl.NewOrFail(t, istioctl.Config{
@@ -547,7 +547,7 @@ func TestRemoveAddWaypoint(t *testing.T) {
 }
 
 func TestBogusUseWaypoint(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		check := func(t framework.TestContext) {
 			dst := apps.Captured
@@ -582,7 +582,7 @@ func TestBogusUseWaypoint(t *testing.T) {
 }
 
 func TestServerRouting(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need waypoint proxy and HTTP
@@ -664,7 +664,7 @@ spec:
 }
 
 func TestWaypointEnvoyFilter(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need at least one waypoint proxy and HTTP
@@ -738,7 +738,7 @@ spec:
 }
 
 func TestTrafficSplit(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		if t.Settings().AmbientMultiNetwork {
 			t.Skip("https://github.com/istio/istio/issues/58140")
@@ -830,7 +830,7 @@ spec:
 }
 
 func TestPeerAuthentication(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
@@ -1229,7 +1229,7 @@ func TestAuthorizationGateway(t *testing.T) {
 			})
 		}
 	}
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
 		runTest(t, func(t framework.TestContext, src echo.Caller, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
@@ -1341,7 +1341,7 @@ spec:
 }
 
 func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		applyDrainingWorkaround(t)
 		runTestContextIndividual(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
@@ -1655,7 +1655,7 @@ spec:
 }
 
 func TestL7JWT(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Label(testlabel.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
 			applyDrainingWorkaround(t)
@@ -1913,7 +1913,7 @@ spec:
 			},
 		},
 	}
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		maybeSetupMultiCluster(t)
 		for _, tt := range cases {
 			t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
@@ -1957,7 +1957,7 @@ spec:
 
 // Relies on the suite running in a cluster with a CNI which enforces K8s netpol but presently has no check
 func TestK8sNetPol(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/49301")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
@@ -2026,7 +2026,7 @@ func TestK8sNetPol(t *testing.T) {
 }
 
 func TestMTLS(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/42696")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
@@ -2203,7 +2203,7 @@ func TestMTLS(t *testing.T) {
 
 // Verify we can call
 func TestOutboundPolicyAllowAny(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			svcs := apps.All
 			for _, svc := range svcs {
@@ -2226,7 +2226,7 @@ func TestOutboundPolicyAllowAny(t *testing.T) {
 }
 
 func TestServiceEntryInlinedWorkloadEntry(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			testCases := []struct {
 				location   v1alpha3.ServiceEntry_Location
@@ -2713,7 +2713,7 @@ spec:
 // guard were missing). This single test covers visibility filtering, the canonical guard, and
 // non-shadowing at once.
 func TestServiceEntryVisibility(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		// Safe-by-default posture: every ServiceEntry is namespace-local unless its namespace is
 		// explicitly labeled se-visibility=public.
 		i.PatchMeshConfigOrFail(t, `
@@ -3169,7 +3169,7 @@ func runIngressTest(t *testing.T, f func(t framework.TestContext, src ingress.In
 }
 
 func TestL7Telemetry(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(tc framework.TestContext) {
 			skipIfGatewayAPIUnsupported(tc)
 			// ensure that some traffic from each captured workload is
@@ -3222,7 +3222,7 @@ func TestL7Telemetry(t *testing.T) {
 
 // TestCustomizeMetrics tests that we can override metrics information for
 func TestCustomizeMetrics(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			skipIfGatewayAPIUnsupported(t)
 			t.ConfigIstio().YAML(apps.Namespace.Name(), `
@@ -3301,7 +3301,7 @@ spec:
 }
 
 func TestL4Telemetry(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(tc framework.TestContext) {
 			// ensure that some traffic from each captured workload is
 			// sent to each waypoint proxy. This will likely have happened in
@@ -3421,7 +3421,7 @@ func deployName(inst echo.Instance) string {
 }
 
 func TestMetadataServer(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		ver, _ := t.Clusters().Default().GetKubernetesVersion()
 		if !strings.Contains(ver.GitVersion, "-gke") {
 			t.Skip("requires GKE cluster")
@@ -3450,7 +3450,7 @@ func TestMetadataServer(t *testing.T) {
 }
 
 func TestAPIServer(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		for _, cluster := range t.Clusters() {
 			svcs := apps.All.ForCluster(cluster.Name())
 			token, err := cluster.Kube().CoreV1().ServiceAccounts(apps.Namespace.Name()).CreateToken(context.Background(), "default",
@@ -3483,7 +3483,7 @@ func TestAPIServer(t *testing.T) {
 }
 
 func TestDirect(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
@@ -3786,7 +3786,7 @@ func TestServiceRestart(t *testing.T) {
 		successThreshold = 0.9
 	}
 
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		generators := []traffic.Generator{}
 		mkGen := func(src echo.Caller, dst echo.Instances) {
@@ -3881,7 +3881,7 @@ func TestServiceDynamicEnroll(t *testing.T) {
 	// TODO(https://github.com/istio/istio/issues/53064) make this 100%
 	successThreshold := 0.5
 
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		if t.Settings().AmbientMultiNetwork {
 			t.Skip("https://github.com/istio/istio/issues/58228")
@@ -4039,7 +4039,7 @@ func daemonsetsetComplete(ds *appsv1.DaemonSet) bool {
 }
 
 func TestWaypointWithInvalidBackend(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			skipIfGatewayAPIUnsupported(t)
 			// We should expect a 500 error since the backend is invalid.
@@ -4082,7 +4082,7 @@ spec:
 }
 
 func TestWaypointWithSidecarBackend(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			skipIfGatewayAPIUnsupported(t)
 			// Ensure we go through the waypoint (verified by modifying the request) and that we are doing mTLS.
@@ -4139,7 +4139,7 @@ spec:
 }
 
 func TestZtunnelSecureMetrics(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(tc framework.TestContext) {
 			for _, c := range tc.Clusters() {
 				clientInstance := apps.Captured.ForCluster(c.Name())[0]
