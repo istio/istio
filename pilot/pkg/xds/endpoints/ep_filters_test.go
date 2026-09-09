@@ -1760,8 +1760,6 @@ func runMTLSFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networ
 			cn := fmt.Sprintf("outbound_.80_.%s_.example.ns.svc.cluster.local", subset)
 			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
 			filtered := b.BuildClusterLoadAssignment(testShards()).Endpoints
-			t.Logf("filtered endpoints: %+v", filtered)
-			t.Logf("expected endpoints: %+v", tt.want)
 			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
 
 			b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())

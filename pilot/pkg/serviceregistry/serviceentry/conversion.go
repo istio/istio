@@ -22,6 +22,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
@@ -480,6 +481,7 @@ func convertWorkloadEntryToWorkloadInstance(
 		locality = pm.SanitizeLocalityLabel(localityLabel)
 	}
 	lbls := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
+	supportsHBONE := meta.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Addresses: []string{addr},
@@ -497,6 +499,7 @@ func convertWorkloadEntryToWorkloadInstance(
 			Labels:         lbls,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
+			SupportsHBONE:  supportsHBONE,
 		},
 		PortMap:             we.Ports,
 		Namespace:           meta.Namespace,
