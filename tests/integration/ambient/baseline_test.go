@@ -3290,7 +3290,8 @@ spec:
 						return err
 					}
 					return nil
-				}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
+				}, retry.Timeout(30*time.Second), retry.BackoffDelay(1*time.Second))
+				// delete me: https://aws.prow.istio.io/view/s3/istio-prow/logs/integ-ambient-mc-mixed-network_istio_postsubmit/2097544625286811648
 				// check tag removed
 				if strings.Contains(httpMetricVal, "source_principal") {
 					t.Errorf("failed to remove tag: source_principal")
@@ -3340,7 +3341,7 @@ func TestL4Telemetry(t *testing.T) {
 								return false
 							}
 							return true
-						}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
+						}, retry.Timeout(30*time.Second), retry.BackoffDelay(1*time.Second))
 						if err != nil {
 							util.PromDiff(t, prom, localSrc.Config().Cluster, query)
 							stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
