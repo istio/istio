@@ -441,65 +441,12 @@ func backendResourceTLSSettings(
 		tls.CredentialName = getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
 	case networking.ClientTLSSettings_MUTUAL:
 		ref := i.Spec.TLS.ClientCertificateRef
-
-		if ref == nil {
-			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
-				Reason:  string(gw.PolicyReasonInvalid),
-				Message: fmt.Sprintf("clientCertificateRef is required for TLS mode: %q", i.Spec.TLS.Mode),
-			}
+		credentialName := getBackendClientCertificateRefCredentialName(ctx, i.Namespace, conds, references, ref)
+		if credentialName == "" {
 			return nil
 		}
-
-		if gatewaycommon.NormalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
-			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
-				Reason:  string(gw.PolicyReasonInvalid),
-				Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", ref),
-			}
-			return nil
-		}
-
-		if ref.Namespace != nil && string(*ref.Namespace) != i.Namespace {
-			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
-				Reason:  string(gw.PolicyReasonInvalid),
-				Message: "clientCertificateRef only valid for same-namespace Backend, ReferenceGrant not supported",
-			}
-			return nil
-		}
-
-		obj, err := references.LocalPolicyRef(ctx, gw.LocalObjectReference{
-			Group: ptr.OrDefault(ref.Group, ""),
-			Kind:  ptr.OrDefault(ref.Kind, ""),
-			Name:  ref.Name,
-		}, i.Namespace)
-		if err != nil {
-			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
-				Reason:  string(InvalidClientCertificateRef),
-				Message: "clientCertificateRef not found: " + err.Error(),
-			}
-			return nil
-		}
-
-		scrt, ok := obj.(*corev1.Secret)
-		if !ok {
-			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
-				Reason:  string(InvalidClientCertificateRef),
-				Message: "clientCertificateRef not found: " + err.Error(),
-			}
-		}
-
-		certInfo, err := kubecreds.ExtractCertInfo(scrt)
-		if err == nil {
-			_, err = cryptotls.X509KeyPair(certInfo.Cert, certInfo.Key)
-		}
-		if err != nil {
-			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
-				Reason:  InvalidClientCertificateRef,
-				Message: fmt.Sprintf("invalid clientCertificateRef %v, the certificate is malformed: %v", ref, err),
-			}
-			return nil
-		}
-
-		tls.CredentialName = credentials.ToKubernetesGatewayResource(i.Namespace, string(ref.Name))
+		tls.CredentialName = credentialName
+		tls.CaCertCredentialName = getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
 	}
 
 	return tls
@@ -815,6 +762,75 @@ func getBackendTLSCredentialName(
 		return credentials.InvalidSecretTypeURI
 	}
 	return ""
+}
+
+// Derive client TLS credentialName from BackendTLS.ClientCertificateRef, when
+// using Backend's ClientAndServer mutual TLS mode.
+func getBackendClientCertificateRefCredentialName(
+	ctx krt.HandlerContext,
+	policyNamespace string,
+	conds map[string]*condition,
+	references *gatewaycommon.ReferenceSet,
+	clientCertificateRef *gw.SecretObjectReference,
+) string {
+	if clientCertificateRef == nil {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(gw.PolicyReasonInvalid),
+			Message: "clientCertificateRef is required for TLS mode: MUTUAL",
+		}
+		return ""
+	}
+
+	if gatewaycommon.NormalizeReference(clientCertificateRef.Group, clientCertificateRef.Kind, gvk.Secret) != gvk.Secret {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(gw.PolicyReasonInvalid),
+			Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", clientCertificateRef),
+		}
+		return ""
+	}
+
+	if clientCertificateRef.Namespace != nil && string(*clientCertificateRef.Namespace) != policyNamespace {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(gw.PolicyReasonInvalid),
+			Message: "clientCertificateRef only valid for same-namespace Backend, ReferenceGrant not supported",
+		}
+		return ""
+	}
+
+	obj, err := references.LocalPolicyRef(ctx, gw.LocalObjectReference{
+		Group: ptr.OrDefault(clientCertificateRef.Group, ""),
+		Kind:  ptr.OrDefault(clientCertificateRef.Kind, ""),
+		Name:  clientCertificateRef.Name,
+	}, policyNamespace)
+	if err != nil {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(InvalidClientCertificateRef),
+			Message: "clientCertificateRef not found: " + err.Error(),
+		}
+		return ""
+	}
+
+	scrt, ok := obj.(*corev1.Secret)
+	if !ok {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(InvalidClientCertificateRef),
+			Message: "clientCertificateRef invalid or not found",
+		}
+	}
+
+	certInfo, err := kubecreds.ExtractCertInfo(scrt)
+	if err == nil {
+		_, err = cryptotls.X509KeyPair(certInfo.Cert, certInfo.Key)
+	}
+	if err != nil {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  InvalidClientCertificateRef,
+			Message: fmt.Sprintf("invalid clientCertificateRef %v, the certificate is malformed: %v", clientCertificateRef, err),
+		}
+		return ""
+	}
+
+	return credentials.ToKubernetesGatewayResource(policyNamespace, string(clientCertificateRef.Name))
 }
 
 func BackendTrafficPolicyCollection(
