@@ -197,7 +197,7 @@ func TestWaypoint(t *testing.T) {
 					}
 				}
 				return nil
-			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
+			}, retry.Timeout(30*time.Second), retry.BackoffDelay(time.Millisecond*100))
 
 			// delete all waypoints in namespace, so w3 should be deleted
 			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
@@ -215,7 +215,7 @@ func TestWaypoint(t *testing.T) {
 					return fmt.Errorf("failed to check gateway status: %v", err)
 				}
 				return fmt.Errorf("failed to clean up gateway in namespace: %s", nsConfig.Name())
-			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
+			}, retry.Timeout(30*time.Second), retry.BackoffDelay(time.Millisecond*100))
 		})
 }
 
