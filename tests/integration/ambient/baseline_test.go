@@ -3291,7 +3291,6 @@ spec:
 					}
 					return nil
 				}, retry.Timeout(30*time.Second), retry.BackoffDelay(1*time.Second))
-				// delete me: https://aws.prow.istio.io/view/s3/istio-prow/logs/integ-ambient-mc-mixed-network_istio_postsubmit/2097544625286811648
 				// check tag removed
 				if strings.Contains(httpMetricVal, "source_principal") {
 					t.Errorf("failed to remove tag: source_principal")
