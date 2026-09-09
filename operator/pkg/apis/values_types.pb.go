@@ -5156,8 +5156,11 @@ type BaseConfig struct {
 	ValidateGateway       *wrapperspb.BoolValue `protobuf:"bytes,4,opt,name=validateGateway,proto3" json:"validateGateway,omitempty"`
 	// validation webhook CA bundle
 	ValidationCABundle string `protobuf:"bytes,5,opt,name=validationCABundle,proto3" json:"validationCABundle,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Failure policy for the validation webhook. Defaults to `Ignore` on install, and is
+	// left unset on upgrade so the value set at runtime by the webhook controller is kept.
+	ValidationFailurePolicy string `protobuf:"bytes,7,opt,name=validationFailurePolicy,proto3" json:"validationFailurePolicy,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *BaseConfig) Reset() {
@@ -5228,6 +5231,13 @@ func (x *BaseConfig) GetValidateGateway() *wrapperspb.BoolValue {
 func (x *BaseConfig) GetValidationCABundle() string {
 	if x != nil {
 		return x.ValidationCABundle
+	}
+	return ""
+}
+
+func (x *BaseConfig) GetValidationFailurePolicy() string {
+	if x != nil {
+		return x.ValidationFailurePolicy
 	}
 	return ""
 }
@@ -6212,7 +6222,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x05debug\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\x05debug\x124\n" +
 	"\x15maxNumberOfAttributes\x18\x02 \x01(\rR\x15maxNumberOfAttributes\x126\n" +
 	"\x16maxNumberOfAnnotations\x18\x03 \x01(\rR\x16maxNumberOfAnnotations\x12:\n" +
-	"\x18maxNumberOfMessageEvents\x18\x04 \x01(\rR\x18maxNumberOfMessageEvents\"\xea\x02\n" +
+	"\x18maxNumberOfMessageEvents\x18\x04 \x01(\rR\x18maxNumberOfMessageEvents\"\xa4\x03\n" +
 	"\n" +
 	"BaseConfig\x12J\n" +
 	"\x12enableCRDTemplates\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\x12enableCRDTemplates\x12\"\n" +
@@ -6220,7 +6230,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\rvalidationURL\x18\x02 \x01(\tR\rvalidationURL\x12P\n" +
 	"\x15enableIstioConfigCRDs\x18\x03 \x01(\v2\x1a.google.protobuf.BoolValueR\x15enableIstioConfigCRDs\x12D\n" +
 	"\x0fvalidateGateway\x18\x04 \x01(\v2\x1a.google.protobuf.BoolValueR\x0fvalidateGateway\x12.\n" +
-	"\x12validationCABundle\x18\x05 \x01(\tR\x12validationCABundle\"\x9e\x02\n" +
+	"\x12validationCABundle\x18\x05 \x01(\tR\x12validationCABundle\x128\n" +
+	"\x17validationFailurePolicy\x18\a \x01(\tR\x17validationFailurePolicy\"\x9e\x02\n" +
 	"\x12IstiodRemoteConfig\x12\"\n" +
 	"\finjectionURL\x18\x01 \x01(\tR\finjectionURL\x12$\n" +
 	"\rinjectionPath\x18\x02 \x01(\tR\rinjectionPath\x12,\n" +
