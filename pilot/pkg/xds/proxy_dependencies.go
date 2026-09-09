@@ -78,9 +78,9 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	if UnAffectedConfigKinds[proxy.Type].Contains(config.Kind) {
 		return false
 	}
-	// Ambient Address updates only matter to proxies subscribed to Workload Address resources;
-	// anything sidecars and gateways need from those changes is surfaced as ServiceEntry or
-	// Endpoints updates.
+	// Keep Address config keys only for AddressType subscribers. WorkloadType subscribers
+	// are selected in DefaultProxyNeedsPush via AddressesUpdated without retaining config keys.
+	// Other sidecar and gateway dependencies are surfaced as ServiceEntry or Endpoints updates.
 	if features.ScopedAddressPushes && config.Kind == kind.Address {
 		return proxy.GetWatchedResource(v3.AddressType) != nil
 	}
@@ -130,5 +130,6 @@ func DefaultProxyNeedsPush(proxy *model.Proxy, req *model.PushRequest) (*model.P
 	}
 
 	req = filterRelevantUpdates(proxy, req)
-	return req, len(req.ConfigsUpdated) > 0
+	workloadsUpdated := len(req.AddressesUpdated) > 0 && proxy.GetWatchedResource(v3.WorkloadType) != nil
+	return req, workloadsUpdated || len(req.ConfigsUpdated) > 0
 }
