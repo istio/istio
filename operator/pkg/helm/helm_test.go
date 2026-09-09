@@ -333,6 +333,14 @@ func TestRender(t *testing.T) {
 			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
 		},
 		{
+			desc:        "default-webhook-upgrade",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "default",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
+			isUpgrade:   true,
+		},
+		{
 			desc:        "istiod-waypoint-workload-socket",
 			releaseName: "istiod",
 			namespace:   "istio-system",
