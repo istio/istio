@@ -849,6 +849,7 @@ func TestEndpointsByNetworkFilter_AmbientMultiNetwork(t *testing.T) {
 	cluster1b := model.Locality{ClusterID: "cluster1b"}
 	cluster2a := model.Locality{ClusterID: "cluster2a"}
 	cluster2b := model.Locality{ClusterID: "cluster2b"}
+	cluster2c := model.Locality{ClusterID: "cluster2c"}
 	cluster3a := model.Locality{ClusterID: "cluster3a"}
 
 	tests := []struct {
@@ -927,6 +928,14 @@ func TestEndpointsByNetworkFilter_AmbientMultiNetwork(t *testing.T) {
 					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
 				},
 				{
+					Network:   "network2",
+					Locality:  cluster2c,
+					Addresses: []string{"20.0.0.3"},
+					// This is a different way to indicate that endpoint supports HBONE,
+					// compared to the tunnel label above.
+					SupportsHBONE: true,
+				},
+				{
 					// This endpoint will be skipped, because it's on a remote network,
 					// the proxy is a waypoint proxy and requires use of HBONE and
 					// the endpoint does not support HBONE
@@ -949,16 +958,23 @@ func TestEndpointsByNetworkFilter_AmbientMultiNetwork(t *testing.T) {
 					Addr:      "2.2.2.21",
 					HBONEPort: 15008,
 				},
+				{
+					Network:   "network2",
+					Cluster:   "cluster2c",
+					Addr:      "2.2.2.22",
+					HBONEPort: 15008,
+				},
 			},
 			want: []xdstest.LocLbEpInfo{
 				{
 					LbEps: []xdstest.LbEpInfo{
-						{Address: "2.2.2.20", Weight: 2},
+						{Address: "2.2.2.20", Weight: 3},
+						{Address: "2.2.2.22", Weight: 3},
 					},
-					Weight: 2,
+					Weight: 6,
 				},
 			},
-			wantWorkloadMetadata: []string{";;;;cluster2a"},
+			wantWorkloadMetadata: []string{";;;;cluster2a", ";;;;cluster2c"},
 		},
 		{
 			name:  "waypoint proxy only uses HBONE gateways",

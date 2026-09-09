@@ -17,10 +17,12 @@ package controller
 import (
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	kubeUtil "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/network"
@@ -31,6 +33,7 @@ type EndpointBuilder struct {
 	controller controllerInterface
 
 	labels         labels.Instance
+	annotations    labels.Instance
 	metaNetwork    network.ID
 	serviceAccount string
 	locality       model.Locality
@@ -49,11 +52,12 @@ type EndpointBuilder struct {
 
 func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 	var locality, sa, namespace, hostname, subdomain, ip, node string
-	var podLabels labels.Instance
+	var podLabels, podAnnotations labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod, c.meshWatcher.TrustDomain())
 		podLabels = pod.Labels
+		podAnnotations = pod.Annotations
 		namespace = pod.Namespace
 		subdomain = pod.Spec.Subdomain
 		if subdomain != "" {
@@ -79,6 +83,7 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 		hostname:     hostname,
 		subDomain:    subdomain,
 		labels:       podLabels,
+		annotations:  podAnnotations,
 		nodeName:     node,
 	}
 	networkID := out.endpointNetwork(ip)
@@ -105,6 +110,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		b.labels[label.TopologyNetwork.Name] = string(networkID)
 	}
 
+	supportsHBONE := b.annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 	return &model.IstioEndpoint{
 		Labels:                 b.labels,
 		ServiceAccount:         b.serviceAccount,
@@ -122,6 +128,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		HealthStatus:           healthStatus,
 		SendUnhealthyEndpoints: sendUnhealthy,
 		NodeName:               b.nodeName,
+		SupportsHBONE:          supportsHBONE,
 	}
 }
 

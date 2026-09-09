@@ -928,15 +928,7 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 		return true
 	}
 
-	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	// Check all addresses and return true if there is any IP address that supports tunneling when current endpoint has multiple addresses
-	for _, addr := range e.Addresses {
-		if b.push.SupportsTunnel(e.Network, addr) {
-			return true
-		}
-	}
-
-	return false
+	return e.SupportsHBONE
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(
