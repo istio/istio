@@ -446,7 +446,17 @@ func backendResourceTLSSettings(
 			return nil
 		}
 		tls.CredentialName = credentialName
-		tls.CaCertCredentialName = getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
+
+		caCert := getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
+		if caCert == "" {
+			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+				Reason: string(gw.PolicyReasonInvalid),
+				Message: "Backend clientAndServer TLS requires validation.caCertificateRefs, " +
+					"wellKnownCACertificates is not supported for this mode.",
+			}
+			return nil
+		}
+		tls.CaCertCredentialName = caCert
 	}
 
 	return tls
