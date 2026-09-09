@@ -153,6 +153,16 @@ func NewTest(t *testing.T) Test {
 	return runner
 }
 
+// NewMulticlusterTest returns a test that requires a multicluster environment.
+func NewMulticlusterTest(t *testing.T) Test {
+	return NewTest(t).Label(label.Multicluster)
+}
+
+// NewFullTest returns an additional test for the standard environment.
+func NewFullTest(t *testing.T) Test {
+	return NewTest(t).Label(label.Full)
+}
+
 func (t *testImpl) Label(labels ...label.Instance) Test {
 	t.labels = append(t.labels, labels...)
 	return t

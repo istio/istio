@@ -40,7 +40,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Label(label.Full).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {

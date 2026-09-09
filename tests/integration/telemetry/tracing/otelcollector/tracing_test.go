@@ -191,6 +191,7 @@ func TestGatewayTracing(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
+		Label(label.Full).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(tracing.GetIstioInstance(), setupConfig, setupOtelCredentials)).
 		Setup(tracing.TestSetup).

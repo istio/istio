@@ -124,7 +124,7 @@ function build_images() {
     # We run tests across all VM types only in postsubmit
     nonDistrolessTargets+="docker.app_sidecar_ubuntu_bionic docker.app_sidecar_debian_12 docker.app_sidecar_rockylinux_9 "
   fi
-  if [[ "${SELECT_TEST}" == "test.integration.ambient.kube" || "${SELECT_TEST}" == "test.integration.kube"  || "${SELECT_TEST}" == "test.integration.helm.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
+  if [[ "${SELECT_TEST}" == test.integration.ambient.kube* || "${SELECT_TEST}" == "test.integration.kube"  || "${SELECT_TEST}" == "test.integration.helm.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
     targets+="docker.ztunnel "
   fi
   targets+="docker.install-cni "
