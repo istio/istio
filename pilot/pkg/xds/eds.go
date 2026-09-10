@@ -54,6 +54,20 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
 	pushType := s.Env.EndpointIndex.UpdateServiceEndpoints(shard, serviceName, namespace, istioEndpoints, true)
+	s.edsPush(pushType, serviceName, namespace)
+}
+
+// EDSReplace is EDSUpdate for callers that only publish endpoints when they changed, so the endpoints are
+// stored without comparing them with the previous ones.
+func (s *DiscoveryServer) EDSReplace(shard model.ShardKey, serviceName string, namespace string,
+	istioEndpoints []*model.IstioEndpoint,
+) {
+	inboundEDSUpdates.Increment()
+	pushType := s.Env.EndpointIndex.ReplaceServiceEndpoints(shard, serviceName, namespace, istioEndpoints, true)
+	s.edsPush(pushType, serviceName, namespace)
+}
+
+func (s *DiscoveryServer) edsPush(pushType model.PushType, serviceName string, namespace string) {
 	if pushType != model.NoPush {
 		configKind := kind.Endpoints
 		if pushType == model.FullPush {

@@ -141,6 +141,10 @@ func (s *Service) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: s.Attributes.Name, Namespace: s.Attributes.Namespace}
 }
 
+func (s *Service) GetLabelSelector() map[string]string {
+	return s.Attributes.LabelSelectors
+}
+
 func (s *Service) ResourceName() string {
 	// address and hostname are included in the resource name as for each
 	// ServiceEntry address and hostname a new service is created
@@ -2152,6 +2156,9 @@ func (s *Service) DeepCopy() *Service {
 
 // Equals compares two service objects.
 func (s *Service) Equals(other *Service) bool {
+	if s == other {
+		return true
+	}
 	eql := s.DefaultAddress == other.DefaultAddress && s.AutoAllocatedIPv4Address == other.AutoAllocatedIPv4Address &&
 		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname &&
 		s.Resolution == other.Resolution && s.MeshExternal == other.MeshExternal
@@ -2203,6 +2210,9 @@ func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
 
 // Equals checks whether the attributes are equal from the passed in service.
 func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
+	if ep == other {
+		return true
+	}
 	// Check things we can directly compare...
 	eq := ep.ServicePortName == other.ServicePortName &&
 		ep.LegacyClusterPortKey == other.LegacyClusterPortKey &&

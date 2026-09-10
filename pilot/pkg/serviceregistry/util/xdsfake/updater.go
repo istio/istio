@@ -139,6 +139,17 @@ func (fx *Updater) EDSUpdate(c model.ShardKey, hostname string, ns string, entry
 	}
 }
 
+// EDSReplace is recorded as an "eds" event, like EDSUpdate: tests observe the same publication.
+func (fx *Updater) EDSReplace(c model.ShardKey, hostname string, ns string, entry []*model.IstioEndpoint) {
+	select {
+	case fx.Events <- Event{Type: "eds", ID: hostname, Endpoints: entry, Namespace: ns}:
+	default:
+	}
+	if fx.Delegate != nil {
+		fx.Delegate.EDSReplace(c, hostname, ns, entry)
+	}
+}
+
 func (fx *Updater) EDSCacheUpdate(c model.ShardKey, hostname, ns string, entry []*model.IstioEndpoint) {
 	select {
 	case fx.Events <- Event{Type: "eds cache", ID: hostname, Endpoints: entry, Namespace: ns}:
