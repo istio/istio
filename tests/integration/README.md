@@ -8,6 +8,7 @@ This folder contains Istio integration tests that use the test framework checked
 1. [Overview](#overview)
 1. [Writing Tests](#writing-tests)
     1. [Adding a Test Suite](#adding-a-test-suite)
+    1. [Classifying Test Coverage](#classifying-test-coverage)
     1. [Sub-Tests](#sub-tests)
     1. [Assertion & Retry Conventions](#assertion--retry-conventions)
     1. [Parallel Tests](#parallel-tests)
@@ -110,6 +111,54 @@ func mySetup(ctx resource.Context) error {
     // Your own setup code
     return nil
 }
+```
+
+### Classifying Test Coverage
+
+In Istio, we have many features and many deployment/configuration models.
+This creates a huge matrix of possible test coverage.
+To optimize our CI, we try to run only a subset of tests in presubmit jobs while running the full test sutie in postsubmit jobs.
+We do this by having two additional types of tests: `full` and `multicluster`.
+By default, tests always run.
+A `full` test is more involved and is likely probably not affected by deployment model and configuration.
+In practice, this means that we only run `full` test in a standard single-cluster ipv4 environment in presubmits.
+A `multiclsuter` test is one that requires multiple clusters.
+
+Use `framework.NewTest` for a default test.
+
+Use `framework.NewFullTest` for a `full` test.
+
+```go
+func TestAdditionalCoverage(t *testing.T) {
+    framework.NewFullTest(t).Run(func(ctx framework.TestContext) {
+        // Additional standard single-cluster coverage.
+    })
+}
+```
+
+Use `framework.NewMulticlusterTest` when a test requires multiple clusters:
+
+```go
+func TestMulticluster(t *testing.T) {
+    framework.NewMulticlusterTest(t).Run(func(ctx framework.TestContext) {
+        // Multicluster-only coverage.
+    })
+}
+```
+
+When every test in a package has the same classification, apply its label to
+the suite rather than each test. The framework then skips the suite setup when
+the selected target excludes that label:
+
+```go
+func TestMain(m *testing.M) {
+    framework.NewSuite(m).
+        Label(label.Full).
+        Setup(setup).
+        Run()
+}
+
+This is quite important because it allows us to skip the costly setup of each test suite.
 ```
 
 ### Sub-Tests
