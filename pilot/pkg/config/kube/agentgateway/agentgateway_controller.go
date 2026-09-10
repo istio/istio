@@ -529,7 +529,7 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		true,
 	)
 
-	inferencePoolsInfo := krt.NewManyCollection(inputs.InferencePools, inferencePoolBuilder(c.domainSuffix),
+	inferencePoolsInfo := krt.NewPointerCollection(inputs.InferencePools, inferencePoolBuilder(c.domainSuffix),
 		opts.WithName("InferencePools")...)
 	services = krt.JoinCollection([]krt.Collection[*model.ServiceInfo]{services, inferencePoolsInfo}, krt.WithJoinUnchecked())
 

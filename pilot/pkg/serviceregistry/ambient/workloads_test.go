@@ -893,8 +893,8 @@ func TestPodWorkloads(t *testing.T) {
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.pod)
 			var res *workloadapi.Workload
-			if len(wrapper) > 0 {
-				res = wrapper[0].Workload
+			if wrapper != nil {
+				res = wrapper.Workload
 			}
 			assert.Equal(t, res, tt.result)
 		})
@@ -1499,8 +1499,8 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.we)
 			var res *workloadapi.Workload
-			if len(wrapper) > 0 {
-				res = wrapper[0].Workload
+			if wrapper != nil {
+				res = wrapper.Workload
 			}
 			assert.Equal(t, res, tt.result)
 		})
@@ -1745,7 +1745,7 @@ func TestWorkloadEntryConditions(t *testing.T) {
 				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.we)
-			assert.Equal(t, wrapper[0].GetConditions(nil), tt.conditions)
+			assert.Equal(t, wrapper.GetConditions(nil), tt.conditions)
 		})
 	}
 }

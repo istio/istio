@@ -75,7 +75,7 @@ func (a Builder) WorkloadsCollection(
 	WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(workloadServices)
 	EndpointSlicesByIPIndex := endpointSliceAddressIndex(endpointSlices)
 	// Workloads coming from pods. There should be one workload for each (running) Pod.
-	PodWorkloads := krt.NewManyCollection(
+	PodWorkloads := krt.NewPointerCollection(
 		pods,
 		a.podWorkloadBuilder(
 			meshConfig,
@@ -91,7 +91,7 @@ func (a Builder) WorkloadsCollection(
 		opts.WithName("PodWorkloads")...,
 	)
 	// Workloads coming from workloadEntries. These are 1:1 with WorkloadEntry.
-	WorkloadEntryWorkloads := krt.NewManyCollection(
+	WorkloadEntryWorkloads := krt.NewPointerCollection(
 		workloadEntries,
 		a.workloadEntryWorkloadBuilder(meshConfig, authPoliciesByNs, peerAuthsByNs, waypoints, workloadServices, WorkloadServicesNamespaceIndex, namespaces),
 		opts.WithName("WorkloadEntryWorkloads")...,
@@ -158,7 +158,7 @@ func MergedGlobalWorkloadsCollection(
 ) krt.Collection[*model.WorkloadInfo] {
 	LocalWorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(localWorkloadServices)
 	LocalEndpointSlicesByIPIndex := endpointSliceAddressIndex(localCluster.EndpointSlices())
-	LocalPodWorkloads := krt.NewManyCollection(
+	LocalPodWorkloads := krt.NewPointerCollection(
 		localCluster.Pods(),
 		podWorkloadBuilder(
 			meshConfig,
@@ -185,7 +185,7 @@ func MergedGlobalWorkloadsCollection(
 		wrapPointerObjectWithCluster[model.WorkloadInfo](localCluster.ID),
 		opts.WithName("LocalPodWorkloadsWithCluster")...,
 	)
-	LocalWorkloadEntryWorkloads := krt.NewManyCollection(
+	LocalWorkloadEntryWorkloads := krt.NewPointerCollection(
 		workloadEntries,
 		workloadEntryWorkloadBuilder(
 			meshConfig,
@@ -332,7 +332,7 @@ func MergedGlobalWorkloadsCollection(
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(globalWorkloadServices)
 			EndpointSlicesByIPIndex := endpointSliceAddressIndex(endpointSlices)
 			// Workloads coming from pods. There should be one workload for each (running) Pod.
-			PodWorkloads := krt.NewManyCollection(
+			PodWorkloads := krt.NewPointerCollection(
 				pods,
 				podWorkloadBuilder(
 					meshConfig,
@@ -374,7 +374,7 @@ func MergedGlobalWorkloadsCollection(
 				)...,
 			)
 			// Workloads coming from workloadEntries. These are 1:1 with WorkloadEntry.
-			WorkloadEntryWorkloads := krt.NewManyCollection(
+			WorkloadEntryWorkloads := krt.NewPointerCollection(
 				workloadEntries,
 				workloadEntryWorkloadBuilder(
 					meshConfig,
@@ -517,8 +517,8 @@ func workloadEntryWorkloadBuilder(
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 	flags FeatureFlags,
 	canSkipPrecompute bool,
-) krt.TransformationMulti[*networkingclient.WorkloadEntry, *model.WorkloadInfo] {
-	return func(ctx krt.HandlerContext, wle *networkingclient.WorkloadEntry) []*model.WorkloadInfo {
+) krt.TransformationSingle[*networkingclient.WorkloadEntry, model.WorkloadInfo] {
+	return func(ctx krt.HandlerContext, wle *networkingclient.WorkloadEntry) *model.WorkloadInfo {
 		// WLE can put labels in multiple places; normalize this
 		wle = serviceentry.ConvertClientWorkloadEntry(wle)
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
@@ -587,9 +587,9 @@ func workloadEntryWorkloadBuilder(
 		}
 		if canSkipPrecompute && network != localNetworkGetter(ctx).String() {
 			// Remote network workload that will be coalesced into a split-horizon workload; skip precompute
-			return []*model.WorkloadInfo{wi}
+			return wi
 		}
-		return []*model.WorkloadInfo{precomputeWorkload(wi)}
+		return precomputeWorkload(wi)
 	}
 }
 
@@ -601,7 +601,7 @@ func (a Builder) workloadEntryWorkloadBuilder(
 	workloadServices krt.Collection[*model.ServiceInfo],
 	workloadServicesNamespaceIndex krt.Index[string, *model.ServiceInfo],
 	namespaces krt.Collection[*v1.Namespace],
-) krt.TransformationMulti[*networkingclient.WorkloadEntry, *model.WorkloadInfo] {
+) krt.TransformationSingle[*networkingclient.WorkloadEntry, model.WorkloadInfo] {
 	return workloadEntryWorkloadBuilder(
 		meshConfig,
 		a.Networks.FetchLocalNetworkID,
@@ -662,8 +662,8 @@ func podWorkloadBuilder(
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 	flags FeatureFlags,
 	canSkipPrecompute bool,
-) krt.TransformationMulti[*v1.Pod, *model.WorkloadInfo] {
-	return func(ctx krt.HandlerContext, p *v1.Pod) []*model.WorkloadInfo {
+) krt.TransformationSingle[*v1.Pod, model.WorkloadInfo] {
+	return func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
 		// Pod Is Pending but have a pod IP should be a valid workload, we should build it ,
 		// Such as the pod have initContainer which is initialing.
 		// See https://github.com/istio/istio/issues/48854
@@ -745,9 +745,9 @@ func podWorkloadBuilder(
 		}
 		if canSkipPrecompute && network != localNetworkGetter(ctx).String() {
 			// Remote network workload that will be coalesced into a split-horizon workload; skip precompute
-			return []*model.WorkloadInfo{wi}
+			return wi
 		}
-		return []*model.WorkloadInfo{precomputeWorkload(wi)}
+		return precomputeWorkload(wi)
 	}
 }
 
@@ -761,7 +761,7 @@ func (a Builder) podWorkloadBuilder(
 	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
 	namespaces krt.Collection[*v1.Namespace],
 	nodes krt.Collection[Node],
-) krt.TransformationMulti[*v1.Pod, *model.WorkloadInfo] {
+) krt.TransformationSingle[*v1.Pod, model.WorkloadInfo] {
 	return podWorkloadBuilder(
 		meshConfig,
 		a.Networks.FetchLocalNetworkID,
