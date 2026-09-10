@@ -75,8 +75,8 @@ func serviceToAddress(s *workloadapi.Service) *workloadapi.Address {
 	}
 }
 
-func inferencePoolBuilder(domainSuffix string) krt.TransformationMulti[*inferencev1.InferencePool, *model.ServiceInfo] {
-	return func(ctx krt.HandlerContext, s *inferencev1.InferencePool) []*model.ServiceInfo {
+func inferencePoolBuilder(domainSuffix string) krt.TransformationSingle[*inferencev1.InferencePool, model.ServiceInfo] {
+	return func(ctx krt.HandlerContext, s *inferencev1.InferencePool) *model.ServiceInfo {
 		portNames := map[int32]model.ServicePortName{}
 		ports := []*workloadapi.Port{{
 			ServicePort: uint32(s.Spec.TargetPorts[0].Number), //nolint:gosec // G115: InferencePool TargetPort is int32 with validation 1-65535, always safe
@@ -96,7 +96,7 @@ func inferencePoolBuilder(domainSuffix string) krt.TransformationMulti[*inferenc
 		for k, v := range s.Spec.Selector.MatchLabels {
 			selector[string(k)] = string(v)
 		}
-		return []*model.ServiceInfo{precomputeService(&model.ServiceInfo{
+		return precomputeService(&model.ServiceInfo{
 			Service:       svc,
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(selector),
@@ -107,6 +107,6 @@ func inferencePoolBuilder(domainSuffix string) krt.TransformationMulti[*inferenc
 				},
 				Kind: kind.InferencePool,
 			},
-		})}
+		})
 	}
 }

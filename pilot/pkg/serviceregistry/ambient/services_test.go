@@ -2301,10 +2301,10 @@ func TestServiceServices(t *testing.T) {
 				true,
 			)
 			res := builder(krt.TestingDummyContext{}, tt.svc)
-			if len(res) == 0 {
+			if res == nil {
 				assert.Equal(t, nil, tt.result)
 			} else {
-				assert.Equal(t, res[0].Service, tt.result)
+				assert.Equal(t, res.Service, tt.result)
 			}
 		})
 	}
@@ -2356,11 +2356,11 @@ func TestPreferSamePresetNotMutated(t *testing.T) {
 	// Process a "poisoner" Service (PreferSameZone + PNRA) before a plain Service
 	// using PreferSameZone. The plain Service must NOT inherit ALLOW_ALL.
 	_ = builder(ctx, mkSvc("poisoner-zone", "1.2.3.4", "PreferSameZone", true))
-	victimZone := builder(ctx, mkSvc("victim-zone", "1.2.3.5", "PreferSameZone", false))[0]
+	victimZone := builder(ctx, mkSvc("victim-zone", "1.2.3.5", "PreferSameZone", false))
 
 	// Same scenario for PreferSameNode.
 	_ = builder(ctx, mkSvc("poisoner-node", "1.2.3.6", "PreferSameNode", true))
-	victimNode := builder(ctx, mkSvc("victim-node", "1.2.3.7", "PreferSameNode", false))[0]
+	victimNode := builder(ctx, mkSvc("victim-node", "1.2.3.7", "PreferSameNode", false))
 
 	assert.Equal(t,
 		victimZone.Service.LoadBalancing.HealthPolicy, workloadapi.LoadBalancing_ONLY_HEALTHY)
@@ -2495,7 +2495,7 @@ func TestServiceConditions(t *testing.T) {
 				true,
 			)
 			res := builder(krt.TestingDummyContext{}, tt.svc)
-			assert.Equal(t, res[0].GetConditions(nil), tt.conditions) // TODO: Test transitions for conditions
+			assert.Equal(t, res.GetConditions(nil), tt.conditions) // TODO: Test transitions for conditions
 		})
 	}
 }

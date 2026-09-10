@@ -288,11 +288,11 @@ func (a *index) buildGlobalCollections(
 		return res
 	})
 
-	coalescedWorkloads := krt.NewManyCollection(
+	coalescedWorkloads := krt.NewPointerCollection(
 		workloadNetworkServiceIndex.AsCollection(
 			opts.WithName("workloadNetworkServiceIndex")...,
 		),
-		func(ctx krt.HandlerContext, i krt.IndexObject[string, *model.WorkloadInfo]) []*model.WorkloadInfo {
+		func(ctx krt.HandlerContext, i krt.IndexObject[string, *model.WorkloadInfo]) *model.WorkloadInfo {
 			parts := strings.Split(i.Key, ";")
 			if len(parts) != 2 {
 				log.Errorf("Invalid key %s for SplitHorizonWorkloads, expected <network>;<service>", i.Key)
@@ -339,18 +339,17 @@ func (a *index) buildGlobalCollections(
 				log.Warnf("Multiple gateways found for network %s, using the first one", networkID)
 			}
 			gw := gws[0]
-			wi := a.createSplitHorizonWorkload(svcName, (*svc).Service, &gw, capacity, meshCfg)
-			return []*model.WorkloadInfo{wi}
+			return a.createSplitHorizonWorkload(svcName, (*svc).Service, &gw, capacity, meshCfg)
 		}, opts.WithName("CoalesedWorkloads")...,
 	)
-	networkLocalWorkloads := krt.NewManyCollection(GlobalWorkloads, func(ctx krt.HandlerContext, wi *model.WorkloadInfo) []*model.WorkloadInfo {
+	networkLocalWorkloads := krt.NewPointerCollection(GlobalWorkloads, func(ctx krt.HandlerContext, wi *model.WorkloadInfo) *model.WorkloadInfo {
 		if strings.HasPrefix(wi.Workload.Uid, "NetworkGateway/") {
-			return []*model.WorkloadInfo{wi}
+			return wi
 		}
 		if wi.Workload.Network != GlobalNetworks.FetchLocalNetworkID(ctx).String() {
 			return nil
 		}
-		return []*model.WorkloadInfo{wi}
+		return wi
 	}, opts.WithName("NetworkLocalWorkloads")...)
 
 	SplitHorizonWorkloads := krt.JoinCollection(
@@ -414,16 +413,16 @@ func (a *index) buildGlobalCollections(
 		return []networkAddress{netaddr}
 	})
 
-	SplitHorizonServices := krt.NewManyCollection(
+	SplitHorizonServices := krt.NewPointerCollection(
 		GlobalMergedWorkloadServices,
-		func(ctx krt.HandlerContext, svc *model.ServiceInfo) []*model.ServiceInfo {
+		func(ctx krt.HandlerContext, svc *model.ServiceInfo) *model.ServiceInfo {
 			if svc.Scope != model.Global {
-				return []*model.ServiceInfo{svc}
+				return svc
 			}
 
 			wls := GlobalWorkloadServiceIndex.Fetch(ctx, svc.ResourceName())
 			if len(wls) == 0 {
-				return []*model.ServiceInfo{svc}
+				return svc
 			}
 
 			// Since we merge the workloads in the remote cluster, we need to input the
@@ -443,7 +442,7 @@ func (a *index) buildGlobalCollections(
 				sans.Insert(spiffe.MustGenSpiffeURI(meshCfg.MeshConfig, wl.Workload.Namespace, wl.Workload.ServiceAccount))
 			}
 			if sans.IsEmpty() {
-				return []*model.ServiceInfo{svc}
+				return svc
 			}
 			sans = sans.Union(sets.New(svc.Service.SubjectAltNames...))
 
@@ -458,7 +457,7 @@ func (a *index) buildGlobalCollections(
 				DNSConnectStrategy: svc.DNSConnectStrategy,
 			}
 			newSvcInfo.Service.SubjectAltNames = sans.UnsortedList()
-			return []*model.ServiceInfo{precomputeService(newSvcInfo)}
+			return precomputeService(newSvcInfo)
 		},
 		opts.WithName("SplitHorizonServices")...,
 	)

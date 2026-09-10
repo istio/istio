@@ -861,3 +861,56 @@ func TestCollectionMetadata(t *testing.T) {
 
 	assert.Equal(t, SimplePods.Metadata(), meta)
 }
+
+func TestPointerCollection(t *testing.T) {
+	stop := test.NewStop(t)
+	input := krt.NewMutableCollection(nil, []SimplePod{
+		{Named: Named{Name: "included"}, IP: "1.1.1.1"},
+		{Named: Named{Name: "omitted"}},
+	}, krt.WithStop(stop))
+	latestTransformResult := atomic.NewPointer[SimplePod](nil)
+	collection := krt.NewPointerCollection(input.AsCollection(), func(_ krt.HandlerContext, pod SimplePod) *SimplePod {
+		if pod.IP == "" {
+			return nil
+		}
+		latestTransformResult.Store(&pod)
+		return &pod
+	}, krt.WithStop(stop))
+
+	assert.EventuallyEqual(t, collection.HasSynced, true)
+	got := collection.List()
+	assert.Equal(t, len(got), 1)
+	if got[0] != latestTransformResult.Load() {
+		t.Fatal("collection must retain the pointer returned by the transformation")
+	}
+
+	original := got[0]
+	input.UpdateObject(SimplePod{Named: Named{Name: "included"}, IP: "2.2.2.2"})
+	assert.EventuallyEqual(t, func() string { return collection.List()[0].IP }, "2.2.2.2")
+	if collection.List()[0] == original {
+		t.Fatal("recomputation must publish the new transformation result")
+	}
+	assert.Equal(t, original.IP, "1.1.1.1")
+
+	retainedResult := collection.List()[0]
+	input.UpdateObject(SimplePod{Named: Named{Name: "included"}, IP: "2.2.2.2"})
+	assert.EventuallyEqual(t, func() bool { return latestTransformResult.Load() != retainedResult }, true)
+	discardedResult := latestTransformResult.Load()
+	if collection.List()[0] != retainedResult {
+		t.Fatal("an equal result must retain the previously published pointer")
+	}
+	if collection.List()[0] == discardedResult {
+		t.Fatal("an equal transformation result must be discarded")
+	}
+
+	input.UpdateObject(SimplePod{Named: Named{Name: "included"}})
+	assert.EventuallyEqual(t, func() int { return len(collection.List()) }, 0)
+	input.UpdateObject(SimplePod{Named: Named{Name: "included"}, IP: "3.3.3.3"})
+	assert.EventuallyEqual(t, func() string {
+		got := collection.List()
+		if len(got) == 0 {
+			return ""
+		}
+		return got[0].IP
+	}, "3.3.3.3")
+}

@@ -62,7 +62,7 @@ func (a Builder) ServicesCollection(
 	opts krt.OptionsBuilder,
 	precompute bool,
 ) krt.Collection[*model.ServiceInfo] {
-	ServicesInfo := krt.NewManyCollection(services, a.serviceServiceBuilder(waypoints, namespaces, meshConfig, precompute),
+	ServicesInfo := krt.NewPointerCollection(services, a.serviceServiceBuilder(waypoints, namespaces, meshConfig, precompute),
 		append(
 			opts.WithName("ServicesInfo"),
 			krt.WithMetadata(krt.Metadata{
@@ -191,7 +191,7 @@ func GlobalNestedWorkloadServicesCollection(
 			waypoints := *waypointsPtr
 			namespaces := cluster.Namespaces()
 			// N.B Never precompute the service info for remote clusters; the merge function will do that
-			servicesInfo := krt.NewManyCollection(services, serviceServiceBuilder(
+			servicesInfo := krt.NewPointerCollection(services, serviceServiceBuilder(
 				waypoints,
 				namespaces,
 				meshConfig,
@@ -234,8 +234,8 @@ func serviceServiceBuilder(
 	checkServiceScope bool,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 	precompute bool,
-) krt.TransformationMulti[*v1.Service, *model.ServiceInfo] {
-	return func(ctx krt.HandlerContext, s *v1.Service) []*model.ServiceInfo {
+) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
+	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
 		serviceScope := model.Local
 		if checkServiceScope {
 			meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
@@ -296,10 +296,10 @@ func serviceServiceBuilder(
 			CreationTime:  s.CreationTimestamp.Time,
 		}
 		if precompute {
-			return []*model.ServiceInfo{precomputeService(svcInfo)}
+			return precomputeService(svcInfo)
 		}
 
-		return []*model.ServiceInfo{svcInfo}
+		return svcInfo
 	}
 }
 
@@ -312,8 +312,8 @@ func typedServiceServiceBuilder(
 	checkServiceScope bool,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 	precompute bool,
-) krt.TransformationMulti[*v1.Service, *TypedServiceInfo] {
-	return func(ctx krt.HandlerContext, s *v1.Service) []*TypedServiceInfo {
+) krt.TransformationSingle[*v1.Service, TypedServiceInfo] {
+	return func(ctx krt.HandlerContext, s *v1.Service) *TypedServiceInfo {
 		svcInfo := serviceServiceBuilder(waypoints,
 			namespaces,
 			meshConfig,
@@ -322,10 +322,10 @@ func typedServiceServiceBuilder(
 			checkServiceScope,
 			networkGetter,
 			precompute)(ctx, s)
-		if len(svcInfo) == 0 {
+		if svcInfo == nil {
 			return nil
 		}
-		return []*TypedServiceInfo{{ServiceInfo: svcInfo[0]}}
+		return &TypedServiceInfo{ServiceInfo: svcInfo}
 	}
 }
 
@@ -391,7 +391,7 @@ func (a Builder) serviceServiceBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
 	precompute bool,
-) krt.TransformationMulti[*v1.Service, *TypedServiceInfo] {
+) krt.TransformationSingle[*v1.Service, TypedServiceInfo] {
 	return typedServiceServiceBuilder(
 		waypoints,
 		namespaces,
