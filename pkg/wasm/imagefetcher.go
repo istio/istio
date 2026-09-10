@@ -64,10 +64,10 @@ func (o ImageFetcherOption) String() string {
 
 type ImageFetcher struct {
 	fetchOpts []remote.Option
-	// insecure mirrors ImageFetcherOption.Insecure: whether the operator has explicitly
-	// allowlisted this registry (via WASM_INSECURE_REGISTRIES) to be accessed without
-	// transport security.
-	insecure bool
+	// allowInsecureHTTPDowngrade mirrors ImageFetcherOption.Insecure: whether the operator has
+	// explicitly allowlisted this registry (via WASM_INSECURE_REGISTRIES) to be accessed without
+	// transport security. This is what gates PrepareFetch's HTTPS-to-HTTP retry.
+	allowInsecureHTTPDowngrade bool
 }
 
 // ssrfProtectionTransport wraps http.RoundTripper to block SSRF via bearer realm
@@ -191,8 +191,8 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 	fetchOpts = append(fetchOpts, remote.WithTransport(&ssrfProtectionTransport{inner: transport}))
 
 	return &ImageFetcher{
-		fetchOpts: append(fetchOpts, remote.WithContext(ctx)),
-		insecure:  opt.Insecure,
+		fetchOpts:                  append(fetchOpts, remote.WithContext(ctx)),
+		allowInsecureHTTPDowngrade: opt.Insecure,
 	}
 }
 
@@ -201,8 +201,8 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 // can trigger arbitrary error strings on the HTTPS attempt, so err alone must never be
 // sufficient to authorize a transport downgrade. Retrying is only safe for a registry the
 // operator has already, out of band, declared acceptable to speak to insecurely (insecure).
-func shouldRetryPlaintext(insecure bool, err error) bool {
-	return insecure && err != nil && strings.Contains(err.Error(), "server gave HTTP response")
+func shouldRetryPlaintext(insecure bool, fetchErr error) bool {
+	return insecure && fetchErr != nil && strings.Contains(fetchErr.Error(), "server gave HTTP response")
 }
 
 // PrepareFetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
@@ -222,7 +222,7 @@ func (o *ImageFetcher) PrepareFetch(url string) (binaryFetcher func() ([]byte, e
 	// Only retried when shouldRetryPlaintext allows it - i.e. for a registry the operator has
 	// already allowlisted as insecure, never on the base of the registry's response alone.
 	desc, err := remote.Get(ref, o.fetchOpts...)
-	if shouldRetryPlaintext(o.insecure, err) {
+	if shouldRetryPlaintext(o.allowInsecureHTTPDowngrade, err) {
 		wasmLog.Infof("fetching image with plain text from %s", url)
 		ref, err = name.ParseReference(url, name.Insecure)
 		if err == nil {

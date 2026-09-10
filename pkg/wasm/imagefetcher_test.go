@@ -319,8 +319,8 @@ func TestImageFetcher_PrepareFetch_HTTPSDowngrade(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			fetcher := &ImageFetcher{
-				fetchOpts: []remote.Option{remote.WithTransport(schemeAwareErrorTransport{}), remote.WithAuth(authn.Anonymous)},
-				insecure:  c.insecure,
+				fetchOpts:                  []remote.Option{remote.WithTransport(schemeAwareErrorTransport{}), remote.WithAuth(authn.Anonymous)},
+				allowInsecureHTTPDowngrade: c.insecure,
 			}
 
 			_, _, err := fetcher.PrepareFetch("example.com/some/image:latest")
