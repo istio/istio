@@ -27,11 +27,137 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+func TestLookupFiltered(t *testing.T) {
+	opts := testOptions(t)
+	objects := []Named{{Namespace: "ns", Name: "a"}, {Namespace: "ns", Name: "b"}, {Namespace: "other", Name: "c"}}
+	static := krt.NewStaticCollection[Named](nil, objects, opts.WithName("static")...)
+	left := krt.NewStaticCollection[Named](nil, objects[:1], opts.WithName("left")...)
+	right := krt.NewStaticCollection[Named](nil, objects[1:], opts.WithName("right")...)
+	collections := map[string]krt.Collection[Named]{
+		"static": static,
+		"derived": krt.NewCollection(static, func(_ krt.HandlerContext, n Named) *Named {
+			return &n
+		}, opts.WithName("derived")...),
+		"joined": krt.JoinCollection([]krt.Collection[Named]{left, right}, opts.WithName("joined")...),
+		"merged": krt.JoinWithMergeCollection([]krt.Collection[Named]{left, right}, func(ns []Named) *Named {
+			return &ns[0]
+		}, opts.WithName("merged")...),
+	}
+	for name, col := range collections {
+		t.Run(name, func(t *testing.T) {
+			col.WaitUntilSynced(opts.Stop())
+			checkLookupFiltered(t, col, func(n Named) string { return n.Namespace })
+		})
+	}
+	t.Run("mapped", func(t *testing.T) {
+		col := krt.MapCollection(static, func(n Named) SimplePod { return SimplePod{Named: n} }, opts.WithName("mapped")...)
+		col.WaitUntilSynced(opts.Stop())
+		checkLookupFiltered(t, col, func(p SimplePod) string { return p.Namespace })
+	})
+	t.Run("informer", func(t *testing.T) {
+		client := kube.NewFakeClient(
+			&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "a"}},
+			&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "b"}},
+			&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "other", Name: "c"}},
+		)
+		col := krt.NewInformer[*corev1.ConfigMap](client, opts.WithName("informer")...)
+		client.RunAndWait(opts.Stop())
+		col.WaitUntilSynced(opts.Stop())
+		checkLookupFiltered(t, col, func(n *corev1.ConfigMap) string { return n.Namespace })
+	})
+}
+
+func checkLookupFiltered[T any](t *testing.T, col krt.Collection[T], namespace func(T) string) {
+	t.Helper()
+	idx := krt.NewIndex(col, "namespace", func(n T) []string { return []string{namespace(n)} })
+	keys := func(objects []T) []string {
+		return slices.Sort(slices.Map(objects, func(obj T) string { return krt.GetKey(obj) }))
+	}
+	assert.Equal(t, keys(idx.LookupFiltered("ns", nil)), []string{"ns/a", "ns/b"})
+	assert.Equal(t, keys(idx.LookupFiltered("ns", func(T) bool { return true })), []string{"ns/a", "ns/b"})
+	assert.Equal(t, len(idx.LookupFiltered("ns", func(T) bool { return false })), 0)
+	assert.Equal(t, len(idx.LookupFiltered("missing", func(T) bool {
+		t.Fatal("filter called for missing key")
+		return true
+	})), 0)
+	var calls int
+	filter := func(obj T) bool {
+		calls++
+		assert.Equal(t, namespace(obj), "ns")
+		return krt.GetKey(obj) == "ns/b"
+	}
+	assert.Equal(t, keys(idx.LookupFiltered("ns", filter)), []string{"ns/b"})
+	assert.Equal(t, calls, 2)
+	calls = 0
+	assert.Equal(t, keys(krt.FetchOrList(nil, col, krt.FilterIndex(idx, "ns"), krt.FilterGeneric(func(obj any) bool {
+		return filter(obj.(T))
+	}))), []string{"ns/b"})
+	assert.Equal(t, calls, 2)
+	// Filtering must not change the index's stored results.
+	assert.Equal(t, keys(idx.Lookup("ns")), []string{"ns/a", "ns/b"})
+}
+
+func BenchmarkLookupFiltered(b *testing.B) {
+	scope := log.FindScope("krt")
+	level := scope.GetOutputLevel()
+	scope.SetOutputLevel(log.InfoLevel)
+	b.Cleanup(func() { scope.SetOutputLevel(level) })
+	for _, size := range []int{100, 10000} {
+		b.Run(strconv.Itoa(size), func(b *testing.B) {
+			objects := make([]Named, size)
+			for i := range objects {
+				objects[i] = Named{Namespace: "ns", Name: strconv.Itoa(i)}
+			}
+			col := krt.NewStaticCollection[Named](nil, objects, krt.WithStop(test.NewStop(b)))
+			idx := krt.NewIndex(col, "namespace", func(n Named) []string { return []string{n.Namespace} })
+			filter := func(n Named) bool { return n.Name == "0" }
+			for name, lookup := range map[string]func() []Named{
+				"Lookup":         func() []Named { return slices.FilterInPlace(idx.Lookup("ns"), filter) },
+				"LookupFiltered": func() []Named { return idx.LookupFiltered("ns", filter) },
+				"Fetch": func() []Named {
+					return krt.FetchOrList(nil, col, krt.FilterIndex(idx, "ns"), krt.FilterGeneric(func(obj any) bool {
+						return filter(obj.(Named))
+					}))
+				},
+			} {
+				b.Run(name, func(b *testing.B) {
+					b.ReportAllocs()
+					for b.Loop() {
+						if len(lookup()) != 1 {
+							b.Fatal("expected one matching object")
+						}
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestIndexFetchFilteredUpdates(t *testing.T) {
+	opts := testOptions(t)
+	pod := SimplePod{Named: Named{Namespace: "ns", Name: "a"}, IP: "unmatched"}
+	pods := krt.NewMutableCollection[SimplePod](nil, []SimplePod{pod}, opts.WithName("pods")...)
+	idx := krt.NewIndex(pods.AsCollection(), "namespace", func(p SimplePod) []string { return []string{p.Namespace} })
+	result := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+		matches := idx.Fetch(ctx, "ns", krt.FilterGeneric(func(obj any) bool { return obj.(SimplePod).IP == "matched" }))
+		return ptr.Of(strconv.Itoa(len(matches)))
+	}, opts.WithName("result")...)
+	result.AsCollection().WaitUntilSynced(opts.Stop())
+	assert.Equal(t, result.Get(), ptr.Of("0"))
+	pod.IP = "matched"
+	pods.UpdateObject(pod)
+	assert.EventuallyEqual(t, result.Get, ptr.Of("1"))
+	pod.IP = "unmatched"
+	pods.UpdateObject(pod)
+	assert.EventuallyEqual(t, result.Get, ptr.Of("0"))
+}
 
 func TestIndex(t *testing.T) {
 	stop := test.NewStop(t)

@@ -149,10 +149,19 @@ type informerIndex[I any] struct {
 }
 
 // nolint: unused // (not true)
-func (ii *informerIndex[I]) Lookup(key string) []I {
-	return slices.Map(ii.idx.Lookup(key), func(i any) I {
-		return i.(I)
-	})
+func (ii *informerIndex[I]) LookupFiltered(key string, filter func(I) bool) []I {
+	objects := ii.idx.Lookup(key)
+	var res []I
+	if filter == nil {
+		res = make([]I, 0, len(objects))
+	}
+	for _, obj := range objects {
+		v := obj.(I)
+		if filter == nil || filter(v) {
+			res = append(res, v)
+		}
+	}
+	return res
 }
 
 // nolint: unused // (not true)

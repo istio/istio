@@ -246,19 +246,24 @@ type collectionIndex[I, O any] struct {
 	parent  *manyCollection[I, O]
 }
 
-func (c collectionIndex[I, O]) Lookup(key string) []O {
+func (c collectionIndex[I, O]) LookupFiltered(key string, filter func(O) bool) []O {
 	c.parent.mu.RLock()
 	defer c.parent.mu.RUnlock()
 	keys := c.index[key]
 
-	res := make([]O, 0, len(keys))
+	var res []O
+	if filter == nil {
+		res = make([]O, 0, len(keys))
+	}
 	for k := range keys {
 		v, f := c.parent.collectionState.outputs[k]
 		if !f {
 			log.WithLabels("key", k).Errorf("invalid index state, object does not exist")
 			continue
 		}
-		res = append(res, v)
+		if filter == nil || filter(v) {
+			res = append(res, v)
+		}
 	}
 	return res
 }

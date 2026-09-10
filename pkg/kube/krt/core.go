@@ -139,7 +139,7 @@ type internalCollection[T any] interface {
 }
 
 type indexer[T any] interface {
-	Lookup(key string) []T
+	LookupFiltered(key string, filter func(T) bool) []T
 }
 
 type uidable interface {
