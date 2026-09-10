@@ -180,6 +180,7 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 
 func objectChanged(dependencies []*dependency, sourceCollection collectionUID, ev Event[any], preFiltered bool) bool {
 	for _, dep := range dependencies {
+		needsMatching := dep.filter.needsMatching(preFiltered)
 		id := dep.id
 		if id != sourceCollection {
 			continue
@@ -190,6 +191,10 @@ func objectChanged(dependencies []*dependency, sourceCollection collectionUID, e
 		// For each input, we will check if it depends on this event.
 		// We use Items() to check both the old and new object; we will recompute if either matched
 		for _, item := range ev.Items() {
+			if !needsMatching {
+				return true
+			}
+
 			match := dep.filter.Matches(item, preFiltered)
 			if match {
 				// Its a match! Return now. We don't need to check all dependencies, since we just need to find if any of them changed

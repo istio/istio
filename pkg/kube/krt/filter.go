@@ -182,6 +182,15 @@ func (f *filter) SuppressChange(ev Event[any]) bool {
 	return f.suppressChange(*ev.Old, *ev.New)
 }
 
+func (f *filter) needsMatching(forList bool) bool {
+	if !forList {
+		if !f.keys.IsNil() || f.index != nil {
+			return true
+		}
+	}
+	return f.selects != nil || f.selectsNonEmpty != nil || f.labels != nil || f.generic != nil
+}
+
 func (f *filter) Matches(object any, forList bool) bool {
 	// Check each of our defined filters to see if the object matches
 	// This function is called very often and is important to keep fast
