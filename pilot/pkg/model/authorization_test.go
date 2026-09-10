@@ -72,6 +72,14 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		Namespace: "bar",
 	}
 
+	policyWithListenerSetRef := protomarshal.Clone(policy)
+	policyWithListenerSetRef.TargetRef = &selectorpb.PolicyTargetReference{
+		Group:     gvk.ListenerSet.Group,
+		Kind:      gvk.ListenerSet.Kind,
+		Name:      "my-listenerset",
+		Namespace: "bar",
+	}
+
 	policyWithServiceRef := protomarshal.Clone(policy)
 	policyWithServiceRef.TargetRef = &selectorpb.PolicyTargetReference{
 		Group:     gvk.Service.Group,
@@ -277,6 +285,38 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 					Namespace: "bar",
 					Spec:      policyWithTargetRef,
 				},
+			},
+		},
+		{
+			name: "targetRef listenerset is an exact match",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+				WorkloadLabels: labels.Instance{
+					label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
+				},
+				AttachedListenerSets: []types.NamespacedName{{Namespace: "bar", Name: "my-listenerset"}},
+			},
+			configs: []config.Config{
+				newConfig("authz-1", "bar", policyWithListenerSetRef),
+			},
+			wantAllow: []AuthorizationPolicy{
+				{
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      policyWithListenerSetRef,
+				},
+			},
+		},
+		{
+			name: "targetRef listenerset does not match when not attached to the proxy's gateway",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+				WorkloadLabels: labels.Instance{
+					label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
+				},
+			},
+			configs: []config.Config{
+				newConfig("authz-1", "bar", policyWithListenerSetRef),
 			},
 		},
 		{

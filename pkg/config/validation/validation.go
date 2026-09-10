@@ -1477,7 +1477,8 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 		var warnings Warning
 		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef(), in.GetTargetRefs())
 		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
-		var additionalTargetRefs []config.GroupVersionKind
+		// Only AuthorizationPolicy implements ListenerSet attachment, so it's not in the shared allowedTargetRefs.
+		additionalTargetRefs := []config.GroupVersionKind{gvk.ListenerSet}
 		if features.EnableGatewayAPIHTTPRouteAuth {
 			// HTTPRoute is only a valid targetRef when the feature is enabled.
 			additionalTargetRefs = append(additionalTargetRefs, gvk.HTTPRoute)

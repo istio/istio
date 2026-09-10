@@ -33,6 +33,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -151,7 +152,7 @@ func buildAllowAnyDynamicDNSHTTPForwardProxyFilter(meta *model.NodeMetadata) *hc
 // and builds a stack of network filters.
 func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 	statPrefix, clusterName, subsetName string, port *model.Port, destinationRule *networking.DestinationRule, applyTunnelingConfig tunnelingconfig.ApplyFunc,
-	includeMx bool, service *model.Service,
+	includeMx bool, service *model.Service, listenerSetScope types.NamespacedName,
 ) []*listener.Filter {
 	idleTimeout := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetIdleTimeout()
 	if idleTimeout == nil {
@@ -172,9 +173,9 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 
 	// Only pass service for DYNAMIC_DNS wildcard services that need SNI DFP filtering
 	if service != nil && service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
-		return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, service)
+		return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, service, listenerSetScope)
 	}
-	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil)
+	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil, listenerSetScope)
 }
 
 func (lb *ListenerBuilder) buildCompleteNetworkFilters(
@@ -183,6 +184,7 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	networkFilterStack []*listener.Filter,
 	includeMx bool,
 	policySvc *model.Service,
+	listenerSetScope types.NamespacedName,
 ) []*listener.Filter {
 	authzCustomBuilder := lb.authzCustomBuilder
 	authzBuilder := lb.authzBuilder
@@ -203,14 +205,14 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 		filters = append(filters, xdsfilters.TCPListenerMx)
 	}
 	// TODO: not sure why it goes here
-	filters = append(filters, authzCustomBuilder.BuildTCP()...)
+	filters = append(filters, authzCustomBuilder.BuildTCP(listenerSetScope)...)
 
 	// Authn
 	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHN)
 
 	// Authz
 	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
-	filters = append(filters, authzBuilder.BuildTCP()...)
+	filters = append(filters, authzBuilder.BuildTCP(listenerSetScope)...)
 
 	// Stats
 	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_STATS)
@@ -235,7 +237,7 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 // destination routes and builds a stack of network filters.
 func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithWeightedClusters(routes []*networking.RouteDestination,
 	port *model.Port, configMeta config.Meta, destinationRule *networking.DestinationRule,
-	includeMx bool,
+	includeMx bool, listenerSetScope types.NamespacedName,
 ) []*listener.Filter {
 	statPrefix := configMeta.Name + "." + configMeta.Namespace
 	clusterSpecifier := &tcp.TcpProxy_WeightedClusters{
@@ -276,7 +278,7 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithWeightedClusters(route
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class, nil)
 	networkFilterStack := buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)
 
-	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil)
+	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil, listenerSetScope)
 }
 
 func maybeSetHashPolicy(destinationRule *networking.DestinationRule, tcpProxy *tcp.TcpProxy, subsetName string) {
@@ -343,6 +345,15 @@ func (lb *ListenerBuilder) buildOutboundNetworkFilters(
 	routes []*networking.RouteDestination,
 	port *model.Port, configMeta config.Meta, includeMx bool,
 ) []*listener.Filter {
+	return lb.buildOutboundNetworkFiltersWithScope(routes, port, configMeta, includeMx, types.NamespacedName{})
+}
+
+// buildOutboundNetworkFiltersWithScope is buildOutboundNetworkFilters, additionally scoping any
+// ListenerSet-targeted AuthorizationPolicy to listenerSetScope.
+func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithScope(
+	routes []*networking.RouteDestination,
+	port *model.Port, configMeta config.Meta, includeMx bool, listenerSetScope types.NamespacedName,
+) []*listener.Filter {
 	push, node := lb.push, lb.node
 	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
 	var destinationRule *networking.DestinationRule
@@ -359,9 +370,9 @@ func (lb *ListenerBuilder) buildOutboundNetworkFilters(
 		}
 
 		return lb.buildOutboundNetworkFiltersWithSingleDestination(
-			statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule, tunnelingconfig.Apply, includeMx, nil)
+			statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule, tunnelingconfig.Apply, includeMx, nil, listenerSetScope)
 	}
-	return lb.buildOutboundNetworkFiltersWithWeightedClusters(routes, port, configMeta, destinationRule, includeMx)
+	return lb.buildOutboundNetworkFiltersWithWeightedClusters(routes, port, configMeta, destinationRule, includeMx, listenerSetScope)
 }
 
 // buildMongoFilter builds an outbound Envoy MongoProxy filter.

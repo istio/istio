@@ -27,6 +27,8 @@ import (
 	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -39,13 +41,17 @@ const (
 	Custom
 )
 
+// Builder builds the authorization filters applicable to a proxy. Filters are compiled and
+// cached per listenerSetScope (the zero value meaning "not a ListenerSet listener"), since a
+// ListenerSet-targeted policy only applies to that ListenerSet's own filter chains.
 type Builder struct {
-	// Lazy load
-	httpBuilt, tcpBuilt bool
+	push     *model.PushContext
+	tdBundle trustdomain.Bundle
+	option   builder.Option
+	policies model.AuthorizationPoliciesResult
 
-	httpFilters []*hcm.HttpFilter
-	tcpFilters  []*listener.Filter
-	builder     *builder.Builder
+	httpFilters map[types.NamespacedName][]*hcm.HttpFilter
+	tcpFilters  map[types.NamespacedName][]*listener.Filter
 }
 
 func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy, useFilterState bool) *Builder {
@@ -83,46 +89,87 @@ func newBuilder(
 		selectionOpts.IsWaypoint = false
 	}
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
-	b := builder.New(tdBundle, push, policies, option)
-	return &Builder{builder: b}
+	return &Builder{push: push, tdBundle: tdBundle, option: option, policies: policies}
+}
+
+// scopedPolicies drops any policy whose targetRefs include a Kind: ListenerSet reference that
+// does not match scope.
+func scopedPolicies(policies model.AuthorizationPoliciesResult, scope types.NamespacedName) model.AuthorizationPoliciesResult {
+	filter := func(in []model.AuthorizationPolicy) []model.AuthorizationPolicy {
+		var out []model.AuthorizationPolicy
+		for _, p := range in {
+			if appliesToScope(p, scope) {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	return model.AuthorizationPoliciesResult{
+		Custom: filter(policies.Custom),
+		Deny:   filter(policies.Deny),
+		Allow:  filter(policies.Allow),
+		Audit:  filter(policies.Audit),
+	}
+}
+
+func appliesToScope(p model.AuthorizationPolicy, scope types.NamespacedName) bool {
+	for _, targetRef := range model.GetTargetRefs(p.Spec) {
+		if config.CanonicalGroup(targetRef.GetGroup()) == gvk.ListenerSet.CanonicalGroup() && targetRef.GetKind() == gvk.ListenerSet.Kind {
+			return targetRef.GetName() == scope.Name && p.Namespace == scope.Namespace
+		}
+	}
+	return true
 }
 
 func (b *Builder) BuildTCPRulesAsHTTPFilter() []*hcm.HttpFilter {
-	if b == nil || b.builder == nil {
+	if b == nil {
 		return nil
 	}
-
-	return b.builder.BuildTCPRulesAsHTTPFilter()
-}
-
-func (b *Builder) BuildTCP() []*listener.Filter {
-	if b == nil || b.builder == nil {
+	inner := builder.New(b.tdBundle, b.push, b.policies, b.option)
+	if inner == nil {
 		return nil
 	}
-	if b.tcpBuilt {
-		return b.tcpFilters
-	}
-	b.tcpBuilt = true
-	b.tcpFilters = b.builder.BuildTCP()
-
-	return b.tcpFilters
+	return inner.BuildTCPRulesAsHTTPFilter()
 }
 
-func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
-	if b == nil || b.builder == nil {
+func (b *Builder) BuildTCP(scope types.NamespacedName) []*listener.Filter {
+	if b == nil {
+		return nil
+	}
+	if filters, ok := b.tcpFilters[scope]; ok {
+		return filters
+	}
+	var filters []*listener.Filter
+	if inner := builder.New(b.tdBundle, b.push, scopedPolicies(b.policies, scope), b.option); inner != nil {
+		filters = inner.BuildTCP()
+	}
+	if b.tcpFilters == nil {
+		b.tcpFilters = map[types.NamespacedName][]*listener.Filter{}
+	}
+	b.tcpFilters[scope] = filters
+	return filters
+}
+
+func (b *Builder) BuildHTTP(class networking.ListenerClass, scope types.NamespacedName) []*hcm.HttpFilter {
+	if b == nil {
 		return nil
 	}
 	if class == networking.ListenerClassSidecarOutbound {
 		// Only applies to inbound and gateways
 		return nil
 	}
-	if b.httpBuilt {
-		return b.httpFilters
+	if filters, ok := b.httpFilters[scope]; ok {
+		return filters
 	}
-	b.httpBuilt = true
-	b.httpFilters = b.builder.BuildHTTP()
-
-	return b.httpFilters
+	var filters []*hcm.HttpFilter
+	if inner := builder.New(b.tdBundle, b.push, scopedPolicies(b.policies, scope), b.option); inner != nil {
+		filters = inner.BuildHTTP()
+	}
+	if b.httpFilters == nil {
+		b.httpFilters = map[types.NamespacedName][]*hcm.HttpFilter{}
+	}
+	b.httpFilters[scope] = filters
+	return filters
 }
 
 // PartitionRouteScopedFilters splits the workload's RBAC filters into those
