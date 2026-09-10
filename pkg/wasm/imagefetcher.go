@@ -198,11 +198,11 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 
 // shouldRetryPlaintext reports whether PrepareFetch may retry a failed HTTPS fetch over
 // plaintext HTTP. The registry is untrusted input: a MITM or attacker-controlled registry
-// can trigger arbitrary error strings on the HTTPS attempt, so err alone must never be
+// can trigger arbitrary error strings on the HTTPS attempt, so fetchErr alone must never be
 // sufficient to authorize a transport downgrade. Retrying is only safe for a registry the
-// operator has already, out of band, declared acceptable to speak to insecurely (insecure).
-func shouldRetryPlaintext(insecure bool, fetchErr error) bool {
-	return insecure && fetchErr != nil && strings.Contains(fetchErr.Error(), "server gave HTTP response")
+// operator has already, out of band, declared acceptable to speak to insecurely (allowInsecureHTTPDowngrade).
+func shouldRetryPlaintext(allowInsecureHTTPDowngrade bool, fetchErr error) bool {
+	return allowInsecureHTTPDowngrade && fetchErr != nil && strings.Contains(fetchErr.Error(), "server gave HTTP response")
 }
 
 // PrepareFetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
