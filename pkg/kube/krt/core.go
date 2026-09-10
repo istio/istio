@@ -54,6 +54,15 @@ func (t *collection[T]) FetchOrList(ctx HandlerContext, opts ...FetchOption) []T
 	return FetchOrList(ctx, t, opts...)
 }
 
+func (t *collection[T]) List() []T {
+	return t.internalCollection.ListFiltered(nil)
+}
+
+// ListFiltered returns the collection items accepted by filter. A nil filter returns all items.
+func (t *collection[T]) ListFiltered(filter func(T) bool) []T {
+	return t.internalCollection.ListFiltered(filter)
+}
+
 func (t *collection[T]) ListSorted() []T {
 	return t.ListSortedBy(GetKey)
 }
@@ -76,9 +85,9 @@ type collectionTrait[T any] interface {
 	// GetKey returns an object by its key, if present. Otherwise, nil is returned.
 	GetKey(k string) *T
 
-	// List returns all objects in the collection.
+	// ListFiltered returns objects matching filter. A nil filter returns all objects.
 	// Order of the list is undefined.
-	List() []T
+	ListFiltered(filter func(T) bool) []T
 
 	// EventStream provides event handling capabilities for the collection, allowing clients to subscribe to changes
 	// and receive notifications when objects are added, modified, or removed.
