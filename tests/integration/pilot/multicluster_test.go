@@ -41,7 +41,7 @@ var (
 
 func TestClusterLocal(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).
+	framework.NewMulticlusterTest(t).
 		RequiresMinClusters(2).
 		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
@@ -154,7 +154,7 @@ spec:
 
 func TestBadRemoteSecret(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).
+	framework.NewMulticlusterTest(t).
 		RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
 			if len(t.Clusters().Primaries()) == 0 {

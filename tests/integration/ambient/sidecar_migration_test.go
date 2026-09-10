@@ -359,7 +359,7 @@ func newTestEnv(ctx framework.TestContext) *testEnv {
 // modes. Permissive mode may briefly allow plain-text traffic during the ambient transition;
 // strict mode disallows plain-text entirely and may surface failures the permissive run hides.
 func runMigrationTest(t *testing.T, run func(framework.TestContext, *testEnv)) {
-	framework.NewTest(t).Run(func(ctx framework.TestContext) {
+	framework.NewMulticlusterTest(t).Run(func(ctx framework.TestContext) {
 		if ctx.Settings().AmbientMultiNetwork {
 			t.Skip("skipping cross-cluster test")
 		}

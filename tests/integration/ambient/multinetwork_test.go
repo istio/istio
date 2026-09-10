@@ -166,7 +166,7 @@ func TestMultinetworkFailover(t *testing.T) {
 			}
 		}
 	}
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewMulticlusterTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("without-waypoint").Run(func(t framework.TestContext) {
 			if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
 				t.Skip("this test is ambient multi-network specific")
@@ -399,7 +399,7 @@ func scaleDeploymentOrFail(t framework.TestContext, c cluster.Cluster, namespace
 // outside the cluster. A use case for this is when users want to expose the Kubenertes API
 // service through their E/W gateway.
 func TestEastWestGatewayTLSRoute(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewMulticlusterTest(t).Run(func(t framework.TestContext) {
 		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
 			t.Skip("this test is ambient multi-network specific")
 		}

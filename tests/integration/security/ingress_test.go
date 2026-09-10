@@ -39,7 +39,7 @@ import (
 // to deliver the HTTPS request.
 func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			var (
 				credName = "testsingletlsgateway-secretrotation"
@@ -107,7 +107,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 // mTLS connection could establish to deliver HTTPS request.
 func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			var (
 				credName   = "testsinglemtlsgateway-serverkeycertrotation"
@@ -175,7 +175,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 // Verifies behavior when client sends certificate and when client does not send certificate.
 func TestSingleOptionalMTLSGateway(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			var (
 				credName   = "testsinglemtlsgateway-serverkeyoptionalmtls"
@@ -235,7 +235,7 @@ func TestSingleOptionalMTLSGateway(t *testing.T) {
 // cert will cause the SSL connection fail.
 func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			var (
 				credName = "testsinglemtlsgateway-generic-compoundrotation"
@@ -302,7 +302,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 // cert will cause the SSL connection fail.
 func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			var (
 				credName = "testsinglemtlsgatewayandnotgeneric-compoundsecretrotation"
@@ -380,7 +380,7 @@ func TestTlsGateways(t *testing.T) {
 // are able to terminate mTLS connections successfully.
 func TestMtlsGateways(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			ingressutil.RunTestMultiMtlsGateways(t, i, namespace.Future(&echo1NS))
 		})
@@ -390,7 +390,7 @@ func TestMtlsGateways(t *testing.T) {
 // with invalid key/cert and verify the behavior.
 func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			testCase := []struct {
 				name                     string
@@ -533,7 +533,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 // with invalid key/cert and verify the behavior.
 func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			testCase := []struct {
 				name                     string
@@ -648,7 +648,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 // with CRL enabled and verify the behavior.
 func TestMtlsGateway_CRL(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			testCase := []struct {
 				name                     string

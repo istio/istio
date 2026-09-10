@@ -59,7 +59,7 @@ import (
 
 func TestWaypointStatus(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("gateway class").Run(func(t framework.TestContext) {
 				client := t.Clusters().Default().GatewayAPI().GatewayV1().GatewayClasses()
@@ -229,7 +229,7 @@ func checkWaypointIsReadyInCluster(c cluster.Cluster, ns, name string) error {
 
 func TestSimpleHTTPSandwich(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			config := `
 apiVersion: networking.istio.io/v1beta1
@@ -554,7 +554,7 @@ func TestWaypointAsEgressGateway(t *testing.T) {
 		})
 	}
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			egressNamespace, err := namespace.Claim(t, namespace.Config{
 				Prefix: "egress",
@@ -894,7 +894,7 @@ spec:
 }
 
 func TestIngressToWaypoint(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		// Apply a deny-all waypoint policy. This allows us to test the traffic traverses the waypoint
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Waypoint": apps.ServiceAddressedWaypoint.Config().ServiceWaypointProxy,
@@ -1122,7 +1122,7 @@ spec:
 }
 
 func TestTCPRoute(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
@@ -1183,7 +1183,7 @@ spec:
 }
 
 func TestTLSRoute(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
@@ -1265,7 +1265,7 @@ func TestWaypointAsEgressGatewayForWildcardEntries(t *testing.T) {
 		})
 	}
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			if _, v6 := getSupportedIPFamilies(t); v6 {
 				t.Skip("TODO: skipping test as wildcard DNS doesn't support resolving to IPv6 address")
@@ -1453,7 +1453,7 @@ func setIngressUseWaypoint(t framework.TestContext, name string, patcher func(cl
 
 func TestWaypointDNSConnectStrategy(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			egressNamespace, err := namespace.Claim(t, namespace.Config{
 				Prefix: "connect-strategy-egress",

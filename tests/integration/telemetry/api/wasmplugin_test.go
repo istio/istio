@@ -284,7 +284,7 @@ func TestGatewaySelection(t *testing.T) {
 
 // TestImagePullPolicyWithHTTP tests pulling Wasm Binary via HTTP and ImagePullPolicy.
 func TestImagePullPolicyWithHTTP(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
 			applyAndTestWasmWithHTTP(t, wasmTestConfigs{

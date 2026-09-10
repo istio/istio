@@ -63,6 +63,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(testlabel.CustomSetup).
 		Label(testlabel.PQC).
+		Label(testlabel.Full).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			ctx.Settings().Ambient = true
 			ctx.Settings().SkipVMs()
