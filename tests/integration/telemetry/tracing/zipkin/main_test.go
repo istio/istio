@@ -28,6 +28,7 @@ import (
 
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
+		Label(label.Full).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(tracing.GetIstioInstance(), setupConfig)).
 		Setup(tracing.TestSetup).

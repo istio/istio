@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 )
 
@@ -121,5 +122,5 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 	}
 
 	// destination_service="BlackHoleCluster" does not get filled in when using sidecar scoping
-	RunExternalRequest(t, cases, prom, RegistryOnly)
+	RunExternalRequest(framework.NewFullTest(t), cases, prom, RegistryOnly)
 }
