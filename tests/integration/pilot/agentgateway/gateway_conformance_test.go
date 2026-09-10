@@ -80,9 +80,8 @@ var skippedTests = map[string]string{
 	"BackendTLSPolicy": "TODO",
 
 	// The following tests were added in v1.6.0
-	"GatewayInvalidParametersRef":        "TODO",
-	"GatewayListenerUnsupportedProtocol": "TODO",
-	"TCPRouteWeightedRouting":            "TODO: flaky in dual-stack and multicluster environments",
+	"GatewayInvalidParametersRef": "TODO",
+	"TCPRouteWeightedRouting":     "TODO: flaky in dual-stack and multicluster environments",
 
 	"TCPRouteMultipleRoutesAttachment": "TODO: agentgateway does not yet support TCPRoute traffic",
 }
