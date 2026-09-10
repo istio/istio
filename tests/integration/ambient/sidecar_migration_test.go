@@ -193,8 +193,11 @@ func runEastWestClientFirstMigration(ctx framework.TestContext, env *testEnv) {
 // eastWestTraffic returns a traffic.Config for east-west HTTP traffic from source to server.
 func eastWestTraffic(source echo.Caller, server echo.Instance) traffic.Config {
 	return migrationTrafficConfig(source, echo.CallOptions{
-		To:   server,
-		Port: echo.Port{Name: "http"},
+		To: server,
+		// Use service IP instead of DNS name to avoid failing the test on transient DNS resolution
+		// errors. The entire Istio data path is still being tested.
+		Address: server.Address(),
+		Port:    echo.Port{Name: "http"},
 	})
 }
 
@@ -202,10 +205,13 @@ func eastWestTraffic(source echo.Caller, server echo.Instance) traffic.Config {
 func verifyAmbient(ctx framework.TestContext, source echo.Caller, server echo.Instance) {
 	ctx.Helper()
 	if _, err := source.Call(echo.CallOptions{
-		To:    server,
-		Port:  echo.Port{Name: "http"},
-		Count: 1,
-		Check: check.And(check.OK(), IsL4()),
+		To: server,
+		// Use service IP instead of DNS name to avoid failing the test on transient DNS resolution
+		// errors. The entire Istio data path is still being tested.
+		Address: server.Address(),
+		Port:    echo.Port{Name: "http"},
+		Count:   1,
+		Check:   check.And(check.OK(), IsL4()),
 	}); err != nil {
 		ctx.Fatal(err)
 	}
