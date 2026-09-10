@@ -16,7 +16,10 @@ package model
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
@@ -403,6 +406,13 @@ func TestMergeGateways(t *testing.T) {
 		"mutual-with-explicit-ca-cert-cred-not-allowed-ns": sets.New[string](),
 	}
 
+	// Checked unconditionally for every case below: absence means expect nil.
+	listenerSetExpected := map[string][]types.NamespacedName{
+		"listenerset-cert-same-ns":              {{Namespace: "tenant", Name: "ls1"}},
+		"listenerset-cert-cross-ns-allowed":     {{Namespace: "tenant", Name: "ls1"}},
+		"listenerset-cert-cross-ns-not-allowed": {{Namespace: "tenant", Name: "ls1"}},
+	}
+
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			instances := []gatewayWithInstances{}
@@ -437,6 +447,10 @@ func TestMergeGateways(t *testing.T) {
 			if expected, ok := caCertExpected[tt.name]; ok && !expected.Equals(mgw.VerifiedCertificateReferences) {
 				t.Errorf("VerifiedCertificateReferences mismatch for %q: want %v, got %v",
 					tt.name, expected, mgw.VerifiedCertificateReferences)
+			}
+			wantListenerSets := listenerSetExpected[tt.name]
+			if gotListenerSets := mgw.GetListenerSetNames(); !reflect.DeepEqual(wantListenerSets, gotListenerSets) {
+				t.Errorf("ListenerSet names mismatch for %q: want %v, got %v", tt.name, wantListenerSets, gotListenerSets)
 			}
 		})
 	}

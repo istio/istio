@@ -1360,7 +1360,16 @@ var allowedTargetRefs = []config.GroupVersionKind{
 	gvk.GatewayClass,
 }
 
+// authzAllowedTargetRefs additionally allows AuthorizationPolicy to target a ListenerSet. Other
+// policy types sharing validatePolicyTargetReference don't implement that attachment, so it's
+// kept out of the base allowedTargetRefs.
+var authzAllowedTargetRefs = append(slices.Clone(allowedTargetRefs), gvk.ListenerSet)
+
 func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
+	return validatePolicyTargetReferenceAllowing(targetRef, allowedTargetRefs)
+}
+
+func validatePolicyTargetReferenceAllowing(targetRef *type_beta.PolicyTargetReference, allowedTargetRefs []config.GroupVersionKind) (v Validation) {
 	if targetRef == nil {
 		return v
 	}
@@ -1442,8 +1451,11 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 		var warnings Warning
 		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef(), in.GetTargetRefs())
 		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
-		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef())
-		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs())
+		targetRefValidation := validatePolicyTargetReferenceAllowing(in.GetTargetRef(), authzAllowedTargetRefs)
+		targetRefsValidation := Validation{}
+		for _, r := range in.GetTargetRefs() {
+			targetRefsValidation = AppendValidation(targetRefsValidation, validatePolicyTargetReferenceAllowing(r, authzAllowedTargetRefs))
+		}
 		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation, targetRefsValidation)
 		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
 

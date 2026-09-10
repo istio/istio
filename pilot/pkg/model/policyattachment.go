@@ -40,11 +40,12 @@ type TargetablePolicy interface {
 // TargetRef selection uses either the workload's namespace + the gateway name based on labels,
 // or the Services the workload is a part of.
 type WorkloadPolicyMatcher struct {
-	WorkloadNamespace string
-	WorkloadLabels    labels.Instance
-	IsWaypoint        bool
-	Services          []ServiceInfoForPolicyMatcher
-	RootNamespace     string
+	WorkloadNamespace    string
+	WorkloadLabels       labels.Instance
+	IsWaypoint           bool
+	Services             []ServiceInfoForPolicyMatcher
+	RootNamespace        string
+	AttachedListenerSets []types.NamespacedName
 }
 
 type ServiceInfoForPolicyMatcher struct {
@@ -63,9 +64,10 @@ func PolicyMatcherFor(workloadNamespace string, labels labels.Instance, isWaypoi
 
 func PolicyMatcherForProxy(proxy *Proxy) WorkloadPolicyMatcher {
 	return WorkloadPolicyMatcher{
-		WorkloadNamespace: proxy.ConfigNamespace,
-		WorkloadLabels:    proxy.Labels,
-		IsWaypoint:        proxy.IsWaypointProxy(),
+		WorkloadNamespace:    proxy.ConfigNamespace,
+		WorkloadLabels:       proxy.Labels,
+		IsWaypoint:           proxy.IsWaypointProxy(),
+		AttachedListenerSets: proxy.MergedGateway.GetListenerSetNames(),
 	}
 }
 
@@ -194,6 +196,15 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 		// Gateway attached
 		if matchesGroupKind(targetRef, gvk.KubernetesGateway) && target == gatewayName {
 			return true
+		}
+
+		// ListenerSet attached
+		if matchesGroupKind(targetRef, gvk.ListenerSet) {
+			for _, ls := range p.AttachedListenerSets {
+				if target == ls.Name && ls.Namespace == p.WorkloadNamespace {
+					return true
+				}
+			}
 		}
 	}
 

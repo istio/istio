@@ -37,6 +37,7 @@ import (
 	googleproto "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -896,11 +897,11 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	if xfccIncludeClientIdentityEnabled(lb.node) {
 		pre = append(pre, xdsfilters.WaypointXFCCClientIdentityFilter)
 	}
-	pre = append(pre, authzCustomBuilder.BuildHTTP(cls)...)
+	pre = append(pre, authzCustomBuilder.BuildHTTP(cls, types.NamespacedName{})...)
 	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHN)
 	pre = append(pre, authnBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHZ)
-	pre = append(pre, authzBuilder.BuildHTTP(cls)...)
+	pre = append(pre, authzBuilder.BuildHTTP(cls, types.NamespacedName{})...)
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_STATS)
 	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
@@ -1042,7 +1043,8 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 		// Add SNI DFP before the TCP proxy so it can use SNI to resolve DNS
 		networkFilterstack = append([]*listener.Filter{sniDFPFilter}, networkFilterstack...)
 	}
-	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService)
+	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack,
+		true, fcc.policyService, types.NamespacedName{})
 }
 
 var meshGateways = sets.New(constants.IstioMeshGateway)
