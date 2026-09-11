@@ -55,9 +55,9 @@ import (
 type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
-	AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo
-	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
-	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
+	AllLocalNetworkGlobalServices(key model.WaypointKey) []*model.ServiceInfo
+	WorkloadsForWaypoint(key model.WaypointKey) []*model.WorkloadInfo
+	ServicesForWaypoint(key model.WaypointKey) []*model.ServiceInfo
 	Run(stop <-chan struct{})
 	HasSynced() bool
 	model.AmbientIndexes
@@ -307,7 +307,7 @@ func New(options Options) Index {
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
 			return nil
 		}
-		return serviceOwningWaypointHostnames(*s)
+		return serviceOwningWaypointHostnames(s)
 	})
 	ServiceInfosByOwningWaypointIP := krt.NewIndex(WorkloadServices, "owningWaypointIp", func(s *model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
@@ -318,7 +318,7 @@ func New(options Options) Index {
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
 			return nil
 		}
-		return serviceOwningWaypointAddresses(*s)
+		return serviceOwningWaypointAddresses(s)
 	})
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a *model.ServiceInfo) *model.XDSServiceInfo {
@@ -607,8 +607,8 @@ func (a *index) All() []model.AddressInfo {
 
 // AllLocalNetworkGlobalServices returns all known globally scoped services and local
 // waypoints containing global services. Result is un-ordered
-func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo {
-	var res []model.ServiceInfo
+func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []*model.ServiceInfo {
+	var res []*model.ServiceInfo
 	// TODO(jaellio): Improve this to use a more efficient lookup/index since this is in the
 	// hot path for east west gateway updates/configuration.
 	for _, svc := range a.services.List() {
@@ -629,7 +629,7 @@ func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []model.Ser
 				// Check is the any of the services owned by the waypoint are global
 				// If they are global, then the waypoint should be considered global
 				if resp.Scope == model.Global {
-					res = append(res, *svc)
+					res = append(res, svc)
 					log.Debugf("Adding non global waypoint service %s/%s in network %s for the network"+
 						"gateway, as it is a waypoint containing global services", svc.Service.Namespace,
 						svc.Service.Name, key.Network)
@@ -637,7 +637,7 @@ func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []model.Ser
 				}
 			}
 		} else {
-			res = append(res, *svc)
+			res = append(res, svc)
 			log.Debugf("Adding global service %s/%s in network %s for the network gateway",
 				svc.Service.Namespace, svc.Service.Name, key.Network)
 		}
@@ -671,7 +671,7 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 }
 
 // serviceOwningWaypoints returns the complete waypoint set fronting this service.
-func serviceOwningWaypoints(s model.ServiceInfo) []*workloadapi.GatewayAddress {
+func serviceOwningWaypoints(s *model.ServiceInfo) []*workloadapi.GatewayAddress {
 	if s.Service == nil {
 		return nil
 	}
@@ -691,7 +691,7 @@ func serviceOwningWaypoints(s model.ServiceInfo) []*workloadapi.GatewayAddress {
 }
 
 // serviceOwningWaypointHostnames adapts serviceOwningWaypoints for hostname indexes.
-func serviceOwningWaypointHostnames(s model.ServiceInfo) []NamespaceHostname {
+func serviceOwningWaypointHostnames(s *model.ServiceInfo) []NamespaceHostname {
 	var out []NamespaceHostname
 	for _, waypoint := range serviceOwningWaypoints(s) {
 		wa := waypoint.GetHostname()
@@ -704,7 +704,7 @@ func serviceOwningWaypointHostnames(s model.ServiceInfo) []NamespaceHostname {
 }
 
 // serviceOwningWaypointAddresses adapts serviceOwningWaypoints for IP indexes.
-func serviceOwningWaypointAddresses(s model.ServiceInfo) []networkAddress {
+func serviceOwningWaypointAddresses(s *model.ServiceInfo) []networkAddress {
 	var out []networkAddress
 	for _, waypoint := range serviceOwningWaypoints(s) {
 		wa := waypoint.GetAddress()
@@ -717,14 +717,14 @@ func serviceOwningWaypointAddresses(s model.ServiceInfo) []networkAddress {
 	return out
 }
 
-func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+func (a *index) ServicesForWaypoint(key model.WaypointKey) []*model.ServiceInfo {
 	if key.IsNetworkGateway && features.EnableAmbientMultiNetwork {
 		// If this is a network gateway waypoint, we only return the global services
 		// that are local to this network and waypoints with global services
 		return a.AllLocalNetworkGlobalServices(key)
 	}
 
-	out := map[string]model.ServiceInfo{}
+	out := map[string]*model.ServiceInfo{}
 
 	for _, host := range key.Hostnames {
 		for _, res := range a.services.ByOwningWaypointHostname.Lookup(NamespaceHostname{
@@ -733,7 +733,7 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 		}) {
 			name := res.ResourceName()
 			if _, f := out[name]; !f {
-				out[name] = *res
+				out[name] = res
 			}
 		}
 	}
@@ -745,7 +745,7 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 		}) {
 			name := res.ResourceName()
 			if _, f := out[name]; !f {
-				out[name] = *res
+				out[name] = res
 			}
 		}
 	}
@@ -753,12 +753,12 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 	return maps.Values(out)
 }
 
-func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
+func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []*model.WorkloadInfo {
 	if key.IsNetworkGateway {
 		// TODO(jaellio): Support workloads for gateway waypoint
 		return nil
 	}
-	out := map[string]model.WorkloadInfo{}
+	out := map[string]*model.WorkloadInfo{}
 	for _, host := range key.Hostnames {
 		for _, res := range a.workloads.ByOwningWaypointHostname.Lookup(NamespaceHostname{
 			Namespace: key.Namespace,
@@ -766,7 +766,7 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 		}) {
 			name := res.ResourceName()
 			if _, f := out[name]; !f {
-				out[name] = *res
+				out[name] = res
 			}
 		}
 	}
@@ -778,7 +778,7 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 		}) {
 			name := res.ResourceName()
 			if _, f := out[name]; !f {
-				out[name] = *res
+				out[name] = res
 			}
 		}
 	}

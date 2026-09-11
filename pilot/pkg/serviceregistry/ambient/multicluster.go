@@ -480,14 +480,14 @@ func (a *index) buildGlobalCollections(
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		return serviceOwningWaypointHostnames(*s)
+		return serviceOwningWaypointHostnames(s)
 	})
 	SplitHorizonServiceInfosByOwningWaypointIP := krt.NewIndex(SplitHorizonServices, "owningWaypointIp", func(s *model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		return serviceOwningWaypointAddresses(*s)
+		return serviceOwningWaypointAddresses(s)
 	})
 
 	if features.EnableIngressWaypointRouting {

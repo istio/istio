@@ -385,7 +385,7 @@ func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) (host.Name, b
 }
 
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
-func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	isAmbientEastWestGateway := isAmbientEastWestGateway(lb.node)
 	ipMatcher := &matcher.IPMatcher{}
 	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{

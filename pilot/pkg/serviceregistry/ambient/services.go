@@ -751,8 +751,7 @@ func precomputeService(w *model.ServiceInfo) *model.ServiceInfo {
 }
 
 // setCanonical sets the canonical field in a WDS service without mangling the ServiceInfo.
-// The ServiceInfo is passed by value so every field is carried over to the returned copy; only
-// the cloned Service proto and the precomputed address fields differ from the input.
+// It copies the ServiceInfo and clones the Service proto before modifying and precomputing the result.
 func setCanonical(se *model.ServiceInfo) *model.ServiceInfo {
 	if se.Service.Canonical {
 		return se
