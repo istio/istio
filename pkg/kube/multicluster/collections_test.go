@@ -79,8 +79,8 @@ func TestNestedCollectionsRebuiltOnClusterUpdate(t *testing.T) {
 	nested := NestedCollectionFromLocalAndRemote(
 		c.controller,
 		localCollection,
-		func(ctx krt.HandlerContext, cl *Cluster) *krt.Collection[*v1.Service] {
-			if !cl.hasInitialCollections() {
+		func(ctx krt.HandlerContext, cl ClusterCollections) *krt.Collection[*v1.Service] {
+			if !cl.cluster.hasInitialCollections() {
 				return nil
 			}
 			return ptr.Of(cl.Services())
@@ -242,8 +242,8 @@ func TestNestedCollectionFromLocalAndRemoteRotation(t *testing.T) {
 			return NestedCollectionFromLocalAndRemote(
 				ctrl,
 				local,
-				func(ctx krt.HandlerContext, cl *Cluster) *krt.Collection[*v1.Service] {
-					if !cl.hasInitialCollections() {
+				func(ctx krt.HandlerContext, cl ClusterCollections) *krt.Collection[*v1.Service] {
+					if !cl.cluster.hasInitialCollections() {
 						return nil
 					}
 					return ptr.Of(cl.Services())
@@ -267,20 +267,21 @@ func TestNestedManyCollectionsFromLocalAndRemoteRotation(t *testing.T) {
 			return NestedManyCollectionsFromLocalAndRemote(
 				ctrl,
 				[]krt.Collection[*v1.Service]{local},
-				func(ctx krt.HandlerContext, cl *Cluster) []krt.Collection[*v1.Service] {
-					if !cl.hasInitialCollections() {
+				func(ctx krt.HandlerContext, cl ClusterCollections) []krt.Collection[*v1.Service] {
+					if !cl.cluster.hasInitialCollections() {
 						return nil
 					}
 					// The mirror is named after the cluster and stopped with it, the way per-cluster
 					// collections are built in the ambient index.
 					// NewCollection rather than MapCollection: the mirror renames what it holds, and a
 					// mapped collection must keep the keys of the one it maps.
-					mirror := krt.NewCollection(cl.Services(), func(ctx krt.HandlerContext, svc *v1.Service) **v1.Service {
-						out := svc.DeepCopy()
-						out.Name = "mirror-" + svc.Name
-						return &out
-					},
-						krt.WithName(fmt.Sprintf("MirrorServices[%s]", cl.ID)),
+					mirror := krt.NewCollection(
+						cl.Services(), func(ctx krt.HandlerContext, svc *v1.Service) **v1.Service {
+							out := svc.DeepCopy()
+							out.Name = "mirror-" + svc.Name
+							return &out
+						},
+						krt.WithName(fmt.Sprintf("MirrorServices[%s]", cl.ID())),
 						krt.WithStop(cl.GetStop()),
 						krt.WithDebugging(opts.Debugger()),
 					)

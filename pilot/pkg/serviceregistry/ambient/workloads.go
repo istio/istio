@@ -111,7 +111,8 @@ func (a Builder) WorkloadsCollection(
 	EndpointSliceWorkloads := krt.NewManyCollection(
 		endpointSlices,
 		a.endpointSlicesBuilder(meshConfig, workloadServices),
-		opts.WithName("EndpointSliceWorkloads")...)
+		opts.WithName("EndpointSliceWorkloads")...,
+	)
 
 	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
@@ -129,12 +130,13 @@ func (a Builder) WorkloadsCollection(
 		},
 		// Each collection has its own unique UID as the key. This guarantees an object can exist in only a single collection
 		// This enables us to use the JoinUnchecked optimization.
-		append(opts.WithName("Workloads"), krt.WithJoinUnchecked())...)
+		append(opts.WithName("Workloads"), krt.WithJoinUnchecked())...,
+	)
 	return Workloads
 }
 
 func MergedGlobalWorkloadsCollection(
-	localCluster *multicluster.Cluster,
+	localCluster multicluster.ClusterCollections,
 	localWaypoints krt.Collection[Waypoint],
 	localNodeLocalities krt.Collection[Node],
 	ctrl *multicluster.Controller,
@@ -172,7 +174,7 @@ func MergedGlobalWorkloadsCollection(
 			localCluster.Namespaces(),
 			localNodeLocalities,
 			domainSuffix,
-			localCluster.ID,
+			localCluster.ID(),
 			globalNetworks.FetchLocalNetworkID,
 			globalNetworks.GatewaysByNetwork,
 			flags,
@@ -182,7 +184,7 @@ func MergedGlobalWorkloadsCollection(
 	)
 	LocalPodWorkloadsWithCluster := krt.MapCollection(
 		LocalPodWorkloads,
-		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID),
+		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
 		opts.WithName("LocalPodWorkloadsWithCluster")...,
 	)
 	LocalWorkloadEntryWorkloads := krt.NewCollection(
@@ -196,7 +198,7 @@ func MergedGlobalWorkloadsCollection(
 			localWorkloadServices,
 			LocalWorkloadServicesNamespaceIndex,
 			localCluster.Namespaces(),
-			localCluster.ID,
+			localCluster.ID(),
 			globalNetworks.FetchLocalNetworkID,
 			globalNetworks.GatewaysByNetwork,
 			flags,
@@ -206,7 +208,7 @@ func MergedGlobalWorkloadsCollection(
 	)
 	LocalWorkloadEntryWorkloadsWithCluster := krt.MapCollection(
 		LocalWorkloadEntryWorkloads,
-		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID),
+		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
 		opts.WithName("LocalWorkloadEntryWorkloadsWithCluster")...,
 	)
 	// Workloads coming from serviceEntries. These are inlined workloadEntries (under `spec.endpoints`); these serviceEntries will
@@ -220,7 +222,7 @@ func MergedGlobalWorkloadsCollection(
 			localWaypoints,
 			localCluster.Namespaces(),
 			localWorkloadServices,
-			localCluster.ID,
+			localCluster.ID(),
 			globalNetworks.FetchLocalNetworkID,
 			globalNetworks.GatewaysByNetwork,
 			flags,
@@ -229,7 +231,7 @@ func MergedGlobalWorkloadsCollection(
 	)
 	LocalServiceEntryWorkloadsWithCluster := krt.MapCollection(
 		LocalServiceEntryWorkloads,
-		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID),
+		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
 		opts.WithName("LocalServiceEntryWorkloadsWithCluster")...,
 	)
 	// Workloads coming from endpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
@@ -239,17 +241,18 @@ func MergedGlobalWorkloadsCollection(
 	// on when we will build from an EndpointSlice.
 	LocalEndpointSliceWorkloads := krt.NewManyCollection(
 		localCluster.EndpointSlices(),
-		endpointSlicesBuilder(meshConfig,
+		endpointSlicesBuilder(
+			meshConfig,
 			localWorkloadServices,
 			domainSuffix,
-			localCluster.ID,
+			localCluster.ID(),
 			globalNetworks.FetchLocalNetworkID,
 		),
 		opts.WithName("LocalEndpointSliceWorkloads")...,
 	)
 	LocalEndpointSliceWorkloadsWithCluster := krt.MapCollection(
 		LocalEndpointSliceWorkloads,
-		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID),
+		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
 		opts.WithName("LocalEndpointSliceWorkloadsWithCluster")...,
 	)
 
@@ -262,7 +265,7 @@ func MergedGlobalWorkloadsCollection(
 	}, opts.WithName("LocalNetworkGatewayWorkloads")...)
 	LocalNetworkGatewayWorkloadsWithCluster := krt.MapCollection(
 		GlobalNetworkGatewayWorkloads,
-		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID),
+		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
 		opts.WithName("LocalNetworkGatewayWorkloadsWithCluster")...,
 	)
 	GlobalWorkloadInfosWithCluster := multicluster.NestedManyCollectionsFromLocalAndRemote(
@@ -274,14 +277,14 @@ func MergedGlobalWorkloadsCollection(
 			LocalEndpointSliceWorkloadsWithCluster,
 			LocalNetworkGatewayWorkloadsWithCluster,
 		},
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) []krt.Collection[krt.ObjectWithCluster[model.WorkloadInfo]] {
+		func(ctx krt.HandlerContext, c multicluster.ClusterCollections) []krt.Collection[krt.ObjectWithCluster[model.WorkloadInfo]] {
 			opts := []krt.CollectionOption{
 				krt.WithDebugging(opts.Debugger()),
 				krt.WithStop(c.GetStop()),
 			}
 			endpointSlices := c.EndpointSlices()
 			pods := c.Pods()
-			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, c.ID))
+			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, c.ID()))
 			// This usually happens because the event for a new cluster
 			// triggers the global services|waypoints|etc. transformations in parallel
 			// with this transformation. This Fetch is racing
@@ -290,28 +293,28 @@ func MergedGlobalWorkloadsCollection(
 			// to avoid hacks like this, we can deal with eventually consistent
 			// collection state for now.
 			if waypointsPtr == nil {
-				log.Warnf("Cluster %s does not have waypoints, skipping global workloads", c.ID)
+				log.Warnf("Cluster %s does not have waypoints, skipping global workloads", c.ID())
 				return nil
 			}
 			waypoints := *waypointsPtr
 
 			namespaces := c.Namespaces()
-			clusteredNodesPtr := krt.FetchOne(ctx, globalNodes, krt.FilterIndex(nodesByCluster, c.ID))
+			clusteredNodesPtr := krt.FetchOne(ctx, globalNodes, krt.FilterIndex(nodesByCluster, c.ID()))
 			if clusteredNodesPtr == nil {
-				log.Warnf("Cluster %s does not have nodes, skipping global workloads", c.ID)
+				log.Warnf("Cluster %s does not have nodes, skipping global workloads", c.ID())
 				return nil
 			}
 			clusteredNodes := *clusteredNodesPtr
 
-			workloadServicesPtr := krt.FetchOne(ctx, globalWorkloadServices, krt.FilterIndex(globalWorkloadServicesByCluster, c.ID))
+			workloadServicesPtr := krt.FetchOne(ctx, globalWorkloadServices, krt.FilterIndex(globalWorkloadServicesByCluster, c.ID()))
 			if workloadServicesPtr == nil {
-				log.Warnf("Cluster %s does not have workload services, skipping global workloads", c.ID)
+				log.Warnf("Cluster %s does not have workload services, skipping global workloads", c.ID())
 				return nil
 			}
 
 			nodes := krt.MapCollection(clusteredNodes, unwrapObjectWithCluster, append(
 				opts,
-				krt.WithName(fmt.Sprintf("NodeLocality[%s]", c.ID)),
+				krt.WithName(fmt.Sprintf("NodeLocality[%s]", c.ID())),
 			)...)
 
 			globalWorkloadServicesWithCluster := *workloadServicesPtr
@@ -320,9 +323,9 @@ func MergedGlobalWorkloadsCollection(
 				unwrapObjectWithCluster[model.ServiceInfo],
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("WorkloadServices[%s]", c.ID)),
+					krt.WithName(fmt.Sprintf("WorkloadServices[%s]", c.ID())),
 					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
+						multicluster.ClusterKRTMetadataKey: c.ID(),
 					}),
 				)...,
 			)
@@ -344,7 +347,7 @@ func MergedGlobalWorkloadsCollection(
 					namespaces,
 					nodes,
 					domainSuffix,
-					c.ID,
+					c.ID(),
 					func(ctx krt.HandlerContext) network.ID {
 						return globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 					},
@@ -354,20 +357,20 @@ func MergedGlobalWorkloadsCollection(
 				),
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("PodWorkloads[%s]", c.ID)),
+					krt.WithName(fmt.Sprintf("PodWorkloads[%s]", c.ID())),
 					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
+						multicluster.ClusterKRTMetadataKey: c.ID(),
 					}),
 				)...,
 			)
 			PodWorkloadsWithCluster := krt.MapCollection(
 				PodWorkloads,
-				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
+				wrapObjectWithCluster[model.WorkloadInfo](c.ID()),
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("PodWorkloadsWithCluster[%s]", c.ID)),
+					krt.WithName(fmt.Sprintf("PodWorkloadsWithCluster[%s]", c.ID())),
 					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
+						multicluster.ClusterKRTMetadataKey: c.ID(),
 					}),
 				)...,
 			)
@@ -383,7 +386,7 @@ func MergedGlobalWorkloadsCollection(
 					globalWorkloadServices,
 					WorkloadServicesNamespaceIndex,
 					namespaces,
-					c.ID,
+					c.ID(),
 					func(ctx krt.HandlerContext) network.ID {
 						return globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 					},
@@ -393,20 +396,20 @@ func MergedGlobalWorkloadsCollection(
 				),
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("WorkloadEntryWorkloads[%s]", c.ID)),
+					krt.WithName(fmt.Sprintf("WorkloadEntryWorkloads[%s]", c.ID())),
 					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
+						multicluster.ClusterKRTMetadataKey: c.ID(),
 					}),
 				)...,
 			)
 			WorkloadEntryWorkloadsWithCluster := krt.MapCollection(
 				WorkloadEntryWorkloads,
-				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
+				wrapObjectWithCluster[model.WorkloadInfo](c.ID()),
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("WorkloadEntryWorkloadsWithCluster[%s]", c.ID)),
+					krt.WithName(fmt.Sprintf("WorkloadEntryWorkloadsWithCluster[%s]", c.ID())),
 					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
+						multicluster.ClusterKRTMetadataKey: c.ID(),
 					}),
 				)...,
 			)
@@ -421,7 +424,7 @@ func MergedGlobalWorkloadsCollection(
 					waypoints,
 					namespaces,
 					globalWorkloadServices,
-					c.ID,
+					c.ID(),
 					func(ctx krt.HandlerContext) network.ID {
 						return globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 					},
@@ -430,20 +433,20 @@ func MergedGlobalWorkloadsCollection(
 				),
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("ServiceEntryWorkloads[%s]", c.ID)),
+					krt.WithName(fmt.Sprintf("ServiceEntryWorkloads[%s]", c.ID())),
 					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
+						multicluster.ClusterKRTMetadataKey: c.ID(),
 					}),
 				)...,
 			)
 			ServiceEntryWorkloadsWithCluster := krt.MapCollection(
 				ServiceEntryWorkloads,
-				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
+				wrapObjectWithCluster[model.WorkloadInfo](c.ID()),
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("ServiceEntryWorkloadsWithCluster[%s]", c.ID)),
+					krt.WithName(fmt.Sprintf("ServiceEntryWorkloadsWithCluster[%s]", c.ID())),
 					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
+						multicluster.ClusterKRTMetadataKey: c.ID(),
 					}),
 				)...,
 			)
@@ -454,29 +457,31 @@ func MergedGlobalWorkloadsCollection(
 			// on when we will build from an EndpointSlice.
 			EndpointSliceWorkloads := krt.NewManyCollection(
 				endpointSlices,
-				endpointSlicesBuilder(meshConfig,
+				endpointSlicesBuilder(
+					meshConfig,
 					globalWorkloadServices,
 					domainSuffix,
-					c.ID,
+					c.ID(),
 					func(ctx krt.HandlerContext) network.ID {
 						return globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 					},
 				),
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("EndpointSliceWorkloads[%s]", c.ID)),
+					krt.WithName(fmt.Sprintf("EndpointSliceWorkloads[%s]", c.ID())),
 					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
+						multicluster.ClusterKRTMetadataKey: c.ID(),
 					}),
-				)...)
+				)...,
+			)
 			EndpointSliceWorkloadsWithCluster := krt.MapCollection(
 				EndpointSliceWorkloads,
-				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
+				wrapObjectWithCluster[model.WorkloadInfo](c.ID()),
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("EndpointSliceWorkloadsWithCluster[%s]", c.ID)),
+					krt.WithName(fmt.Sprintf("EndpointSliceWorkloadsWithCluster[%s]", c.ID())),
 					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
+						multicluster.ClusterKRTMetadataKey: c.ID(),
 					}),
 				)...,
 			)
