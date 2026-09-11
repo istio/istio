@@ -76,8 +76,6 @@ var skippedTests = map[string]string{
 
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
-	"ListenerSetReferenceGrant": "TODO",
-
 	// Fixed upstream, waiting for new gateway api release to pick up fix
 	"MeshHTTPRoute307Redirect": "TODO",
 }
