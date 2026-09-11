@@ -559,18 +559,24 @@ func services(
 		}
 
 		dnsService := isDNSTypeService(services[0])
-		selectedWorkloads := workloadsByNamespace.Fetch(
-			ctx,
-			cfg.Namespace,
-			krt.FilterLabel(se.WorkloadSelector.Labels),
-			krt.FilterGeneric(func(o any) bool {
-				wi := o.(*model.WorkloadInstance)
-				if wi.DNSServiceEntryOnly && !dnsService {
-					return false
-				}
-				return true
-			}),
-		)
+		var selectedWorkloads []*model.WorkloadInstance
+
+		// SE with empty workload selector will not select any workloads
+		if len(se.WorkloadSelector.Labels) != 0 {
+			selectedWorkloads = workloadsByNamespace.Fetch(
+				ctx,
+				cfg.Namespace,
+				krt.FilterLabel(se.WorkloadSelector.Labels),
+				krt.FilterGeneric(func(o any) bool {
+					wi := o.(*model.WorkloadInstance)
+					if wi.DNSServiceEntryOnly && !dnsService {
+						return false
+					}
+					return true
+				}),
+			)
+		}
+
 		// krt fetching does not guarantee order, so we need to sort the selected workloads to ensure determinism
 		slices.SortStableFunc(selectedWorkloads, func(a, b *model.WorkloadInstance) int {
 			if r := cmp.Compare(a.Kind, b.Kind); r != 0 {
