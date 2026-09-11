@@ -1020,8 +1020,8 @@ type AmbientIndexes interface {
 		currentSubs sets.String,
 	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
-	ServicesForWaypoint(WaypointKey) []ServiceInfo
-	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
+	ServicesForWaypoint(WaypointKey) []*ServiceInfo
+	WorkloadsForWaypoint(WaypointKey) []*WorkloadInfo
 	// ServiceScope returns service information for services matching the key.
 	// The key idenitifies a service and is in form of namespace/hostname string.
 	ServiceInfo(key string) *ServiceInfo
@@ -1140,7 +1140,7 @@ func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []WorkloadAuthorizatio
 	return nil
 }
 
-func (u NoopAmbientIndexes) ServicesForWaypoint(WaypointKey) []ServiceInfo {
+func (u NoopAmbientIndexes) ServicesForWaypoint(WaypointKey) []*ServiceInfo {
 	return nil
 }
 
@@ -1148,7 +1148,7 @@ func (u NoopAmbientIndexes) Waypoint(string, string) []netip.Addr {
 	return nil
 }
 
-func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
+func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []*WorkloadInfo {
 	return nil
 }
 
@@ -1285,11 +1285,11 @@ type ServiceInfo struct {
 	VisibilityConfigured bool
 }
 
-func (i ServiceInfo) GetLabelSelector() map[string]string {
+func (i *ServiceInfo) GetLabelSelector() map[string]string {
 	return i.LabelSelector.Labels
 }
 
-func (i ServiceInfo) GetStatusTarget() TypedObject {
+func (i *ServiceInfo) GetStatusTarget() TypedObject {
 	return i.Source
 }
 
@@ -1358,7 +1358,7 @@ func (c *Condition) Equals(v *Condition) bool {
 		c.Status == v.Status
 }
 
-func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
+func (i *ServiceInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
 	set := ConditionSet{
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
@@ -1476,19 +1476,22 @@ func (i WaypointBindingStatus) Equals(other WaypointBindingStatus) bool {
 		ptr.Equal(i.Error, other.Error)
 }
 
-func (i ServiceInfo) NamespacedName() types.NamespacedName {
+func (i *ServiceInfo) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: i.Service.Name, Namespace: i.Service.Namespace}
 }
 
-func (i ServiceInfo) GetName() string {
+func (i *ServiceInfo) GetName() string {
 	return i.Service.Name
 }
 
-func (i ServiceInfo) GetNamespace() string {
+func (i *ServiceInfo) GetNamespace() string {
 	return i.Service.Namespace
 }
 
-func (i ServiceInfo) Equals(other ServiceInfo) bool {
+func (i *ServiceInfo) Equals(other *ServiceInfo) bool {
+	if i == nil || other == nil {
+		return i == other
+	}
 	return equalUsingPremarshaled(i.Service, i.MarshaledAddress, other.Service, other.MarshaledAddress) &&
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
@@ -1499,12 +1502,12 @@ func (i ServiceInfo) Equals(other ServiceInfo) bool {
 		i.VisibilityConfigured == other.VisibilityConfigured
 }
 
-func (i ServiceInfo) ResourceName() string {
+func (i *ServiceInfo) ResourceName() string {
 	return serviceResourceName(i.Service)
 }
 
 // WaypointRef returns the waypoint this service is attached to, if any.
-func (i ServiceInfo) WaypointRef() *workloadapi.GatewayAddress {
+func (i *ServiceInfo) WaypointRef() *workloadapi.GatewayAddress {
 	return i.Service.GetWaypoint()
 }
 
@@ -1542,7 +1545,10 @@ type WorkloadInfo struct {
 	Waypoint  WaypointBindingStatus
 }
 
-func (i WorkloadInfo) Equals(other WorkloadInfo) bool {
+func (i *WorkloadInfo) Equals(other *WorkloadInfo) bool {
+	if i == nil || other == nil {
+		return i == other
+	}
 	return equalUsingPremarshaled(i.Workload, i.MarshaledAddress, other.Workload, other.MarshaledAddress) &&
 		maps.Equal(i.Labels, other.Labels) &&
 		i.Source == other.Source &&
@@ -1564,11 +1570,11 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 	}
 }
 
-func (i WorkloadInfo) GetStatusTarget() TypedObject {
+func (i *WorkloadInfo) GetStatusTarget() TypedObject {
 	return i.Source
 }
 
-func (i WorkloadInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
+func (i *WorkloadInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
 	set := ConditionSet{
 		WaypointBound: nil,
 	}
@@ -1588,12 +1594,12 @@ func (i WorkloadInfo) GetConditions(currentConditions map[string]Condition) Cond
 	return set
 }
 
-func (i WorkloadInfo) ResourceName() string {
+func (i *WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
 }
 
 // WaypointRef returns the waypoint this workload is attached to, if any.
-func (i WorkloadInfo) WaypointRef() *workloadapi.GatewayAddress {
+func (i *WorkloadInfo) WaypointRef() *workloadapi.GatewayAddress {
 	return i.Workload.GetWaypoint()
 }
 
@@ -1775,7 +1781,7 @@ func ExtractWorkloadsFromAddresses(addrs []AddressInfo) []WorkloadInfo {
 	})
 }
 
-func SortWorkloadsByCreationTime(workloads []WorkloadInfo) []WorkloadInfo {
+func SortWorkloadsByCreationTime(workloads []*WorkloadInfo) []*WorkloadInfo {
 	sort.SliceStable(workloads, func(i, j int) bool {
 		if workloads[i].CreationTime.Equal(workloads[j].CreationTime) {
 			return workloads[i].Workload.Uid < workloads[j].Workload.Uid

@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -54,9 +55,9 @@ import (
 type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
-	AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo
-	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
-	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
+	AllLocalNetworkGlobalServices(key model.WaypointKey) []*model.ServiceInfo
+	WorkloadsForWaypoint(key model.WaypointKey) []*model.WorkloadInfo
+	ServicesForWaypoint(key model.WaypointKey) []*model.ServiceInfo
 	Run(stop <-chan struct{})
 	HasSynced() bool
 	model.AmbientIndexes
@@ -74,11 +75,11 @@ func (n NamespaceHostname) String() string {
 }
 
 type workloadsCollection struct {
-	krt.Collection[model.WorkloadInfo]
-	ByAddress                krt.Index[networkAddress, model.WorkloadInfo]
-	ByServiceKey             krt.Index[string, model.WorkloadInfo]
-	ByOwningWaypointHostname krt.Index[NamespaceHostname, model.WorkloadInfo]
-	ByOwningWaypointIP       krt.Index[networkAddress, model.WorkloadInfo]
+	krt.Collection[*model.WorkloadInfo]
+	ByAddress                krt.Index[networkAddress, *model.WorkloadInfo]
+	ByServiceKey             krt.Index[string, *model.WorkloadInfo]
+	ByOwningWaypointHostname krt.Index[NamespaceHostname, *model.WorkloadInfo]
+	ByOwningWaypointIP       krt.Index[networkAddress, *model.WorkloadInfo]
 }
 
 type waypointsCollection struct {
@@ -86,10 +87,10 @@ type waypointsCollection struct {
 }
 
 type servicesCollection struct {
-	krt.Collection[model.ServiceInfo]
-	ByAddress                krt.Index[networkAddress, model.ServiceInfo]
-	ByOwningWaypointHostname krt.Index[NamespaceHostname, model.ServiceInfo]
-	ByOwningWaypointIP       krt.Index[networkAddress, model.ServiceInfo]
+	krt.Collection[*model.ServiceInfo]
+	ByAddress                krt.Index[networkAddress, *model.ServiceInfo]
+	ByOwningWaypointHostname krt.Index[NamespaceHostname, *model.ServiceInfo]
+	ByOwningWaypointIP       krt.Index[networkAddress, *model.ServiceInfo]
 }
 
 type Builder struct {
@@ -277,7 +278,7 @@ func New(options Options) Index {
 		)
 		statusQueue := statusqueue.NewQueue(options.StatusNotifier)
 		statusqueue.Register(statusQueue, "istio-ambient-service", WorkloadServices,
-			func(info model.ServiceInfo) (kclient.Patcher, map[string]model.Condition) {
+			func(info *model.ServiceInfo) (kclient.Patcher, map[string]model.Condition) {
 				// Since we have 1 collection for multiple types, we need to split these out
 				if info.Source.Kind == kind.ServiceEntry {
 					return kclient.ToPatcher(serviceEntriesWriter), getConditions(info.Source.NamespacedName, serviceEntries)
@@ -295,8 +296,8 @@ func New(options Options) Index {
 		a.statusQueue = statusQueue
 	}
 
-	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, "serviceAddress", networkAddressFromService)
-	ServiceInfosByOwningWaypointHostname := krt.NewIndex(WorkloadServices, "namespaceHostname", func(s model.ServiceInfo) []NamespaceHostname {
+	ServiceAddressIndex := krt.NewIndex(WorkloadServices, "serviceAddress", networkAddressFromService)
+	ServiceInfosByOwningWaypointHostname := krt.NewIndex(WorkloadServices, "namespaceHostname", func(s *model.ServiceInfo) []NamespaceHostname {
 		// Filter out waypoint services
 		// TODO: we are looking at the *selector* -- we should be looking the labels themselves or something equivalent.
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
@@ -308,7 +309,7 @@ func New(options Options) Index {
 		}
 		return serviceOwningWaypointHostnames(s)
 	})
-	ServiceInfosByOwningWaypointIP := krt.NewIndex(WorkloadServices, "owningWaypointIp", func(s model.ServiceInfo) []networkAddress {
+	ServiceInfosByOwningWaypointIP := krt.NewIndex(WorkloadServices, "owningWaypointIp", func(s *model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -320,14 +321,14 @@ func New(options Options) Index {
 		return serviceOwningWaypointAddresses(s)
 	})
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
-		func(a model.ServiceInfo) *model.XDSServiceInfo {
+		func(a *model.ServiceInfo) *model.XDSServiceInfo {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return &model.XDSServiceInfo{
 				Service:            a.Service,
 				DNSConnectStrategy: a.DNSConnectStrategy,
 			}
 		},
-		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName, model.ServiceInfo.WaypointRef),
+		PushXdsAddress(a.XDSUpdater, (*model.ServiceInfo).ResourceName, (*model.ServiceInfo).WaypointRef),
 	), false)
 
 	NamespacesInfo := krt.NewCollection(Namespaces, func(ctx krt.HandlerContext, i *corev1.Namespace) *model.NamespaceInfo {
@@ -356,7 +357,7 @@ func New(options Options) Index {
 	if features.EnableAmbientStatus {
 		workloadEntriesWriter := kclient.NewWriteClient[*networkingclient.WorkloadEntry](client)
 		statusqueue.Register(a.statusQueue, "istio-ambient-workloadentry", Workloads,
-			func(info model.WorkloadInfo) (kclient.Patcher, map[string]model.Condition) {
+			func(info *model.WorkloadInfo) (kclient.Patcher, map[string]model.Condition) {
 				if info.Source.Kind != kind.WorkloadEntry {
 					return nil, nil
 				}
@@ -364,11 +365,11 @@ func New(options Options) Index {
 			})
 	}
 
-	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, "networkAddress", networkAddressFromWorkload)
-	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, "service", func(o model.WorkloadInfo) []string {
+	WorkloadAddressIndex := krt.NewIndex(Workloads, "networkAddress", networkAddressFromWorkload)
+	WorkloadServiceIndex := krt.NewIndex(Workloads, "service", func(o *model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
 	})
-	WorkloadWaypointIndexHostname := krt.NewIndex(Workloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
+	WorkloadWaypointIndexHostname := krt.NewIndex(Workloads, "namespaceHostname", func(w *model.WorkloadInfo) []NamespaceHostname {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -391,7 +392,7 @@ func New(options Options) Index {
 			Hostname:  waypointAddress.Hostname,
 		}}
 	})
-	WorkloadWaypointIndexIP := krt.NewIndex(Workloads, "waypointIp", func(w model.WorkloadInfo) []networkAddress {
+	WorkloadWaypointIndexIP := krt.NewIndex(Workloads, "waypointIp", func(w *model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -418,11 +419,11 @@ func New(options Options) Index {
 		return []networkAddress{netaddr}
 	})
 	Workloads.RegisterBatch(krt.BatchedEventFilter(
-		func(a model.WorkloadInfo) *workloadapi.Workload {
+		func(a *model.WorkloadInfo) *workloadapi.Workload {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
-		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName, model.WorkloadInfo.WaypointRef),
+		PushXdsAddress(a.XDSUpdater, (*model.WorkloadInfo).ResourceName, (*model.WorkloadInfo).WaypointRef),
 	), false)
 
 	if features.EnableIngressWaypointRouting {
@@ -535,7 +536,7 @@ func translateKubernetesCondition(conds []metav1.Condition) map[string]model.Con
 func (a *index) Lookup(key string) []model.AddressInfo {
 	// 1. Workload UID
 	if w := a.workloads.GetKey(key); w != nil {
-		return []model.AddressInfo{w.AsAddress}
+		return []model.AddressInfo{(*w).AsAddress}
 	}
 
 	// 2. Workload by IP
@@ -565,7 +566,7 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 
 func (a *index) lookupService(key string) *model.ServiceInfo {
 	// 1. namespace/hostname format
-	s := a.services.GetKey(key)
+	s := ptr.Flatten(a.services.GetKey(key))
 	if s != nil {
 		return s
 	}
@@ -576,7 +577,7 @@ func (a *index) lookupService(key string) *model.ServiceInfo {
 		network: network,
 		ip:      ip,
 	})
-	return slices.First(services)
+	return ptr.Flatten(slices.First(services))
 }
 
 func (a *index) inRevision(obj any) bool {
@@ -606,8 +607,8 @@ func (a *index) All() []model.AddressInfo {
 
 // AllLocalNetworkGlobalServices returns all known globally scoped services and local
 // waypoints containing global services. Result is un-ordered
-func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo {
-	var res []model.ServiceInfo
+func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []*model.ServiceInfo {
+	var res []*model.ServiceInfo
 	// TODO(jaellio): Improve this to use a more efficient lookup/index since this is in the
 	// hot path for east west gateway updates/configuration.
 	for _, svc := range a.services.List() {
@@ -670,7 +671,7 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 }
 
 // serviceOwningWaypoints returns the complete waypoint set fronting this service.
-func serviceOwningWaypoints(s model.ServiceInfo) []*workloadapi.GatewayAddress {
+func serviceOwningWaypoints(s *model.ServiceInfo) []*workloadapi.GatewayAddress {
 	if s.Service == nil {
 		return nil
 	}
@@ -690,7 +691,7 @@ func serviceOwningWaypoints(s model.ServiceInfo) []*workloadapi.GatewayAddress {
 }
 
 // serviceOwningWaypointHostnames adapts serviceOwningWaypoints for hostname indexes.
-func serviceOwningWaypointHostnames(s model.ServiceInfo) []NamespaceHostname {
+func serviceOwningWaypointHostnames(s *model.ServiceInfo) []NamespaceHostname {
 	var out []NamespaceHostname
 	for _, waypoint := range serviceOwningWaypoints(s) {
 		wa := waypoint.GetHostname()
@@ -703,7 +704,7 @@ func serviceOwningWaypointHostnames(s model.ServiceInfo) []NamespaceHostname {
 }
 
 // serviceOwningWaypointAddresses adapts serviceOwningWaypoints for IP indexes.
-func serviceOwningWaypointAddresses(s model.ServiceInfo) []networkAddress {
+func serviceOwningWaypointAddresses(s *model.ServiceInfo) []networkAddress {
 	var out []networkAddress
 	for _, waypoint := range serviceOwningWaypoints(s) {
 		wa := waypoint.GetAddress()
@@ -716,14 +717,14 @@ func serviceOwningWaypointAddresses(s model.ServiceInfo) []networkAddress {
 	return out
 }
 
-func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+func (a *index) ServicesForWaypoint(key model.WaypointKey) []*model.ServiceInfo {
 	if key.IsNetworkGateway && features.EnableAmbientMultiNetwork {
 		// If this is a network gateway waypoint, we only return the global services
 		// that are local to this network and waypoints with global services
 		return a.AllLocalNetworkGlobalServices(key)
 	}
 
-	out := map[string]model.ServiceInfo{}
+	out := map[string]*model.ServiceInfo{}
 
 	for _, host := range key.Hostnames {
 		for _, res := range a.services.ByOwningWaypointHostname.Lookup(NamespaceHostname{
@@ -752,12 +753,12 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 	return maps.Values(out)
 }
 
-func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
+func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []*model.WorkloadInfo {
 	if key.IsNetworkGateway {
 		// TODO(jaellio): Support workloads for gateway waypoint
 		return nil
 	}
-	out := map[string]model.WorkloadInfo{}
+	out := map[string]*model.WorkloadInfo{}
 	for _, host := range key.Hostnames {
 		for _, res := range a.workloads.ByOwningWaypointHostname.Lookup(NamespaceHostname{
 			Namespace: key.Namespace,
