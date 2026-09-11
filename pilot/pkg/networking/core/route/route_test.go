@@ -1585,6 +1585,31 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(extProcPerRoute.GetOverrides().GetFailureModeAllow().GetValue()).To(BeFalse())
 	})
 
+	t.Run("for virtual service with an inference pool and a cors policy", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		// A CORS filter on the rule must not cost it its endpoint picker. Both are written
+		// into the same per-filter map, and a route that loses ext_proc keeps returning 200
+		// with no picker involved, so nothing downstream reports the loss.
+		routeOpts := buildRouteOpts(serviceRegistry, nil)
+		routeOpts.InferencePoolExtensionRefs = map[string]kube.InferencePoolRouteRuleConfig{
+			"routeA": {"*.example.org": {FQDN: "ext-proc-svc.test-namespace.svc.cluster.local", Port: "9002"}},
+		}
+		withCors := virtualServicePlain.DeepCopy()
+		withCors.Spec.(*networking.VirtualService).Http[0].CorsPolicy = &networking.CorsPolicy{
+			AllowOrigins: []*networking.StringMatch{
+				{MatchType: &networking.StringMatch_Exact{Exact: "https://example.com"}},
+			},
+		}
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), withCors, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(routes[0].GetTypedPerFilterConfig()).To(HaveKey(wellknown.CORS))
+		g.Expect(routes[0].GetTypedPerFilterConfig()).To(HaveKey(wellknown.HTTPExternalProcessing))
+	})
+
 	t.Run("for virtual service with routing to an service with inference semantics with failuremode override", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})

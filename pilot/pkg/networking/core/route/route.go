@@ -522,7 +522,7 @@ func TranslateRoute(
 	out.Decorator = &route.Decorator{
 		Operation: GetRouteOperation(out, virtualService.Name, listenPort),
 	}
-	if in.Fault != nil || in.CorsPolicy != nil {
+	if (in.Fault != nil || in.CorsPolicy != nil) && out.TypedPerFilterConfig == nil {
 		out.TypedPerFilterConfig = make(map[string]*anypb.Any)
 	}
 	if in.Fault != nil {
@@ -653,7 +653,6 @@ func applyHTTPRouteDestination(
 	// that pool's own picker. So the ext_proc override goes wherever the backend's cluster went -
 	// on the route itself for a single destination, on each weighted cluster otherwise.
 	infPoolCfg := opts.InferencePoolExtensionRefs[in.Name]
-	pickersAttached := 0
 
 	consistentHash := false
 	if len(in.Route) == 1 {
@@ -665,7 +664,6 @@ func applyHTTPRouteDestination(
 				out.TypedPerFilterConfig = make(map[string]*anypb.Any)
 			}
 			out.TypedPerFilterConfig[wellknown.HTTPExternalProcessing] = buildExtProcPerRoute(cfg)
-			pickersAttached++
 		}
 	} else {
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
@@ -679,7 +677,6 @@ func applyHTTPRouteDestination(
 				destinationweight.TypedPerFilterConfig = map[string]*anypb.Any{
 					wellknown.HTTPExternalProcessing: buildExtProcPerRoute(cfg),
 				}
-				pickersAttached++
 			} else if len(infPoolCfg) > 0 {
 				// An ordinary backend sharing a rule with an InferencePool. It belongs to no pool,
 				// so no picker may claim it.
@@ -695,13 +692,6 @@ func applyHTTPRouteDestination(
 				Clusters: weighted,
 			},
 		}
-	}
-	if len(infPoolCfg) > 0 && pickersAttached == 0 {
-		// The configs are keyed by destination host, so this can only happen if the two sides
-		// disagree on that host. Nothing downstream would report it: requests would keep
-		// succeeding while endpoint selection quietly stopped happening.
-		log.Warnf("route %q carries %d InferencePool endpoint pickers but none matched a destination",
-			in.Name, len(infPoolCfg))
 	}
 	action.RetryPolicy = retry.ConvertPolicy(policy, consistentHash)
 	return hostnames
