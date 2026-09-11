@@ -937,6 +937,23 @@ spec:
 			if t.Settings().AmbientMultiNetwork {
 				t.Skip("https://github.com/istio/istio/issues/54245")
 			}
+			// Apply a deny-all policy on the workload waypoint
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Waypoint": apps.WorkloadAddressedWaypoint.Config().WorkloadWaypointProxy,
+			}, `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-workload-waypoint
+spec:
+  targetRefs:
+  - kind: Gateway
+    group: gateway.networking.k8s.io
+    name: {{.Waypoint}}
+  action: DENY
+  rules:
+  - {}
+`).ApplyOrFail(t)
 			for _, src := range apps.Sidecar {
 				for _, dst := range apps.WorkloadAddressedWaypoint {
 					for _, dstWl := range dst.WorkloadsOrFail(t) {
@@ -945,8 +962,8 @@ spec:
 								opt = opt.DeepCopy()
 								opt.Address = dstWl.Address()
 								opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
-								// Sidecar does not currently traverse waypoint, so we expect to bypass it and get success
-								opt.Check = check.OK()
+								// Sidecar now traverses workload waypoint, so traffic should be denied
+								opt.Check = CheckDeny
 								src.CallOrFail(t, opt)
 							})
 						}
