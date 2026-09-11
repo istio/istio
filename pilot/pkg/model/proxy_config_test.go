@@ -292,6 +292,35 @@ func TestEffectiveProxyConfig(t *testing.T) {
 			expected:      &meshconfig.ProxyConfig{Concurrency: v(3)},
 		},
 		{
+			name: "namespace workload selector takes precedence over root namespace workload selector",
+			configs: []config.Config{
+				newProxyConfig("global-workload", istioRootNamespace,
+					&v1beta1.ProxyConfig{
+						Selector: selector(map[string]string{
+							"app": "matched",
+						}),
+						Concurrency: v(2),
+						EnvironmentVariables: map[string]string{
+							"GLOBAL": "set",
+						},
+					}),
+				newProxyConfig("namespace-workload", "test-ns",
+					&v1beta1.ProxyConfig{
+						Selector: selector(map[string]string{
+							"app": "matched",
+						}),
+						Concurrency: v(3),
+					}),
+			},
+			proxy: newMeta("test-ns", map[string]string{"app": "matched"}, nil),
+			expected: &meshconfig.ProxyConfig{
+				Concurrency: v(3),
+				ProxyMetadata: map[string]string{
+					"GLOBAL": "set",
+				},
+			},
+		},
+		{
 			name: "workload matching CR takes precedence over namespace matching CR",
 			configs: []config.Config{
 				newProxyConfig("workload", "test-ns",
@@ -453,6 +482,82 @@ func TestEffectiveProxyConfig(t *testing.T) {
 			assert.Equal(t, merged, pc)
 			after, _ := protomarshal.ToJSON(m)
 			assert.Equal(t, original, after, "mesh config should not be mutated")
+		})
+	}
+}
+
+func TestRootNamespaceWorkloadSelectors(t *testing.T) {
+	configs := []config.Config{
+		setCreationTimestamp(newProxyConfig("global", istioRootNamespace,
+			&v1beta1.ProxyConfig{
+				Concurrency: v(1),
+				EnvironmentVariables: map[string]string{
+					"GLOBAL": "set",
+				},
+			}), now.Add(-time.Hour)),
+		setCreationTimestamp(newProxyConfig("workload-a", istioRootNamespace,
+			&v1beta1.ProxyConfig{
+				Selector: selector(map[string]string{
+					"app": "a",
+				}),
+				Concurrency: v(2),
+			}), now),
+		setCreationTimestamp(newProxyConfig("workload-b", istioRootNamespace,
+			&v1beta1.ProxyConfig{
+				Selector: selector(map[string]string{
+					"app": "b",
+				}),
+				Concurrency: v(3),
+			}), now.Add(time.Hour)),
+	}
+	m := &meshconfig.MeshConfig{RootNamespace: istioRootNamespace}
+	pcs := GetProxyConfigs(newProxyConfigStore(t, configs), m)
+
+	cases := []struct {
+		name     string
+		proxy    *NodeMetadata
+		expected *meshconfig.ProxyConfig
+	}{
+		{
+			name:  "first selector takes precedence over global config",
+			proxy: newMeta("ns-a", map[string]string{"app": "a"}, nil),
+			expected: &meshconfig.ProxyConfig{
+				Concurrency:   v(2),
+				ProxyMetadata: map[string]string{"GLOBAL": "set"},
+			},
+		},
+		{
+			name:  "second selector takes precedence over global config",
+			proxy: newMeta("ns-b", map[string]string{"app": "b"}, nil),
+			expected: &meshconfig.ProxyConfig{
+				Concurrency:   v(3),
+				ProxyMetadata: map[string]string{"GLOBAL": "set"},
+			},
+		},
+		{
+			name:  "global config applies when no selector matches",
+			proxy: newMeta("ns-c", map[string]string{"app": "c"}, nil),
+			expected: &meshconfig.ProxyConfig{
+				Concurrency:   v(1),
+				ProxyMetadata: map[string]string{"GLOBAL": "set"},
+			},
+		},
+		{
+			name:  "selector takes precedence for workload in root namespace",
+			proxy: newMeta(istioRootNamespace, map[string]string{"app": "b"}, nil),
+			expected: &meshconfig.ProxyConfig{
+				Concurrency:   v(3),
+				ProxyMetadata: map[string]string{"GLOBAL": "set"},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			merged := pcs.EffectiveProxyConfig(tc.proxy, m)
+			expected := mesh.DefaultProxyConfig()
+			proto.Merge(expected, tc.expected)
+			assert.Equal(t, merged, expected)
 		})
 	}
 }
