@@ -151,12 +151,17 @@ type kubeComponent struct {
 	cluster   cluster.Cluster
 }
 
+const defaultZipkinRepository = "ghcr.io/openzipkin/zipkin-slim"
+
 func getZipkinYaml() (string, error) {
 	yamlBytes, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/extras/zipkin.yaml"))
 	if err != nil {
 		return "", err
 	}
 	yaml := string(yamlBytes)
+	if hub := os.Getenv("ZIPKIN_HUB"); hub != "" {
+		yaml = strings.ReplaceAll(yaml, defaultZipkinRepository, hub+"/zipkin-slim")
+	}
 	return yaml, nil
 }
 

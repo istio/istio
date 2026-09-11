@@ -41,8 +41,10 @@ import (
 )
 
 const (
-	serviceName = "prometheus"
-	appName     = "prometheus"
+	serviceName                               = "prometheus"
+	appName                                   = "prometheus"
+	defaultPrometheusRepository               = "docker.io/prom/prometheus"
+	defaultPrometheusConfigReloaderRepository = "ghcr.io/prometheus-operator/prometheus-config-reloader"
 )
 
 var (
@@ -75,7 +77,14 @@ func getPrometheusYaml() (string, error) {
 		return "", err
 	}
 	yaml := string(yamlBytes)
-	yaml = strings.ReplaceAll(yaml, "docker.io/prom/prometheus", "quay.io/prometheus/prometheus")
+	if hub := os.Getenv("PROMETHEUS_HUB"); hub != "" {
+		yaml = strings.ReplaceAll(yaml, defaultPrometheusRepository, hub+"/prometheus")
+	} else {
+		yaml = strings.ReplaceAll(yaml, defaultPrometheusRepository, "quay.io/prometheus/prometheus")
+	}
+	if hub := os.Getenv("PROMETHEUS_CONFIG_RELOADER_HUB"); hub != "" {
+		yaml = strings.ReplaceAll(yaml, defaultPrometheusConfigReloaderRepository, hub+"/prometheus-config-reloader")
+	}
 	// For faster tests, drop scrape interval
 	yaml = strings.ReplaceAll(yaml, "scrape_interval: 15s", "scrape_interval: 5s")
 	yaml = strings.ReplaceAll(yaml, "scrape_timeout: 10s", "scrape_timeout: 5s")
