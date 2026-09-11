@@ -96,7 +96,7 @@ func uninstallLuaTrafficExtension(ctx framework.TestContext, filterName, path st
 
 // TestLuaTrafficExtension_HeaderInjection tests that Lua filters can inject headers
 func TestLuaTrafficExtension_HeaderInjection(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			testCases := []struct {
 				desc         string
@@ -148,7 +148,7 @@ func TestLuaTrafficExtension_HeaderInjection(t *testing.T) {
 
 // TestLuaTrafficExtension_ResponseModification tests that Lua filters can modify responses
 func TestLuaTrafficExtension_ResponseModification(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			filterName := "lua-response-modifier"
 			targetType := "service"
@@ -174,7 +174,7 @@ func TestLuaTrafficExtension_ResponseModification(t *testing.T) {
 
 // TestLuaTrafficExtension_MultipleFilters tests multiple Lua filters with different priorities
 func TestLuaTrafficExtension_MultipleFilters(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			targetType := "service"
 			targetName := GetTarget().Instances().ServiceName()
@@ -213,7 +213,7 @@ func TestLuaTrafficExtension_MultipleFilters(t *testing.T) {
 
 // TestLuaTrafficExtension_PhaseOrdering tests that filters execute in the correct phase order in ambient mode
 func TestLuaTrafficExtension_PhaseOrdering(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			targetType := "service"
 			targetName := GetTarget().Instances().ServiceName()

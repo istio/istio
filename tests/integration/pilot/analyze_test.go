@@ -54,7 +54,7 @@ var analyzerFoundIssuesError = analyze.AnalyzerFoundIssuesError{}
 func TestEmptyCluster(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
@@ -76,7 +76,7 @@ func TestEmptyCluster(t *testing.T) {
 func TestFileOnly(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
@@ -103,7 +103,7 @@ func TestFileOnly(t *testing.T) {
 func TestDirectory(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
@@ -125,7 +125,7 @@ func TestDirectory(t *testing.T) {
 func TestInvalidFileError(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
@@ -161,7 +161,7 @@ func TestInvalidFileError(t *testing.T) {
 func TestJsonInputFile(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
@@ -184,7 +184,7 @@ func TestJsonInputFile(t *testing.T) {
 func TestJsonOutput(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
@@ -214,7 +214,7 @@ func TestJsonOutput(t *testing.T) {
 func TestKubeOnly(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
@@ -238,7 +238,7 @@ func TestKubeOnly(t *testing.T) {
 func TestFileAndKubeCombined(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
@@ -263,7 +263,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 func TestAllNamespaces(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
@@ -322,7 +322,7 @@ func TestTimeout(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/25893")
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
@@ -344,7 +344,7 @@ func TestTimeout(t *testing.T) {
 func TestErrorLine(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
@@ -440,7 +440,7 @@ func applyFileOrFail(t framework.TestContext, ns, filename string) {
 func TestMultiClusterWithSecrets(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewMulticlusterTest(t).
 		Run(func(t framework.TestContext) {
 			if len(t.Environment().Clusters()) < 2 {
 				t.Skip("skipping test, need at least 2 clusters")
@@ -511,7 +511,7 @@ func createRemoteSecret(t test.Failer, i istioctl.Instance, cluster string) (str
 func TestMultiClusterWithContexts(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewMulticlusterTest(t).
 		Run(func(t framework.TestContext) {
 			if len(t.Environment().Clusters()) < 2 {
 				t.Skip("skipping test, need at least 2 clusters")
