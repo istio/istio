@@ -1,7 +1,6 @@
 name: envoy.filters.http.ext_authz
 typedConfig:
   '@type': type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
-  clearRouteCache: true
   failureModeAllow: true
   filterEnabledMetadata:
     filter: envoy.filters.http.rbac
@@ -10,11 +9,11 @@ typedConfig:
     value:
       stringMatch:
         prefix: istio-ext-authz-default
-  grpcService:
-    envoyGrpc:
-      authority: my-custom-ext-authz.foo.svc.cluster.local
-      clusterName: outbound|9000||my-custom-ext-authz.foo.svc.cluster.local
-    timeout: 600s
+  httpService:
+    serverUri:
+      cluster: outbound|9000||my-custom-ext-authz.foo.svc.cluster.local
+      timeout: 600s
+      uri: http://my-custom-ext-authz.foo.svc.cluster.local
   statusOnError:
     code: Forbidden
   transportApiVersion: V3

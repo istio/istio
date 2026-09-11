@@ -9,6 +9,7 @@ typedConfig:
       prefix: x-prefix-
     - ignoreCase: true
       suffix: -suffix
+  clearRouteCache: true
   failureModeAllow: true
   filterEnabledMetadata:
     filter: envoy.filters.http.rbac
