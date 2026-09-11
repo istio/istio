@@ -17,10 +17,12 @@ package controller
 import (
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	kubeUtil "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/network"
@@ -45,11 +47,15 @@ type EndpointBuilder struct {
 	subDomain string
 	// If in k8s, the node where the pod resides
 	nodeName string
+	// When true, ztunnel traffic interception is set up for the workload, so it supports
+	// receiving HBONE traffic.
+	supportsHBONE bool
 }
 
 func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 	var locality, sa, namespace, hostname, subdomain, ip, node string
 	var podLabels labels.Instance
+	var supportsHBONE bool
 	if pod != nil {
 		locality = c.getPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod, c.meshWatcher.TrustDomain())
@@ -64,6 +70,7 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 		}
 		ip = pod.Status.PodIP
 		node = pod.Spec.NodeName
+		supportsHBONE = pod.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 	}
 	dm, _ := kubeUtil.GetWorkloadMetaFromPod(pod)
 	out := &EndpointBuilder{
@@ -73,13 +80,14 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 			Label:     locality,
 			ClusterID: c.Cluster(),
 		},
-		tlsMode:      kube.PodTLSMode(pod),
-		workloadName: dm.Name,
-		namespace:    namespace,
-		hostname:     hostname,
-		subDomain:    subdomain,
-		labels:       podLabels,
-		nodeName:     node,
+		tlsMode:       kube.PodTLSMode(pod),
+		workloadName:  dm.Name,
+		namespace:     namespace,
+		hostname:      hostname,
+		subDomain:     subdomain,
+		labels:        podLabels,
+		nodeName:      node,
+		supportsHBONE: supportsHBONE,
 	}
 	networkID := out.endpointNetwork(ip)
 	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, node, networkID)
@@ -122,6 +130,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		HealthStatus:           healthStatus,
 		SendUnhealthyEndpoints: sendUnhealthy,
 		NodeName:               b.nodeName,
+		SupportsHBONE:          b.supportsHBONE,
 	}
 }
 
