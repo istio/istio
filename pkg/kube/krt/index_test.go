@@ -78,7 +78,7 @@ func checkLookupFiltered[T any](t *testing.T, col krt.Collection[T], namespace f
 	t.Helper()
 	idx := krt.NewIndex(col, "namespace", func(n T) []string { return []string{namespace(n)} })
 	keys := func(objects []T) []string {
-		return slices.Sort(slices.Map(objects, func(obj T) string { return krt.GetKey(obj) }))
+		return slices.Sort(slices.Map(objects, krt.GetKey[T]))
 	}
 	assert.Equal(t, keys(idx.LookupFiltered("ns", nil)), []string{"ns/a", "ns/b"})
 	assert.Equal(t, keys(idx.LookupFiltered("ns", func(T) bool { return true })), []string{"ns/a", "ns/b"})
