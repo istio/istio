@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/grpc"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
@@ -387,6 +388,7 @@ type RouteOptions struct {
 	LookupHash                func(*networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB
 
 	InferencePoolExtensionRefs map[string]kube.InferencePoolRouteRuleConfig
+	BuildPerRouteAuthConfig    func(origin types.NamespacedName) map[string]*anypb.Any
 }
 
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
@@ -411,16 +413,27 @@ func BuildHTTPRoutesForVirtualService(
 
 	out := make([]*route.Route, 0, len(vs.Http))
 
+	origins, err := httpRouteOrigins(virtualService, len(vs.Http))
+	if err != nil {
+		return nil, err
+	}
+
 	catchall := false
-	for _, http := range vs.Http {
+	for i, http := range vs.Http {
+		var origin types.NamespacedName
+		if origins != nil {
+			origin = origins[i]
+		}
 		if len(http.Match) == 0 {
 			if r := TranslateRoute(node, http, nil, listenPort, virtualService, gatewayNames, opts); r != nil {
+				applyPerRouteAuthPolicy(r, origin, opts)
 				out = append(out, r)
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
 				if r := TranslateRoute(node, http, match, listenPort, virtualService, gatewayNames, opts); r != nil {
+					applyPerRouteAuthPolicy(r, origin, opts)
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just stop sending any more routes here.
@@ -440,6 +453,45 @@ func BuildHTTPRoutesForVirtualService(
 		return nil, fmt.Errorf("no routes matched")
 	}
 	return out, nil
+}
+
+// httpRouteOrigins returns the HTTPRoute each of the VirtualService's routes was generated from,
+// or nil for VirtualServices that did not come from an HTTPRoute.
+func httpRouteOrigins(virtualService config.Config, routeCount int) ([]types.NamespacedName, error) {
+	if !features.EnableGatewayAPIHTTPRouteAuth {
+		return nil, nil
+	}
+	raw, ok := virtualService.Extra[constants.ConfigExtraHTTPRouteOrigins]
+	if !ok {
+		return nil, nil
+	}
+	origins, ok := raw.([]types.NamespacedName)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type %T for HTTPRoute origins in VirtualService %s/%s",
+			raw, virtualService.Namespace, virtualService.Name)
+	}
+	if len(origins) != routeCount {
+		return nil, fmt.Errorf("HTTPRoute origins count %d does not match route count %d in VirtualService %s/%s",
+			len(origins), routeCount, virtualService.Namespace, virtualService.Name)
+	}
+	return origins, nil
+}
+
+func applyPerRouteAuthPolicy(r *route.Route, origin types.NamespacedName, opts RouteOptions) {
+	if opts.BuildPerRouteAuthConfig == nil {
+		return
+	}
+
+	routeOverrides := opts.BuildPerRouteAuthConfig(origin)
+	if len(routeOverrides) == 0 {
+		return
+	}
+
+	if r.TypedPerFilterConfig == nil {
+		r.TypedPerFilterConfig = make(map[string]*anypb.Any)
+	}
+
+	maps.Copy(r.TypedPerFilterConfig, routeOverrides)
 }
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the

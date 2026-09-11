@@ -49,6 +49,10 @@ var rbacPolicyMatchNever = &rbacpb.Policy{
 type Option struct {
 	IsCustomBuilder bool
 	UseFilterState  bool
+	// NamedAllowFilter emits the ALLOW filter under RBACFilterNameAllow instead of the well-known
+	// name so per-route config can address it. Only set for proxies that support per-route
+	// AuthorizationPolicy; everything else stays on the well-known name.
+	NamedAllowFilter bool
 }
 
 // Builder builds Istio authorization policy to Envoy filters.
@@ -96,6 +100,69 @@ func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies
 // BuildHTTP returns the HTTP filters built from the authorization policy.
 func (b Builder) BuildHTTP() []*hcm.HttpFilter {
 	return build(b, b.buildHTTP, "HTTP", false)
+}
+
+// Filter instance names that per-route AuthorizationPolicy config is keyed by.
+//
+// DENY uses a dedicated filter appended after the workload filters: chained DENY filters reject
+// if any matches, so a route DENY can only add to workload and root-namespace DENY.
+//
+// ALLOW reuses the workload's ALLOW filter under a distinct name, because chained ALLOW filters
+// intersect while policies within one filter union. Sharing the filter is what lets a route
+// ALLOW widen access. The name must differ from the DENY and AUDIT instances, which both use
+// the well-known name, so a route can address ALLOW alone.
+const (
+	RBACFilterNameAllow     = "istio.authorization.allow"
+	RBACRouteAnchorNameDeny = "istio.authorization.route.deny"
+)
+
+// PerRouteFilterName returns the filter instance name to key per-route RBAC config by, or ""
+// if the action cannot be set per route.
+func PerRouteFilterName(action rbacpb.RBAC_Action) string {
+	switch action {
+	case rbacpb.RBAC_ALLOW:
+		return RBACFilterNameAllow
+	case rbacpb.RBAC_DENY:
+		return RBACRouteAnchorNameDeny
+	default:
+		return ""
+	}
+}
+
+// BuildHTTPRBACForRoute returns the RBAC config per action for use in a route's
+// typed_per_filter_config. It shares BuildHTTP's rule translation and trust domain migration,
+// but skips the hcm.HttpFilter wrapper, which is not valid per route.
+func (b Builder) BuildHTTPRBACForRoute() map[rbacpb.RBAC_Action]*rbachttp.RBAC {
+	if b.option.IsCustomBuilder {
+		return nil
+	}
+	logger := &AuthzLogger{}
+	defer logger.Report()
+
+	out := make(map[rbacpb.RBAC_Action]*rbachttp.RBAC, 2)
+	for _, action := range []struct {
+		action   rbacpb.RBAC_Action
+		policies []model.AuthorizationPolicy
+	}{
+		{rbacpb.RBAC_DENY, b.denyPolicies},
+		{rbacpb.RBAC_ALLOW, b.allowPolicies},
+	} {
+		forTCP := false
+		rule := b.build(action.policies, action.action, forTCP, logger)
+		if rule == nil {
+			continue
+		}
+		out[action.action] = &rbachttp.RBAC{
+			Rules:                 rule.rules,
+			ShadowRules:           rule.shadowRules,
+			ShadowRulesStatPrefix: shadowRuleStatPrefix(rule.shadowRules),
+		}
+		logger.AppendDebugf("built per-route RBAC for %s action", action.action)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // BuildTCP returns the TCP filters built from the authorization policy.
@@ -159,6 +226,15 @@ func isDryRun(policy model.AuthorizationPolicy, logger *AuthzLogger) bool {
 		}
 	}
 	return dryRun
+}
+
+// actionOf reports the action a built filter carries. Enforce and shadow rules always agree on
+// the action, but either may be nil depending on whether the policies are dry-run.
+func actionOf(rules, shadowRules *rbacpb.RBAC) rbacpb.RBAC_Action {
+	if rules != nil {
+		return rules.GetAction()
+	}
+	return shadowRules.GetAction()
 }
 
 func shadowRuleStatPrefix(rule *rbacpb.RBAC) string {
@@ -323,9 +399,13 @@ func (b Builder) buildHTTP(rule *builtRule, logger *AuthzLogger) []*hcm.HttpFilt
 			ShadowRules:           shadowRules,
 			ShadowRulesStatPrefix: shadowRuleStatPrefix(shadowRules),
 		}
+		name := wellknown.HTTPRoleBasedAccessControl
+		if b.option.NamedAllowFilter && actionOf(rules, shadowRules) == rbacpb.RBAC_ALLOW {
+			name = RBACFilterNameAllow
+		}
 		return []*hcm.HttpFilter{
 			{
-				Name:       wellknown.HTTPRoleBasedAccessControl,
+				Name:       name,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}

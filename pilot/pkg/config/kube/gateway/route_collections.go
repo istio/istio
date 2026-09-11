@@ -17,6 +17,7 @@ package gateway
 import (
 	"fmt"
 	"iter"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,7 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -185,6 +187,17 @@ func HTTPRouteCollection(
 				}
 				if len(currentRouteInferenceConfigs) > 0 {
 					extraData[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = currentRouteInferenceConfigs
+				}
+
+				// Record which HTTPRoute each generated route came from.
+				if features.EnableGatewayAPIHTTPRouteAuth {
+					origin := types.NamespacedName{Name: obj.Name, Namespace: obj.Namespace}
+					// Give each individual route an entry as VirtualServices and their
+					// routes can be merged.
+					routeOrigins := slices.Map(routes, func(*istio.HTTPRoute) types.NamespacedName {
+						return origin
+					})
+					extraData[constants.ConfigExtraHTTPRouteOrigins] = routeOrigins
 				}
 
 				cfg := config.Config{
@@ -829,6 +842,13 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		sortRoutesByCreationTime(configs)
 		base := configs[0].DeepCopy()
 		baseVS := base.Spec.(*istio.VirtualService)
+
+		origins, err := cloneHTTPRouteOrigins(base)
+		if err != nil {
+			log.Errorf("invalid HTTPRoute origins: %v", err)
+			return nil
+		}
+
 		// Deep copy the InferencePool configs map to avoid race conditions
 		// The default DeepCopy() only does shallow copy of Extra field
 		if base.Extra != nil {
@@ -844,6 +864,12 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		for i, config := range configs[1:] {
 			thisVS := config.Spec.(*istio.VirtualService)
 			baseVS.Http = append(baseVS.Http, thisVS.Http...)
+			thisOrigins, err := cloneHTTPRouteOrigins(config.Config)
+			if err != nil {
+				log.Errorf("invalid HTTPRoute origins: %v", err)
+				return nil
+			}
+			origins = append(origins, thisOrigins...)
 			// append parents
 			base.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s",
 				base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
@@ -853,7 +879,10 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 			}
 			if config.Extra != nil {
 				for k, v := range config.Extra {
-					// For non-InferencePool configs, keep the first value for stability
+					if k == constants.ConfigExtraHTTPRouteOrigins {
+						continue
+					}
+					// For generic Extra configs, keep the first value for stability
 					if k != constants.ConfigExtraPerRouteRuleInferencePoolConfigs {
 						if _, exists := base.Extra[k]; !exists {
 							base.Extra[k] = v
@@ -887,9 +916,61 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 				log.Debugf("Final merged VirtualService for key %s has %d InferencePool route configs", object.Key, len(ipConfigs))
 			}
 		}
-		sortHTTPRoutes(baseVS.Http)
+		if features.EnableGatewayAPIHTTPRouteAuth {
+			sortHTTPRoutesWithOrigins(baseVS.Http, origins)
+			if base.Extra == nil {
+				base.Extra = make(map[string]any)
+			}
+			base.Extra[constants.ConfigExtraHTTPRouteOrigins] = origins
+		} else {
+			sortHTTPRoutes(baseVS.Http)
+		}
 		base.Name = strings.ReplaceAll(object.Key, "/", "~")
 		return &base
 	}, opts...)
 	return finalVirtualServices
+}
+
+// cloneHTTPRouteOrigins returns a copy of the HTTPRoute each of the VirtualService's routes came from,
+// or a slice of zero values when none were recorded.
+func cloneHTTPRouteOrigins(config config.Config) ([]types.NamespacedName, error) {
+	if !features.EnableGatewayAPIHTTPRouteAuth {
+		return nil, nil
+	}
+	virtualService := config.Spec.(*istio.VirtualService)
+	rawOrigins, ok := config.Extra[constants.ConfigExtraHTTPRouteOrigins]
+	if !ok {
+		return make([]types.NamespacedName, len(virtualService.Http)), nil
+	}
+	origins, ok := rawOrigins.([]types.NamespacedName)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for HTTPRoute origins: %T", rawOrigins)
+	}
+
+	if len(origins) != len(virtualService.Http) {
+		return nil, fmt.Errorf("HTTPRoute origins count does not equal route count")
+	}
+
+	return slices.Clone(origins), nil
+}
+
+func sortHTTPRoutesWithOrigins(routes []*istio.HTTPRoute, origins []types.NamespacedName) {
+	type routeOriginPair struct {
+		route  *istio.HTTPRoute
+		origin types.NamespacedName
+	}
+
+	pairs := make([]routeOriginPair, len(routes))
+	for i := range routes {
+		pairs[i] = routeOriginPair{routes[i], origins[i]}
+	}
+
+	sort.SliceStable(pairs, func(i, j int) bool {
+		return httpRouteLess(pairs[i].route, pairs[j].route)
+	})
+
+	for i := range pairs {
+		routes[i] = pairs[i].route
+		origins[i] = pairs[i].origin
+	}
 }

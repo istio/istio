@@ -739,3 +739,9 @@ messages:
       type: int
     - name: protocols
       type: string
+
+  - name: "EnvoyFilterMayClearRouteCache"
+    code: IST0178
+    level: Warning
+    description: "Using EnvoyFilters with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run."
+    template: "Using an EnvoyFilter with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run. This can cause a request to be routed differently than it was when the route-dependent filter was evaluated. See https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_filters.html#security-considerations."
