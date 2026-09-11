@@ -342,7 +342,9 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, req *http.Request) {
 	for _, con := range s.SortedClients() {
 		node := con.proxy
 		if node != nil && (namespace == "" || node.GetNamespace() == namespace) {
-			wrs := node.DeepCloneWatchedResources()
+			node.RLock()
+			wrs := node.DeepCloneWatchedResourcesLocked()
+			node.RUnlock()
 			res := make(map[string]ResourceStatus, len(wrs))
 			for _, wr := range wrs {
 				res[wr.TypeUrl] = ResourceStatus{
