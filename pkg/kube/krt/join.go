@@ -325,11 +325,11 @@ type joinIndexer[T any] struct {
 }
 
 // nolint: unused // (not true)
-func (j joinIndexer[T]) Lookup(key string) []T {
+func (j joinIndexer[T]) LookupFiltered(key string, filter func(T) bool) []T {
 	var res []T
 	first := true
 	for _, i := range j.indexers {
-		l := i.Lookup(key)
+		l := i.LookupFiltered(key, filter)
 		if len(l) > 0 && first {
 			// Optimization: re-use the first returned slice
 			res = l

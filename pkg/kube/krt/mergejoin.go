@@ -67,19 +67,24 @@ type joinCollectionIndex[T any] struct {
 	parent  *mergejoin[T]
 }
 
-func (c joinCollectionIndex[T]) Lookup(key string) []T {
+func (c joinCollectionIndex[T]) LookupFiltered(key string, filter func(T) bool) []T {
 	c.parent.mu.RLock()
 	defer c.parent.mu.RUnlock()
 	keys := c.index[key]
 
-	res := make([]T, 0, len(keys))
+	var res []T
+	if filter == nil {
+		res = make([]T, 0, len(keys))
+	}
 	for k := range keys {
 		v, f := c.parent.outputs[k]
 		if !f {
 			log.WithLabels("key", k).Errorf("invalid index state, object does not exist")
 			continue
 		}
-		res = append(res, v)
+		if filter == nil || filter(v) {
+			res = append(res, v)
+		}
 	}
 	return res
 }
