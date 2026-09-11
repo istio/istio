@@ -17,6 +17,7 @@ package iptables
 
 import (
 	"errors"
+	"net/netip"
 
 	"istio.io/istio/cni/pkg/config"
 )
@@ -34,5 +35,17 @@ func AddLoopbackRoutes(cfg *config.AmbientConfig) error {
 }
 
 func DelLoopbackRoutes(cfg *config.AmbientConfig) error {
+	return errors.New("not implemented on this platform")
+}
+
+func discoverDefaultGateway() (netip.Addr, netip.Addr) {
+	return netip.Addr{}, netip.Addr{}
+}
+
+func discoverPodIPs() ([]netip.Addr, []netip.Addr) {
+	return nil, nil
+}
+
+func writeSysctl(key, value string) error {
 	return errors.New("not implemented on this platform")
 }
