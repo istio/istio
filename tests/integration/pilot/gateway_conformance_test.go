@@ -69,7 +69,6 @@ var skippedTests = map[string]string{
 
 func TestGatewayConformance(t *testing.T) {
 	framework.
-		// FIXME (stevenjin8) gateway api conformance tests are extremely CPU heavy, probably because they done do any kind of backoff when checking state.
 		NewFullTest(t).
 		Run(func(ctx framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(ctx)
