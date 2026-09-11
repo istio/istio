@@ -17,11 +17,13 @@ package core
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	dfpcluster "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dynamic_forward_proxy/v3"
 	upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	. "github.com/onsi/gomega"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -135,6 +137,23 @@ func TestSidecarDynamicDNSClusters(t *testing.T) {
 			expectAutoSni:           true,
 			expectAutoSanValidation: true,
 			expectTransportTLS:      true,
+		},
+		{
+			name:     "HTTP with outlier detection",
+			protocol: "HTTP",
+			port:     80,
+			destinationRule: &networking.DestinationRule{
+				Host: "*.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					OutlierDetection: &networking.OutlierDetection{
+						BaseEjectionTime:     durationpb.New(30 * time.Second),
+						Consecutive5xxErrors: wrappers.UInt32(2),
+						Interval:             durationpb.New(2 * time.Minute),
+						MaxEjectionPercent:   100,
+					},
+				},
+			},
+			expectCluster: true,
 		},
 		{
 			name:          "Unsupported protocol TCP",
