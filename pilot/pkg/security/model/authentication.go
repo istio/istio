@@ -250,6 +250,11 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 		return
 	}
 
+	caCert := tlsOpts.CredentialName + SdsCaSuffix
+	if tlsOpts.CaCertCredentialName != "" {
+		caCert = tlsOpts.CaCertCredentialName
+	}
+
 	// create SDS config for gateway to fetch certificate validation context
 	// at gateway agent.
 	defaultValidationContext := &tls.CertificateValidationContext{
@@ -259,7 +264,7 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 			DefaultValidationContext: defaultValidationContext,
 			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(
-				tlsOpts.CredentialName+SdsCaSuffix, credentialSocketExist, nil),
+				caCert, credentialSocketExist, nil),
 		},
 	}
 }
