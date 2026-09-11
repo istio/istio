@@ -69,7 +69,7 @@ var skippedTests = map[string]string{
 
 func TestGatewayConformance(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(ctx framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(ctx)
 
