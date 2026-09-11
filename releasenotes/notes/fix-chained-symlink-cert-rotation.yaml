@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 61161
+releaseNotes:
+- |
+  **Added** the `DISABLE_CERT_SYMLINK_WATCHER` environment variable to the agent, which restores the
+  pre-1.29 file-watching behavior for file-mounted certificates: a single watch on the resolved file,
+  re-armed when that file is deleted. Setting it fixes the node agent failing to detect certificate
+  rotations for certificates whose symlink chain resolves into a different directory that is rotated
+  via the Kubernetes AtomicWriter pattern, such as certificates provided by a CSI driver, which
+  caused proxies to serve a stale certificate until it expired. It works for a symlink chain of any
+  depth. While set, re-pointing a symlink at a different file without deleting the original file is
+  no longer detected.
