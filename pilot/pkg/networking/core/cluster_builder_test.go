@@ -4020,6 +4020,10 @@ func TestBuildAllowAnyDFPClusterTLSSettings(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := cb.buildAllowAnyDFPCluster(tc.tls).cluster
 
+			if c.CommonLbConfig == nil {
+				t.Error("expected CommonLbConfig to be set, got nil")
+			}
+
 			if tc.expectTLS {
 				if c.TransportSocket == nil {
 					t.Fatal("expected TransportSocket to be set for TLS mode")
