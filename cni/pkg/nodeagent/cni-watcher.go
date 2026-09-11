@@ -190,10 +190,17 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 	var podIps []netip.Addr
 	for _, configuredPodIPs := range addCmd.IPs {
 		// net.ip is implicitly convertible to netip as slice
-		ip, _ := netip.AddrFromSlice(configuredPodIPs.Address.IP)
+		ip, ok := netip.AddrFromSlice(configuredPodIPs.Address.IP)
+		if !ok {
+			log.Warnf("skipping invalid IP address from CNI event: %v", configuredPodIPs.Address.IP)
+			continue
+		}
 		// We ignore the mask of the IPNet - it's fine if the IPNet defines
 		// a block grant of addresses, we just need one for checking routes.
 		podIps = append(podIps, ip.Unmap())
+	}
+	if len(podIps) == 0 {
+		return fmt.Errorf("CNI event contained no valid pod IPs")
 	}
 	// Note that we use the IP info from the CNI plugin here - the Pod struct as reported by K8S doesn't have this info
 	// yet (because the K8S control plane doesn't), so it will be empty there.
