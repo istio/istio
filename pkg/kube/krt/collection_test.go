@@ -53,6 +53,18 @@ type RenamedSimplePod struct {
 	SimplePod
 }
 
+type pointerNamed string
+
+func (p *pointerNamed) ResourceName() string {
+	return string(*p)
+}
+
+func TestObjectWithClusterPointerReceiverKey(t *testing.T) {
+	value := pointerNamed("key")
+	wrapped := krt.ObjectWithCluster[pointerNamed]{Object: &value}
+	assert.Equal(t, krt.GetKey(wrapped), "key")
+}
+
 func (r RenamedSimplePod) ResourceName() string {
 	return r.Key
 }

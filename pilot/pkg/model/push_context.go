@@ -2702,13 +2702,13 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 
 // WorkloadsForWaypoint returns all workloads associated with a given waypoint identified by it's WaypointKey
 // Used when calculating the workloads which should be configured for a specific waypoint proxy
-func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []WorkloadInfo {
+func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []*WorkloadInfo {
 	return ps.ambientIndex.WorkloadsForWaypoint(key)
 }
 
 // ServicesForWaypoint returns all services associated with a given waypoint identified by it's WaypointKey
 // Used when calculating the services which should be configured for a specific waypoint proxy
-func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
+func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []*ServiceInfo {
 	return ps.ambientIndex.ServicesForWaypoint(key)
 }
 

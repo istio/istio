@@ -381,9 +381,9 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-		svc1Host := ptr.ToList(ptr.Flatten(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1")))))
+		svc1Host := []*model.ServiceInfo{ptr.Flatten(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))}
 		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+		assert.EventuallyEqual(t, func() []*model.ServiceInfo {
 			return s.ServicesForWaypoint(wpKey)
 		}, svc1Host)
 	})
@@ -402,9 +402,9 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-		svc1Host := ptr.ToList(ptr.Flatten(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1")))))
+		svc1Host := []*model.ServiceInfo{ptr.Flatten(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))}
 		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+		assert.EventuallyEqual(t, func() []*model.ServiceInfo {
 			return s.ServicesForWaypoint(wpKey)
 		}, svc1Host)
 	})
@@ -423,9 +423,9 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-		svc1Host := ptr.ToList(ptr.Flatten(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1")))))
+		svc1Host := []*model.ServiceInfo{ptr.Flatten(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))}
 		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+		assert.EventuallyEqual(t, func() []*model.ServiceInfo {
 			return s.ServicesForWaypoint(wpKey)
 		}, svc1Host)
 	})
