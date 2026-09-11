@@ -630,6 +630,10 @@ The following environment variables can be used to configure the KinD cluster se
 | `WASM_REGISTRY` | Registry containing the Wasm test artifacts copied to the KinD registry. Defaults to `registry.istio.io/testing`. |
 | `METALLB_REGISTRY` | Registry containing the MetalLB images deployed to KinD. Defaults to `registry.istio.io/testing`. |
 | `ECR_REGISTRY` | ECR registry host. Configures an ECR image-pull secret for MetalLB when set. |
+| `PROMETHEUS_HUB` | Repository prefix for the Prometheus image. Defaults to `quay.io/prometheus`; may include a pull-through cache path. |
+| `PROMETHEUS_CONFIG_RELOADER_HUB` | Repository prefix for the Prometheus config-reloader image. Defaults to `ghcr.io/prometheus-operator`; may include a pull-through cache path. |
+| `ZIPKIN_HUB` | Repository prefix for the Zipkin image. Defaults to `ghcr.io/openzipkin`; may include a pull-through cache path. |
+| `OTEL_HUB` | Repository prefix for the OpenTelemetry Collector image. Defaults to `docker.io/otel`; may include a pull-through cache path. |
 
 ## Diagnosing Failures
 
