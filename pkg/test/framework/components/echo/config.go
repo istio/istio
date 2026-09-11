@@ -154,6 +154,8 @@ type Config struct {
 	// This aims to simulate a VM, but instead of managing the complex test setup of spinning up a VM,
 	// connecting, etc we run it inside a pod. The pod has pretty much all Kubernetes features disabled (DNS and SA token mount)
 	// such that we can adequately simulate a VM and DIY the bootstrapping.
+	// A workload-selected Sidecar scopes egress to Kubernetes service hosts across namespaces and services
+	// in the Istio system namespace, avoiding DNS initialization delays from external test fixtures.
 	DeployAsVM bool
 
 	// If enabled, ISTIO_META_AUTO_REGISTER_GROUP will be set on the VM and the WorkloadEntry will be created automatically.
