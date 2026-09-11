@@ -571,7 +571,7 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, toServiceWaypoint
 	}
 
 	// Apply the Split Horizon EDS filter, if applicable.
-	locEps = b.EndpointsByNetworkFilter(locEps, toServiceWaypoint)
+	locEps = b.EndpointsByNetworkFilter(locEps)
 
 	if model.IsDNSSrvSubsetKey(b.clusterName) {
 		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
@@ -887,6 +887,17 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 
 	return ep
+}
+
+func usesTunnel(lbEp *endpoint.LbEndpoint) bool {
+	if lbEp == nil || lbEp.Metadata == nil || lbEp.Metadata.FilterMetadata == nil {
+		return false
+	}
+	if t, exists := lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey]; exists && t != nil {
+		val, exists := t.GetFields()[model.TunnelLabelShortName]
+		return exists && val.GetStringValue() == model.TunnelHTTP
+	}
+	return false
 }
 
 func useTunnel(b *EndpointBuilder, e *model.IstioEndpoint, toWaypoint bool) bool {

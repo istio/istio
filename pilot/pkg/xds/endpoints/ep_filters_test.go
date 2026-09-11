@@ -861,6 +861,71 @@ func TestEndpointsByNetworkFilter_AmbientMultiNetwork(t *testing.T) {
 		wantWorkloadMetadata []string
 	}{
 		{
+			name:  "sidecars do not use double-HBONE",
+			proxy: makeProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					// The endpoint supports both mTLS and HBONE, but sidecars
+					// should only use mTLS for cross-network traffic and not
+					// double-HBONE
+					SupportsHBONE: true,
+					TLSMode:       "istio",
+				},
+				{
+					// The endpoint does not advertise either HBONE or mTLS, it
+					// should be filtered out because we have an mTLS gateway for
+					// the network2/cluster2b.
+					Network:   "network2",
+					Locality:  cluster2b,
+					Addresses: []string{"20.0.0.2"},
+				},
+				{
+					// This endpoint does not advertise neither mTLS nor HBONE,
+					// but we don't have a gateway for network2/cluster2d, so
+					// we should assume direct connectivity
+					Network:   "network3",
+					Locality:  cluster3a,
+					Addresses: []string{"30.0.0.1"},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network: "network2",
+					Cluster: "cluster2a",
+					Addr:    "1.1.1.10",
+					Port:    15443,
+				},
+				{
+					Network:   "network2",
+					Cluster:   "cluster2a",
+					Addr:      "1.1.1.11",
+					HBONEPort: 15008,
+				},
+				{
+					Network: "network2",
+					Cluster: "cluster2b",
+					Addr:    "2.2.2.10",
+					Port:    15443,
+				},
+			},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "1.1.1.10", Weight: 6},
+						{Address: "30.0.0.1", Weight: 6},
+					},
+					Weight: 12,
+				},
+			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster3a",
+				";;;;cluster2a",
+			},
+		},
+		{
 			name:  "waypoint handles local endpoints",
 			proxy: makeWaypointProxy("network1", "cluster1"),
 			endpoints: []*model.IstioEndpoint{
@@ -936,9 +1001,21 @@ func TestEndpointsByNetworkFilter_AmbientMultiNetwork(t *testing.T) {
 					SupportsHBONE: true,
 				},
 				{
-					// This endpoint will be skipped, because it's on a remote network,
-					// the proxy is a waypoint proxy and requires use of HBONE and
-					// the endpoint does not support HBONE
+					// This endpoint does not indicate support for either mTLS or HBONE,
+					// but the proxy is HBONE and it can only talk double-HBONE to remote
+					// endpoints, so we will use a gateway for this endpoint.
+					//
+					// NOTE: This might not be the best behavior, but that's the behavior
+					// ambient multi-network implemented for some time now, so we are
+					// preserving it until we have evidence that it's causes an issue.
+					//
+					// Purely hypothethically, what kind of problems we may encounter with
+					// this behavior - imagine we have an endpoint that does not actually
+					// support HBONE (or double-HBONE), and we add this endpoint to the
+					// EDS. It would mean that proxy will try to use the endpoint, but
+					// because it does not support HBONE, the connection will fail - it might
+					// be better to skip such an endpoint rather than try to connect to it
+					// and fail.
 					Network:   "network2",
 					Locality:  cluster2b,
 					Addresses: []string{"20.0.0.2"},
@@ -969,12 +1046,13 @@ func TestEndpointsByNetworkFilter_AmbientMultiNetwork(t *testing.T) {
 				{
 					LbEps: []xdstest.LbEpInfo{
 						{Address: "2.2.2.20", Weight: 3},
+						{Address: "2.2.2.21", Weight: 3},
 						{Address: "2.2.2.22", Weight: 3},
 					},
-					Weight: 6,
+					Weight: 9,
 				},
 			},
-			wantWorkloadMetadata: []string{";;;;cluster2a", ";;;;cluster2c"},
+			wantWorkloadMetadata: []string{";;;;cluster2a", ";;;;cluster2b", ";;;;cluster2c"},
 		},
 		{
 			name:  "waypoint proxy only uses HBONE gateways",

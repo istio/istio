@@ -45,7 +45,7 @@ const innerConnectOriginate = "inner_connect_originate"
 // sidecar network and add a gateway endpoint to remote networks that have endpoints
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoints, toWaypoint bool) []*LocalityEndpoints {
+func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoints) []*LocalityEndpoints {
 	// In sidecar mode multi-network setup, when we have multiple networks but no E/W gateways configured we still
 	// generate EDS endpoints for remote networks as if they were on the same network. In practice it may not
 	// actually work, e.g., when pods are not directly reachable without E/W gateways, so in that case EDS
@@ -147,24 +147,34 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
-			supportsHBONE := supportTunnel(b, istioEndpoint)
-			supportsMtls := isMtlsEnabled(lbEp)
-
-			requireHBONE := model.IsWaypointProxy(b.proxy) || toWaypoint
-			disableHBONE := isSidecarProxy(b.proxy) || bool(b.proxy.Metadata.DisableHBONESend)
-			if requireHBONE && (!supportsHBONE || disableHBONE) {
-				continue
-			}
-
-			useHBONE := features.EnableAmbientMultiNetwork && (requireHBONE || (supportsHBONE && !supportsMtls))
+			// We require using double-HBONE in a either of the following cases:
+			// 1. This is a waypoint proxy - it can only talk HBONE
+			// 2. We earlier decided to use HBONE for this endpoint
+			requireHBONE := model.IsWaypointProxy(b.proxy) || usesTunnel(lbEp)
 
 			// If we use HBONE and the proxy is ingress gateway check that the feature
 			// is enabled first and if it's not, skip the endpoint.
-			if useHBONE && model.IsIngressGateway(b.proxy) && !features.EnableAmbientIngressMultiNetwork {
+			if requireHBONE && model.IsIngressGateway(b.proxy) && !features.EnableAmbientIngressMultiNetwork {
 				continue
 			}
 
-			gateways := b.selectNetworkGateways(epNetwork, epCluster, useHBONE)
+			// We are in an unsupported configuration, on the one hand we decided that we need
+			// to use HBONE to communicate with the endpoint, but on the other hand for some
+			// reasons we cannot use double-HBONE. Skip this endpoint all together and log a
+			// warning to indicate that we did that.
+			//
+			// We cannot don't support double-HBONE when one of the following is true:
+			// - Ambient multi-network disabled all together
+			// - this proxy is a sidecar proxy - sidecars don't support double-HBONE yet
+			// - HBONE disabled via a feature flag
+			disableHBONE := !features.EnableAmbientMultiNetwork || isSidecarProxy(b.proxy) || bool(b.proxy.Metadata.DisableHBONESend)
+			if requireHBONE && disableHBONE {
+				log.Warnf("Workload %s on network %s requires using HBONE, but double-HBONE is not supported by this proxy, skipping",
+					istioEndpoint.WorkloadName, epNetwork)
+				continue
+			}
+
+			gateways := b.selectNetworkGateways(epNetwork, epCluster, requireHBONE)
 			reachableGateways := b.filterGatewaysByIPFamily(gateways)
 
 			// Check if the endpoint is directly reachable. It's considered directly reachable if
@@ -173,7 +183,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// We consider remote network reachable from local network if there are no E/W gateways
 			// configured for the remote network at all.
 			// When HBONE is used to communicate with the remote endpoint - we always need a gateway.
-			if !useHBONE && len(gateways) == 0 {
+			// If the endpoint requires HBONE we always have to use E/W gateway, so we cannot add it
+			// directly back to the list of endpoints.
+			if !requireHBONE && len(gateways) == 0 {
 				// The endpoint is directly reachable - just add it.
 				// If there is no gateway, the address must not be empty
 				if util.GetEndpointHost(lbEp) != "" {
@@ -195,7 +207,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
 			// network we skip it altogether.
 			// TODO BTS may allow us to work around this
-			if !useHBONE && !supportsMtls {
+			if !requireHBONE && !isMtlsEnabled(lbEp) {
 				log.Warnf("Workload %s on network %s does not support mTLS or double-HBONE, skipping",
 					istioEndpoint.WorkloadName, epNetwork)
 				continue
