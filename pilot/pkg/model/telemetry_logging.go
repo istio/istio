@@ -551,7 +551,8 @@ func LookupCluster(push *PushContext, service string, port int) (hostname string
 	// TODO(yangminzhu): Verify the service and its cluster is supported, e.g. resolution type is not OriginalDst.
 	if parts := strings.Split(service, "/"); len(parts) == 2 {
 		namespace, name := parts[0], parts[1]
-		if svc := push.ServiceIndex.HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
+		if svcs := push.ServiceIndex.HostnameAndNamespace[host.Name(name)][namespace]; len(svcs) > 0 {
+			svc := svcs[0]
 			hostname = string(svc.Hostname)
 			cluster = BuildSubsetKey(TrafficDirectionOutbound, "", svc.Hostname, port)
 			return hostname, cluster, err
@@ -564,10 +565,12 @@ func LookupCluster(push *PushContext, service string, port int) (hostname string
 		}
 		// If namespace is omitted, return successfully if there is only one such host name in the service index.
 		if len(namespaces) == 1 {
-			svc := namespaceToServices[namespaces[0]]
-			hostname = string(svc.Hostname)
-			cluster = BuildSubsetKey(TrafficDirectionOutbound, "", svc.Hostname, port)
-			return hostname, cluster, err
+			if svcs := namespaceToServices[namespaces[0]]; len(svcs) > 0 {
+				svc := svcs[0]
+				hostname = string(svc.Hostname)
+				cluster = BuildSubsetKey(TrafficDirectionOutbound, "", svc.Hostname, port)
+				return hostname, cluster, err
+			}
 		} else if len(namespaces) > 1 {
 			err = fmt.Errorf("found %s in multiple namespaces %v, specify the namespace explicitly in "+
 				"the format of <Namespace>/<Hostname>", service, namespaces)

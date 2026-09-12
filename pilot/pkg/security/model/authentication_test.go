@@ -766,9 +766,9 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 						},
 					},
 				}
-				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string][]*model.Service{
 					"sds-provider-service": {
-						"": &model.Service{
+						"": {{
 							Hostname: "sds-provider-service",
 							Ports: []*model.Port{
 								{
@@ -777,7 +777,7 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 									Protocol: protocol.GRPC,
 								},
 							},
-						},
+						}},
 					},
 				}
 				return pc
@@ -827,7 +827,7 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 					},
 				}
 				// ServiceIndex is empty, so LookupCluster will fail
-				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{}
+				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string][]*model.Service{}
 				return pc
 			}(),
 			expected: nil,
