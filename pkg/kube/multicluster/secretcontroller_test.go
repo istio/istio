@@ -1040,18 +1040,19 @@ func TestKRTClustersCollection(t *testing.T) {
 	}
 
 	steps := []struct {
-		name           string
-		add            *v1.Secret
-		update         *v1.Secret
-		delete         *v1.Secret
-		want           []result
-		afterTestDelay time.Duration // sleep after assertion to verify no panic/segfault
+		name   string
+		add    *v1.Secret
+		update *v1.Secret
+		delete *v1.Secret
+		want   []result
 	}{
 		{
-			name:           "Create secret s0 with bad kubeconfig for cluster c0, client builder returns error so cluster is never stored",
-			add:            secret0Bad,
-			want:           []result{{"config", 1}},
-			afterTestDelay: features.RemoteClusterTimeout + 500*time.Millisecond,
+			// The client builder fails before a Cluster is ever constructed, so no sync-timeout
+			// timer is armed for it. The timer-fires-after-failure path is covered by
+			// TestKRTClustersCollectionSyncTimeoutEviction.
+			name: "Create secret s0 with bad kubeconfig for cluster c0, client builder returns error so cluster is never stored",
+			add:  secret0Bad,
+			want: []result{{"config", 1}},
 		},
 		{
 			name:   "Update secret s0 and add good kubeconfig for cluster c0, which will add remote cluster c0",
@@ -1184,10 +1185,6 @@ func TestKRTClustersCollection(t *testing.T) {
 					return result(e)
 				})
 			}, step.want)
-			if step.afterTestDelay > 0 {
-				// Wait past the timeout to confirm no segfaults or panics
-				time.Sleep(step.afterTestDelay)
-			}
 		})
 	}
 }
@@ -1197,7 +1194,7 @@ func TestKRTClustersCollection(t *testing.T) {
 // the Clusters() collection after RemoteClusterTimeout fires, and that no panic
 // occurs after the timeout.
 func TestKRTClustersCollectionSyncTimeoutEviction(t *testing.T) {
-	test.SetForTest(t, &features.RemoteClusterTimeout, 500*time.Millisecond)
+	test.SetForTest(t, &features.RemoteClusterTimeout, 100*time.Millisecond)
 
 	client := kube.NewFakeClient()
 	stopCh := test.NewStop(t)
@@ -1231,14 +1228,14 @@ func TestKRTClustersCollectionSyncTimeoutEviction(t *testing.T) {
 		return len(c.Clusters().List())
 	}, 0)
 
-	// Wait for RemoteClusterTimeout to fire, then wait a bit more to confirm no panic/segfault
-	time.Sleep(features.RemoteClusterTimeout + 500*time.Millisecond)
+	// Wait for RemoteClusterTimeout to fire and mark the cluster as timed out, rather than
+	// sleeping past the timeout.
+	assert.EventuallyEqual(t, func() bool {
+		cl := c.cs.GetByID("c0")
+		return cl != nil && cl.SyncDidTimeout()
+	}, true)
 
-	// The cluster should still not be in the Clusters() collection after timeout
+	// The cluster should still not be in the Clusters() collection after the timeout fired,
+	// and processing the timeout must not panic.
 	assert.Equal(t, len(c.Clusters().List()), 0)
-
-	// Verify the cluster timed out via the ClusterStore
-	cl := c.cs.GetByID("c0")
-	assert.Equal(t, cl != nil, true)
-	assert.Equal(t, cl.SyncDidTimeout(), true)
 }

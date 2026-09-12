@@ -36,6 +36,12 @@ import (
 
 const testLock = "test-lock"
 
+// testTTL is deliberately short to keep the tests fast: RenewDeadline (ttl/2) bounds how
+// long it takes a leader to detect a lost lease, and RetryPeriod (ttl/4) bounds how often
+// candidates attempt to (re-)acquire the lock. It should still be large enough that a
+// healthy leader does not spuriously lose the lease on a slow CI machine.
+const testTTL = 200 * time.Millisecond
+
 func createElection(t *testing.T,
 	name string, revision string,
 	watcher revisions.DefaultWatcher,
@@ -77,7 +83,7 @@ func createElectionMulticluster(t *testing.T,
 		remote:         remote,
 		defaultWatcher: watcher,
 		perRevision:    perRevision,
-		ttl:            time.Second,
+		ttl:            testTTL,
 		cycle:          atomic.NewInt32(0),
 		enabled:        true,
 	}
@@ -92,7 +98,7 @@ func createElectionMulticluster(t *testing.T,
 
 	retry.UntilOrFail(t, func() bool {
 		return l.isLeader() == expectLeader
-	}, retry.Converge(5), retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*10))
+	}, retry.Converge(5), retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*10))
 	return l, stop
 }
 
@@ -194,7 +200,7 @@ func TestRunCycleGoroutineLeak(t *testing.T) {
 		// Wait until pod1's election loop actually starts a new cycle, i.e. its previous
 		// LeaderElector exited after losing the lock and its stop watcher was orphaned.
 		retry.UntilOrFail(t, func() bool { return l.cycle.Load() > prev },
-			retry.Delay(time.Millisecond*50), retry.Timeout(time.Second*30))
+			retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*30))
 		// pod2 releases the lock; pod1 re-acquires it, completing the cycle.
 		close(stop2)
 		retry.UntilOrFail(t, func() bool { return l.isLeader() },
@@ -207,7 +213,7 @@ func TestRunCycleGoroutineLeak(t *testing.T) {
 			return fmt.Errorf("%d stop watcher goroutines still alive after %d election cycles, expected 1", n, cycles)
 		}
 		return nil
-	}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*5))
+	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
 	close(stop)
 }
 
@@ -397,7 +403,7 @@ func TestLeaderElectionDisabled(t *testing.T) {
 		client:         client,
 		revision:       "",
 		defaultWatcher: watcher,
-		ttl:            time.Second,
+		ttl:            testTTL,
 		cycle:          atomic.NewInt32(0),
 	}
 	gotLeader := atomic.NewBool(false)
@@ -411,7 +417,7 @@ func TestLeaderElectionDisabled(t *testing.T) {
 	})
 
 	// Need to retry until Run() starts to execute in the goroutine.
-	retry.UntilOrFail(t, gotLeader.Load, retry.Converge(5), retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*10))
+	retry.UntilOrFail(t, gotLeader.Load, retry.Converge(5), retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*10))
 	if !l.isLeader() {
 		t.Errorf("isLeader()=false, want true")
 	}
