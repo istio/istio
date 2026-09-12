@@ -1696,6 +1696,89 @@ func TestEdsLocalCluster(t *testing.T) {
 	})
 }
 
+// TestEdsLocalClusterOutOfEgressScope verifies that the self-discovery local_cluster
+// resolves the proxy's own service from the global service index even when a Sidecar
+// CR excludes that service from the proxy's egress scope.
+func TestEdsLocalClusterOutOfEgressScope(t *testing.T) {
+	const (
+		proxyIP  = "1.1.1.1"
+		svcNS    = "default"
+		svcName  = "local"
+		svcHost  = "local.default.svc.cluster.local"
+		nodeID   = "sidecar~1.1.1.1~test.default~default.svc.cluster.local"
+		portName = "http"
+	)
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+		// Egress scope only allows an unrelated service; the proxy's own service
+		// (local.default.svc.cluster.local) is intentionally NOT included.
+		ConfigString: `
+apiVersion: networking.istio.io/v1beta1
+kind: Sidecar
+metadata:
+  name: default
+  namespace: default
+spec:
+  egress:
+  - hosts:
+    - "default/other.default.svc.cluster.local"
+`,
+	})
+	svc := &model.Service{
+		Hostname: host.Name(svcHost),
+		Ports: model.PortList{{
+			Name:     portName,
+			Port:     80,
+			Protocol: protocol.HTTP,
+		}},
+		Attributes: model.ServiceAttributes{Namespace: svcNS, Name: svcName},
+	}
+	s.MemRegistry.AddService(svc)
+	s.MemRegistry.AddInstance(&model.ServiceInstance{
+		Service:     svc,
+		ServicePort: svc.Ports[0],
+		Endpoint: &model.IstioEndpoint{
+			Addresses:       []string{proxyIP},
+			ServicePortName: portName,
+			EndpointPort:    80,
+			Locality:        model.Locality{Label: "region1/zone1/subzone1"},
+			TLSMode:         model.IstioMutualTLSModeLabel,
+			HealthStatus:    model.Healthy,
+		},
+	})
+	s.EnsureSynced(t)
+
+	ads := s.ConnectADS().
+		WithID(nodeID).
+		WithType(v3.EndpointType).
+		WithMetadata(model.NodeMetadata{
+			Namespace: svcNS,
+			Labels: map[string]string{
+				"topology.kubernetes.io/region": "region1",
+				"topology.kubernetes.io/zone":   "zone1",
+			},
+		})
+	resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{util.SelfDiscoveryCluster},
+	})
+
+	if len(resp.Resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resp.Resources))
+	}
+	cla := &endpoint.ClusterLoadAssignment{}
+	if err := resp.Resources[0].UnmarshalTo(cla); err != nil {
+		t.Fatal(err)
+	}
+	hosts := 0
+	for _, lle := range cla.Endpoints {
+		hosts += len(lle.LbEndpoints)
+	}
+	if hosts != 1 {
+		t.Fatalf("expected 1 endpoint in local_cluster despite being out of egress scope, got %d", hosts)
+	}
+}
+
 // TestEdsLocalClusterHashFilter verifies that filterIstioEndpoint restricts the
 // local_cluster CLA to endpoints whose pod-template-hash / rollouts-pod-template-hash
 // labels match the calling proxy's labels when those labels are present.
