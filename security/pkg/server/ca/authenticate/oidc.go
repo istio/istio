@@ -101,10 +101,11 @@ func (j *JwtAuthenticator) authenticate(ctx context.Context, bearerToken string)
 	if err := idToken.Claims(&sa); err != nil {
 		return nil, fmt.Errorf("failed to extract claims from ID token: %v", err)
 	}
-	if !strings.HasPrefix(sa.Sub, "system:serviceaccount") {
+	// "system:serviceaccount:<namespace>:<serviceaccount>" and nothing else
+	parts := strings.Split(sa.Sub, ":")
+	if len(parts) != 4 || parts[0] != "system" || parts[1] != "serviceaccount" || parts[2] == "" || parts[3] == "" {
 		return nil, fmt.Errorf("invalid sub %v", sa.Sub)
 	}
-	parts := strings.Split(sa.Sub, ":")
 	ns := parts[2]
 	ksa := parts[3]
 	if !checkAudience(sa.Aud, j.audiences) {

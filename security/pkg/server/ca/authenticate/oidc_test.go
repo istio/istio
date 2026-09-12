@@ -175,6 +175,25 @@ func TestOIDCAuthenticate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate JWT: %v", err)
 	}
+	// Create JWT tokens with malformed subjects: too few segments (used to panic),
+	// too many segments, empty segments, wrong prefix segment
+	malformedSubs := []string{
+		"system:serviceaccount",
+		"system:serviceaccount:ns",
+		"system:serviceaccountfoo:a:b",
+		"system:serviceaccount:a:b:c",
+		"system:serviceaccount::b",
+		"system:serviceaccount:a:",
+	}
+	malformedSubTokens := map[string]string{}
+	for _, sub := range malformedSubs {
+		claimsMalformedSub := `{"iss": "` + server.URL + `", "aud": ["baz.svc.id.goog"], "sub": "` + sub + `", "exp": ` + expStr + `}`
+		tokenMalformedSub, err := generateJWT(&key, []byte(claimsMalformedSub))
+		if err != nil {
+			t.Fatalf("failed to generate JWT: %v", err)
+		}
+		malformedSubTokens[sub] = tokenMalformedSub
+	}
 
 	tests := map[string]struct {
 		token      string
@@ -201,6 +220,16 @@ func TestOIDCAuthenticate(t *testing.T) {
 			token:     tokenInvalidSubject,
 			expectErr: true,
 		},
+	}
+	for sub, tokenMalformedSub := range malformedSubTokens {
+		tests["Token with malformed subject "+sub] = struct {
+			token      string
+			expectErr  bool
+			expectedID string
+		}{
+			token:     tokenMalformedSub,
+			expectErr: true,
+		}
 	}
 
 	for name, tc := range tests {
