@@ -1370,6 +1370,7 @@ func TestInformerEnrolledPodProbeIPSetReassertedWhenIPReappears(t *testing.T) {
 	client := kube.NewFakeClient(ns, pod)
 	fs := &fakeServer{}
 	fs.On("SyncHostProbeIPSet", mock.IsType(pod), util.GetPodIPsIfPresent(pod)).Once().Return(nil)
+	fs.On("ReconcileEnrolledPod", mock.Anything, mock.IsType(pod)).Once().Return(nil)
 
 	handlers := setupHandlersWithFakeDataplane(ctx, client, fs)
 
@@ -1382,6 +1383,52 @@ func TestInformerEnrolledPodProbeIPSetReassertedWhenIPReappears(t *testing.T) {
 	assert.NoError(t, handlers.reconcile(controllers.Event{
 		Event: controllers.EventUpdate,
 		Old:   iplessOldPod,
+		New:   pod,
+	}))
+
+	fs.AssertExpectations(t)
+}
+
+// A new pod IP on an already-enrolled pod is the observable side of a replaced sandbox: the
+// pod keeps its UID, so the enrollment annotation still says "enrolled" while the network
+// namespace it was enrolled in is gone. The informer must ask the dataplane to re-check that
+// pod's namespace, not just re-assert its ipset entry.
+func TestInformerEnrolledPodEnrollmentReconciledWhenIPChanges(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test",
+			Namespace:   "test",
+			Annotations: map[string]string{annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled},
+		},
+		Spec:   corev1.PodSpec{NodeName: NodeName},
+		Status: corev1.PodStatus{PodIP: "11.1.1.12"},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
+		},
+	}
+
+	client := kube.NewFakeClient(ns, pod)
+	fs := &fakeServer{}
+	fs.On("SyncHostProbeIPSet", mock.IsType(pod), util.GetPodIPsIfPresent(pod)).Once().Return(nil)
+	fs.On("ReconcileEnrolledPod", mock.Anything, mock.IsType(pod)).Once().Return(nil)
+
+	handlers := setupHandlersWithFakeDataplane(ctx, client, fs)
+
+	// The sandbox was rebuilt under the same pod: same UID, same annotation, new IP.
+	rebuiltOldPod := pod.DeepCopy()
+	rebuiltOldPod.Status.PodIP = "11.1.1.11"
+
+	assert.NoError(t, handlers.reconcile(controllers.Event{
+		Event: controllers.EventUpdate,
+		Old:   rebuiltOldPod,
 		New:   pod,
 	}))
 
