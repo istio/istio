@@ -2501,3 +2501,150 @@ spec:
 		t.Errorf("expected cluster %q, got %q", expectedCluster, clusterName)
 	}
 }
+
+func TestGatewayExternalSDSProviderMutualCACertSimulation(t *testing.T) {
+	mc := mesh.DefaultMeshConfig()
+	mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "my-sds-provider",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
+			Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
+				Name:    "my-sds-provider",
+				Service: "sds-provider.sds-system.svc.cluster.local",
+				Port:    8443,
+			},
+		},
+	})
+
+	configStr := `
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: external-sds-mutual-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: MUTUAL
+      credentialName: "sds://mutual-cert-credential"
+      caCertCredentialName: "sds://mutual-ca-credential"
+    hosts:
+    - "secure.example.com"
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: secure-vs
+  namespace: istio-system
+spec:
+  hosts:
+  - "secure.example.com"
+  gateways:
+  - external-sds-mutual-gateway
+  http:
+  - route:
+    - destination:
+        host: backend.default.svc.cluster.local
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: sds-provider
+  namespace: istio-system
+spec:
+  hosts:
+  - "sds-provider.sds-system.svc.cluster.local"
+  ports:
+  - number: 8443
+    name: grpc
+    protocol: GRPC
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 10.0.0.100
+`
+
+	proxy := &model.Proxy{
+		Labels: map[string]string{"istio": "ingressgateway"},
+		Metadata: &model.NodeMetadata{
+			Labels:    map[string]string{"istio": "ingressgateway"},
+			Namespace: "istio-system",
+		},
+		Type: model.Router,
+	}
+
+	o := xds.FakeOptions{
+		ConfigString: configStr,
+		MeshConfig:   mc,
+	}
+
+	s := xds.NewFakeDiscoveryServer(t, o)
+	sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
+
+	// Verify the listener was created
+	l := xdstest.ExtractListener("0.0.0.0_443", sim.Listeners)
+	if l == nil {
+		t.Fatal("expected listener 0.0.0.0_443 to be created")
+	}
+
+	if len(l.FilterChains) == 0 {
+		t.Fatal("expected at least one filter chain")
+	}
+
+	fc := l.FilterChains[0]
+	if fc.GetTransportSocket() == nil {
+		t.Fatal("expected transport socket for TLS")
+	}
+
+	tlsContext := xdstest.UnmarshalAny[auth.DownstreamTlsContext](t, fc.GetTransportSocket().GetTypedConfig())
+
+	// Verify the server certificate is resolved via the external SDS provider.
+	sdsConfigs := tlsContext.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()
+	if len(sdsConfigs) == 0 {
+		t.Fatal("expected SDS secret configs")
+	}
+
+	sdsConfig := sdsConfigs[0]
+	if sdsConfig.GetName() != "mutual-cert-credential" {
+		t.Errorf("expected SDS name %q, got %q", "mutual-cert-credential", sdsConfig.GetName())
+	}
+
+	grpcServices := sdsConfig.GetSdsConfig().GetApiConfigSource().GetGrpcServices()
+	if len(grpcServices) == 0 {
+		t.Fatal("expected gRPC services in SDS config")
+	}
+
+	expectedCluster := "outbound|8443||sds-provider.sds-system.svc.cluster.local"
+	clusterName := grpcServices[0].GetEnvoyGrpc().GetClusterName()
+	if clusterName != expectedCluster {
+		t.Errorf("expected cluster %q, got %q", expectedCluster, clusterName)
+	}
+
+	// Verify the CA cert (validation context) is also resolved via the same external SDS provider.
+	validationCtx := tlsContext.GetCommonTlsContext().GetCombinedValidationContext()
+	if validationCtx == nil {
+		t.Fatal("expected combined validation context for MUTUAL TLS")
+	}
+
+	caSdsConfig := validationCtx.GetValidationContextSdsSecretConfig()
+	if caSdsConfig.GetName() != "mutual-ca-credential" {
+		t.Errorf("expected CA cert SDS name %q, got %q", "mutual-ca-credential", caSdsConfig.GetName())
+	}
+
+	caGrpcServices := caSdsConfig.GetSdsConfig().GetApiConfigSource().GetGrpcServices()
+	if len(caGrpcServices) == 0 {
+		t.Fatal("expected gRPC services in CA cert SDS config")
+	}
+
+	caClusterName := caGrpcServices[0].GetEnvoyGrpc().GetClusterName()
+	if caClusterName != expectedCluster {
+		t.Errorf("expected CA cert cluster %q, got %q", expectedCluster, caClusterName)
+	}
+}
