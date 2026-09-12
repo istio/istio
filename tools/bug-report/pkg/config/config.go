@@ -250,7 +250,11 @@ func parseToIncludeTypeMap(s string) (map[string]string, error) {
 func (s *SelectionSpec) UnmarshalJSON(b []byte) error {
 	ft := []ResourceType{Namespace, Deployment, Pod, Label, Annotation, Container}
 	str := strings.TrimPrefix(strings.TrimSuffix(string(b), `"`), `"`)
-	for i, f := range strings.Split(str, "/") {
+	parts := strings.Split(str, "/")
+	if len(parts) > len(ft) {
+		return fmt.Errorf("bad selection spec %q: expected at most %d slash-separated fields", str, len(ft))
+	}
+	for i, f := range parts {
 		var err error
 		switch ft[i] {
 		case Namespace:
