@@ -80,10 +80,11 @@ func (gc GatewayContext) ResolveGatewayInstances(
 	foundUnusable := false
 	log.Debugf("Resolving gateway instances for %v in namespace %s", gwsvcs, namespace)
 	for _, g := range gwsvcs {
-		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
+		byNamespace := gc.ps.ServicesByHostname(host.Name(g))
+		svc, f := byNamespace[namespace]
 		if !f {
 			otherNamespaces := []string{}
-			for ns := range gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)] {
+			for ns := range byNamespace {
 				otherNamespaces = append(otherNamespaces, `"`+ns+`"`) // Wrap in quotes for output
 			}
 			if len(otherNamespaces) > 0 {
@@ -160,7 +161,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 }
 
 func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {
-	return gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(hostname)][namespace]
+	return gc.ps.ServiceByHostnameAndNamespace(host.Name(hostname), namespace)
 }
 
 // InstancesEmpty returns true if there are no instances in any port.
