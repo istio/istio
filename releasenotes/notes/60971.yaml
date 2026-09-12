@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/60971
+releaseNotes:
+  - |
+    **Fixed** `HTTPRoute` status reporting `BackendNotFound` for service backends discovered from remote clusters in a multicluster mesh.
