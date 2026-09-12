@@ -1,0 +1,18 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 39001
+releaseNotes:
+  - |
+    **Fixed** an issue where the istiod CSR response (`CreateCertificate`)
+    contained the root CA certificate twice in the returned cert chain when
+    Istio was installed with a plug-in CA whose `cert-chain.pem` already
+    included the root certificate (the default format produced by Istio's
+    `make-ca-certs.sh`/Makefile). The duplicate was tolerated by Envoy but
+    wasted bandwidth on every mTLS handshake and confused TLS debugging
+    tools. A new SHA-256 fingerprint-based dedup step at the response
+    boundary now collapses byte-identical duplicates while preserving the
+    spec invariant that the root cert is the last element. If a duplicate
+    is observed at runtime, istiod logs a single warning per process so
+    operators can inspect their plug-in CA configuration.
