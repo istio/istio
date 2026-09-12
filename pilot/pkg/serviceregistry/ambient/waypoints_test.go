@@ -17,6 +17,7 @@ package ambient
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -277,6 +278,189 @@ func assertWaypointSelector(t *testing.T, result, expected WaypointSelector) {
 		assert.Equal(t, result.Selector, nil)
 	} else {
 		assert.Equal(t, result.Selector.String(), expected.Selector.String())
+	}
+}
+
+func TestResolveUseWaypoint(t *testing.T) {
+	useWaypoint := label.IoIstioUseWaypoint.Name
+	useWaypointNamespace := label.IoIstioUseWaypointNamespace.Name
+	tests := []struct {
+		name       string
+		object     metav1.ObjectMeta
+		namespaces []*corev1.Namespace
+		want       *krt.Named
+	}{
+		{
+			name:   "object waypoint",
+			object: metav1.ObjectMeta{Namespace: "app", Labels: map[string]string{useWaypoint: "object-wp"}},
+			want:   &krt.Named{Namespace: "app", Name: "object-wp"},
+		},
+		{
+			name: "object waypoint with namespace override",
+			object: metav1.ObjectMeta{
+				Namespace: "app",
+				Labels: map[string]string{
+					useWaypoint:          "object-wp",
+					useWaypointNamespace: "infra",
+				},
+			},
+			want: &krt.Named{Namespace: "infra", Name: "object-wp"},
+		},
+		{
+			name:   "namespace waypoint",
+			object: metav1.ObjectMeta{Namespace: "app"},
+			namespaces: []*corev1.Namespace{{
+				ObjectMeta: metav1.ObjectMeta{Name: "app", Labels: map[string]string{useWaypoint: "namespace-wp"}},
+			}},
+			want: &krt.Named{Namespace: "app", Name: "namespace-wp"},
+		},
+		{
+			name:   "object waypoint takes precedence",
+			object: metav1.ObjectMeta{Namespace: "app", Labels: map[string]string{useWaypoint: "object-wp"}},
+			namespaces: []*corev1.Namespace{{
+				ObjectMeta: metav1.ObjectMeta{Name: "app", Labels: map[string]string{useWaypoint: "namespace-wp"}},
+			}},
+			want: &krt.Named{Namespace: "app", Name: "object-wp"},
+		},
+		{
+			name:   "object none opts out of namespace waypoint",
+			object: metav1.ObjectMeta{Namespace: "app", Labels: map[string]string{useWaypoint: "none"}},
+			namespaces: []*corev1.Namespace{{
+				ObjectMeta: metav1.ObjectMeta{Name: "app", Labels: map[string]string{useWaypoint: "namespace-wp"}},
+			}},
+		},
+		{
+			name:   "namespace none",
+			object: metav1.ObjectMeta{Namespace: "app"},
+			namespaces: []*corev1.Namespace{{
+				ObjectMeta: metav1.ObjectMeta{Name: "app", Labels: map[string]string{useWaypoint: "none"}},
+			}},
+		},
+		{
+			name:   "no waypoint",
+			object: metav1.ObjectMeta{Namespace: "app"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			namespaces := krt.NewStaticCollection[*corev1.Namespace](nil, tt.namespaces)
+			got := ResolveUseWaypoint(krt.TestingDummyContext{}, namespaces, tt.object)
+			assert.Equal(t, got, tt.want)
+		})
+	}
+}
+
+func TestResolveWaypointRefs(t *testing.T) {
+	useWaypoint := label.IoIstioUseWaypoint.Name
+	useCanary := label.IoIstioUseWaypointCanary.Name
+	useCanaryNamespace := label.IoIstioUseWaypointCanaryNamespace.Name
+	canaryWeight := annotation.IoIstioUseWaypointCanaryWeight.Name
+	tests := []struct {
+		name       string
+		object     metav1.ObjectMeta
+		namespaces []*corev1.Namespace
+		want       []krt.Named
+	}{
+		{
+			name: "primary only",
+			object: metav1.ObjectMeta{
+				Namespace: "app",
+				Labels:    map[string]string{useWaypoint: "primary"},
+			},
+			want: []krt.Named{{Namespace: "app", Name: "primary"}},
+		},
+		{
+			name: "primary and canary",
+			object: metav1.ObjectMeta{
+				Namespace:   "app",
+				Labels:      map[string]string{useWaypoint: "primary", useCanary: "canary"},
+				Annotations: map[string]string{canaryWeight: "10"},
+			},
+			want: []krt.Named{
+				{Namespace: "app", Name: "primary"},
+				{Namespace: "app", Name: "canary"},
+			},
+		},
+		{
+			name: "cross namespace canary",
+			object: metav1.ObjectMeta{
+				Namespace: "app",
+				Labels: map[string]string{
+					useWaypoint:        "primary",
+					useCanary:          "canary",
+					useCanaryNamespace: "infra",
+				},
+			},
+			want: []krt.Named{
+				{Namespace: "app", Name: "primary"},
+				{Namespace: "infra", Name: "canary"},
+			},
+		},
+		{
+			name:   "namespace primary and canary",
+			object: metav1.ObjectMeta{Namespace: "app"},
+			namespaces: []*corev1.Namespace{{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "app",
+					Labels:      map[string]string{useWaypoint: "primary", useCanary: "canary"},
+					Annotations: map[string]string{canaryWeight: "25"},
+				},
+			}},
+			want: []krt.Named{
+				{Namespace: "app", Name: "primary"},
+				{Namespace: "app", Name: "canary"},
+			},
+		},
+		{
+			name: "object primary does not inherit namespace canary",
+			object: metav1.ObjectMeta{
+				Namespace: "app",
+				Labels:    map[string]string{useWaypoint: "primary"},
+			},
+			namespaces: []*corev1.Namespace{{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "app",
+					Labels:      map[string]string{useWaypoint: "namespace-primary", useCanary: "namespace-canary"},
+					Annotations: map[string]string{canaryWeight: "25"},
+				},
+			}},
+			want: []krt.Named{{Namespace: "app", Name: "primary"}},
+		},
+		{
+			name: "invalid canary weight is ignored",
+			object: metav1.ObjectMeta{
+				Namespace:   "app",
+				Labels:      map[string]string{useWaypoint: "primary", useCanary: "canary"},
+				Annotations: map[string]string{canaryWeight: "101"},
+			},
+			want: []krt.Named{{Namespace: "app", Name: "primary"}},
+		},
+		{
+			name: "canary matching primary is ignored",
+			object: metav1.ObjectMeta{
+				Namespace:   "app",
+				Labels:      map[string]string{useWaypoint: "primary", useCanary: "primary"},
+				Annotations: map[string]string{canaryWeight: "10"},
+			},
+			want: []krt.Named{{Namespace: "app", Name: "primary"}},
+		},
+		{
+			name: "canary without primary is ignored",
+			object: metav1.ObjectMeta{
+				Namespace:   "app",
+				Labels:      map[string]string{useCanary: "canary"},
+				Annotations: map[string]string{canaryWeight: "10"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			namespaces := krt.NewStaticCollection[*corev1.Namespace](nil, tt.namespaces)
+			got := ResolveWaypointRefs(krt.TestingDummyContext{}, namespaces, tt.object)
+			assert.Equal(t, got, tt.want)
+		})
 	}
 }
 
