@@ -1,5 +1,6 @@
 pilot:
   env:
+    PILOT_ENABLE_AWS_ZONE_ID: "false"
     # 1.28 behavioral changes
     DISABLE_SHADOW_HOST_SUFFIX: "false"
     PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY: "false"

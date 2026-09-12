@@ -28,6 +28,7 @@ import (
 	"helm.sh/helm/v4/pkg/chart/common"
 	commonutil "helm.sh/helm/v4/pkg/chart/common/util"
 	"helm.sh/helm/v4/pkg/engine"
+	appsv1 "k8s.io/api/apps/v1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -98,6 +99,56 @@ func renderWithOptions(releaseName, namespace, directory string, iop values.Map,
 
 	mfs, err := manifest.Parse(results)
 	return mfs, warnings, err
+}
+
+func TestAWSZoneIDCompatibility(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		version  string
+		override string
+		want     string
+	}{
+		{name: "default"},
+		{name: "1.25", version: "1.25", want: "false"},
+		{name: "1.26", version: "1.26", want: "false"},
+		{name: "1.27", version: "1.27", want: "false"},
+		{name: "1.28", version: "1.28", want: "false"},
+		{name: "1.29", version: "1.29", want: "false"},
+		{name: "1.30", version: "1.30", want: "false"},
+		{name: "1.31", version: "1.31", want: "false"},
+		{name: "explicit disable", override: "false", want: "false"},
+		{name: "override profile", version: "1.31", override: "true", want: "true"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			vals := values.MakeMap(tc.version, "spec", "values", "compatibilityVersion")
+			if tc.override != "" {
+				require.NoError(t, vals.SetPath("spec.values.pilot.env.PILOT_ENABLE_AWS_ZONE_ID", tc.override))
+			}
+			mfs, _, err := Render("istiod", "istio-system", "istio-control/istio-discovery", vals, nil)
+			require.NoError(t, err)
+			for _, mf := range mfs {
+				if mf.GetKind() != "Deployment" || mf.GetName() != "istiod" {
+					continue
+				}
+				var deployment appsv1.Deployment
+				require.NoError(t, yaml.Unmarshal([]byte(mf.Content), &deployment))
+				for _, container := range deployment.Spec.Template.Spec.Containers {
+					if container.Name != "discovery" {
+						continue
+					}
+					var got string
+					for _, env := range container.Env {
+						if env.Name == "PILOT_ENABLE_AWS_ZONE_ID" {
+							got = env.Value
+						}
+					}
+					require.Equal(t, tc.want, got)
+					return
+				}
+			}
+			t.Fatal("Istiod container not found")
+		})
+	}
 }
 
 func TestRender(t *testing.T) {

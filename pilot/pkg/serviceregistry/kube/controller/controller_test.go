@@ -311,6 +311,44 @@ func TestController_GetPodLocality(t *testing.T) {
 	}
 }
 
+func TestController_AWSZoneIDLocality(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		enabled  bool
+		zoneID   string
+		locality map[string]string
+		want     string
+	}{
+		{name: "disabled", zoneID: "use1-az6", want: "us-east-1/us-east-1d/rack1"},
+		{name: "enabled", enabled: true, zoneID: "use1-az6", want: "us-east-1/use1-az6/rack1"},
+		{name: "missing label", enabled: true, want: "us-east-1/us-east-1d/rack1"},
+		{
+			name: "pod override", enabled: true, zoneID: "use1-az6",
+			locality: map[string]string{label.TopologyLocality.Name: "custom.zone.rack"}, want: "custom/zone/rack",
+		},
+		{
+			name: "legacy pod override", enabled: true, zoneID: "use1-az6",
+			locality: map[string]string{pm.LocalityLabel: "custom.zone.rack"}, want: "custom/zone/rack",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableAWSZoneID, tc.enabled)
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+			nodeLabels := map[string]string{
+				NodeRegionLabelGA: "us-east-1", NodeZoneLabelGA: "us-east-1d", label.TopologySubzone.Name: "rack1",
+			}
+			if tc.zoneID != "" {
+				nodeLabels[labelutil.LabelTopologyAWSZoneID] = tc.zoneID
+			}
+			addNodes(t, controller, generateNode("node", nodeLabels))
+			pod := generatePod([]string{"10.0.0.1"}, "pod", "default", "", "node", tc.locality, nil)
+			addPods(t, controller, fx, pod)
+			assert.Equal(t, controller.getPodLocality(pod), tc.want)
+			assert.Equal(t, controller.nodes.Get("node", "").Labels[NodeZoneLabelGA], "us-east-1d")
+		})
+	}
+}
+
 func TestProxyK8sHostnameLabel(t *testing.T) {
 	clusterID := cluster.ID("fakeCluster")
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
