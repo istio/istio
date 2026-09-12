@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: istioctl
+issue:
+  - 41937
+releaseNotes:
+- |
+  **Fixed** `istioctl` skipping verification of the istiod certificate when connecting to XDS with a service account token (`istioctl proxy-status`, `istioctl x internal-debug`, and `--xds-address` in general). istioctl now verifies the server against the Istio root certificate from the `istio-ca-root-cert` configmap and the expected server name: `--authority` if set, the host of `--xds-address` if it is a DNS name, or `istiod.<istio-namespace>.svc` when connecting to an IP address or localhost. Pass `--insecure` (or set `ISTIOCTL_INSECURE=true`) to explicitly skip verification.
+
+  **Credit**: This issue was reported by Leon Zlobecki.
