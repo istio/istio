@@ -259,7 +259,13 @@ func buildSidecarVirtualHostsForVirtualService(
 		Mesh:                      push.Mesh,
 		Push:                      push,
 		LookupService: func(name host.Name) *model.Service {
-			return serviceRegistry[name]
+			if svc, ok := serviceRegistry[name]; ok {
+				return svc
+			}
+			// Fallback to unfiltered lookup for alias resolution: serviceRegistry is port-filtered,
+			// but a VirtualService destination may reference an ExternalName service that doesn't
+			// declare the listener port.
+			return push.ServiceForHostname(node, name)
 		},
 		LookupDestinationCluster: GetDestinationCluster,
 		LookupHash: func(destination *networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB {
