@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** [GHSA-qm8v-g4f9-qhjx](https://github.com/istio/istio/security/advisories/GHSA-qm8v-g4f9-qhjx): a fail-open in `BackendTLSPolicy` where sidecar proxies sent upstream traffic in plaintext instead of failing closed when a policy's `caCertificateRefs` could not be resolved. Reported by [@thc1006](https://github.com/thc1006).
