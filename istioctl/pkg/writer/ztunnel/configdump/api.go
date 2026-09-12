@@ -160,6 +160,7 @@ type ZtunnelDump struct {
 	Policies      []*ZtunnelPolicy         `json:"policies"`
 	Certificates  []*CertsDump             `json:"certificates"`
 	WorkloadState map[string]WorkloadState `json:"workloadState"`
+	Version       json.RawMessage          `json:"version"`
 }
 
 type CertsDump struct {
