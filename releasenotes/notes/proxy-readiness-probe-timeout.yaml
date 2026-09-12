@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+    **Added** the `PROXY_READINESS_PROBE_TIMEOUT` environment variable to configure the timeout
+    of the HTTP requests the pilot-agent readiness probe issues against the Envoy admin endpoint.
+    This timeout now applies uniformly to both the config-status and server-state checks. The
+    default is `3s` (previously the config-status check used a fixed `1s` timeout).
