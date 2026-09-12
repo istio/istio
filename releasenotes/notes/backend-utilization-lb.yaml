@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 60814
+releaseNotes:
+  - |
+    **Added** a new `backendUtilization` load balancer policy to `DestinationRule`. It uses the
+    utilization that backends report through ORCA load reports to dynamically weight endpoints, so
+    that endpoints reporting higher utilization receive proportionally fewer requests. This is
+    implemented with Envoy's `client_side_weighted_round_robin` load balancing policy.
