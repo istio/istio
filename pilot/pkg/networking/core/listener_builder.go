@@ -484,11 +484,11 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 			filters = append(filters, xdsfilters.SidecarXFCCClientIdentityFilter(fccd == hcm.HttpConnectionManager_SANITIZE_SET))
 		}
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
-		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
+		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class, httpOpts.listenerSetScope)...)
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
-		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
+		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class, httpOpts.listenerSetScope)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_STATS)
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)

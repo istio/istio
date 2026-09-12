@@ -18,6 +18,8 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -77,6 +79,9 @@ type MergedGateway struct {
 	// Used for select the set of virtual services that apply to a port.
 	GatewayNameForServer map[*networking.Server]string
 
+	// ListenerSetForServer maps from server to the ListenerSet it was defined in, if any.
+	ListenerSetForServer map[*networking.Server]types.NamespacedName
+
 	// ServersByRouteName maps from port names to virtual hosts
 	// Used for RDS. No two port names share same port except for HTTPS
 	// The typical length of the value is always 1, except for HTTP (not HTTPS),
@@ -115,6 +120,17 @@ func (g *MergedGateway) GetGatewayNames() []string {
 		return maps.Values(g.GatewayNameForServer)
 	}
 	return nil
+}
+
+func (g *MergedGateway) GetListenerSetNames() []types.NamespacedName {
+	if g == nil || len(g.ListenerSetForServer) == 0 {
+		return nil
+	}
+	seen := sets.New[types.NamespacedName]()
+	for _, name := range g.ListenerSetForServer {
+		seen.Insert(name)
+	}
+	return seen.UnsortedList()
 }
 
 // PrevMergedGateway describes previous state of the gateway.
@@ -187,6 +203,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
+	listenerSetForServer := make(map[*networking.Server]types.NamespacedName)
 	verifiedCertificateReferences := sets.New[string]()
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
@@ -228,8 +245,13 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 
 			gwKind := gvk.KubernetesGateway
-			if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.ListenerSet.Kind+"/") {
+			// parentMeta sets this annotation to "ListenerSet/<name>/<section>.<namespace>" for
+			// ListenerSet-derived configs, which are always per-listener.
+			if rest, ok := strings.CutPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.ListenerSet.Kind+"/"); ok {
 				gwKind = gvk.ListenerSet
+				if lsName, _, found := strings.Cut(rest, "/"); found {
+					listenerSetForServer[s] = types.NamespacedName{Namespace: gatewayConfig.Namespace, Name: lsName}
+				}
 			}
 			lookupNamespace := ""
 			configAndProxyAllowed := false
@@ -470,6 +492,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		MergedQUICTransportServers:      mergedQUICServers,
 		ServerPorts:                     serverPorts,
 		GatewayNameForServer:            gatewayNameForServer,
+		ListenerSetForServer:            listenerSetForServer,
 		TLSServerInfo:                   tlsServerInfo,
 		ServersByRouteName:              serversByRouteName,
 		HTTP3AdvertisingRoutes:          http3AdvertisingRoutes,
