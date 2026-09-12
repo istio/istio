@@ -300,7 +300,7 @@ func NewController(
 	// Create a queue for handling service updates.
 	// We create the queue even if the env var is off just to prevent nil pointer issues.
 	c.shadowServiceReconciler = controllers.NewQueue("inference pool shadow service reconciler",
-		controllers.WithReconciler(c.reconcileShadowService(kc, InferencePools, inputs.Services)),
+		controllers.WithGenericReconciler(c.reconcileShadowService(kc, InferencePools, inputs.Services)),
 		controllers.WithMaxAttempts(5))
 
 	if features.EnableGatewayAPIInferenceExtension {
@@ -433,23 +433,26 @@ func NewController(
 			}), false),
 		outputs.InferencePools.Register(func(e krt.Event[InferencePool]) {
 			obj := e.Latest()
-			c.shadowServiceReconciler.Add(types.NamespacedName{
+			request := shadowServiceReconcileRequest{key: types.NamespacedName{
 				Namespace: obj.shadowService.key.Namespace,
 				Name:      obj.shadowService.poolName,
-			})
+			}}
+			if e.Event == controllers.EventDelete {
+				request.delete = true
+				request.poolUID = obj.shadowService.poolUID
+			}
+			c.shadowServiceReconciler.Add(request)
 		}),
-		// Reconcile shadow services if users break them.
+		// Reconcile shadow services if users modify or delete them.
 		inputs.Services.Register(func(o krt.Event[*corev1.Service]) {
 			obj := o.Latest()
 			// We only care about services that are tagged with the internal service semantics label.
 			if obj.GetLabels()[constants.InternalServiceSemantics] != constants.ServiceSemanticsInferencePool {
 				return
 			}
-			// We only care about delete events
 			if o.Event != controllers.EventDelete && o.Event != controllers.EventUpdate {
 				return
 			}
-
 			poolName, ok := obj.Labels[InferencePoolRefLabel]
 			if !ok && o.Event == controllers.EventUpdate && o.Old != nil {
 				// Try and find the label from the old object
@@ -463,12 +466,13 @@ func NewController(
 				return
 			}
 
-			// Add it back
-			c.shadowServiceReconciler.Add(types.NamespacedName{
+			// Service events only repair the shadow service. Deletion is driven by the
+			// derived InferencePool delete event, which carries the pool UID.
+			c.shadowServiceReconciler.Add(shadowServiceReconcileRequest{key: types.NamespacedName{
 				Namespace: obj.Namespace,
 				Name:      poolName,
-			})
-			log.Infof("Re-adding shadow service for deleted inference pool service %s/%s",
+			}})
+			log.Debugf("queueing reconciliation for inference pool service %s/%s",
 				obj.Namespace, obj.Name)
 		}),
 	)

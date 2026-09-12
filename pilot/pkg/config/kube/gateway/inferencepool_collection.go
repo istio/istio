@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -91,6 +92,12 @@ type InferencePool struct {
 	shadowService  shadowServiceInfo
 	extRef         extRefInfo
 	gatewayParents sets.Set[types.NamespacedName] // Gateways that reference this InferencePool
+}
+
+type shadowServiceReconcileRequest struct {
+	key     types.NamespacedName
+	delete  bool
+	poolUID types.UID
 }
 
 func (i InferencePool) ResourceName() string {
@@ -572,13 +579,65 @@ func (c *Controller) reconcileShadowService(
 	kubeClient kube.Client,
 	inferencePools krt.Collection[InferencePool],
 	servicesCollection krt.Collection[*corev1.Service],
-) func(key types.NamespacedName) error {
-	return func(key types.NamespacedName) error {
+) func(any) error {
+	return func(item any) error {
+		request, ok := item.(shadowServiceReconcileRequest)
+		if !ok {
+			return fmt.Errorf("unexpected shadow service reconcile request type %T", item)
+		}
+		key := request.key
+		if request.delete {
+			// The pool may have been recreated before this request was processed.
+			// In that case the normal reconciliation path will manage the service.
+			if inferencePools.GetKey(key.String()) != nil {
+				return nil
+			}
+			livePool, err := kubeClient.GatewayAPIInference().InferenceV1().InferencePools(key.Namespace).
+				Get(context.Background(), key.Name, metav1.GetOptions{})
+			if err != nil && !apierrors.IsNotFound(err) {
+				return err
+			}
+			// A revision handoff or same-name recreation can remove the pool from this
+			// controller's collection without making its old delete request authoritative.
+			if livePool != nil && (livePool.UID != request.poolUID || !c.inRevision(livePool)) {
+				return nil
+			}
+			serviceName, err := InferencePoolServiceName(key.Name)
+			if err != nil {
+				return err
+			}
+			existingService := ptr.Flatten(servicesCollection.GetKey(key.Namespace + "/" + serviceName))
+			if existingService == nil {
+				return nil
+			}
+			canManage, reason := c.canDeleteShadowServiceForInference(existingService, key.Name, request.poolUID)
+			if !canManage {
+				log.Debugf("skipping deletion of service %s/%s, managed by another controller: %s",
+					key.Namespace, serviceName, reason)
+				return nil
+			}
+			var preconditions *metav1.Preconditions
+			if existingService.UID != "" || existingService.ResourceVersion != "" {
+				preconditions = &metav1.Preconditions{}
+				if existingService.UID != "" {
+					preconditions.UID = ptr.Of(existingService.UID)
+				}
+				if existingService.ResourceVersion != "" {
+					preconditions.ResourceVersion = ptr.Of(existingService.ResourceVersion)
+				}
+			}
+			err = kubeClient.Kube().CoreV1().Services(key.Namespace).
+				Delete(context.Background(), serviceName, metav1.DeleteOptions{Preconditions: preconditions})
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+
 		// Find the InferencePool that matches the key
 		pool := inferencePools.GetKey(key.String())
 		if pool == nil {
-			// we'll generally ignore these scenarios, since the InferencePool may have been deleted
-			log.Debugf("inferencepool no longer exists", key.String())
+			log.Debugf("inferencepool %s no longer exists", key.String())
 			return nil
 		}
 
@@ -625,6 +684,33 @@ func (c *Controller) canManageShadowServiceForInference(obj *corev1.Service) (bo
 	_, inferencePoolManaged := obj.GetLabels()[InferencePoolRefLabel]
 	// We can manage if it has no manager or if we are the manager
 	return inferencePoolManaged, obj.GetResourceVersion()
+}
+
+func (c *Controller) canDeleteShadowServiceForInference(
+	obj *corev1.Service,
+	poolName string,
+	poolUID types.UID,
+) (bool, string) {
+	if poolUID == "" {
+		return false, "missing InferencePool UID"
+	}
+	canManage, reason := c.canManageShadowServiceForInference(obj)
+	if !canManage {
+		return false, reason
+	}
+	if obj.Labels[InferencePoolRefLabel] != poolName {
+		return false, fmt.Sprintf("unexpected %s label", InferencePoolRefLabel)
+	}
+	if obj.Labels[constants.InternalServiceSemantics] != constants.ServiceSemanticsInferencePool {
+		return false, fmt.Sprintf("unexpected %s label", constants.InternalServiceSemantics)
+	}
+	for _, owner := range obj.OwnerReferences {
+		if owner.APIVersion == gvk.InferencePool.GroupVersion() &&
+			owner.Kind == gvk.InferencePool.Kind && owner.Name == poolName && owner.UID == poolUID {
+			return true, ""
+		}
+	}
+	return false, "missing matching InferencePool owner reference"
 }
 
 func indexHTTPRouteByInferencePool(o *gatewayv1.HTTPRoute) []string {
