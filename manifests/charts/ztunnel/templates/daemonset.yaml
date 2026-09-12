@@ -127,6 +127,13 @@ spec:
         - name: NETWORK
           value: {{ .Values.network | quote }}
         {{- end }}
+        {{- $trustDomains := list }}
+        {{- range .Values.meshConfig.trustDomainAliases }}{{- $trustDomains = append $trustDomains . }}{{- end }}
+        {{- range .Values.meshConfig.caCertificates }}{{- range .trustDomains }}{{- $trustDomains = append $trustDomains . }}{{- end }}{{- end }}
+        {{- with (uniq $trustDomains) }}
+        - name: TRUST_DOMAINS
+          value: {{ join "," . | quote }}
+        {{- end }}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
         - name: RUST_BACKTRACE

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: [61608, 58427]
+releaseNotes:
+  - |
+    **Fixed** ztunnel rejecting inbound connections from trust domains the mesh is configured to
+    accept through `meshConfig.trustDomainAliases` or `meshConfig.caCertificates[].trustDomains`.
+    These settings previously applied only to sidecars, waypoints and gateways.
