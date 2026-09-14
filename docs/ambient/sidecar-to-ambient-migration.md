@@ -1,19 +1,20 @@
 # Sidecar to Ambient
 
-This guide walks through migrating a sidecar-based Istio deployment to ambient mode
-with zero downtime. It uses a `sleep` client calling a `helloworld`
+This guide walks through migrating a sidecar-based Istio deployment with L7 traffic policies
+to ambient mode with zero downtime. It uses a `sleep` client calling a `helloworld`
 service with two versions (v1/v2) and a 50/50 traffic split.
 
-It uses a workload waypoint for each version of the service.
+It relies on a workload attached waypoint to handle L7 traffic without applying traffic policies twice during the migration.
 
 ## Prerequisites
 
 - Istio installed with the **ambient** profile (istiod, ztunnel, istio-cni)
   ```bash
-  helm install istio-base istio/base -n istio-system --create-namespace --wait
-  helm install istiod istio/istiod --namespace istio-system --set profile=ambient --wait
-  helm install istio-cni istio/cni -n istio-system --set profile=ambient --wait
-  helm install ztunnel istio/ztunnel -n istio-system --wait
+  helm install istio-base manifests/charts/base -n istio-system --create-namespace --wait
+  # Enabling access logging makes it easy to verify traffic is flowing through the waypoint.
+  helm install istiod manifests/charts/istio-control/istio-discovery/ --namespace istio-system --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --wait
+  helm install istio-cni manifests/charts/istio-cni -n istio-system --set profile=ambient --wait
+  helm install ztunnel manifests/charts/ztunnel -n istio-system --wait
   ```
 - Gateway API CRDs installed:
   ```bash
@@ -91,38 +92,30 @@ spec:
           weight: 50
 ```
 
-## Step 1: Deploy Workload Waypoints
+### Verify
 
-Unlike service waypoints, workload waypoints are safe to use during sidecar-to-ambient interop because they only apply
-AuthorizationPolicy and RequestAuthentication. This avoids the double policy issues where both the sidecar and the waypoint would
-apply routing rules like retries, timeouts, and fault injection.
+Confirm client can talk to server
+
+```bash
+kubectl exec deploy/sleep -n client -- curl -s helloworld.server:5000/hello
+```
+
+## Step 1: Deploy Waypoint
+
+Creating a waypoint with the label `istio.io/waypoint-for: all` will allow the waypoint to handle both service and workload traffic. Before the client is migrated to ambient, traffic will pass through the waypoint destined for the workload(s) and after the client is migrated to ambient it will be destined for the service.
 
 ### 1a. Create workload waypoint Gateways
 
-Create a waypoint for each workload version:
+Create a waypoint for the server.
 
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: helloworld-v1-waypoint
+  name: helloworld-waypoint
   namespace: server
   labels:
-    istio.io/waypoint-for: workload
-spec:
-  gatewayClassName: istio-waypoint
-  listeners:
-    - name: mesh
-      port: 15008
-      protocol: HBONE
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: helloworld-v2-waypoint
-  namespace: server
-  labels:
-    istio.io/waypoint-for: workload
+    istio.io/waypoint-for: all
 spec:
   gatewayClassName: istio-waypoint
   listeners:
@@ -131,18 +124,20 @@ spec:
       protocol: HBONE
 ```
 
-### 1b. Label workloads to use their waypoints
+### 1b. Label workloads to use the waypoint
 
 The `istio.io/use-waypoint` label must be on the **workloads** (pods), not the
 Services. Add the label to the pod template in each Deployment:
 
 ```bash
 kubectl patch deployment helloworld-v1 -n server --type merge -p '
-  {"spec":{"template":{"metadata":{"labels":{"istio.io/use-waypoint":"helloworld-v1-waypoint"}}}}}'
+  {"spec":{"template":{"metadata":{"labels":{"istio.io/use-waypoint":"helloworld-waypoint"}}}}}'
 
 kubectl patch deployment helloworld-v2 -n server --type merge -p '
-  {"spec":{"template":{"metadata":{"labels":{"istio.io/use-waypoint":"helloworld-v2-waypoint"}}}}}'
+  {"spec":{"template":{"metadata":{"labels":{"istio.io/use-waypoint":"helloworld-waypoint"}}}}}'
 ```
+
+Traffic won't flow through the waypoint until the server is migrated to ambient.
 
 ### Verify
 
@@ -153,6 +148,9 @@ kubectl get gateway -n server
 
 # Confirm workloads have waypoints assigned
 istioctl ztunnel-config workloads | grep helloworld
+
+# Confirm client can talk to server
+kubectl exec deploy/sleep -n client -- curl -s helloworld.server:5000/hello
 ```
 
 ## Step 2: Migrate Server Namespace to Ambient
@@ -182,33 +180,11 @@ kubectl get pods -n server
 
 # Generate traffic to verify connectivity
 kubectl exec deploy/sleep -n client -- curl -s helloworld.server:5000/hello
-
-# Waypoint access logs should show traffic flowing through them
-kubectl logs deploy/helloworld-v1-waypoint -n server --tail=5
-kubectl logs deploy/helloworld-v2-waypoint -n server --tail=5
-```
-
-### 2c. Create the service waypoint
-
-You must create the service waypoint before switching the client to Ambient otherwise when the client is updated to ambient it will bypass the workload waypoints.
-
-TODO: Is this the expected behavior? Should sidecars send traffic through workload waypoints but ambient workloads bypass them?
-
-```yaml
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: helloworld-waypoint
-  namespace: server
-spec:
-  gatewayClassName: istio-waypoint
-  listeners:
-    - name: mesh
-      port: 15008
-      protocol: HBONE
 ```
 
 ### 2d. Label the Service
+
+After the client is migrated to Ambient, traffic should continue flowing through the waypoint destined for the Service.
 
 ```bash
 kubectl label service helloworld istio.io/use-waypoint=helloworld-waypoint -n server
@@ -235,18 +211,15 @@ kubectl rollout status deployment sleep -n client
 # Pod should be 1/1 (no sidecar)
 kubectl get pods -n client
 
+kubectl exec deploy/sleep -n client -- curl -s helloworld.server:5000/hello
+
 # Service waypoint should now handle traffic
 kubectl logs deploy/helloworld-waypoint -n server --tail=5
-
-# Traffic should not flow through the workload waypoints
-kubectl logs deploy/helloworld-v1-waypoint -n server --tail=5
-kubectl logs deploy/helloworld-v2-waypoint -n server --tail=5
 ```
 
-## Step 4: Clean Up Workload Waypoints
+## Step 4: Clean Up
 
-With the service waypoint handling all traffic, the workload waypoints are no longer
-needed.
+With all traffic destined for the service, you can remove the the workload waypoint labels.
 
 ### 4a. Remove waypoint labels from workloads
 
@@ -256,20 +229,4 @@ kubectl patch deployment helloworld-v1 -n server --type merge -p '
 
 kubectl patch deployment helloworld-v2 -n server --type merge -p '
   {"spec":{"template":{"metadata":{"labels":{"istio.io/use-waypoint":null}}}}}'
-```
-
-### 4b. Delete the workload waypoint Gateways
-
-```bash
-kubectl delete gateway helloworld-v1-waypoint helloworld-v2-waypoint -n server
-```
-
-### Verify
-
-```bash
-# Only the service waypoint should remain
-kubectl get gateway -n server
-
-# Traffic continues flowing through the service waypoint
-kubectl logs deploy/helloworld-waypoint -n server --tail=5
 ```
