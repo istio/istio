@@ -41,8 +41,6 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/workloadapi"
 )
 
 var networkFiltered = []networkFilterCase{
@@ -1489,10 +1487,6 @@ func TestSidecarAmbientBridgeGatewayTLSMode(t *testing.T) {
 				{Network: ambientNetwork, Cluster: "cluster-ambient", Addr: ambientGateway, Port: 15443, HBONEPort: 15008},
 				{Network: sidecarNetwork, Cluster: "cluster-sidecar", Addr: sidecarGateway, Port: 15443},
 			},
-			// Ambient enrollment is declared on the namespace, so the workload carries no
-			// distinguishing Pod label. The ambient index is the source of truth, exactly as
-			// it is in a real cluster.
-			AmbientIndex: hboneWorkloadsAt{ambientNetwork + "/" + ambientEndpoint},
 		})
 		ds.Env().InitNetworksManager(ds.Discovery)
 
@@ -1508,9 +1502,10 @@ func TestSidecarAmbientBridgeGatewayTLSMode(t *testing.T) {
 			EndpointPort:    8080,
 			// An ambient workload terminates HBONE in ztunnel, so it never advertises the
 			// legacy Istio mTLS that a sidecar client looks for.
-			TLSMode:  model.DisabledTLSModeLabel,
-			Labels:   map[string]string{"app": "example"},
-			Locality: model.Locality{ClusterID: "cluster-ambient"},
+			TLSMode:         model.DisabledTLSModeLabel,
+			AmbientCaptured: true,
+			Labels:          map[string]string{"app": "example"},
+			Locality:        model.Locality{ClusterID: "cluster-ambient"},
 		}}
 		svc.Shards[model.ShardKey{Cluster: "cluster-sidecar"}] = []*model.IstioEndpoint{{
 			Network:         sidecarNetwork,
@@ -1558,36 +1553,3 @@ func TestSidecarAmbientBridgeGatewayTLSMode(t *testing.T) {
 		}
 	})
 }
-
-// hboneWorkloadsAt is a minimal ambient index reporting an HBONE-terminating workload at each of
-// the given "network/ip" keys and nothing else, which is all EndpointsByNetworkFilter consults.
-type hboneWorkloadsAt []string
-
-var _ model.AmbientIndexes = hboneWorkloadsAt(nil)
-
-func (h hboneWorkloadsAt) AddressInformation(addresses sets.String) ([]model.AddressInfo, sets.String) {
-	var infos []model.AddressInfo
-	for _, key := range h {
-		if !addresses.Contains(key) {
-			continue
-		}
-		infos = append(infos, model.AddressInfo{Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{Workload: &workloadapi.Workload{
-				TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
-			}},
-		}})
-	}
-	return infos, nil
-}
-
-func (h hboneWorkloadsAt) ServicesWithWaypoint(string) []model.ServiceWaypointInfo { return nil }
-
-func (h hboneWorkloadsAt) AdditionalPodSubscriptions(*model.Proxy, sets.String, sets.String) sets.String {
-	return nil
-}
-func (h hboneWorkloadsAt) Policies(sets.Set[model.ConfigKey]) []model.WorkloadAuthorization {
-	return nil
-}
-func (h hboneWorkloadsAt) ServicesForWaypoint(model.WaypointKey) []model.ServiceInfo   { return nil }
-func (h hboneWorkloadsAt) WorkloadsForWaypoint(model.WaypointKey) []model.WorkloadInfo { return nil }
-func (h hboneWorkloadsAt) ServiceInfo(string) *model.ServiceInfo                       { return nil }

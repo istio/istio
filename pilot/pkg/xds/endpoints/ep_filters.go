@@ -43,18 +43,8 @@ const innerConnectOriginate = "inner_connect_originate"
 
 // isAmbientWorkload reports whether the endpoint is captured by ztunnel, and therefore terminates
 // HBONE rather than the legacy Istio mTLS a sidecar client would otherwise speak to it.
-//
-// This asks the ambient index rather than looking for istio.io/dataplane-mode on the endpoint:
-// enrollment is usually declared on the namespace, and that label is never copied down onto the
-// Pod, so a label check would silently miss the common case. The index is also what ztunnel and
-// the workload API agree on, so this stays correct for remote clusters.
-func isAmbientWorkload(b *EndpointBuilder, ep *model.IstioEndpoint) bool {
-	for _, addr := range ep.Addresses {
-		if b.push.SupportsTunnel(ep.Network, addr) {
-			return true
-		}
-	}
-	return false
+func isAmbientWorkload(ep *model.IstioEndpoint) bool {
+	return ep.AmbientCaptured
 }
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
@@ -195,7 +185,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// normally drop it below. With the bridge enabled the E/W gateway terminates the
 			// sidecar's mTLS and originates HBONE onward, so the endpoint is reachable after all.
 			bridged := features.EnableAmbientMultiNetwork && features.EnableSidecarAmbientBridge &&
-				isSidecarProxy(b.proxy) && isAmbientWorkload(b, istioEndpoint)
+				isSidecarProxy(b.proxy) && isAmbientWorkload(istioEndpoint)
 
 			// Cross-network traffic relies on mTLS for SNI routing in sidecar mode.
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
