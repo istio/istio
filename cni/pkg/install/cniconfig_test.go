@@ -16,6 +16,7 @@ package install
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,6 +27,37 @@ import (
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+func TestBuildIstioCNIPlugin(t *testing.T) {
+	cfg := &config.InstallConfig{
+		PluginLogLevel: "debug",
+		CNIAgentRunDir: "/path/to/kubeconfig",
+		PodNamespace:   "my-namespace",
+	}
+	got, err := buildIstioCNIPlugin(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(got, &m); err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, m, map[string]any{
+		"type":                           "istio-cni",
+		"name":                           "istio-cni",
+		"cniVersion":                     "0.3.1",
+		"plugin_log_level":               "debug",
+		"cni_agent_run_dir":              "/path/to/kubeconfig",
+		"pod_namespace":                  "my-namespace",
+		"ambient_enabled":                false,
+		"dns":                            map[string]any{},
+		"enable_ambient_detection_retry": false,
+		"enablement_selectors":           []any{},
+		"exclude_namespaces":             nil,
+		"ipam":                           map[string]any{},
+		"native_nftables":                false,
+	})
+}
 
 func TestGetConfigFilenames(t *testing.T) {
 	tempDir := t.TempDir()

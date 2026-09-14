@@ -32,10 +32,11 @@ import (
 	"istio.io/istio/pkg/file"
 )
 
-func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {
+// buildIstioCNIPlugin returns the marshaled istio-cni plugin JSON for the current config.
+func buildIstioCNIPlugin(cfg *config.InstallConfig) ([]byte, error) {
 	selectors := []util.EnablementSelector{}
 	if err := yaml.Unmarshal([]byte(cfg.AmbientEnablementSelector), &selectors); err != nil {
-		return "", fmt.Errorf("failed to parse ambient enablement selector: %v", err)
+		return nil, fmt.Errorf("failed to parse ambient enablement selector: %v", err)
 	}
 	pluginConfig := plugin.Config{
 		PluginLogLevel:              cfg.PluginLogLevel,
@@ -47,17 +48,22 @@ func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string
 		NativeNftables:              cfg.NativeNftables,
 		EnableAmbientDetectionRetry: cfg.EnableAmbientDetectionRetry,
 	}
-
 	pluginConfig.Name = "istio-cni"
 	pluginConfig.Type = "istio-cni"
 	pluginConfig.CNIVersion = "0.3.1"
 
 	marshalledJSON, err := json.MarshalIndent(pluginConfig, "", "  ")
 	if err != nil {
+		return nil, err
+	}
+	return append(marshalledJSON, "\n"...), nil
+}
+
+func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {
+	marshalledJSON, err := buildIstioCNIPlugin(cfg)
+	if err != nil {
 		return "", err
 	}
-	marshalledJSON = append(marshalledJSON, "\n"...)
-
 	return writeCNIConfig(ctx, marshalledJSON, cfg)
 }
 
