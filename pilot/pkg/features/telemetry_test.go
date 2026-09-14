@@ -15,8 +15,9 @@
 package features
 
 import (
-	"slices"
 	"testing"
+
+	"istio.io/istio/pkg/slices"
 )
 
 func TestParseProxyConvergenceTimeBuckets(t *testing.T) {

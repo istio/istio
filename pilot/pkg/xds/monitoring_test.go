@@ -17,11 +17,11 @@ package xds
 import (
 	"os"
 	"os/exec"
-	"slices"
 	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 )
 
 func TestProxyConvergenceTimeBuckets(t *testing.T) {
