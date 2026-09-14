@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/util/assert"
@@ -574,4 +575,48 @@ func TestCleanup(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRemoveStaleIstioOwnedConfig(t *testing.T) {
+	t.Run("not istio-owned removes leftover default file", func(t *testing.T) {
+		dir := t.TempDir()
+		leftover := filepath.Join(dir, constants.DefaultIstioOwnedCNIConfigFilename)
+		if err := os.WriteFile(leftover, []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		cfg := &config.InstallConfig{MountedCNINetDir: dir, ChainedCNIPlugin: true}
+		if err := removeStaleIstioOwnedConfig(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if file.Exists(leftover) {
+			t.Errorf("expected leftover file to be removed")
+		}
+	})
+
+	t.Run("istio-owned mode is a no-op", func(t *testing.T) {
+		dir := t.TempDir()
+		owned := filepath.Join(dir, constants.DefaultIstioOwnedCNIConfigFilename)
+		if err := os.WriteFile(owned, []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		cfg := &config.InstallConfig{
+			MountedCNINetDir:    dir,
+			ChainedCNIPlugin:    true,
+			AmbientEnabled:      true,
+			IstioOwnedCNIConfig: true,
+		}
+		if err := removeStaleIstioOwnedConfig(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if !file.Exists(owned) {
+			t.Errorf("istio-owned mode must not remove the owned config")
+		}
+	})
+
+	t.Run("absent file is a no-op", func(t *testing.T) {
+		cfg := &config.InstallConfig{MountedCNINetDir: t.TempDir(), ChainedCNIPlugin: true}
+		if err := removeStaleIstioOwnedConfig(cfg); err != nil {
+			t.Fatal(err)
+		}
+	})
 }
