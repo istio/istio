@@ -2718,6 +2718,18 @@ func (ps *PushContext) ServicesWithWaypoint(key string) []ServiceWaypointInfo {
 	return ps.ambientIndex.ServicesWithWaypoint(key)
 }
 
+// SidecarServiceWaypoints returns waypoint associations when a sidecar should route to a service
+// through a waypoint.
+func (ps *PushContext) SidecarServiceWaypoints(proxy *Proxy, service *Service) []ServiceWaypointInfo {
+	if !features.EnableSidecarWaypointRouting ||
+		proxy.Type != SidecarProxy ||
+		!service.HasAddressOrAssigned(proxy.Metadata.ClusterID) {
+		return nil
+	}
+
+	return ps.ServicesWithWaypoint(service.Attributes.Namespace + "/" + string(service.Hostname))
+}
+
 // ServiceInfo returns the ambient info about the given service, if present.
 // Key identifiies the service and expected to be in the form of 'namespace/hostname'.
 func (ps *PushContext) ServiceInfo(key string) *ServiceInfo {

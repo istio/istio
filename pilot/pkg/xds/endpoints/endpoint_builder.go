@@ -1023,18 +1023,22 @@ func (b *EndpointBuilder) waypointRoutingEnabled() bool {
 // For services that have a waypoint, we want to send to the waypoints rather than the service endpoints.
 // Lookup the service, find its waypoint, then find the waypoint's endpoints.
 func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) ([]*model.IstioEndpoint, bool) {
+	var svcs []model.ServiceWaypointInfo
+
 	// Currently we only support routers (gateways) and feature-flag-enabled sidecars.
-	if b.nodeType != model.Router &&
-		(b.nodeType != model.SidecarProxy || !features.EnableSidecarWaypointRouting) &&
-		!isEastWestGateway(b.proxy) {
-		return nil, false
-	}
-	if !b.service.HasAddressOrAssigned(b.proxy.Metadata.ClusterID) {
-		// No VIP, so skip this. Currently, waypoints can only accept VIP traffic
-		return nil, false
+	if b.nodeType == model.SidecarProxy {
+		svcs = b.push.SidecarServiceWaypoints(b.proxy, b.service)
+	} else {
+		if b.nodeType != model.Router && !isEastWestGateway(b.proxy) {
+			return nil, false
+		}
+		if !b.service.HasAddressOrAssigned(b.proxy.Metadata.ClusterID) {
+			// No VIP, so skip this. Currently, waypoints can only accept VIP traffic
+			return nil, false
+		}
+		svcs = b.push.ServicesWithWaypoint(b.service.Attributes.Namespace + "/" + string(b.hostname))
 	}
 
-	svcs := b.push.ServicesWithWaypoint(b.service.Attributes.Namespace + "/" + string(b.hostname))
 	if len(svcs) == 0 {
 		// Service isn't captured by a waypoint
 		return nil, false
