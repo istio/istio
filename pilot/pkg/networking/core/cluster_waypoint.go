@@ -100,7 +100,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(proxy *model.Pro
 // Used to terminate cross-network double-HBONE inner tunnels whose CONNECT authority is the
 // service hostname, which cannot be restored into an original destination address.
 func buildMainInternalPodClusters(proxy *model.Proxy) []*cluster.Cluster {
-	if !features.EnableAmbientMultiNetwork || len(proxy.IPAddresses) == 0 {
+	if !sidecarAmbientBridgeEnabled() || len(proxy.IPAddresses) == 0 {
 		return nil
 	}
 	ip := proxy.IPAddresses[0]

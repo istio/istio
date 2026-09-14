@@ -29,6 +29,7 @@ import (
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube/inject"
@@ -956,17 +957,17 @@ func addPassthroughListenerOrFail(t framework.TestContext, c cluster.Cluster, ns
 	})
 }
 
-// TestMultinetworkSidecarToRemoteAmbient covers a sidecar calling an ambient workload in another
-// network. A sidecar only ever gets the TLS passthrough east-west gateway on :15443 in its EDS,
-// and an ambient pod does not terminate Istio mTLS on the application port - ztunnel listens on
-// HBONE only - so without the bridge this call has no path at all.
+// TestMultinetworkCrossMode covers cross-cluster calls where the two ends run different data
+// planes. Sidecar and ambient workloads are reached through different east-west gateways - TLS
+// passthrough on :15443 versus HBONE on :15008 - and neither gateway serves the other mode, so
+// without the bridge these calls have no path at all.
 //
 // Each backend is deployed in the remote cluster only, so a reply can only come from across the
 // network; the explicit cluster assertion then pins down which pod actually answered. That matters
 // because ztunnel load balances per TCP connection rather than per request, so a keep-alive client
 // talking to a service that also has a local backend can stay pinned to it and report success
 // without ever exercising the cross-cluster path.
-func TestMultinetworkSidecarToRemoteAmbient(t *testing.T) {
+func TestMultinetworkCrossMode(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
 			t.Skip("this test is ambient multi-network specific")
@@ -1004,12 +1005,14 @@ func TestMultinetworkSidecarToRemoteAmbient(t *testing.T) {
 
 		const (
 			ambientBackend = "ambient-backend"
+			sidecarBackend = "sidecar-backend"
+			ambientClient  = "ambient-client"
 			sidecarClient  = "sidecar-client"
 		)
 		globalService := map[string]string{"istio.io/global": "true"}
 
 		echos := deployment.New(t).
-			// The backend lives only in the remote cluster, so any successful call crossed the network.
+			// Backends live only in the remote cluster, so any successful call crossed the network.
 			WithConfig(echo.Config{
 				Service:       ambientBackend,
 				Namespace:     ambientNS,
@@ -1019,11 +1022,32 @@ func TestMultinetworkSidecarToRemoteAmbient(t *testing.T) {
 				Subsets:       []echo.SubsetConfig{{Version: ambientBackend, Replicas: 1}},
 			}).
 			WithConfig(echo.Config{
+				Service:       sidecarBackend,
+				Namespace:     sidecarNS,
+				Cluster:       remote,
+				Ports:         ports.All(),
+				ServiceLabels: globalService,
+				Subsets: []echo.SubsetConfig{{
+					Version:  sidecarBackend,
+					Replicas: 1,
+					// An ambient client reaches this pod over HBONE, which the sidecar only
+					// accepts when it advertises the tunnel it supports.
+					Labels: map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				}},
+			}).
+			WithConfig(echo.Config{
 				Service:   sidecarClient,
 				Namespace: sidecarNS,
 				Cluster:   local,
 				Ports:     ports.All(),
 				Subsets:   []echo.SubsetConfig{{Version: sidecarClient, Replicas: 1}},
+			}).
+			WithConfig(echo.Config{
+				Service:   ambientClient,
+				Namespace: ambientNS,
+				Cluster:   local,
+				Ports:     ports.All(),
+				Subsets:   []echo.SubsetConfig{{Version: ambientClient, Replicas: 1}},
 			}).
 			BuildOrFail(t)
 
@@ -1036,17 +1060,31 @@ func TestMultinetworkSidecarToRemoteAmbient(t *testing.T) {
 			return got
 		}
 
-		for _, src := range instances(sidecarClient, sidecarNS) {
-			src.CallOrFail(t, echo.CallOptions{
-				Address: fmt.Sprintf("%s.%s.svc.cluster.local", ambientBackend, ambientNS.Name()),
-				Port:    ports.HTTP,
-				Scheme:  scheme.HTTP,
-				Count:   10,
-				Check: check.And(
-					check.OK(),
-					// Judge success by which pod answered, not by the status code.
-					check.ReachedClusters(allClusters, cluster.Clusters{remote}),
-				),
+		cases := []struct {
+			name      string
+			from      echo.Instances
+			toService string
+			toNS      namespace.Instance
+		}{
+			{"sidecar-to-remote-ambient", instances(sidecarClient, sidecarNS), ambientBackend, ambientNS},
+			{"ambient-to-remote-sidecar", instances(ambientClient, ambientNS), sidecarBackend, sidecarNS},
+		}
+
+		for _, tc := range cases {
+			t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+				for _, src := range tc.from {
+					src.CallOrFail(t, echo.CallOptions{
+						Address: fmt.Sprintf("%s.%s.svc.cluster.local", tc.toService, tc.toNS.Name()),
+						Port:    ports.HTTP,
+						Scheme:  scheme.HTTP,
+						Count:   10,
+						Check: check.And(
+							check.OK(),
+							// Judge success by which pod answered, not by the status code.
+							check.ReachedClusters(allClusters, cluster.Clusters{remote}),
+						),
+					})
+				}
 			})
 		}
 	})

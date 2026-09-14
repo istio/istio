@@ -2143,10 +2143,10 @@ func TestSidecarAmbientBridgeGatewayTLSMode(t *testing.T) {
 			EndpointPort:    8080,
 			// An ambient workload terminates HBONE in ztunnel, so it never advertises the
 			// legacy Istio mTLS that a sidecar client looks for.
-			TLSMode:         model.DisabledTLSModeLabel,
-			AmbientCaptured: true,
-			Labels:          map[string]string{"app": "example"},
-			Locality:        model.Locality{ClusterID: "cluster-ambient"},
+			TLSMode:           model.DisabledTLSModeLabel,
+			CapturedByZtunnel: true,
+			Labels:            map[string]string{"app": "example"},
+			Locality:          model.Locality{ClusterID: "cluster-ambient"},
 		}}
 		svc.Shards[model.ShardKey{Cluster: "cluster-sidecar"}] = []*model.IstioEndpoint{{
 			Network:         sidecarNetwork,
