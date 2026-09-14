@@ -22,10 +22,14 @@ import (
 
 	structpb "google.golang.org/protobuf/types/known/structpb"
 
+	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -390,6 +394,186 @@ func TestGlobalUnicastIP(t *testing.T) {
 			if got := node.GlobalUnicastIP; got != tt.expect {
 				t.Errorf("GlobalUnicastIP = %v, want %v", got, tt.expect)
 			}
+		})
+	}
+}
+
+func TestShouldCreateDoubleHBONEResources(t *testing.T) {
+	waypoint := func() *model.Proxy {
+		return &model.Proxy{
+			Type:     model.Waypoint,
+			Labels:   map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
+			Metadata: &model.NodeMetadata{},
+		}
+	}
+	managedGateway := func() *model.Proxy {
+		return &model.Proxy{
+			Type:     model.Router,
+			Labels:   map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayControllerLabel},
+			Metadata: &model.NodeMetadata{},
+		}
+	}
+	legacyGateway := func() *model.Proxy {
+		return &model.Proxy{
+			Type:     model.Router,
+			Labels:   map[string]string{constants.IstioLabel: constants.IstioIngressLabelValue},
+			Metadata: &model.NodeMetadata{},
+		}
+	}
+	eastWestGateway := func() *model.Proxy {
+		return &model.Proxy{
+			Type:     model.Waypoint,
+			Labels:   map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayEastWestControllerLabel},
+			Metadata: &model.NodeMetadata{},
+		}
+	}
+	disableHBONESend := func(p *model.Proxy) *model.Proxy {
+		p.Metadata.DisableHBONESend = true
+		return p
+	}
+
+	cases := []struct {
+		name             string
+		proxy            *model.Proxy
+		multiNet         bool
+		waypointMultiNet bool
+		ingressMultiNet  bool
+		hboneSend        bool
+		expect           bool
+	}{
+		{
+			name:             "waypoint, multi-network off",
+			proxy:            waypoint(),
+			multiNet:         false,
+			waypointMultiNet: true,
+			hboneSend:        true,
+			expect:           false,
+		},
+		{
+			name:             "waypoint, multi-network on",
+			proxy:            waypoint(),
+			multiNet:         true,
+			waypointMultiNet: true,
+			hboneSend:        true,
+			expect:           true,
+		},
+		{
+			name:             "waypoint, multi-network on but waypoint multi-network off",
+			proxy:            waypoint(),
+			multiNet:         true,
+			waypointMultiNet: false,
+			hboneSend:        true,
+			expect:           false,
+		},
+		{
+			name:             "waypoint, HBONE send off for this proxy",
+			proxy:            disableHBONESend(waypoint()),
+			multiNet:         true,
+			waypointMultiNet: true,
+			hboneSend:        true,
+			expect:           true,
+		},
+		{
+			name:             "waypoint, HBONE send off mesh-wide",
+			proxy:            waypoint(),
+			multiNet:         true,
+			waypointMultiNet: true,
+			hboneSend:        false,
+			expect:           true,
+		},
+		{
+			name:             "waypoint type without the managed gateway label",
+			proxy:            &model.Proxy{Type: model.Waypoint, Metadata: &model.NodeMetadata{}},
+			multiNet:         true,
+			waypointMultiNet: true,
+			hboneSend:        true,
+			expect:           false,
+		},
+		{
+			name:             "ambient east-west gateway",
+			proxy:            eastWestGateway(),
+			multiNet:         true,
+			waypointMultiNet: true,
+			ingressMultiNet:  true,
+			hboneSend:        true,
+			expect:           false,
+		},
+		{
+			name:            "managed gateway, multi-network off",
+			proxy:           managedGateway(),
+			multiNet:        false,
+			ingressMultiNet: true,
+			hboneSend:       true,
+			expect:          false,
+		},
+		{
+			name:            "managed gateway, multi-network on",
+			proxy:           managedGateway(),
+			multiNet:        true,
+			ingressMultiNet: true,
+			hboneSend:       true,
+			expect:          true,
+		},
+		{
+			name:            "managed gateway, multi-network on but ingress multi-network off",
+			proxy:           managedGateway(),
+			multiNet:        true,
+			ingressMultiNet: false,
+			hboneSend:       true,
+			expect:          false,
+		},
+		{
+			name:            "managed gateway, HBONE send off for this proxy",
+			proxy:           disableHBONESend(managedGateway()),
+			multiNet:        true,
+			ingressMultiNet: true,
+			hboneSend:       true,
+			expect:          false,
+		},
+		{
+			name:            "managed gateway, HBONE send off mesh-wide",
+			proxy:           managedGateway(),
+			multiNet:        true,
+			ingressMultiNet: true,
+			hboneSend:       false,
+			expect:          false,
+		},
+		{
+			name:            "legacy labelled gateway, multi-network on",
+			proxy:           legacyGateway(),
+			multiNet:        true,
+			ingressMultiNet: true,
+			hboneSend:       true,
+			expect:          true,
+		},
+		{
+			name:             "sidecar is never given double HBONE resources",
+			proxy:            &model.Proxy{Type: model.SidecarProxy, Metadata: &model.NodeMetadata{}},
+			multiNet:         true,
+			waypointMultiNet: true,
+			ingressMultiNet:  true,
+			hboneSend:        true,
+			expect:           false,
+		},
+		{
+			name:             "nil proxy",
+			proxy:            nil,
+			multiNet:         true,
+			waypointMultiNet: true,
+			ingressMultiNet:  true,
+			hboneSend:        true,
+			expect:           false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableHBONESend, tt.hboneSend)
+			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tt.multiNet)
+			test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, tt.waypointMultiNet)
+			test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, tt.ingressMultiNet)
+
+			assert.Equal(t, model.ShouldCreateDoubleHBONEResources(tt.proxy), tt.expect)
 		})
 	}
 }
