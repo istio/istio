@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+- 61713
+
+releaseNotes:
+- |
+  **Fixed** service scope being applied to sidecars when `AMBIENT_ENABLE_MULTI_NETWORK` is enabled.

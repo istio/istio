@@ -640,8 +640,9 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 		}
 	}
 	// If we are in ambient mode, the service is not global and the endpoint is in a different cluster
-	// we filter it out.
-	if b.serviceInfo != nil && b.serviceInfo.Scope != model.Global && b.clusterID != ep.Locality.ClusterID {
+	// we filter it out. Service scope is an ambient concept, so it does not apply to sidecars.
+	if b.serviceInfo != nil && !isSidecarProxy(b.proxy) &&
+		b.serviceInfo.Scope != model.Global && b.clusterID != ep.Locality.ClusterID {
 		return false
 	}
 
