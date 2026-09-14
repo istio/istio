@@ -37,7 +37,9 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/wellknown"
@@ -1965,4 +1967,104 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSidecarAmbientBridgeTransportSocketMatch pins down the client side of the bridge: the extra
+// transport socket a sidecar uses when the endpoint it picked is a bridging east-west gateway
+// rather than the destination workload itself.
+//
+// Two details here have no compile-time link to the gateway code that has to agree with them, and
+// both have already been a source of silent breakage:
+//
+//   - The SNI must be the DNS SRV form. Cluster names are pipe-delimited, but a pipe is not legal
+//     in a domain name, so the gateway matches its filter chains on the underscore form that
+//     sidecars actually put on the wire.
+//   - Peer validation must fall back to the trust domain. The gateway terminates and presents its
+//     own identity, so matching the destination service's SANs exactly would reject every
+//     connection.
+func TestSidecarAmbientBridgeTransportSocketMatch(t *testing.T) {
+	const clusterName = "outbound|80|v1|example.ns.svc.cluster.local"
+
+	matchesFor := func(t *testing.T, bridge bool) []*cluster.Cluster_TransportSocketMatch {
+		t.Helper()
+		test.SetForTest(t, &features.EnableAmbient, true)
+		test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+		test.SetForTest(t, &features.EnableSidecarAmbientBridge, bridge)
+
+		proxy := &model.Proxy{Type: model.SidecarProxy, Metadata: &model.NodeMetadata{}}
+		push := model.NewPushContext()
+		push.Mesh = mesh.DefaultMeshConfig()
+
+		cb := NewClusterBuilder(proxy, &model.PushRequest{Push: push}, model.DisabledCache{})
+		opts := &buildClusterOpts{
+			mutable: newClusterWrapper(&cluster.Cluster{
+				Name:                 clusterName,
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+			}),
+			mesh: push.Mesh,
+		}
+		cb.applyUpstreamTLSSettings(opts,
+			&networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL}, autoDetected)
+		return opts.mutable.cluster.TransportSocketMatches
+	}
+
+	names := func(matches []*cluster.Cluster_TransportSocketMatch) []string {
+		return slices.Map(matches, func(m *cluster.Cluster_TransportSocketMatch) string { return m.Name })
+	}
+
+	t.Run("bridge disabled", func(t *testing.T) {
+		got := names(matchesFor(t, false))
+		want := []string{"tlsMode-" + model.IstioMutualTLSModeLabel, "tlsMode-disabled"}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("transport socket matches = %v, want %v (the bridge must add nothing when disabled)", got, want)
+		}
+	})
+
+	t.Run("bridge enabled", func(t *testing.T) {
+		matches := matchesFor(t, true)
+		got := names(matches)
+		want := []string{
+			"tlsMode-" + model.IstioMutualTLSModeLabel,
+			"tlsMode-" + model.GatewayTLSModeLabel,
+			"tlsMode-disabled",
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("transport socket matches = %v, want %v", got, want)
+		}
+
+		// The istio match must still be the untouched exact-SAN socket: a bridged endpoint opts
+		// into the relaxed one by carrying a different tlsMode, it does not replace this.
+		var gateway *cluster.Cluster_TransportSocketMatch
+		for _, m := range matches {
+			if m.Name == "tlsMode-"+model.GatewayTLSModeLabel {
+				gateway = m
+			}
+		}
+		if gateway.GetMatch().GetFields()[model.TLSModeLabelShortname].GetStringValue() != model.GatewayTLSModeLabel {
+			t.Fatalf("gateway socket matches on %v, want endpoints labelled %q",
+				gateway.GetMatch(), model.GatewayTLSModeLabel)
+		}
+
+		ctx := &tls.UpstreamTlsContext{}
+		if err := gateway.TransportSocket.GetTypedConfig().UnmarshalTo(ctx); err != nil {
+			t.Fatal(err)
+		}
+
+		wantSNI := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "v1", "example.ns.svc.cluster.local", 80)
+		if ctx.GetSni() != wantSNI {
+			t.Errorf("SNI = %q, want %q (the gateway matches filter chains on the DNS SRV form, not the cluster name)",
+				ctx.GetSni(), wantSNI)
+		}
+
+		sans := ctx.GetCommonTlsContext().GetCombinedValidationContext().
+			GetDefaultValidationContext().GetMatchTypedSubjectAltNames()
+		if len(sans) != 1 {
+			t.Fatalf("got %d SAN matchers, want 1", len(sans))
+		}
+		wantPrefix := spiffe.URIPrefix + mesh.DefaultMeshConfig().GetTrustDomain() + "/"
+		if got := sans[0].GetMatcher().GetPrefix(); got != wantPrefix {
+			t.Errorf("SAN matcher prefix = %q, want %q (the gateway presents its own identity, so the "+
+				"destination service's SANs cannot be matched exactly)", got, wantPrefix)
+		}
+	})
 }

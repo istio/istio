@@ -32,6 +32,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
@@ -46,6 +47,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	config "istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -5134,5 +5136,85 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestSidecarAmbientBridgeFilterChains covers the gateway side of the bridge: the filter chains an
+// ambient east-west gateway grows so it can accept mTLS from a remote sidecar and hand the traffic
+// on to an ambient workload.
+//
+// The two things asserted here are the halves of contracts whose other half lives far away in the
+// code, with nothing tying them together at compile time:
+//
+//   - The SNI the chain matches on has to be the same DNS SRV form the client puts on the wire
+//     (see TestSidecarAmbientBridgeTransportSocketMatch for that side).
+//   - Bridged traffic has to land on its own inbound-vip subset. The "tcp" subset forwards
+//     double-HBONE inner streams opaquely for the 15008 path; reusing it here would capture those
+//     streams too, which is a failure that only shows up as a TLS error on an unrelated path.
+func TestSidecarAmbientBridgeFilterChains(t *testing.T) {
+	svc := &pilot_model.Service{
+		Hostname:   "example.ns.svc.cluster.local",
+		Ports:      []*pilot_model.Port{{Name: "http", Protocol: protocol.HTTP, Port: 80}},
+		Attributes: pilot_model.ServiceAttributes{Namespace: "ns", Name: "example"},
+	}
+	destinationRule := config.Config{
+		Meta: config.Meta{Name: "example", Namespace: "ns", GroupVersionKind: gvk.DestinationRule},
+		Spec: &networking.DestinationRule{
+			Host:    "example.ns.svc.cluster.local",
+			Subsets: []*networking.Subset{{Name: "v1", Labels: map[string]string{"version": "v1"}}},
+		},
+	}
+	server := &networking.Server{
+		Port:  &networking.Port{Name: "tls", Number: 15443, Protocol: "TLS"},
+		Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+		Hosts: []string{"*/*"},
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*pilot_model.Service{svc},
+		Configs:  []config.Config{destinationRule},
+	})
+	proxy := cg.SetupProxy(&pilot_model.Proxy{
+		Type:            pilot_model.Waypoint,
+		ConfigNamespace: "istio-system",
+		Labels: map[string]string{
+			label.GatewayManaged.Name: constants.ManagedGatewayEastWestControllerLabel,
+		},
+	})
+
+	opts := builtAutoPassthroughFilterChainsWithTLS(cg.PushContext(), proxy, server, []string{"*"})
+
+	// One chain for the default subset and one per DestinationRule subset, mirroring how classic
+	// AUTO_PASSTHROUGH lets a remote sidecar select a subset through the SNI.
+	gotSNI := map[string]string{}
+	for _, o := range opts {
+		if len(o.sniHosts) != 1 {
+			t.Fatalf("chain matches %d SNI hosts, want exactly 1: %v", len(o.sniHosts), o.sniHosts)
+		}
+		hcm := &hcm.HttpConnectionManager{}
+		if err := o.networkFilters[0].GetTypedConfig().UnmarshalTo(hcm); err != nil {
+			t.Fatalf("chain for %s is not an HCM: %v", o.sniHosts[0], err)
+		}
+		gotSNI[o.sniHosts[0]] = hcm.GetRouteConfig().GetVirtualHosts()[0].GetRoutes()[0].GetRoute().GetCluster()
+	}
+
+	wantSNI := map[string]string{
+		pilot_model.BuildDNSSrvSubsetKey(pilot_model.TrafficDirectionOutbound, "", svc.Hostname, 80): pilot_model.BuildSubsetKey(
+			pilot_model.TrafficDirectionInboundVIP, pilot_model.SidecarBridgeSubsetOf(""), svc.Hostname, 80),
+		pilot_model.BuildDNSSrvSubsetKey(pilot_model.TrafficDirectionOutbound, "v1", svc.Hostname, 80): pilot_model.BuildSubsetKey(
+			pilot_model.TrafficDirectionInboundVIP, pilot_model.SidecarBridgeSubsetOf("v1"), svc.Hostname, 80),
+	}
+	if diff := cmp.Diff(wantSNI, gotSNI); diff != "" {
+		t.Errorf("bridge filter chains (SNI -> cluster) mismatch (-want +got):\n%s", diff)
+	}
+
+	// An HTTP port must use an HCM rather than a TCP proxy. A sidecar half-closes after sending a
+	// request body and still expects a response; a TCP proxy propagates that as end_stream and
+	// tears the HBONE tunnel down before the response comes back.
+	for _, o := range opts {
+		if o.networkFilters[0].Name != wellknown.HTTPConnectionManager {
+			t.Errorf("chain for %s uses %q, want %q for an HTTP port",
+				o.sniHosts[0], o.networkFilters[0].Name, wellknown.HTTPConnectionManager)
+		}
 	}
 }

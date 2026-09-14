@@ -81,6 +81,22 @@ var (
 		"If true and AMBIENT_ENABLE_MULTI_NETWORK is also true, it will enable ingress gateways to route requests to clusters on remote "+
 			"networks while by default ingress gateways will keep traffic local.")
 
+	// Cross-mode cross-network bridging. Sidecar and ambient workloads use different east-west
+	// gateways (mTLS passthrough on :15443 vs HBONE on :15008) and neither gateway can serve the
+	// other mode, so by default a call between the two modes across networks has no path.
+	//
+	// Enabling this lets the ambient east-west gateway terminate the sidecar's mTLS and originate
+	// HBONE toward the ambient destination (and symmetrically hand off to an HBONE-capable sidecar).
+	// Because the bridge terminates, the destination observes the east-west gateway's identity
+	// rather than the original client's: AuthorizationPolicy source.principal on this path is the
+	// gateway's service account. Off by default for that reason.
+	//
+	// NOTE: This flag does nothing when AMBIENT_ENABLE_MULTI_NETWORK is false.
+	EnableSidecarAmbientBridge = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK_SIDECAR_BRIDGE", false, false,
+		"If true and AMBIENT_ENABLE_MULTI_NETWORK is also true, sidecar and ambient workloads can reach each other "+
+			"across networks by bridging at the east-west gateway. Note that the bridge terminates the client's mTLS, "+
+			"so the destination sees the east-west gateway's identity as the peer principal.")
+
 	WaypointLayeredAuthorizationPolicies = env.Register(
 		"ENABLE_LAYERED_WAYPOINT_AUTHORIZATION_POLICIES",
 		false,

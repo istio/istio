@@ -134,6 +134,25 @@ func (cb *ClusterBuilder) buildGatewayMtlsTLSContext(sni string) *tlsv3.Upstream
 	return tlsContext
 }
 
+// gatewayTransportSocketMatch returns the transport socket match for endpoints that represent a
+// bridging E/W gateway, or nil when the sidecar-to-ambient bridge is disabled. Such a gateway
+// terminates the connection and presents its own identity, so the destination service's SANs
+// cannot be validated; peer validation falls back to the mesh trust domain.
+func (cb *ClusterBuilder) gatewayTransportSocketMatch(clusterName string) *cluster.Cluster_TransportSocketMatch {
+	if !sidecarAmbientBridgeEnabled() {
+		return nil
+	}
+	tlsContext := cb.buildGatewayMtlsTLSContext(clusterName)
+	return &cluster.Cluster_TransportSocketMatch{
+		Name:  "tlsMode-" + model.GatewayTLSModeLabel,
+		Match: gatewayMtlsTransportSocketMatch,
+		TransportSocket: &core.TransportSocket{
+			Name:       wellknown.TransportSocketTLS,
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
+		},
+	}
+}
+
 // applyUpstreamTLSSettings applies upstream tls context to the cluster
 func (cb *ClusterBuilder) applyUpstreamTLSSettings(
 	opts *buildClusterOpts,
@@ -165,27 +184,15 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(
 			transportSocket := c.cluster.TransportSocket
 			c.cluster.TransportSocket = nil
 
-			// Build gateway transport socket with trust domain prefix matching
-			// for cross-network gateway connections
-			gatewayTLSContext := cb.buildGatewayMtlsTLSContext(c.cluster.Name)
-			gatewayTransportSocket := &core.TransportSocket{
-				Name:       wellknown.TransportSocketTLS,
-				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(gatewayTLSContext)},
+			matches := []*cluster.Cluster_TransportSocketMatch{{
+				Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+				Match:           istioMtlsTransportSocketMatch,
+				TransportSocket: transportSocket,
+			}}
+			if m := cb.gatewayTransportSocketMatch(c.cluster.Name); m != nil {
+				matches = append(matches, m)
 			}
-
-			c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-				{
-					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
-					Match:           istioMtlsTransportSocketMatch,
-					TransportSocket: transportSocket,
-				},
-				{
-					Name:            "tlsMode-" + model.GatewayTLSModeLabel,
-					Match:           gatewayMtlsTransportSocketMatch,
-					TransportSocket: gatewayTransportSocket,
-				},
-				defaultTransportSocketMatch(),
-			}
+			c.cluster.TransportSocketMatches = append(matches, defaultTransportSocketMatch())
 		}
 	}
 }
@@ -431,28 +438,18 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 			transportSocket := c.TransportSocket
 			c.TransportSocket = nil
 
-			// Build gateway transport socket with trust domain prefix matching
-			// for cross-network gateway connections
-			gatewayTLSContext := cb.buildGatewayMtlsTLSContext(c.Name)
-			gatewayTransportSocket := &core.TransportSocket{
-				Name:       wellknown.TransportSocketTLS,
-				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(gatewayTLSContext)},
-			}
-
-			c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+			matches := []*cluster.Cluster_TransportSocketMatch{
 				hboneTransportSocket(xdsfilters.RawBufferTransportSocket),
 				{
 					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
 					Match:           istioMtlsTransportSocketMatch,
 					TransportSocket: transportSocket,
 				},
-				{
-					Name:            "tlsMode-" + model.GatewayTLSModeLabel,
-					Match:           gatewayMtlsTransportSocketMatch,
-					TransportSocket: gatewayTransportSocket,
-				},
-				defaultTransportSocketMatch(),
 			}
+			if m := cb.gatewayTransportSocketMatch(c.Name); m != nil {
+				matches = append(matches, m)
+			}
+			c.TransportSocketMatches = append(matches, defaultTransportSocketMatch())
 		} else {
 			if c.TransportSocket == nil {
 				// User didn't have any TLS configured. We will send HBONE or plain, depending on backend support
