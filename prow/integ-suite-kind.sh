@@ -162,6 +162,13 @@ export CI="true"
 export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 trace "init" make init
 
+BUILD_IMAGES_PID=""
+if [[ -n "${CI}" && -z "${SKIP_SETUP:-}" && -z "${SKIP_BUILD:-}" && -z "${DEVCONTAINER}" ]]; then
+  trace "start kind registry" start_kind_registry
+  trace "build images" build_images "${PARAMS[*]}" &
+  BUILD_IMAGES_PID=$!
+fi
+
 if [[ -z "${SKIP_SETUP:-}" ]]; then
   # Use KIND_CONFIG if specified, otherwise fall back to CLUSTER_YAML
   if [[ -n "${KIND_CONFIG}" ]]; then
@@ -195,8 +202,15 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
-  trace "setup kind registry" setup_kind_registry
-  trace "build images" build_images "${PARAMS[*]}"
+  if [[ -n "${BUILD_IMAGES_PID}" ]]; then
+    wait "${BUILD_IMAGES_PID}"
+  else
+    trace "start kind registry" start_kind_registry
+  fi
+  trace "configure kind registry" configure_kind_registry
+  if [[ -z "${BUILD_IMAGES_PID}" ]]; then
+    trace "build images" build_images "${PARAMS[*]}"
+  fi
 
   # upload WASM plugins to kind-registry
   registry_url=$(if [ -z "$DEVCONTAINER" ]; then echo "localhost"; else echo $KIND_REGISTRY_NAME; fi):$KIND_REGISTRY_PORT
@@ -230,7 +244,7 @@ fi
 if [[ -n "${PARAMS:-}" ]]; then
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
     # The setup and registry steps above enumerate every kind cluster on the host (e.g.
-    # setup_kind_registry loops over `kind get clusters`) and leave the shared kubeconfig's
+    # configure_kind_registry loops over `kind get clusters`) and leave the shared kubeconfig's
     # current-context on an arbitrary one. Single-cluster tests otherwise inherit that context and
     # can install into an unrelated bystander cluster. Hand the framework an isolated kubeconfig for
     # just the cluster we provisioned -- mirroring the per-cluster kubeconfigs the multicluster path
