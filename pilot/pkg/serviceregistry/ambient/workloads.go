@@ -114,9 +114,8 @@ func (a Builder) WorkloadsCollection(
 		opts.WithName("EndpointSliceWorkloads")...)
 
 	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
-		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		all := LookupAllNetworkGateway(ctx, a.Networks.NetworkGateways)
-		return slices.Map(all, convertGateway(meshCfg))
+		return slices.Map(all, convertGateway(ctx, localTrustDomain(meshConfig)))
 	}, opts.WithName("NetworkGatewayWorkloads")...)
 
 	Workloads := krt.JoinCollection(
@@ -143,6 +142,7 @@ func MergedGlobalWorkloadsCollection(
 	globalNodes krt.Collection[krt.Collection[krt.ObjectWithCluster[Node]]],
 	nodesByCluster krt.Index[cluster.ID, krt.Collection[krt.ObjectWithCluster[Node]]],
 	meshConfig krt.Singleton[MeshConfig],
+	clusterMeshConfigs MeshConfigCollections,
 	localAuthPoliciesByNs krt.Index[string, model.WorkloadAuthorization],
 	localPeerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	globalWaypoints krt.Collection[krt.Collection[Waypoint]],
@@ -162,6 +162,7 @@ func MergedGlobalWorkloadsCollection(
 		localCluster.Pods(),
 		podWorkloadBuilder(
 			meshConfig,
+			clusterMeshConfigs.FetchTrustDomain,
 			globalNetworks.FetchLocalNetworkID,
 			localAuthPoliciesByNs,
 			localPeerAuthsByNs,
@@ -189,6 +190,7 @@ func MergedGlobalWorkloadsCollection(
 		workloadEntries,
 		workloadEntryWorkloadBuilder(
 			meshConfig,
+			clusterMeshConfigs.FetchTrustDomain,
 			globalNetworks.FetchLocalNetworkID,
 			localAuthPoliciesByNs,
 			localPeerAuthsByNs,
@@ -215,6 +217,7 @@ func MergedGlobalWorkloadsCollection(
 		serviceEntries,
 		serviceEntryWorkloadBuilder(
 			meshConfig,
+			clusterMeshConfigs.FetchTrustDomain,
 			localAuthPoliciesByNs,
 			localPeerAuthsByNs,
 			localWaypoints,
@@ -239,7 +242,8 @@ func MergedGlobalWorkloadsCollection(
 	// on when we will build from an EndpointSlice.
 	LocalEndpointSliceWorkloads := krt.NewManyCollection(
 		localCluster.EndpointSlices(),
-		endpointSlicesBuilder(meshConfig,
+		endpointSlicesBuilder(
+			clusterMeshConfigs.FetchTrustDomain,
 			localWorkloadServices,
 			domainSuffix,
 			localCluster.ID,
@@ -254,11 +258,10 @@ func MergedGlobalWorkloadsCollection(
 	)
 
 	GlobalNetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
-		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		return slices.Map(LookupAllNetworkGateway(
 			ctx,
 			globalNetworks.NetworkGateways,
-		), convertGateway(meshCfg))
+		), convertGateway(ctx, clusterMeshConfigs.FetchTrustDomain))
 	}, opts.WithName("LocalNetworkGatewayWorkloads")...)
 	LocalNetworkGatewayWorkloadsWithCluster := krt.MapCollection(
 		GlobalNetworkGatewayWorkloads,
@@ -334,6 +337,7 @@ func MergedGlobalWorkloadsCollection(
 				pods,
 				podWorkloadBuilder(
 					meshConfig,
+					clusterMeshConfigs.FetchTrustDomain,
 					globalNetworks.FetchLocalNetworkID,
 					localAuthPoliciesByNs,
 					localPeerAuthsByNs,
@@ -376,6 +380,7 @@ func MergedGlobalWorkloadsCollection(
 				workloadEntries,
 				workloadEntryWorkloadBuilder(
 					meshConfig,
+					clusterMeshConfigs.FetchTrustDomain,
 					globalNetworks.FetchLocalNetworkID,
 					localAuthPoliciesByNs,
 					localPeerAuthsByNs,
@@ -416,6 +421,7 @@ func MergedGlobalWorkloadsCollection(
 				serviceEntries,
 				serviceEntryWorkloadBuilder(
 					meshConfig,
+					clusterMeshConfigs.FetchTrustDomain,
 					localAuthPoliciesByNs,
 					localPeerAuthsByNs,
 					waypoints,
@@ -454,7 +460,8 @@ func MergedGlobalWorkloadsCollection(
 			// on when we will build from an EndpointSlice.
 			EndpointSliceWorkloads := krt.NewManyCollection(
 				endpointSlices,
-				endpointSlicesBuilder(meshConfig,
+				endpointSlicesBuilder(
+					clusterMeshConfigs.FetchTrustDomain,
 					globalWorkloadServices,
 					domainSuffix,
 					c.ID,
@@ -501,6 +508,7 @@ func MergedGlobalWorkloadsCollection(
 
 func workloadEntryWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
+	trustDomain func(krt.HandlerContext, cluster.ID) string,
 	localNetworkGetter func(krt.HandlerContext) network.ID,
 	authPoliciesByNs krt.Index[string, model.WorkloadAuthorization],
 	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
@@ -550,7 +558,7 @@ func workloadEntryWorkloadBuilder(
 			Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
 			Waypoint:              targetWaypoint.GetAddress(),
 			ApplicationTunnel:     appTunnel,
-			TrustDomain:           pickTrustDomain(meshCfg),
+			TrustDomain:           pickTrustDomain(trustDomain(ctx, clusterID)),
 			Locality:              getWorkloadEntryLocality(&wle.Spec),
 		}
 		if wle.Spec.Weight > 0 {
@@ -600,6 +608,7 @@ func (a Builder) workloadEntryWorkloadBuilder(
 ) krt.TransformationSingle[*networkingclient.WorkloadEntry, model.WorkloadInfo] {
 	return workloadEntryWorkloadBuilder(
 		meshConfig,
+		localTrustDomain(meshConfig),
 		a.Networks.FetchLocalNetworkID,
 		authPoliciesByNs,
 		peerAuthsByNs,
@@ -643,6 +652,7 @@ func computeWaypoint(
 
 func podWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
+	trustDomain func(krt.HandlerContext, cluster.ID) string,
 	localNetworkGetter func(krt.HandlerContext) network.ID,
 	authPoliciesByNs krt.Index[string, model.WorkloadAuthorization],
 	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
@@ -720,7 +730,7 @@ func podWorkloadBuilder(
 			Services:              constructServices(p, services),
 			AuthorizationPolicies: policies,
 			Status:                status,
-			TrustDomain:           pickTrustDomain(meshCfg),
+			TrustDomain:           pickTrustDomain(trustDomain(ctx, clusterID)),
 			Locality:              getPodLocality(ctx, nodes, p),
 		}
 
@@ -760,6 +770,7 @@ func (a Builder) podWorkloadBuilder(
 ) krt.TransformationSingle[*v1.Pod, model.WorkloadInfo] {
 	return podWorkloadBuilder(
 		meshConfig,
+		localTrustDomain(meshConfig),
 		a.Networks.FetchLocalNetworkID,
 		authPoliciesByNs,
 		peerAuthsByNs,
@@ -874,6 +885,7 @@ func buildWorkloadPolicies(
 
 func serviceEntryWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
+	trustDomain func(krt.HandlerContext, cluster.ID) string,
 	authPoliciesByNs krt.Index[string, model.WorkloadAuthorization],
 	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
@@ -966,7 +978,7 @@ func serviceEntryWorkloadBuilder(
 				Status:                workloadapi.WorkloadStatus_HEALTHY,
 				Waypoint:              targetWaypoint.GetAddress(),
 				ApplicationTunnel:     appTunnel,
-				TrustDomain:           pickTrustDomain(meshCfg),
+				TrustDomain:           pickTrustDomain(trustDomain(ctx, clusterID)),
 				Locality:              getWorkloadEntryLocality(wle),
 			}
 			if wle.Weight > 0 {
@@ -1004,6 +1016,7 @@ func (a Builder) serviceEntryWorkloadBuilder(
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
 	return serviceEntryWorkloadBuilder(
 		meshConfig,
+		localTrustDomain(meshConfig),
 		authPoliciesByNs,
 		peerAuthsByNs,
 		waypoints,
@@ -1017,7 +1030,7 @@ func (a Builder) serviceEntryWorkloadBuilder(
 }
 
 func endpointSlicesBuilder(
-	meshConfig krt.Singleton[MeshConfig],
+	trustDomain func(krt.HandlerContext, cluster.ID) string,
 	workloadServices krt.Collection[model.ServiceInfo],
 	domainSuffix string,
 	clusterID cluster.ID,
@@ -1039,7 +1052,6 @@ func endpointSlicesBuilder(
 		}
 		var res []model.WorkloadInfo
 		seen := sets.New[string]()
-		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 
 		// The slice must be for a single service, based on the label above.
 		serviceKey := es.Namespace + "/" + string(kube.ServiceHostname(serviceName, es.Namespace, domainSuffix))
@@ -1130,7 +1142,7 @@ func endpointSlicesBuilder(
 				Addresses:   addresses,
 				Hostname:    "",
 				Network:     network.String(),
-				TrustDomain: pickTrustDomain(meshCfg),
+				TrustDomain: pickTrustDomain(trustDomain(ctx, clusterID)),
 				Services:    services,
 				Status:      health,
 				ClusterId:   string(clusterID),
@@ -1159,7 +1171,7 @@ func (a Builder) endpointSlicesBuilder(
 	workloadServices krt.Collection[model.ServiceInfo],
 ) krt.TransformationMulti[*discovery.EndpointSlice, model.WorkloadInfo] {
 	return endpointSlicesBuilder(
-		meshConfig,
+		localTrustDomain(meshConfig),
 		workloadServices,
 		a.DomainSuffix,
 		a.ClusterID,
@@ -1184,9 +1196,19 @@ func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Wor
 	// enum field would be rejected.
 }
 
-func pickTrustDomain(mesh *MeshConfig) string {
-	if td := mesh.GetTrustDomain(); td != "cluster.local" {
-		return td
+// localTrustDomain resolves any cluster to the local mesh config's trust domain. It is used where the
+// local cluster is the only one.
+func localTrustDomain(meshConfig krt.Singleton[MeshConfig]) func(krt.HandlerContext, cluster.ID) string {
+	return func(ctx krt.HandlerContext, _ cluster.ID) string {
+		return krt.FetchOne(ctx, meshConfig.AsCollection()).GetTrustDomain()
+	}
+}
+
+// pickTrustDomain elides the trust domain when it is the mesh-wide default, which ztunnel assumes when
+// the field is unset.
+func pickTrustDomain(trustDomain string) string {
+	if trustDomain != constants.DefaultClusterLocalDomain {
+		return trustDomain
 	}
 	return ""
 }
@@ -1385,7 +1407,7 @@ func gatewayUID(gw model.NetworkGateway) string {
 // convertGateway always converts a NetworkGateway into a Workload.
 // Workloads have a NetworkGateway field, which is effectively a pointer to another object (Service or Workload); in order
 // to facilitate this we need to translate our Gateway model down into a WorkloadInfo ztunnel can understand.
-func convertGateway(mesh *MeshConfig) func(gw NetworkGateway) model.WorkloadInfo {
+func convertGateway(ctx krt.HandlerContext, trustDomain func(krt.HandlerContext, cluster.ID) string) func(gw NetworkGateway) model.WorkloadInfo {
 	return func(gw NetworkGateway) model.WorkloadInfo {
 		wl := &workloadapi.Workload{
 			Uid:            gatewayUID(gw.NetworkGateway),
@@ -1393,7 +1415,7 @@ func convertGateway(mesh *MeshConfig) func(gw NetworkGateway) model.WorkloadInfo
 			ServiceAccount: gw.ServiceAccount.Name,
 			Namespace:      gw.ServiceAccount.Namespace,
 			Network:        gw.Network.String(),
-			TrustDomain:    pickTrustDomain(mesh),
+			TrustDomain:    pickTrustDomain(trustDomain(ctx, gw.Cluster)),
 		}
 
 		if ip, err := netip.ParseAddr(gw.Addr); err == nil {
