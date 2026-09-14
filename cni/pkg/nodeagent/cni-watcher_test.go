@@ -338,9 +338,20 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 	// serialize our fake plugin event
 	addEvent, err := processAddEvent(payload)
 	assert.Equal(t, err, nil)
+	addEvent.IPs = append([]IPConfig{{}}, addEvent.IPs...)
+
+	// An event with no valid IPs should fail without calling the dataplane.
+	err = pluginServer.ReconcileCNIAddEvent(ctx, CNIPluginAddEvent{
+		Netns:        valid.Netns,
+		PodName:      valid.PodName,
+		PodNamespace: valid.PodNamespace,
+		IPs:          []IPConfig{{}},
+	})
+	assert.Error(t, err)
 
 	// Push it thru the handler
-	pluginServer.ReconcileCNIAddEvent(ctx, addEvent)
+	err = pluginServer.ReconcileCNIAddEvent(ctx, addEvent)
+	assert.NoError(t, err)
 
 	waitForMockCalls()
 
