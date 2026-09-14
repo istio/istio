@@ -81,12 +81,12 @@ type EndpointBuilder struct {
 	// sidecarBridge marks inbound-vip clusters carrying east-west gateway
 	// sidecar-bridge semantics (see model.SidecarBridgeSubsetName).
 	sidecarBridge bool
-	hostname     host.Name
-	port         int
-	push         *model.PushContext
-	proxy        *model.Proxy
-	dir          model.TrafficDirection
-	serviceInfo  *model.ServiceInfo
+	hostname      host.Name
+	port          int
+	push          *model.PushContext
+	proxy         *model.Proxy
+	dir           model.TrafficDirection
+	serviceInfo   *model.ServiceInfo
 
 	mtlsChecker *mtlsChecker
 

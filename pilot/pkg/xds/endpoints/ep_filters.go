@@ -25,27 +25,36 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // innerConnectOriginate is the name for the resources associated with establishing double-HBONE connection.
 // Duplicated from networking/core/waypoint.go to avoid import cycle
 const innerConnectOriginate = "inner_connect_originate"
 
-// isAmbientWorkload returns true if the endpoint represents an ambient workload.
-// Ambient workloads are identified by the istio.io/dataplane-mode=ambient label.
-func isAmbientWorkload(ep *model.IstioEndpoint) bool {
-	return ep.Labels[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient
+// isAmbientWorkload reports whether the endpoint is captured by ztunnel, and therefore terminates
+// HBONE rather than the legacy Istio mTLS a sidecar client would otherwise speak to it.
+//
+// This asks the ambient index rather than looking for istio.io/dataplane-mode on the endpoint:
+// enrollment is usually declared on the namespace, and that label is never copied down onto the
+// Pod, so a label check would silently miss the common case. The index is also what ztunnel and
+// the workload API agree on, so this stays correct for remote clusters.
+func isAmbientWorkload(b *EndpointBuilder, ep *model.IstioEndpoint) bool {
+	for _, addr := range ep.Addresses {
+		if b.push.SupportsTunnel(ep.Network, addr) {
+			return true
+		}
+	}
+	return false
 }
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
@@ -108,6 +117,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 		// Create a map to keep track of the gateways used and their aggregate weights.
 		gatewayWeights := make(map[model.NetworkGateway]uint32)
 
+		// Track the gateways that carry at least one sidecar-to-ambient bridged endpoint. Only
+		// those gateway endpoints relax peer validation (see the TLSMode selection below), because
+		// only they terminate the client's mTLS instead of passing it through to the destination.
+		bridgedGateways := sets.New[model.NetworkGateway]()
+
 		// Process all the endpoints.
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
 			istioEndpoint := ep.istioEndpoints[i]
@@ -159,7 +173,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// through an E/W gateway that terminates its mTLS and originates HBONE onward.
 			// Such an endpoint takes the legacy mTLS gateway rather than the HBONE one, so it
 			// must not be treated as requiring HBONE below.
-			bridged := isSidecarProxy(b.proxy) && isAmbientWorkload(istioEndpoint)
+			bridged := features.EnableAmbientMultiNetwork && features.EnableSidecarAmbientBridge &&
+				isSidecarProxy(b.proxy) && isAmbientWorkload(b, istioEndpoint)
 
 			// We require using double-HBONE in a either of the following cases:
 			// 1. This is a waypoint proxy - it can only talk HBONE
@@ -231,6 +246,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 			// Apply the weight for this endpoint to the network gateways.
 			splitWeightAmongGateways(weight, reachableGateways, gatewayWeights)
+			if bridged {
+				bridgedGateways.InsertAll(reachableGateways...)
+			}
 		}
 
 		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
@@ -315,13 +333,19 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 					Metadata: &core.Metadata{},
 				}
 
+				// An AUTO_PASSTHROUGH gateway does not terminate, so the TLS peer really is the
+				// destination workload and its SANs can be validated exactly - keep the default.
+				// A bridging gateway does terminate and presents its own identity, so those
+				// endpoints (and only those) fall back to trust domain matching.
+				tlsMode := model.IstioMutualTLSModeLabel
+				if bridgedGateways.Contains(gw) {
+					tlsMode = model.GatewayTLSModeLabel
+				}
+
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-				// Use GatewayTLSModeLabel for cross-network gateway endpoints.
-				// This allows trust domain prefix matching instead of exact SAN validation,
-				// since gateways present their own identity rather than the target service's identity.
 				util.AppendLbEndpointMetadata(&model.EndpointMetadata{
 					Network:   gw.Network,
-					TLSMode:   model.GatewayTLSModeLabel,
+					TLSMode:   tlsMode,
 					ClusterID: gw.Cluster,
 					Labels:    labels.Instance{},
 				}, gwEp.Metadata)
