@@ -1061,6 +1061,15 @@
       "scope": "WorkloadSelector"
     }
   ],
+  "version": {
+    "buildProfile": "release",
+    "buildStatus": "Clean",
+    "gitRevision": "c5c31102fd1ddefe95bf3c40dbbe36652dcd7889",
+    "gitTag": "1.26.0-2-gc5c3110",
+    "istioVersion": "1.26.2",
+    "rustVersion": "1.85.1",
+    "version": "c5c31102fd1ddefe95bf3c40dbbe36652dcd7889"
+  },
   "workloadState": {
     "54ce2023-7c77-4bb8-b6c3-eccf619cd6f2": {
       "connections": {
