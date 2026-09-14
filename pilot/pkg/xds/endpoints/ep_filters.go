@@ -41,22 +41,6 @@ import (
 // Duplicated from networking/core/waypoint.go to avoid import cycle
 const innerConnectOriginate = "inner_connect_originate"
 
-// isAmbientWorkload reports whether the endpoint is captured by ztunnel, and therefore terminates
-// HBONE rather than the legacy Istio mTLS a sidecar client would otherwise speak to it.
-//
-// This asks the ambient index rather than looking for istio.io/dataplane-mode on the endpoint:
-// enrollment is usually declared on the namespace, and that label is never copied down onto the
-// Pod, so a label check would silently miss the common case. The index is also what ztunnel and
-// the workload API agree on, so this stays correct for remote clusters.
-func isAmbientWorkload(b *EndpointBuilder, ep *model.IstioEndpoint) bool {
-	for _, addr := range ep.Addresses {
-		if b.push.SupportsTunnel(ep.Network, addr) {
-			return true
-		}
-	}
-	return false
-}
-
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
 // sidecar network and add a gateway endpoint to remote networks that have endpoints
@@ -174,7 +158,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// Such an endpoint takes the legacy mTLS gateway rather than the HBONE one, so it
 			// must not be treated as requiring HBONE below.
 			bridged := features.EnableAmbientMultiNetwork && features.EnableSidecarAmbientBridge &&
-				isSidecarProxy(b.proxy) && isAmbientWorkload(b, istioEndpoint)
+				isSidecarProxy(b.proxy) && istioEndpoint.CapturedByZtunnel
 
 			// We require using double-HBONE in a either of the following cases:
 			// 1. This is a waypoint proxy - it can only talk HBONE
