@@ -16,6 +16,7 @@ package install
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -344,7 +345,7 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 		cfg.CNIConfName = secondCNIConfigFilename
 	}
 
-	return validateCNIConfigContents(ctx, cfg, cniConfigFilepath, istioOwned)
+	return validateCNIConfigContents(cfg, cniConfigFilepath, istioOwned)
 }
 
 // pluginEqual reports whether two decoded CNI plugin maps are equivalent,
@@ -368,55 +369,77 @@ func withoutCNIVersion(m map[string]any) map[string]any {
 //   - For a chained plugin, the istio-cni plugin must be present in the plugin list, and when Istio
 //     owns the config, every plugin from the primary CNI config must also be present.
 //   - For a standalone plugin, the config itself must be the istio-cni plugin.
-func validateCNIConfigContents(ctx context.Context, cfg *config.InstallConfig, cniConfigFilepath string, istioOwned bool) error {
+func validateCNIConfigContents(cfg *config.InstallConfig, cniConfigFilepath string, istioOwned bool) error {
+	desiredBytes, err := buildIstioCNIPlugin(cfg)
+	if err != nil {
+		return err
+	}
+	var desiredIstioPlugin map[string]any
+	if err := json.Unmarshal(desiredBytes, &desiredIstioPlugin); err != nil {
+		return err
+	}
+
 	cniConfigMap, err := util.ReadCNIConfigMap(cniConfigFilepath)
 	if err != nil {
 		return err
 	}
 
 	if !cfg.ChainedCNIPlugin {
-		// Verify that Istio CNI config exists as a standalone plugin
-		if cniConfigMap["type"] != "istio-cni" {
-			return fmt.Errorf("istio-cni CNI config file modified: %s", cniConfigFilepath)
+		// Standalone: the config file itself is the istio-cni plugin.
+		if !pluginEqual(cniConfigMap, desiredIstioPlugin) {
+			return fmt.Errorf("istio-cni CNI config file contents differ from desired: %s", cniConfigFilepath)
 		}
 		return nil
 	}
 
-	// Get plugins of highest priority CNI config file
 	plugins, err := util.GetPlugins(cniConfigMap)
 	if err != nil {
 		return fmt.Errorf("%s: %w", cniConfigFilepath, err)
 	}
 
-	// Create a map to index plugins by their "type" field
-	pluginMap := make(map[string]map[string]any)
-	for _, rawPlugin := range plugins {
-		plugin, err := util.GetPlugin(rawPlugin)
+	// Index plugins by type.
+	istioCniPluginIdx := -1
+	for i, rawPlugin := range plugins {
+		p, err := util.GetPlugin(rawPlugin)
 		if err != nil {
 			return fmt.Errorf("%s: %w", cniConfigFilepath, err)
 		}
-		if pluginType, ok := plugin["type"].(string); ok {
-			pluginMap[pluginType] = plugin
-		} else {
-			return fmt.Errorf("plugin type %v not a string", plugin["type"])
+		pluginType, ok := p["type"].(string)
+		if !ok {
+			return fmt.Errorf("plugin type %v not a string", p["type"])
+		}
+		if pluginType == "istio-cni" {
+			if !pluginEqual(p, desiredIstioPlugin) {
+				return fmt.Errorf("istio-cni plugin contents differ in %s", cniConfigFilepath)
+			}
+			istioCniPluginIdx = i
+			break
 		}
 	}
 
-	// Verify that the Istio CNI config exists in the CNI config plugin map
-	if _, exists := pluginMap["istio-cni"]; !exists {
-		return fmt.Errorf("istio-cni plugin not found in Istio CNI config at %s", cniConfigFilepath)
+	if istioCniPluginIdx == -1 {
+		return fmt.Errorf("istio-cni plugin not found in %s", cniConfigFilepath)
 	}
 
 	if !istioOwned {
 		return nil
 	}
 
-	// Verifies the Istio CNI config contains all non istio-cni plugins from the primary CNI config
-	// and checks that the plugins are equivalent
-	primaryCNIConfigFilepath, err := getCNIConfigFilepath(ctx, cfg.CNIConfName, cfg.MountedCNINetDir, cfg.ChainedCNIPlugin)
-	if err != nil {
-		return err
+	// When Istio owns the config, it must equal the primary CNI config
+	// plus the istio-cni plugin (and the primary must not itself contain istio-cni).
+	return validateIstioOwnedContents(cfg, cniConfigFilepath, cniConfigMap, desiredIstioPlugin)
+}
+
+// validateIstioOwnedContents verifies the istio-owned config equals the current
+// primary  config plus the istio-cni plugin: every primary plugin must appear
+// in the istio-owned config with an equal body, the primary must not itself contain an
+// istio-cni plugin, and the istio-owned config must have no extra non-istio plugins.
+// pluginMap is the istio-owned config's plugins indexed by type (including istio-cni).
+func validateIstioOwnedContents(cfg *config.InstallConfig, cniConfigFilepath string, ownedCNIConfigMap map[string]any, istioPlugin map[string]any) error {
+	if len(cfg.CNIConfName) == 0 {
+		return fmt.Errorf("no secondary CNI config name set to validate istio-owned config %s against", cniConfigFilepath)
 	}
+	primaryCNIConfigFilepath := filepath.Join(cfg.MountedCNINetDir, cfg.CNIConfName)
 	primaryCniConfigMap, err := util.ReadCNIConfigMap(primaryCNIConfigFilepath)
 	if err != nil {
 		return err
@@ -435,10 +458,15 @@ func validateCNIConfigContents(ctx context.Context, cfg *config.InstallConfig, c
 		if !ok {
 			return fmt.Errorf("plugin type %v not a string", primaryPlugin["type"])
 		}
-
-		if _, exists := pluginMap[primaryType]; !exists {
-			return fmt.Errorf("plugin of type %s from primary CNI config is missing in Istio CNI config file", primaryType)
+		if primaryType == "istio-cni" {
+			return fmt.Errorf("primary CNI config %s contains an istio-cni plugin", primaryCNIConfigFilepath)
 		}
+	}
+
+	primaryCniConfigMap["plugins"] = append(primaryPlugins, withoutCNIVersion(istioPlugin))
+	// add the istio-cni plugin so we can compare
+	if !reflect.DeepEqual(ownedCNIConfigMap, primaryCniConfigMap) {
+		return fmt.Errorf("istio owned cni plugin is not current")
 	}
 
 	return nil
