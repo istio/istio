@@ -56,6 +56,30 @@ func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	}
 }
 
+// removeStaleIstioOwnedConfig removes an istio-owned CNI config file left behind
+// after a transition from istio-owned to not-istio-owned mode. It is a no-op when
+// istio-owned mode is active or the file does not exist. It must run before config
+// discovery, because the leftover file sorts to a high priority and would otherwise
+// be mistaken for the primary CNI config.
+func removeStaleIstioOwnedConfig(cfg *config.InstallConfig) error {
+	if useIstioOwnedCNIConfig(cfg) {
+		return nil
+	}
+	leftoverName := cfg.IstioOwnedCNIConfigFilename
+	if len(leftoverName) == 0 {
+		leftoverName = constants.DefaultIstioOwnedCNIConfigFilename
+	}
+	leftoverPath := filepath.Join(cfg.MountedCNINetDir, leftoverName)
+	if !file.Exists(leftoverPath) {
+		return nil
+	}
+	installLog.Infof("removing stale istio-owned CNI config from a previous istio-owned run: %s", leftoverPath)
+	if err := os.Remove(leftoverPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
 func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 	// Install binaries
 	// Currently we _always_ do this, since the binaries do not live in a shared location
@@ -78,6 +102,10 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 	if err := writeKubeConfigFile(in.cfg); err != nil {
 		cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
 		return copiedFiles, fmt.Errorf("write kubeconfig: %v", err)
+	}
+
+	if err := removeStaleIstioOwnedConfig(in.cfg); err != nil {
+		return copiedFiles, fmt.Errorf("remove stale istio-owned CNI config: %v", err)
 	}
 
 	// Install CNI netdir config (if needed) - we write/update this in the shared node CNI netdir,
