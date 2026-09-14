@@ -228,7 +228,9 @@ func Analyze(ctx cli.Context) *cobra.Command {
 			// If we explicitly specify mesh config, use it.
 			// This takes precedence over default mesh config or mesh config from a running Kube instance.
 			if meshCfgFile != "" {
-				_ = sa.AddFileKubeMeshConfig(meshCfgFile)
+				if err := sa.AddFileKubeMeshConfig(meshCfgFile); err != nil {
+					return fmt.Errorf("failed to load mesh config file %q: %w", meshCfgFile, err)
+				}
 			}
 
 			// If we're not using kube (files only), add defaults for some resources we expect to be provided by Istio
