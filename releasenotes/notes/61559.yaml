@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 61559
+
+releaseNotes:
+- |
+  **Added** support for `AuthorizationPolicy` `targetRefs` to reference a Gateway API `ListenerSet`.
+  The policy is scoped to the filter chains contributed by that `ListenerSet`, rather than applying
+  to the whole Gateway. The only case that falls back to the whole-Gateway behavior is a plain HTTP
+  (non-TLS) port shared by listeners from more than one origin (the `Gateway` itself and/or multiple
+  `ListenerSet`s), since there's no SNI to distinguish them at that point.

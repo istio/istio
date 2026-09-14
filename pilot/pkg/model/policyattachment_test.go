@@ -56,6 +56,11 @@ func TestPolicyMatcher(t *testing.T) {
 		Kind:  gvk.ServiceEntry.Kind,
 		Name:  "sample-svc-entry",
 	}
+	listenerSetTargetRef := &v1beta1.PolicyTargetReference{
+		Group: gvk.ListenerSet.Group,
+		Kind:  gvk.ListenerSet.Kind,
+		Name:  "sample-listenerset",
+	}
 	sampleSelector := &v1beta1.WorkloadSelector{
 		MatchLabels: labels.Instance{
 			"app": "my-app",
@@ -84,6 +89,14 @@ func TestPolicyMatcher(t *testing.T) {
 			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-gateway",
 		},
 		IsWaypoint: false,
+	}
+	sampleGatewayWithListenerSet := WorkloadPolicyMatcher{
+		WorkloadNamespace: "default",
+		WorkloadLabels: labels.Instance{
+			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-gateway",
+		},
+		IsWaypoint:           false,
+		AttachedListenerSets: []types.NamespacedName{{Namespace: "default", Name: "sample-listenerset"}},
 	}
 	sampleWaypoint := WorkloadPolicyMatcher{
 		WorkloadNamespace: "default",
@@ -205,6 +218,35 @@ func TestPolicyMatcher(t *testing.T) {
 			policy:                 &mockPolicyTargetGetter{},
 			expected:               true,
 			enableSelectorPolicies: true,
+		},
+		{
+			name: "gateway API ingress with attached listenerset and a matching listenerset targetRef",
+			policy: &mockPolicyTargetGetter{
+				targetRef: listenerSetTargetRef,
+			},
+			selection: sampleGatewayWithListenerSet,
+			expected:  true,
+		},
+		{
+			name: "gateway API ingress without attached listenerset and a listenerset targetRef",
+			policy: &mockPolicyTargetGetter{
+				targetRef: listenerSetTargetRef,
+			},
+			selection:              sampleGateway,
+			expected:               false,
+			enableSelectorPolicies: true,
+		},
+		{
+			name: "gateway API ingress with attached listenerset and a non-matching listenerset targetRef",
+			policy: &mockPolicyTargetGetter{
+				targetRef: &v1beta1.PolicyTargetReference{
+					Group: gvk.ListenerSet.Group,
+					Kind:  gvk.ListenerSet.Kind,
+					Name:  "other-listenerset",
+				},
+			},
+			selection: sampleGatewayWithListenerSet,
+			expected:  false,
 		},
 		{
 			name: "waypoint and a targetRef",

@@ -5098,6 +5098,38 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			Warning: false,
 		},
 		{
+			name: "target-ref-good-listenerset",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.ListenerSet.Group,
+					Kind:  gvk.ListenerSet.Kind,
+					Name:  "foo",
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: false,
+		},
+		{
 			name: "target-refs-good-service",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
@@ -8065,6 +8097,29 @@ func TestValidateTelemetry(t *testing.T) {
 			},
 			fmt.Sprintf("targetRef must be to one of %v but was %s/%s",
 				allowedTargetRefs, gvk.KubernetesGateway.Group, "wrong-kind"), "",
+		},
+		{
+			"bad targetRef - listenerset not supported",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.ListenerSet.Group,
+					Kind:  gvk.ListenerSet.Kind,
+					Name:  "foo",
+				},
+			},
+			fmt.Sprintf("targetRef must be to one of %v but was %s/%s",
+				allowedTargetRefs, gvk.ListenerSet.Group, gvk.ListenerSet.Kind), "",
 		},
 		{
 			"targetRef and selector cannot both be set",
