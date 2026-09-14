@@ -30,6 +30,23 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+func TestPluginEqual(t *testing.T) {
+	base := map[string]any{"type": "istio-cni", "plugin_log_level": "debug"}
+	sameButVersion := map[string]any{"type": "istio-cni", "plugin_log_level": "debug", "cniVersion": "0.3.1"}
+	different := map[string]any{"type": "istio-cni", "plugin_log_level": "info"}
+
+	if !pluginEqual(base, sameButVersion) {
+		t.Errorf("expected equal ignoring cniVersion")
+	}
+	if pluginEqual(base, different) {
+		t.Errorf("expected not equal when a field differs")
+	}
+	// inputs must not be mutated
+	if _, ok := sameButVersion["cniVersion"]; !ok {
+		t.Errorf("pluginEqual must not mutate its inputs")
+	}
+}
+
 func TestCheckInstall(t *testing.T) {
 	cases := []struct {
 		name                        string

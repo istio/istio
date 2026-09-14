@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -343,6 +345,22 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 	}
 
 	return validateCNIConfigContents(ctx, cfg, cniConfigFilepath, istioOwned)
+}
+
+// pluginEqual reports whether two decoded CNI plugin maps are equivalent,
+// ignoring cniVersion (which insertCNIConfig strips when chaining). It copies
+// its inputs so callers' maps are left unmodified.
+func pluginEqual(a, b map[string]any) bool {
+	return reflect.DeepEqual(withoutCNIVersion(a), withoutCNIVersion(b))
+}
+
+func withoutCNIVersion(m map[string]any) map[string]any {
+	if _, ok := m["cniVersion"]; !ok {
+		return m
+	}
+	out := maps.Clone(m)
+	delete(out, "cniVersion")
+	return out
 }
 
 // validateCNIConfigContents verifies that the CNI config on disk at cniConfigFilepath contains the
