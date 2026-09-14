@@ -108,9 +108,11 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway(proxy) {
 		// Creates "blackhole" cluster to avoid failures if no globally scoped services exist
 		clusters = append(clusters, cb.buildWaypointForwardInnerConnect(), cb.buildBlackHoleCluster())
-		// E/W gateway needs connect_originate for traffic that needs to establish new HBONE tunnels
-		// (e.g., sidecar mTLS traffic bridging to ambient workloads via service waypoints)
-		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
+		if sidecarAmbientBridgeEnabled() {
+			// Bridged sidecar traffic is terminated here and re-originated as HBONE toward the
+			// destination, which the inner-connect forwarding path above cannot do.
+			clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
+		}
 	} else {
 		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
 	}
@@ -352,6 +354,9 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				// East-west gateways don't respect DestinationRule traffic policy, so pass nil here.
 				// TODO: Confirm this decision
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
+				if !sidecarAmbientBridgeEnabled() {
+					continue
+				}
 				// Separate subset for bridging terminated sidecar mTLS (15443) traffic into
 				// ambient. The "tcp" subset must keep forwarding double-HBONE inner streams
 				// opaquely, so the new-HBONE-origination semantics live on their own cluster.

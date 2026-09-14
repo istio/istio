@@ -847,7 +847,8 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 		// For ISTIO_MUTUAL mode on E/W gateways without VirtualServices, use auto-routing like AUTO_PASSTHROUGH
 		// but with TLS termination. This enables sidecar-to-ambient cross-network traffic where the gateway
 		// terminates the mTLS from the sidecar and forwards via HBONE to ambient workloads.
-		if server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL && isAmbientEastWestGateway(lb.node) {
+		if sidecarAmbientBridgeEnabled() &&
+			server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL && isAmbientEastWestGateway(lb.node) {
 			return builtAutoPassthroughFilterChainsWithTLS(lb.push, lb.node, server, lb.node.MergedGateway.TLSServerInfo[server].SNIHosts)
 		}
 		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
