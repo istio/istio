@@ -17,23 +17,33 @@
 package helm
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
+	"istio.io/istio/cni/pkg/util"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/framework"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/helm"
+	"istio.io/istio/pkg/test/shell"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util/sanitycheck"
 )
 
@@ -242,6 +252,245 @@ func TestNumericNamespaceInstall(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(setupInstallation(values, false, nsConfig, ""))
+}
+
+// TestOwnedCNIConfigInstall verifies the istio-cni creates an owned config and removes it on uninstall.
+func TestOwnedCNIConfigInstall(t *testing.T) {
+	valuesAmbient := map[string]interface{}{
+		"profile": "ambient",
+	}
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			if t.Settings().OpenShift {
+				t.Skip("Skipping TestOwnedCNIConfigInstall, requires a chained CNI")
+			}
+			setupInstallationWithCustomCheck(valuesAmbient, true, DefaultNamespaceConfig, func(t framework.TestContext) {
+				cniNs := DefaultNamespaceConfig.Get(CniReleaseName)
+				cs := t.Clusters().Default().(*kubecluster.Cluster)
+				h := helm.New(cs.Filename())
+
+				// setup debug pod
+				cniLabel := "k8s-app=istio-cni-node"
+				var debugPod *corev1.Pod
+				nodeC := cs.Kube().CoreV1().Nodes()
+				if nodes, err := nodeC.List(context.TODO(), metav1.ListOptions{}); err != nil {
+					t.Fatalf("failed to list cluster nodes: %v", err)
+				} else {
+					node := nodes.Items[0].Name
+					listCNIConfigOnHostCmd := fmt.Sprintf("kubectl debug node/%s -n %s --image=busybox -- sleep 120", node, cniNs)
+					out, err := shell.Execute(true, listCNIConfigOnHostCmd)
+					if err != nil {
+						t.Fatalf("failed to list CNI config from node %v: %v", node, err)
+					}
+					for s := range strings.FieldsSeq(out) {
+						if strings.HasPrefix(s, "node-debugger") && strings.Contains(s, node) {
+							coreC := cs.Kube().CoreV1().Pods(cniNs)
+							if debugPod, err = coreC.Get(context.TODO(), s, metav1.GetOptions{}); err != nil {
+								t.Fatalf("failed to get debug pod %s: %v", s, err)
+							}
+							t.Cleanup(func() {
+								_ = cs.Kube().CoreV1().Pods(debugPod.Namespace).Delete(context.TODO(), debugPod.Name, metav1.DeleteOptions{})
+							})
+							break
+						}
+					}
+					if debugPod == nil {
+						t.Fatalf("debug Pod not found: %s", out)
+					}
+				}
+
+				expectCNIConfigs := func(expected []string) error {
+					stdout, _, err := cs.PodExec(debugPod.Name, debugPod.Namespace, "", "ls /host/etc/cni/net.d/")
+					if err != nil {
+						return err
+					}
+					files := strings.Fields(stdout)
+					if slices.Equal(expected, files) {
+						return nil
+					}
+					return fmt.Errorf("config mistmatch, found %s", stdout)
+				}
+
+				getIstioPlugin := func(filename string) (map[string]any, error) {
+					stdout, _, err := cs.PodExec(debugPod.Name, debugPod.Namespace, "", "cat /host/etc/cni/net.d/"+filename)
+					if err != nil {
+						return nil, err
+					}
+					var cniConfigMap map[string]any
+					if err = json.Unmarshal([]byte(stdout), &cniConfigMap); err != nil {
+						return nil, fmt.Errorf("unmarshal failed for %s: %w", filename, err)
+					}
+
+					plugins, err := util.GetPlugins(cniConfigMap)
+					if err != nil {
+						return nil, fmt.Errorf("no plugins: %v", err)
+					}
+
+					for _, rawPlugin := range plugins {
+						plugin, err := util.GetPlugin(rawPlugin)
+						if err != nil {
+							return nil, fmt.Errorf("bad CNI plugin: %v", err)
+						}
+						if plugin["type"] == "istio-cni" {
+							return plugin, nil
+						}
+					}
+					return nil, nil
+				}
+				hasConfigValues := func(plugin map[string]any, expected map[string]any) error {
+					for k, v := range expected {
+						if plugin[k] != v {
+							return fmt.Errorf("incorrect plugin value for %s: %#v", k, plugin)
+						}
+					}
+					return nil
+				}
+
+				workDir, err := t.CreateTmpDirectory("cniconfig-test")
+				if err != nil {
+					t.Fatal("failed to create test directory")
+				}
+
+				cniChartPath := filepath.Join(ManifestsChartPath, CniChartsDir)
+				upgradeChart := func(values map[string]any, args ...string) {
+					overrideValues, err := yaml.Marshal(values)
+					if err != nil {
+						t.Fatalf("failed to marshal override values to YAML: %v", err)
+					}
+
+					overrideValuesFile := filepath.Join(workDir, "values.yaml")
+					if err := os.WriteFile(overrideValuesFile, overrideValues, os.ModePerm); err != nil {
+						t.Fatalf("failed to write values file: %v", err)
+					}
+					if err := h.UpgradeChart(CniReleaseName, cniChartPath, cniNs, overrideValuesFile, Timeout, args...); err != nil {
+						t.Fatalf("failed to upgrade istio %s chart", CniReleaseName)
+					}
+					VerifyPodReady(t, cs, cniNs, cniLabel)
+				}
+
+				settings := t.Settings()
+				cniValues := map[string]any{
+					"global": map[string]any{
+						"tag":     settings.Image.Tag,
+						"hub":     settings.Image.Hub,
+						"variant": settings.Image.Variant,
+					},
+				}
+				t.NewSubTest("initial install").Run(func(t framework.TestContext) {
+					// primary CNIConfig only
+					retry.UntilSuccessOrFail(t, func() error {
+						return expectCNIConfigs([]string{"10-kindnet.conflist"})
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+
+					retry.UntilSuccessOrFail(t, func() error {
+						plugin, err := getIstioPlugin("10-kindnet.conflist")
+						if err != nil {
+							return err
+						}
+						return hasConfigValues(plugin, map[string]any{
+							"ambient_enabled":                true,
+							"enable_ambient_detection_retry": false,
+						})
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+
+					sanitycheck.RunTrafficTest(t, true)
+				})
+
+				t.NewSubTest("enable detection retry").Run(func(t framework.TestContext) {
+					// enable retry
+					upgradeChart(maps.MergeCopy(cniValues, map[string]any{
+						"profile": "ambient",
+						"ambient": map[string]any{
+							"enableAmbientDetectionRetry": true,
+						},
+					}))
+
+					retry.UntilSuccessOrFail(t, func() error {
+						return expectCNIConfigs([]string{"10-kindnet.conflist"})
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+
+					retry.UntilSuccessOrFail(t, func() error {
+						plugin, err := getIstioPlugin("10-kindnet.conflist")
+						if err != nil {
+							return err
+						}
+						return hasConfigValues(plugin, map[string]any{
+							"ambient_enabled":                true,
+							"enable_ambient_detection_retry": true,
+						})
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+
+					sanitycheck.RunTrafficTest(t, true)
+				})
+
+				t.NewSubTest("enable istio owned config").Run(func(t framework.TestContext) {
+					// enable istioOWnedCNIConfig
+					upgradeChart(maps.MergeCopy(cniValues, map[string]any{
+						"profile":             "ambient",
+						"istioOwnedCNIConfig": true,
+					}))
+
+					// verify the owned cni is present
+					retry.UntilSuccessOrFail(t, func() error {
+						return expectCNIConfigs([]string{"02-istio-cni.conflist", "10-kindnet.conflist"})
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+
+					retry.UntilSuccessOrFail(t, func() error {
+						plugin, err := getIstioPlugin("02-istio-cni.conflist")
+						if err != nil {
+							return err
+						}
+						return hasConfigValues(plugin, map[string]any{
+							"ambient_enabled":                true,
+							"enable_ambient_detection_retry": false,
+						})
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+
+					retry.UntilSuccessOrFail(t, func() error {
+						plugin, err := getIstioPlugin("10-kindnet.conflist")
+						if err != nil {
+							return err
+						}
+						if plugin != nil {
+							return fmt.Errorf("istio-cni is present")
+						}
+						return nil
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+
+					sanitycheck.RunTrafficTest(t, true)
+				})
+
+				t.NewSubTest("uninstall").Run(func(t framework.TestContext) {
+					// uninstall istio-cni
+					if err := h.DeleteChart(CniReleaseName, cniNs); err == nil {
+					} else {
+						t.Errorf("failed to delete %s release: %v", CniReleaseName, err)
+					}
+
+					// verify the owned cni is removed
+					retry.UntilSuccessOrFail(t, func() error {
+						return expectCNIConfigs([]string{"10-kindnet.conflist"})
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+
+					retry.UntilSuccessOrFail(t, func() error {
+						plugin, err := getIstioPlugin("10-kindnet.conflist")
+						if err != nil {
+							return err
+						}
+						if plugin != nil {
+							return fmt.Errorf("istio-cni should not nil: %+v", plugin)
+						}
+						return nil
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+				})
+
+				// satisfy the cleanup
+				upgradeChart(maps.MergeCopy(cniValues, map[string]any{
+					"profile": "ambient",
+				}), "--install")
+			}, "")(t)
+		})
 }
 
 // nolint: unparam
