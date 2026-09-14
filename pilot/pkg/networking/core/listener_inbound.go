@@ -209,7 +209,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 // buildHostnameAuthorityRoutes builds CONNECT routes matching the hostname:port form of this
 // workload's services on the :authority header. See buildInboundHBONEListeners for context.
 func buildHostnameAuthorityRoutes(node *model.Proxy) []*route.Route {
-	if !features.EnableAmbientMultiNetwork {
+	if !sidecarAmbientBridgeEnabled() {
 		return nil
 	}
 	routes := []*route.Route{}
