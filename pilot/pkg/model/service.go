@@ -614,6 +614,13 @@ type IstioEndpoint struct {
 
 	// If in k8s, the node where the pod resides
 	NodeName string
+
+	// AmbientCaptured reports that this endpoint's traffic is redirected to ztunnel, so it
+	// terminates HBONE and does not speak the legacy Istio mTLS a sidecar would otherwise use.
+	// Derived from the ambient.istio.io/redirection annotation the CNI puts on captured pods,
+	// which is set however the workload was enrolled - the istio.io/dataplane-mode label is only
+	// present when enrollment was declared on the Pod rather than on its namespace.
+	AmbientCaptured bool
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
@@ -2061,7 +2068,8 @@ func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
 		ep.SubDomain == other.SubDomain &&
 		ep.HealthStatus == other.HealthStatus &&
 		ep.SendUnhealthyEndpoints == other.SendUnhealthyEndpoints &&
-		ep.NodeName == other.NodeName
+		ep.NodeName == other.NodeName &&
+		ep.AmbientCaptured == other.AmbientCaptured
 	if !eq {
 		return false
 	}
