@@ -64,16 +64,30 @@ func (m *mapCollection[T, U]) GetKey(k string) *U {
 	return nil
 }
 
-func (m *mapCollection[T, U]) List() []U {
-	vals := m.collection.List()
+func (m *mapCollection[T, U]) ListFiltered(filter func(U) bool) []U {
+	if filter != nil {
+		var res []U
+		m.collection.ListFiltered(func(obj T) bool {
+			mapped := m.mapFunc(obj)
+			if EnableAssertions {
+				assertKeyMatch(obj, mapped, m.collectionName)
+			}
+			if filter(mapped) {
+				res = append(res, mapped)
+			}
+			return false
+		})
+		return res
+	}
+
+	vals := m.collection.ListFiltered(nil)
 	res := make([]U, 0, len(vals))
 	for _, obj := range vals {
-		res = append(res, m.mapFunc(obj))
-	}
-	if EnableAssertions {
-		for _, obj := range vals {
-			assertKeyMatch(obj, m.mapFunc(obj), m.collectionName)
+		mapped := m.mapFunc(obj)
+		if EnableAssertions {
+			assertKeyMatch(obj, mapped, m.collectionName)
 		}
+		res = append(res, mapped)
 	}
 	return res
 }
@@ -116,7 +130,7 @@ func (m *mapCollection[T, U]) uid() collectionUID { return m.id }
 // nolint: unused // (not true, its to implement an interface)
 func (m *mapCollection[T, U]) dump() CollectionDump {
 	return CollectionDump{
-		Outputs:         eraseMap(slices.GroupUnique(m.List(), getTypedKey)),
+		Outputs:         eraseMap(slices.GroupUnique(m.ListFiltered(nil), getTypedKey)),
 		Synced:          m.HasSynced(),
 		InputCollection: m.collection.name(),
 	}

@@ -40,6 +40,40 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+func TestWorkloadSubscriberNeedsAddressPush(t *testing.T) {
+	test.SetForTest(t, &features.ScopedAddressPushes, true)
+	push := core.NewConfigGenTest(t, core.TestOptions{}).PushContext()
+	const addr = "Kubernetes//Pod/default/x"
+	for _, nodeType := range []model.NodeType{model.Router, model.SidecarProxy} {
+		for _, subscribed := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/subscribed=%v", nodeType, subscribed), func(t *testing.T) {
+				proxy := &model.Proxy{
+					Type:             nodeType,
+					Metadata:         &model.NodeMetadata{},
+					WatchedResources: map[string]*model.WatchedResource{},
+				}
+				if subscribed {
+					proxy.NewWatchedResource(v3.WorkloadType, nil)
+				}
+				req := &model.PushRequest{
+					Push:             push,
+					AddressesUpdated: sets.New(addr),
+					ConfigsUpdated:   sets.New(model.ConfigKey{Kind: kind.Address, Name: addr}),
+				}
+				filtered, needsPush := DefaultProxyNeedsPush(proxy, req)
+				assert.Equal(t, needsPush, subscribed)
+				assert.Equal(t, len(filtered.ConfigsUpdated), 0)
+				assert.Equal(t, filtered.AddressesUpdated, sets.New(addr))
+				assert.Equal(t, req.ConfigsUpdated, sets.New(model.ConfigKey{Kind: kind.Address, Name: addr}))
+
+				req.AddressesUpdated = nil
+				_, needsPush = DefaultProxyNeedsPush(proxy, req)
+				assert.Equal(t, needsPush, false)
+			})
+		}
+	}
+}
+
 func TestProxyNeedsPush(t *testing.T) {
 	const (
 		svcName        = "svc1.com"

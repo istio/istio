@@ -15,6 +15,7 @@
 package serviceentry
 
 import (
+	"strconv"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -86,9 +87,7 @@ type Inputs struct {
 	ServiceEntries  krt.Collection[config.Config]
 	// TODO: this should be a joined collection with multi cluster workloads
 	ExternalWorkloads krt.StaticCollection[*model.WorkloadInstance]
-	// ExternalWorkloadsByIP attributes a service instance event back to the workload kind that produced it.
-	ExternalWorkloadsByIP krt.Index[string, *model.WorkloadInstance]
-	XBackends             krt.Collection[config.Config]
+	XBackends         krt.Collection[config.Config]
 }
 
 type Outputs struct {
@@ -108,8 +107,8 @@ type Outputs struct {
 	ServiceInstancesByNamespaceHost krt.Collection[InstancesByNamespaceHost]
 	// ServiceInstances is a collection of all service instances.
 	// Its main purpose is to allow searching for service instances by IP.
-	ServiceInstances     krt.Collection[*model.ServiceInstance]
-	ServiceInstancesByIP krt.Index[string, *model.ServiceInstance]
+	ServiceInstances     krt.Collection[*WorkloadServiceInstance]
+	ServiceInstancesByIP krt.Index[string, *WorkloadServiceInstance]
 	// Workloads is a collection of local workload instances.
 	// Use cases:
 	// - Notifying workload instance handlers.
@@ -123,7 +122,7 @@ type ServiceWithInstances struct {
 	// should probably be handled elsewhere.
 	// ref: https://github.com/istio/istio/pull/50068
 	TargetPorts []uint32
-	Instances   []*model.ServiceInstance
+	Instances   []*WorkloadServiceInstance
 }
 
 func (swi ServiceWithInstances) ResourceName() string {
@@ -133,7 +132,7 @@ func (swi ServiceWithInstances) ResourceName() string {
 func (swi ServiceWithInstances) Equals(other ServiceWithInstances) bool {
 	return slices.Equal(swi.TargetPorts, other.TargetPorts) &&
 		swi.Service.Equals(other.Service) &&
-		slices.EqualFunc(swi.Instances, other.Instances, func(a, b *model.ServiceInstance) bool {
+		slices.EqualFunc(swi.Instances, other.Instances, func(a, b *WorkloadServiceInstance) bool {
 			return a.Endpoint.Equals(b.Endpoint)
 		})
 }
@@ -141,7 +140,7 @@ func (swi ServiceWithInstances) Equals(other ServiceWithInstances) bool {
 type InstancesByNamespaceHost struct {
 	Namespace             string
 	Hostname              string
-	Instances             []*model.ServiceInstance
+	Instances             []*WorkloadServiceInstance
 	HasDNSServiceEndpoint bool
 }
 
@@ -152,9 +151,29 @@ func (s InstancesByNamespaceHost) ResourceName() string {
 func (s InstancesByNamespaceHost) Equals(other InstancesByNamespaceHost) bool {
 	return s.Namespace == other.Namespace && s.Hostname == other.Hostname &&
 		s.HasDNSServiceEndpoint == other.HasDNSServiceEndpoint &&
-		slices.EqualFunc(s.Instances, other.Instances, func(a, b *model.ServiceInstance) bool {
+		slices.EqualFunc(s.Instances, other.Instances, func(a, b *WorkloadServiceInstance) bool {
 			return a.Equals(b)
 		})
+}
+
+type WorkloadServiceInstance struct {
+	Namespace   string
+	Name        string
+	Service     *model.Service       `json:"service,omitempty"`
+	ServicePort *model.Port          `json:"servicePort,omitempty"`
+	Endpoint    *model.IstioEndpoint `json:"endpoint,omitempty"`
+}
+
+func (wsi *WorkloadServiceInstance) ResourceName() string {
+	return wsi.Namespace + "/" + wsi.Name + "/" + wsi.Service.ResourceName() + "/" + wsi.Endpoint.Key() + "/" + strconv.Itoa(wsi.ServicePort.Port)
+}
+
+func (wsi *WorkloadServiceInstance) Equals(other *WorkloadServiceInstance) bool {
+	return wsi.Namespace == other.Namespace &&
+		wsi.Name == other.Name &&
+		wsi.ServicePort.Equals(other.ServicePort) &&
+		wsi.Endpoint.Equals(other.Endpoint) &&
+		wsi.Service.Equals(other.Service)
 }
 
 type Option func(*Controller)
@@ -237,9 +256,6 @@ func newController(
 		s.inputs.Namespaces = multiclusterController.ConfigCluster().Namespaces()
 		s.inputs.ServiceEntries = store.KrtCollection(gvk.ServiceEntry)
 		s.inputs.ExternalWorkloads = krt.NewMutableCollection[*model.WorkloadInstance](nil, nil, s.opts.WithName("inputs/ExternalWorkloads")...)
-		s.inputs.ExternalWorkloadsByIP = krt.NewIndex(s.inputs.ExternalWorkloads.AsCollection(), "ip", func(wi *model.WorkloadInstance) []string {
-			return []string{wi.Endpoint.FirstAddressOrNil()}
-		})
 		if features.EnableAlphaGatewayAPI {
 			s.inputs.XBackends = store.KrtCollection(gvk.XBackend)
 		}
@@ -256,12 +272,10 @@ func newController(
 			s.handlers,
 			s.outputs.ServiceInstancesByNamespaceHost.RegisterBatch(s.pushServiceEndpointUpdates, false),
 			s.outputs.Services.RegisterBatch(s.pushServiceUpdates, false),
-			s.outputs.ServiceInstancesByIP.AsCollection(s.opts.WithName("outputs/ServiceInstancesByIPCollection")...).
-				RegisterBatch(s.pushPodProxyUpdates, false),
+			s.outputs.ServiceInstances.RegisterBatch(s.pushProxyUpdates, false),
 		)
 	}
-	// Register EDS/XDS push handlers for WLEs
-	s.handlers = append(s.handlers, s.outputs.Workloads.RegisterBatch(s.pushWorkloadUpdates, false))
+	s.handlers = append(s.handlers, s.outputs.Workloads.RegisterBatch(s.notifyWorkloadHandlers, false))
 
 	return s
 }
@@ -304,11 +318,11 @@ func (s *Controller) buildCollections() {
 		mergedServicesInstances := mergeServicesInstancesByNamespaceHost(servicesByNsHost.AsCollection(), s.opts)
 
 		// derive service instances from merged services
-		serviceInstances := krt.NewManyCollection(mergedServicesInstances, func(ctx krt.HandlerContext, swi InstancesByNamespaceHost) []*model.ServiceInstance {
+		serviceInstances := krt.NewManyCollection(mergedServicesInstances, func(ctx krt.HandlerContext, swi InstancesByNamespaceHost) []*WorkloadServiceInstance {
 			return swi.Instances
 		}, s.opts.WithName("outputs/ServiceInstances")...)
 
-		serviceInstancesByIP := krt.NewIndex(serviceInstances, "ip", func(si *model.ServiceInstance) []string {
+		serviceInstancesByIP := krt.NewIndex(serviceInstances, "ip", func(si *WorkloadServiceInstance) []string {
 			return []string{si.Endpoint.FirstAddressOrNil()}
 		})
 
@@ -335,7 +349,7 @@ func (s *Controller) pushServiceEndpointUpdates(events []krt.Event[InstancesByNa
 			s.XdsUpdater.SvcUpdate(shard, obj.Hostname, obj.Namespace, model.EventDelete)
 			s.XdsUpdater.EDSUpdate(shard, obj.Hostname, obj.Namespace, nil)
 		} else {
-			instances := slices.Map(obj.Instances, func(i *model.ServiceInstance) *model.IstioEndpoint {
+			instances := slices.Map(obj.Instances, func(i *WorkloadServiceInstance) *model.IstioEndpoint {
 				return i.Endpoint
 			})
 			s.XdsUpdater.EDSUpdate(shard, obj.Hostname, obj.Namespace, instances)
@@ -372,44 +386,58 @@ func (s *Controller) pushServiceUpdates(events []krt.Event[ServiceWithInstances]
 	}
 }
 
-func (s *Controller) pushWorkloadUpdates(events []krt.Event[*model.WorkloadInstance]) {
+func (s *Controller) notifyWorkloadHandlers(events []krt.Event[*model.WorkloadInstance]) {
 	for _, e := range events {
 		if !e.Latest().DNSServiceEntryOnly {
 			s.NotifyWorkloadInstanceHandlers(e.Latest(), model.Event(e.Event))
 		}
-
-		if e.Event == controllers.EventAdd ||
-			e.Event == controllers.EventUpdate && !(*e.Old).Endpoint.Labels.Equals((*e.New).Endpoint.Labels) {
-			s.XdsUpdater.ProxyUpdate(s.Cluster(), (*e.New).Endpoint.FirstAddressOrNil())
-		}
 	}
 }
 
-// pushPodProxyUpdates forces a pod's own proxy to recompute when this registry's instances for
-// that pod change.
-//
-// A proxy snapshots model.Proxy.ServiceTargets when its xDS stream is established and reuses it for
-// every later push. A pod only becomes an endpoint here once it is Ready, which is after that
-// snapshot, and the incremental endpoint update that follows does not refresh it.
-//
-// Triggering off the derived instance collection rather than the pod event is what makes this
-// reliable: krt updates a collection's indexes before dispatching handlers, so GetProxyServiceTargets,
-// which reads this same index, observes the new state. It also collapses a workload's per-port
-// instances into one event per IP.
-func (s *Controller) pushPodProxyUpdates(events []krt.Event[krt.IndexObject[string, *model.ServiceInstance]]) {
+type proxyKey struct {
+	cluster cluster.ID
+	address string
+}
+
+// pushProxyUpdates forces a workload's own proxy to recompute when this registry's instances for
+// that workload change.
+func (s *Controller) pushProxyUpdates(events []krt.Event[*WorkloadServiceInstance]) {
+	// A workload has one instance per service port, and may be selected by several ServiceEntries;
+	// collapse those into a single push per proxy.
+	pushed := sets.New[proxyKey]()
 	for _, e := range events {
-		ip := e.Latest().Key
-		if ip == "" {
+		// Updates carry no information the proxy doesn't already have (Service/ServicePort/Endpoint
+		// changes are pushed through other means); only Add (gained a match) and Delete (lost a match)
+		// require the workload's own proxy to recompute its ServiceTargets.
+		if e.Event == controllers.EventUpdate {
 			continue
 		}
-		// Only pods. ExternalWorkloads also carries WorkloadEntry-derived instances from non-config
-		// clusters, whose proxies connect elsewhere and are pushed by pushWorkloadUpdates.
-		if !slices.ContainsFunc(s.inputs.ExternalWorkloadsByIP.Lookup(ip), func(wi *model.WorkloadInstance) bool {
-			return wi.Kind == model.PodKind
-		}) {
+
+		si := e.Latest()
+		// skip service entry inline instances
+		if len(si.Service.Attributes.LabelSelectors) == 0 {
 			continue
 		}
-		s.XdsUpdater.ProxyUpdate(s.Cluster(), ip)
+
+		if e.Event == controllers.EventDelete {
+			external := s.inputs.ExternalWorkloads.GetKey(si.Namespace + "/" + si.Name)
+			we := s.inputs.WorkloadEntries.GetKey(si.Namespace + "/" + si.Name)
+			if external == nil && we == nil {
+				// this workload no longer exists, we don't need to update any proxy
+				continue
+			}
+		}
+
+		ep := si.Endpoint
+		key := proxyKey{
+			// ServiceEntry can select pods and WorkloadEntries from any cluster, use their own cluster ID.
+			cluster: ep.Locality.ClusterID,
+			address: ep.FirstAddressOrNil(),
+		}
+		if key.address == "" || pushed.InsertContains(key) {
+			continue
+		}
+		s.XdsUpdater.ProxyUpdate(key.cluster, key.address)
 	}
 }
 
@@ -483,7 +511,7 @@ func (s *Controller) ResyncEDS() {
 
 	shard := model.ShardKeyFromRegistry(s)
 	for _, io := range s.outputs.ServiceInstancesByNamespaceHost.List() {
-		instances := slices.Map(io.Instances, func(i *model.ServiceInstance) *model.IstioEndpoint {
+		instances := slices.Map(io.Instances, func(i *WorkloadServiceInstance) *model.IstioEndpoint {
 			return i.Endpoint
 		})
 		s.XdsUpdater.EDSUpdate(shard, io.Hostname, io.Namespace, instances)
@@ -501,7 +529,13 @@ func (s *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTa
 	for _, ip := range node.IPAddresses {
 		for _, i := range s.outputs.ServiceInstancesByIP.Lookup(ip) {
 			if node.Metadata.Namespace == "" || i.Service.Attributes.Namespace == node.Metadata.Namespace {
-				out = append(out, model.ServiceInstanceToTarget(i))
+				out = append(out, model.ServiceTarget{
+					Service: i.Service,
+					Port: model.ServiceInstancePort{
+						ServicePort: i.ServicePort,
+						TargetPort:  i.Endpoint.EndpointPort,
+					},
+				})
 			}
 		}
 	}

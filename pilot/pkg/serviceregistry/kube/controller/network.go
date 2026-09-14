@@ -422,7 +422,6 @@ func (n *networkManager) handleGatewayResource(_ *gatewayv1.Gateway, gw *gateway
 			if l.Protocol == "HBONE" {
 				networkGateway := base
 				networkGateway.Addr = addr.Value
-				networkGateway.Port = uint32(l.Port)
 				networkGateway.HBONEPort = uint32(l.Port)
 				newGateways.Insert(networkGateway)
 			}

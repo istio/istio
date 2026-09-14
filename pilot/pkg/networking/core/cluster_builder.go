@@ -35,6 +35,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -148,6 +149,7 @@ type ClusterBuilder struct {
 	cache                     model.XdsCache
 	credentialSocketExist     bool
 	fileCredentialSocketExist bool
+	connectionSettings        *meshconfig.ProxyConfig_ConnectionSettings
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
@@ -186,6 +188,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 			cb.fileCredentialSocketExist = true
 		}
 	}
+	cb.connectionSettings = resolveConnectionSettings(proxy, req.Push)
 	return cb
 }
 
@@ -483,6 +486,11 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
+	if cs := cb.connectionSettings; cs != nil {
+		if v := safeUint32(cs.GetClusterPerConnectionBufferLimitBytes()); v != nil {
+			c.PerConnectionBufferLimitBytes = v
+		}
+	}
 
 	// Build default alt stat name - This may be overwritten by the MeshConfig options.
 	c.AltStatName = util.DelimitedStatsPrefix(name)
@@ -566,6 +574,11 @@ func (cb *ClusterBuilder) buildAllowAnyDFPCluster(tls *networking.ClientTLSSetti
 		ConnectTimeout: cb.req.Push.Mesh.ConnectTimeout,
 	}
 	c.AltStatName = util.DelimitedStatsPrefix(util.AllowAnyDynamicDNSCluster)
+	if cs := cb.connectionSettings; cs != nil {
+		if v := safeUint32(cs.GetClusterPerConnectionBufferLimitBytes()); v != nil {
+			c.PerConnectionBufferLimitBytes = v
+		}
+	}
 	// Use same protocol options as passthrough cluster
 	httpProtocolOptions := passthroughHttpProtocolOptions
 	if shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
@@ -619,6 +632,11 @@ func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, p
 
 	// TODO(keithmattix): Use figure out how to do happy eyeballs with dfp clusters
 	c.AltStatName = util.DelimitedStatsPrefix(name)
+	if cs := cb.connectionSettings; cs != nil {
+		if v := safeUint32(cs.GetClusterPerConnectionBufferLimitBytes()); v != nil {
+			c.PerConnectionBufferLimitBytes = v
+		}
+	}
 	ec := newDFPClusterWrapper(c)
 	cb.setUpstreamProtocol(ec, port)
 	return ec
