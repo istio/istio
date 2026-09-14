@@ -193,9 +193,16 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 			if !hasListenerFilterMatch(lp) {
 				continue
 			}
-			for _, lisFilter := range lis.ListenerFilters {
-				merged := mergeListenerFilter(lp, lisFilter)
-				if merged {
+			for i, lisFilter := range lis.ListenerFilters {
+				if !listenerFilterMatch(lisFilter, lp) {
+					continue
+				}
+				// clone before merge. Listener filters may be shared singletons (see
+				// pilot/pkg/xds/filters), so merging in place would corrupt the master
+				// value stored in CP for every other proxy.
+				clonedFilter := proto.Clone(lisFilter).(*listener.ListenerFilter)
+				if mergeListenerFilter(lp, clonedFilter) {
+					lis.ListenerFilters[i] = clonedFilter
 					applied = true
 				}
 			}

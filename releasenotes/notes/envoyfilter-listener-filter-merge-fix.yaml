@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an `EnvoyFilter` `LISTENER_FILTER` `MERGE` patch corrupting the listener filters
+    shared by all proxies. The patch was merged into the listener filter in place, so a patch
+    targeting a built-in listener filter such as `tls_inspector` leaked into every other proxy
+    in the mesh and persisted for the lifetime of `istiod`.
+  - |
+    **Fixed** an `EnvoyFilter` `LISTENER_FILTER` `MERGE` patch being applied to listener filters
+    that did not match `match.listener.listenerFilter`. Merging a patch into a filter of a
+    different type failed, which silently dropped every listener patch for the proxy.
