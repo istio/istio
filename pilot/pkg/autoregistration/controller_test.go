@@ -235,6 +235,11 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		c2.OnDisconnect(p2conn1) // cleanup for future tests
 	})
 	t.Run("fast reconnect", func(t *testing.T) {
+		if p1conn1 == nil {
+			p1conn1 = makeConn(p, time.Now())
+			c1.OnConnect(p1conn1)
+			checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
+		}
 		t.Run("same instance", func(t *testing.T) {
 			// disconnect, make sure entry is still there with disconnect meta
 			c1.OnDisconnect(p1conn1)
@@ -246,7 +251,8 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		})
 		t.Run("same instance: connect before disconnect ", func(t *testing.T) {
 			// reconnect, ensure entry is there with the same instance id
-			p1conn2 = makeConn(p, p1conn1.ConnectedAt().Add(10*time.Millisecond))
+			time.Sleep(10 * time.Millisecond)
+			p1conn2 = makeConn(p, time.Now())
 			c1.OnConnect(p1conn2)
 			// disconnect (associated with original connect, not the reconnect)
 			// make sure entry is still there with disconnect meta
