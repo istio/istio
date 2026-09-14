@@ -3196,9 +3196,9 @@ func TestL7Telemetry(t *testing.T) {
 
 						query := buildQuery(localSrc, localDst)
 						stc.Logf("prometheus query: %#v", query)
+						stc.Logf("sending call from %q to %q", deployName(localSrc), localDst.Config().Service)
+						localSrc.CallOrFail(stc, opt)
 						err := retry.Until(func() bool {
-							stc.Logf("sending call from %q to %q", deployName(localSrc), localDst.Config().Service)
-							localSrc.CallOrFail(stc, opt)
 							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
 							if err != nil {
 								stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
@@ -3278,11 +3278,10 @@ spec:
 			for _, cluster := range t.Clusters() {
 				src := apps.Captured.ForCluster(cluster.Name())[0]
 				dst := apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())
+				if _, err := src.Call(echo.CallOptions{To: dst, Port: echo.Port{Name: "http"}}); err != nil {
+					t.Fatal(err)
+				}
 				retry.UntilSuccessOrFail(t, func() error {
-					if _, err := src.Call(echo.CallOptions{To: dst, Port: echo.Port{Name: "http"}}); err != nil {
-						t.Log("failed to send traffic")
-						return err
-					}
 					var err error
 					httpMetricVal, err = util.QueryPrometheus(t, cluster, query, prom)
 					if err != nil {
@@ -3327,9 +3326,9 @@ func TestL4Telemetry(t *testing.T) {
 
 						query := buildL4Query(localSrc, localDst)
 						stc.Logf("prometheus query: %#v", query)
+						stc.Logf("sending call from %q to %q", deployName(localSrc), localDst.Config().Service)
+						localSrc.CallOrFail(stc, opt)
 						err := retry.Until(func() bool {
-							stc.Logf("sending call from %q to %q", deployName(localSrc), localDst.Config().Service)
-							localSrc.CallOrFail(stc, opt)
 							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
 							if err != nil {
 								stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
@@ -4209,7 +4208,6 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 				tc.Logf("Prometheus query for ztunnel secure metrics: %#v", query)
 
 				retry.UntilSuccessOrFail(tc, func() error {
-					clientInstance.CallOrFail(tc, opts)
 					count, err := prom.QuerySum(c, query)
 					if err != nil {
 						tc.Logf("Prometheus query failed (will retry for query %s): %v", query.String(), err)
