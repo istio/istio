@@ -270,6 +270,22 @@ func unmarshalCNIConfig(cniConfig []byte, kind string) (map[string]any, error) {
 	return cniConfigMap, nil
 }
 
+// findIstioCNIPlugin returns the index and decoded contents of the istio-cni
+// plugin within a CNI plugin list, or (-1, nil, nil) when the list contains no
+// istio-cni plugin. It returns an error if any plugin in the list is malformed.
+func findIstioCNIPlugin(plugins []any) (int, map[string]any, error) {
+	for i, rawPlugin := range plugins {
+		plugin, err := util.GetPlugin(rawPlugin)
+		if err != nil {
+			return -1, nil, err
+		}
+		if plugin["type"] == "istio-cni" {
+			return i, plugin, nil
+		}
+	}
+	return -1, nil, nil
+}
+
 // removeIstioCNIFromPrimary rewrites the primary CNI config at cniConfigFilepath to
 // drop any istio-cni plugin from its plugin list. It is a no-op when the primary is
 // not a plugin list (a standalone .conf cannot chain istio-cni) or already contains
@@ -282,23 +298,15 @@ func removeIstioCNIFromPrimary(cniConfigFilepath string, existingMap map[string]
 		return nil
 	}
 
-	removed := false
-	for i, rawPlugin := range plugins {
-		plugin, err := util.GetPlugin(rawPlugin)
-		if err != nil {
-			return fmt.Errorf("primary CNI plugin: %v", err)
-		}
-		if plugin["type"] == "istio-cni" {
-			plugins = append(plugins[:i], plugins[i+1:]...)
-			removed = true
-			break
-		}
+	idx, _, err := findIstioCNIPlugin(plugins)
+	if err != nil {
+		return fmt.Errorf("primary CNI plugin: %v", err)
 	}
-	if !removed {
+	if idx == -1 {
 		return nil
 	}
 
-	existingMap["plugins"] = plugins
+	existingMap["plugins"] = append(plugins[:idx], plugins[idx+1:]...)
 	updatedConfig, err := util.MarshalCNIConfig(existingMap)
 	if err != nil {
 		return err
@@ -350,15 +358,12 @@ func insertCNIConfigMap(istioPlugin []byte, existingMap map[string]any) (map[str
 		return nil, fmt.Errorf("existing CNI config: %v", err)
 	}
 
-	for i, rawPlugin := range plugins {
-		plugin, err := util.GetPlugin(rawPlugin)
-		if err != nil {
-			return nil, fmt.Errorf("existing CNI plugin: %v", err)
-		}
-		if plugin["type"] == "istio-cni" {
-			plugins = append(plugins[:i], plugins[i+1:]...)
-			break
-		}
+	idx, _, err := findIstioCNIPlugin(plugins)
+	if err != nil {
+		return nil, fmt.Errorf("existing CNI plugin: %v", err)
+	}
+	if idx != -1 {
+		plugins = append(plugins[:idx], plugins[idx+1:]...)
 	}
 
 	existingMap["plugins"] = append(plugins, istioMap)
