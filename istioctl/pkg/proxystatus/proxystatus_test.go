@@ -19,6 +19,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -38,6 +40,7 @@ import (
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/xds"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -138,6 +141,7 @@ func TestProxyStatus(t *testing.T) {
 					},
 				}, metav1.CreateOptions{})
 				assert.NoError(t, err)
+				createRootCertConfigMap(t, client)
 			}
 			verifyExecTestOutput(t, XdsStatusCommand(ctx), c)
 		})
@@ -195,5 +199,20 @@ func init() {
 			},
 		}
 		return tf
+	}
+}
+
+func createRootCertConfigMap(t *testing.T, client kube.CLIClient) {
+	t.Helper()
+	rootCert, err := os.ReadFile(filepath.Join(env.IstioSrc, "tests/testdata/certs/pilot/root-cert.pem"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Kube().CoreV1().ConfigMaps("istio-system").Create(context.TODO(), &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "istio-ca-root-cert", Namespace: "istio-system"},
+		Data:       map[string]string{"root-cert.pem": string(rootCert)},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
