@@ -804,22 +804,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
-	tunnel := supportTunnel(b, e)
-	// Only send HBONE if its necessary. If they support legacy mTLS and do not explicitly PreferHBONE, we will use legacy mTLS.
-	// However, waypoints (TrafficDirectionInboundVIP) do not support legacy mTLS, so do not allow opting out of that case.
-	supportsMtls := e.TLSMode == model.IstioMutualTLSModeLabel
-	if supportsMtls && !features.PreferHBONESend && b.dir != model.TrafficDirectionInboundVIP {
-		tunnel = false
-	}
-	if b.proxy.Metadata.DisableHBONESend {
-		tunnel = false
-	}
-	// Waypoints always use HBONE
-	if toServiceWaypoint {
-		tunnel = true
-	}
-
-	if tunnel {
+	if useTunnel(b, e, toServiceWaypoint) {
 		// Currently, Envoy cannot support tunneling to multiple IP families.
 		// TODO(https://github.com/envoyproxy/envoy/issues/36318)
 		address, port := e.Addresses[0], int(e.EndpointPort)
@@ -904,6 +889,38 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	return ep
 }
 
+func usesTunnel(lbEp *endpoint.LbEndpoint) bool {
+	if lbEp == nil || lbEp.Metadata == nil || lbEp.Metadata.FilterMetadata == nil {
+		return false
+	}
+	if t, exists := lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey]; exists && t != nil {
+		val, exists := t.GetFields()[model.TunnelLabelShortName]
+		return exists && val.GetStringValue() == model.TunnelHTTP
+	}
+	return false
+}
+
+func useTunnel(b *EndpointBuilder, e *model.IstioEndpoint, toWaypoint bool) bool {
+	// Only send HBONE if its necessary. If they support legacy mTLS and do not
+	// explicitly PreferHBONE, we will use legacy mTLS. However, waypoints
+	// (TrafficDirectionInboundVIP) do not support legacy mTLS, so do not allow
+	// opting out of that case.
+	if toWaypoint {
+		return true
+	}
+
+	if b.proxy.Metadata.DisableHBONESend {
+		return false
+	}
+
+	supportsMtls := e.TLSMode == model.IstioMutualTLSModeLabel
+	if supportsMtls && !features.PreferHBONESend && b.dir != model.TrafficDirectionInboundVIP {
+		return false
+	}
+
+	return supportTunnel(b, e)
+}
+
 func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 	if b.proxy.IsProxylessGrpc() {
 		// Proxyless client cannot handle tunneling, even if the server can
@@ -922,15 +939,7 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 		return true
 	}
 
-	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	// Check all addresses and return true if there is any IP address that supports tunneling when current endpoint has multiple addresses
-	for _, addr := range e.Addresses {
-		if b.push.SupportsTunnel(e.Network, addr) {
-			return true
-		}
-	}
-
-	return false
+	return e.SupportsHBONE
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(
