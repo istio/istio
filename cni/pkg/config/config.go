@@ -57,6 +57,8 @@ type PodLevelOverrides struct {
 	VirtualInterfaces []string
 	IngressMode       bool
 	DNSProxy          PodDNSOverride
+	// Kata is true when the pod runs under a configured kata-containers RuntimeClass.
+	Kata bool
 }
 
 // AmbientConfig represents the "global"/per-instance configuration for Ambient mode traffic management

@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+
+kind: feature
+
+area: traffic-management
+
+issue: []
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+    **Added** experimental support for [Kata Containers](https://github.com/kata-containers/kata-containers) with Istio Ambient.
+    The Kata container must use the `l3-forwarding` internetworking mode. Further, Istio CNI must be configured with the
+    `EXPERIMENTAL_KATA_RUNTIMECLASS_NAMES` environment variable set to the name of the Kata runtime class.
