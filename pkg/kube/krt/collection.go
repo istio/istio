@@ -565,8 +565,8 @@ func (h *manyCollection[I, O]) Metadata() Metadata {
 }
 
 // NewCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
-// This applies for one-to-one relationships between I and O.
-// For zero-to-one, use NewSingleton. For one-to-many, use NewManyCollection.
+// This applies for zero-or-one relationships between I and O, storing O by value.
+// For pointer outputs, use NewPointerCollection. For one-to-many, use NewManyCollection.
 func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opts ...CollectionOption) Collection[O] {
 	// For implementation simplicity, represent TransformationSingle as a TransformationMulti so we can share an implementation.
 	hm := func(ctx HandlerContext, i I) []O {
@@ -584,9 +584,28 @@ func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opt
 	return newCollection(newManyCollection(c, hm, o, nil))
 }
 
+// NewPointerCollection applies a zero-or-one transformation and stores the exact
+// non-nil pointer returned by the transformation. A nil result omits the output.
+// As with other collections, an equal recomputation retains the previously published
+// value. Published objects must not be mutated.
+func NewPointerCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opts ...CollectionOption) Collection[*O] {
+	hm := func(ctx HandlerContext, i I) []*O {
+		res := hf(ctx, i)
+		if res == nil {
+			return nil
+		}
+		return []*O{res}
+	}
+	o := buildCollectionOptions(opts...)
+	if o.name == "" {
+		o.name = fmt.Sprintf("PointerCollection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
+	}
+	return newCollection(newManyCollection(c, hm, o, nil))
+}
+
 // NewManyCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
 // This applies for one-to-many relationships between I and O.
-// For zero-to-one, use NewSingleton. For one-to-one, use NewCollection.
+// For zero-to-one, use NewSingleton. For one-to-one, use NewCollection or NewPointerCollection.
 func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], opts ...CollectionOption) Collection[O] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
