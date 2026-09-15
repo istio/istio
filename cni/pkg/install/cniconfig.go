@@ -293,23 +293,15 @@ func removeIstioCNIFromPrimary(cniConfigFilepath string, existingMap map[string]
 		return nil
 	}
 
-	removed := false
-	for i, rawPlugin := range plugins {
-		plugin, err := util.GetPlugin(rawPlugin)
-		if err != nil {
-			return fmt.Errorf("primary CNI plugin: %v", err)
-		}
-		if plugin["type"] == "istio-cni" {
-			plugins = append(plugins[:i], plugins[i+1:]...)
-			removed = true
-			break
-		}
+	idx, _, err := findIstioCNIPlugin(plugins)
+	if err != nil {
+		return fmt.Errorf("primary CNI plugin: %v", err)
 	}
-	if !removed {
+	if idx == -1 {
 		return nil
 	}
 
-	existingMap["plugins"] = plugins
+	existingMap["plugins"] = append(plugins[:idx], plugins[idx+1:]...)
 	updatedConfig, err := util.MarshalCNIConfig(existingMap)
 	if err != nil {
 		return err
@@ -361,15 +353,12 @@ func insertCNIConfigMap(istioPlugin []byte, existingMap map[string]any) (map[str
 		return nil, fmt.Errorf("existing CNI config: %v", err)
 	}
 
-	for i, rawPlugin := range plugins {
-		plugin, err := util.GetPlugin(rawPlugin)
-		if err != nil {
-			return nil, fmt.Errorf("existing CNI plugin: %v", err)
-		}
-		if plugin["type"] == "istio-cni" {
-			plugins = append(plugins[:i], plugins[i+1:]...)
-			break
-		}
+	idx, _, err := findIstioCNIPlugin(plugins)
+	if err != nil {
+		return nil, fmt.Errorf("existing CNI plugin: %v", err)
+	}
+	if idx != -1 {
+		plugins = append(plugins[:idx], plugins[idx+1:]...)
 	}
 
 	existingMap["plugins"] = append(plugins, istioMap)
