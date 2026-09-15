@@ -33,8 +33,9 @@ type otel struct {
 }
 
 const (
-	appName         = "opentelemetry-collector"
-	remoteOtelEntry = `
+	appName                        = "opentelemetry-collector"
+	defaultOtelCollectorRepository = "docker.io/otel/opentelemetry-collector-contrib"
+	remoteOtelEntry                = `
 apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
@@ -120,7 +121,11 @@ func getYaml() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(b), nil
+	yaml := string(b)
+	if hub := os.Getenv("OTEL_HUB"); hub != "" {
+		yaml = strings.ReplaceAll(yaml, defaultOtelCollectorRepository, hub+"/opentelemetry-collector-contrib")
+	}
+	return yaml, nil
 }
 
 func install(ctx resource.Context, ns string) error {
