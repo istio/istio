@@ -290,7 +290,7 @@ func generateValidatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) 
 	}
 	mfs, _, err := helm.Render("istio", config.IstioNamespace, "default", vals, nil)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	var validatingWebhookYAML string
 	for _, m := range mfs {
