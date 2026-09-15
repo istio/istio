@@ -28,6 +28,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	overridehost "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
+	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
@@ -59,6 +60,8 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
+	workloadapi "istio.io/istio/pkg/workloadapi"
 )
 
 type ConfigType int
@@ -5199,4 +5202,189 @@ func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
 	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
 		"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
 	}))
+}
+
+type sidecarWaypointAmbientIndex struct {
+	model.NoopAmbientIndexes
+	key  string
+	info model.ServiceWaypointInfo
+}
+
+func (s sidecarWaypointAmbientIndex) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
+	if key != s.key {
+		return nil
+	}
+
+	return []model.ServiceWaypointInfo{s.info}
+}
+
+// TestSidecarWaypointDestinationRulePolicy verifies that when a sidecar delegates traffic to a
+// service waypoint, it does so without applying backend TLS policy while retaining default and
+// subset cluster names.
+func TestSidecarWaypointDestinationRulePolicy(t *testing.T) {
+	test.SetForTest(t, &features.EnableSidecarWaypointRouting, true)
+	test.SetForTest(t, &features.EnableHBONESend, true)
+
+	const (
+		namespace        = "default"
+		serviceHostname  = "server.default.svc.cluster.local"
+		waypointHostname = "waypoint.default.svc.cluster.local"
+	)
+
+	service := &model.Service{
+		Hostname:       host.Name(serviceHostname),
+		DefaultAddress: "10.0.0.1",
+		Ports: model.PortList{{
+			Name:     "http",
+			Port:     80,
+			Protocol: protocol.HTTP,
+		}},
+		Attributes: model.ServiceAttributes{
+			Name:      "server",
+			Namespace: namespace,
+		},
+	}
+	destinationRule := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.DestinationRule,
+			Name:             "server",
+			Namespace:        namespace,
+		},
+		Spec: &networking.DestinationRule{
+			Host: serviceHostname,
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+			Subsets: []*networking.Subset{{
+				Name:   "v1",
+				Labels: map[string]string{"version": "v1"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.ClientTLSSettings{
+						Mode:              networking.ClientTLSSettings_MUTUAL,
+						ClientCertificate: "/client-cert.pem",
+						PrivateKey:        "/client-key.pem",
+						CaCertificates:    "/root-cert.pem",
+					},
+				},
+			}},
+		},
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Services:   []*model.Service{service},
+		Configs:    []config.Config{destinationRule},
+		MeshConfig: testMesh(),
+	})
+	ambientIndex := sidecarWaypointAmbientIndex{
+		key: namespace + "/" + serviceHostname,
+		info: model.ServiceWaypointInfo{
+			Service: &workloadapi.Service{
+				Name:      "server",
+				Namespace: namespace,
+				Hostname:  serviceHostname,
+			},
+			WaypointHostname: waypointHostname,
+		},
+	}
+	clusterNames := []string{
+		"outbound|80||" + serviceHostname,
+		"outbound|80|v1|" + serviceHostname,
+	}
+
+	generateClusters := func(useWaypoint bool) []*cluster.Cluster {
+		if useWaypoint {
+			cg.env.AmbientIndexes = ambientIndex
+		} else {
+			cg.env.AmbientIndexes = model.NoopAmbientIndexes{}
+		}
+
+		push := model.NewPushContext()
+		push.InitContext(cg.env, nil, nil)
+		cg.env.SetPushContext(push)
+
+		proxy := cg.SetupProxy(&model.Proxy{
+			Type:            model.SidecarProxy,
+			ConfigNamespace: namespace,
+		})
+
+		return cg.Clusters(proxy)
+	}
+
+	assertDirectCluster := func(t *testing.T, c *cluster.Cluster) {
+		t.Helper()
+
+		if c.GetTransportSocket().GetName() == wellknown.TransportSocketTLS {
+			return
+		}
+		for _, match := range c.TransportSocketMatches {
+			if match.GetTransportSocket().GetName() == wellknown.TransportSocketTLS {
+				return
+			}
+		}
+		t.Error("DestinationRule TLS transport socket not found")
+	}
+
+	assertWaypointCluster := func(t *testing.T, c *cluster.Cluster) {
+		t.Helper()
+
+		foundHBONE := false
+		for _, match := range c.TransportSocketMatches {
+			if match.Name == "hbone" {
+				foundHBONE = true
+				internal := xdstest.UnmarshalAny[internalupstream.InternalUpstreamTransport](
+					t,
+					match.TransportSocket.GetTypedConfig(),
+				)
+				// The sidecar must not TLS-wrap the application stream so that the waypoint
+				// can apply L7 policies.
+				if got := internal.TransportSocket.GetName(); got != wellknown.TransportSocketRawBuffer {
+					t.Errorf("HBONE inner transport socket = %q, want %q", got, wellknown.TransportSocketRawBuffer)
+				}
+				continue
+			}
+			// A waypoint-routed cluster must not retain a DestinationRule TLS socket. That
+			// policy belongs on the waypoint-to-workload cluster.
+			if match.TransportSocket.GetName() == wellknown.TransportSocketTLS {
+				t.Errorf("unexpected DestinationRule TLS transport socket match %q", match.Name)
+			}
+		}
+		// The cluster must still use HBONE to reach the waypoint.
+		if !foundHBONE {
+			t.Error("HBONE transport socket match not found")
+		}
+	}
+
+	assertClusterState := func(
+		t *testing.T,
+		clusters []*cluster.Cluster,
+		assertCluster func(*testing.T, *cluster.Cluster),
+	) {
+		t.Helper()
+
+		for _, name := range clusterNames {
+			t.Run(name, func(t *testing.T) {
+				c := xdstest.ExtractCluster(name, clusters)
+				// Routes may still reference this default or subset cluster after waypoint
+				// delegation so the cluster must continue to be generated.
+				if c == nil {
+					t.Fatalf("cluster %q not found", name)
+				}
+				assertCluster(t, c)
+			})
+		}
+	}
+
+	t.Run("direct", func(t *testing.T) {
+		assertClusterState(t, generateClusters(false), assertDirectCluster)
+	})
+
+	t.Run("waypoint attached", func(t *testing.T) {
+		assertClusterState(t, generateClusters(true), assertWaypointCluster)
+	})
+
+	t.Run("waypoint removed", func(t *testing.T) {
+		assertClusterState(t, generateClusters(false), assertDirectCluster)
+	})
 }
