@@ -551,17 +551,6 @@ func TestCreateCNIConfigFile(t *testing.T) {
 		if c.istioOwnedCNIConfig && len(c.istioOwnedCNIConfigFile) == 0 {
 			c.istioOwnedCNIConfigFile = "02-istio-conf.conflist"
 		}
-		cfgFile := config.InstallConfig{
-			CNIConfName:                 c.specifiedConfName,
-			ChainedCNIPlugin:            c.chainedCNIPlugin,
-			PluginLogLevel:              "debug",
-			CNIAgentRunDir:              kubeconfigFilename,
-			PodNamespace:                "my-namespace",
-			AmbientEnabled:              c.ambientEnabled,
-			IstioOwnedCNIConfig:         c.istioOwnedCNIConfig,
-			IstioOwnedCNIConfigFilename: c.istioOwnedCNIConfigFile,
-		}
-
 		cfg := config.InstallConfig{
 			CNIConfName:                 c.specifiedConfName,
 			ChainedCNIPlugin:            c.chainedCNIPlugin,
@@ -573,55 +562,53 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			IstioOwnedCNIConfigFilename: c.istioOwnedCNIConfigFile,
 			NativeNftables:              false,
 		}
-		test := func(cfg config.InstallConfig) func(t *testing.T) {
-			return func(t *testing.T) {
-				// Create temp directory for files
-				tempDir := t.TempDir()
+		// Create temp directory for files
+		tempDir := t.TempDir()
 
-				// Create existing config files if specified in test case
-				for srcFilename, targetFilename := range c.existingConfFiles {
-					if err := file.AtomicCopy(filepath.Join("testdata", srcFilename), tempDir, targetFilename); err != nil {
-						t.Fatal(err)
-					}
-				}
-
-				cfg.MountedCNINetDir = tempDir
-
-				var expectedFilepath string
-				if len(c.expectedConfName) > 0 {
-					expectedFilepath = filepath.Join(tempDir, c.expectedConfName)
-				}
-
-				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-				defer cancel()
-				resultFilepath, err := createCNIConfigFile(ctx, &cfg)
-				if err != nil {
-					assert.Equal(t, resultFilepath, "")
-					if err == context.DeadlineExceeded {
-						if len(c.expectedConfName) > 0 {
-							t.Fatalf("timed out waiting for expected %s", expectedFilepath)
-						}
-						// Successful test for never-created config file
-						return
-					}
-					t.Fatal(err)
-				}
-
-				if resultFilepath != expectedFilepath {
-					if len(expectedFilepath) > 0 {
-						t.Fatalf("expected %s, got %s", expectedFilepath, resultFilepath)
-					}
-					t.Fatalf("did not expect to retrieve a CNI config file %s", resultFilepath)
-				}
-
-				resultConfig := testutils.ReadFile(t, resultFilepath)
-
-				goldenFilepath := filepath.Join("testdata", c.goldenConfName)
-				goldenConfig := testutils.ReadFile(t, goldenFilepath)
-				testutils.CompareBytes(t, resultConfig, goldenConfig, goldenFilepath)
+		// Create existing config files if specified in test case
+		for srcFilename, targetFilename := range c.existingConfFiles {
+			if err := file.AtomicCopy(filepath.Join("testdata", srcFilename), tempDir, targetFilename); err != nil {
+				t.Fatal(err)
 			}
 		}
-		t.Run("network-config-file "+c.name, test(cfgFile))
-		t.Run(c.name, test(cfg))
+
+		cfg.MountedCNINetDir = tempDir
+
+		var expectedFilepath string
+		if len(c.expectedConfName) > 0 {
+			expectedFilepath = filepath.Join(tempDir, c.expectedConfName)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		resultFilepath, err := createCNIConfigFile(ctx, &cfg)
+		if err != nil {
+			assert.Equal(t, resultFilepath, "")
+			if err == context.DeadlineExceeded {
+				if len(c.expectedConfName) > 0 {
+					t.Fatalf("timed out waiting for expected %s", expectedFilepath)
+				}
+				// Successful test for never-created config file
+				return
+			}
+			t.Fatal(err)
+		}
+
+		if resultFilepath != expectedFilepath {
+			if len(expectedFilepath) > 0 {
+				t.Fatalf("expected %s, got %s", expectedFilepath, resultFilepath)
+			}
+			t.Fatalf("did not expect to retrieve a CNI config file %s", resultFilepath)
+		}
+
+		resultConfig := testutils.ReadFile(t, resultFilepath)
+
+		goldenFilepath := filepath.Join("testdata", c.goldenConfName)
+		goldenConfig := testutils.ReadFile(t, goldenFilepath)
+		testutils.CompareBytes(t, resultConfig, goldenConfig, goldenFilepath)
+
+		if err := validateCNIConfigContents(&cfg, resultFilepath, cfg.IstioOwnedCNIConfig); err != nil {
+			t.Errorf("%s", err)
+		}
 	}
 }
