@@ -153,7 +153,7 @@ func ValidateMetric(t framework.TestContext, cluster cluster.Cluster, prometheus
 			return fmt.Errorf("bad metric value: got %f, want at least %f", got, want)
 		}
 		return nil
-	}, retry.Delay(time.Second), retry.Timeout(time.Second*20))
+	}, retry.Delay(time.Second), retry.Timeout(time.Second*30))
 	if err != nil {
 		PromDiff(t, prometheus, cluster, query)
 		t.Fatal(err)

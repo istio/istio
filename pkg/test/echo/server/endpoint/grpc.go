@@ -104,6 +104,9 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle: idleTimeout,
 		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime: 15 * time.Second,
+		}),
 	}
 	if s.Port.TLS {
 		epLog.Infof("Listening GRPC (over TLS) on %v", p)

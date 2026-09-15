@@ -41,8 +41,9 @@ import (
 )
 
 const (
-	serviceName = "prometheus"
-	appName     = "prometheus"
+	serviceName         = "prometheus"
+	appName             = "prometheus"
+	defaultQueryTimeout = 9 * time.Second
 )
 
 var (
@@ -248,7 +249,9 @@ func (c *kubeComponent) RawQuery(cluster cluster.Cluster, promQL string) (model.
 	api := c.api[cluster.Name()]
 	c.mu.RUnlock()
 
-	v, _, err := api.Query(context.Background(), promQL, time.Now())
+	ctx, cancel := context.WithTimeout(context.Background(), defaultQueryTimeout)
+	defer cancel()
+	v, _, err := api.Query(ctx, promQL, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("error querying Prometheus: %v", err)
 	}
