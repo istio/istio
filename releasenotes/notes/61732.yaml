@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61732
+releaseNotes:
+- |
+  **Fixed** the DNS proxy synthesizing an illegal DNS response (a `CNAME` record whose target, and the
+  following `A`/`AAAA` record's name, was the literal wildcard host string, e.g. `*.example.com`) when
+  resolving a search-domain-suffixed query against a wildcard `ServiceEntry` host with `STATIC` or `DNS`
+  resolution. The response is now a plain `A`/`AAAA` record under the actual queried name, with no `CNAME`
+  and no illegal `*` in any name.
