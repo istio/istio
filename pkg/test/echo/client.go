@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
+	"google.golang.org/grpc/keepalive"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -47,7 +48,13 @@ func New(address string, tlsSettings *common.TLSSettings, extraDialOpts ...grpc.
 	// TODO: make use of common.ConnectionTimeout once it increases
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	dialOptions := []grpc.DialOption{grpc.WithBlock()}
+	dialOptions := []grpc.DialOption{
+		grpc.WithBlock(),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:    30 * time.Second,
+			Timeout: 10 * time.Second,
+		}),
+	}
 	if tlsSettings != nil {
 		cert, err := tls.X509KeyPair([]byte(tlsSettings.ClientCert), []byte(tlsSettings.Key))
 		if err != nil {
