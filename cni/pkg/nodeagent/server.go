@@ -181,7 +181,7 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string, istioOwnedCNI
 				shouldStopCleanup = false
 				return nil
 			}
-			if errors.IsUnauthorized(err) {
+			if errors.IsUnauthorized(err) || errors.IsForbidden(err) {
 				log.Infof("permission to get parent DaemonSet %s has been revoked manually or due to uninstall, this is not an upgrade, "+
 					"shutting down normally", dsName)
 				shouldStopCleanup = false
