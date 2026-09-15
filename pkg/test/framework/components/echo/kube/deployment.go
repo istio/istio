@@ -489,6 +489,25 @@ func serviceParams(cfg echo.Config, isOpenShift bool) map[string]any {
 	}
 }
 
+func generateVMSidecar(cfg echo.Config, systemNamespace string) string {
+	// Keep cross-namespace Kubernetes services, but exclude external DNS fixtures whose
+	// cluster-local endpoints cannot be resolved by the VM's public resolver.
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: Sidecar
+metadata:
+  name: %s
+  namespace: %s
+spec:
+  workloadSelector:
+    labels:
+      app: %s
+  egress:
+  - hosts:
+    - "%s/*"
+    - "*/*.svc.%s"
+`, cfg.Service, cfg.Namespace.Name(), cfg.Service, systemNamespace, cfg.Domain)
+}
+
 // createVMConfig sets up a Service account,
 func createVMConfig(ctx resource.Context, cfg echo.Config) error {
 	istioCtl, err := istioctl.New(ctx, istioctl.Config{Cluster: cfg.Cluster})
@@ -557,6 +576,11 @@ spec:
 	ist, err := istio.Get(ctx)
 	if err != nil {
 		return err
+	}
+	if err := ctx.ConfigKube(cfg.Cluster).
+		YAML(cfg.Namespace.Name(), generateVMSidecar(cfg, ist.Settings().SystemNamespace)).
+		Apply(apply.NoCleanup); err != nil {
+		return fmt.Errorf("failed creating VM Sidecar for %s/%s: %v", cfg.Namespace.Name(), cfg.Service, err)
 	}
 	// this will wait until the eastwest gateway has an IP before running the next command
 	istiodAddr, err := ist.RemoteDiscoveryAddressFor(cfg.Cluster)
