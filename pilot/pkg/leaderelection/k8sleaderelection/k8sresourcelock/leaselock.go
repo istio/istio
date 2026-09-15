@@ -59,6 +59,7 @@ func (ll *LeaseLock) Create(ctx context.Context, ler LeaderElectionRecord) error
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ll.LeaseMeta.Name,
 			Namespace: ll.LeaseMeta.Namespace,
+			Labels:    ll.LeaseMeta.Labels,
 		},
 		Spec: LeaderElectionRecordToLeaseSpec(&ler),
 	}
@@ -86,6 +87,12 @@ func (ll *LeaseLock) Update(ctx context.Context, ler LeaderElectionRecord) error
 		return errors.New("lease not initialized, call get or create first")
 	}
 	ll.lease.Spec = LeaderElectionRecordToLeaseSpec(&ler)
+	for key, value := range ll.LeaseMeta.Labels {
+		if ll.lease.Labels == nil {
+			ll.lease.Labels = make(map[string]string)
+		}
+		ll.lease.Labels[key] = value
+	}
 	ensureHolderKey(ler, ll.lease)
 
 	lease, err := ll.Client.Leases(ll.LeaseMeta.Namespace).Update(ctx, ll.lease, metav1.UpdateOptions{})
