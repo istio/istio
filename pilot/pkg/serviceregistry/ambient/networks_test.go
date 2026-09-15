@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestLocalK8sGatewayToNetworkGateways(t *testing.T) {
@@ -150,4 +151,59 @@ func TestLocalK8sGatewayToNetworkGateways(t *testing.T) {
 	t.Run("remote cluster uses the remote conversion", func(t *testing.T) {
 		assert.Equal(t, k8sGatewayToNetworkGateways(cluster.ID("cluster-2"), gateway(nil), cluster.ID("cluster-1")), nil)
 	})
+}
+
+func TestGatewayLocality(t *testing.T) {
+	cases := []struct {
+		name   string
+		labels map[string]string
+		want   *workloadapi.Locality
+	}{
+		{
+			name:   "no locality label",
+			labels: map[string]string{"topology.istio.io/network": "network-1"},
+			want:   nil,
+		},
+		{
+			name: "topology.istio.io/locality label, all three levels",
+			labels: map[string]string{
+				label.TopologyLocality.Name: "region1.zone1.subzone1",
+			},
+			want: &workloadapi.Locality{Region: "region1", Zone: "zone1", Subzone: "subzone1"},
+		},
+		{
+			name: "topology.istio.io/locality label, region only",
+			labels: map[string]string{
+				label.TopologyLocality.Name: "region1",
+			},
+			want: &workloadapi.Locality{Region: "region1"},
+		},
+		{
+			name: "legacy istio-locality label",
+			labels: map[string]string{
+				"istio-locality": "region1.zone1",
+			},
+			want: &workloadapi.Locality{Region: "region1", Zone: "zone1"},
+		},
+		{
+			name: "topology.istio.io/locality takes precedence over legacy label",
+			labels: map[string]string{
+				label.TopologyLocality.Name: "region1.zone1",
+				"istio-locality":            "region2.zone2",
+			},
+			want: &workloadapi.Locality{Region: "region1", Zone: "zone1"},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			gw := &gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "eastwestgateway",
+					Namespace: testNS,
+					Labels:    tt.labels,
+				},
+			}
+			assert.Equal(t, gatewayLocality(gw), tt.want)
+		})
+	}
 }
