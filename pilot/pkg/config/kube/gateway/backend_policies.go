@@ -87,6 +87,21 @@ type BackendPolicy struct {
 	LoadBalancer *networking.LoadBalancerSettings
 	RetryBudget  *networking.TrafficPolicy_RetryBudget
 	CreationTime time.Time
+	Gateways     []types.NamespacedName
+}
+
+type BackendCertificateAuthorization struct {
+	Gateway     types.NamespacedName
+	Certificate string
+	Source      TypedNamespacedName
+}
+
+func (a BackendCertificateAuthorization) ResourceName() string {
+	return a.Source.String() + "|" + a.Gateway.String() + "|" + a.Certificate
+}
+
+func (a BackendCertificateAuthorization) Equals(other BackendCertificateAuthorization) bool {
+	return a == other
 }
 
 func (b BackendPolicy) ResourceName() string {
@@ -130,7 +145,8 @@ func (b BackendPolicy) Equals(other BackendPolicy) bool {
 		ptr.Equal(b.Port, other.Port) &&
 		protoconv.Equals(b.TLS, other.TLS) &&
 		protoconv.Equals(b.LoadBalancer, other.LoadBalancer) &&
-		protoconv.Equals(b.RetryBudget, other.RetryBudget)
+		protoconv.Equals(b.RetryBudget, other.RetryBudget) &&
+		slices.Equal(b.Gateways, other.Gateways)
 }
 
 // DestinationRuleCollection returns a collection of DestinationRule objects. These are built from a few different
@@ -140,12 +156,13 @@ func DestinationRuleCollection(
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
 	backends krt.Collection[*gatewayx.XBackend],
 	ancestors krt.Index[TypedNamespacedName, AncestorBackend],
+	routeAttachments krt.Collection[RouteAttachment],
 	references *gatewaycommon.ReferenceSet,
 	domainSuffix string,
 	c *Controller,
 	services krt.Collection[*v1.Service],
 	opts krt.OptionsBuilder,
-) krt.Collection[config.Config] {
+) (krt.Collection[config.Config], krt.Collection[BackendCertificateAuthorization]) {
 	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, domainSuffix, opts)
 	status.RegisterStatus(c.status, trafficPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
@@ -153,11 +170,16 @@ func DestinationRuleCollection(
 	// Gateway API community if having the Gateway as an ancestor ref is required or not; we would prefer it to not be if possible.
 	// Until conformance requires it, for now we skip it.
 	ancestorCollection := ancestors.AsCollection(append(opts.WithName("AncestorBackend"), TypedNamespacedNameIndexCollectionFunc)...)
+	routeAttachmentsBySource := krt.NewIndex(routeAttachments, "route-attachments-by-source", func(a RouteAttachment) []string {
+		return []string{kind.FromString(a.From.Kind.Kind).String() + "/" + a.From.Name.String()}
+	})
 	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, domainSuffix, opts)
 	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
-	backendResourceStatus, backendResourcePolicies := BackendResourcePolicyCollection(backends, ancestorCollection, references, opts)
+	backendResourceStatus, backendResourcePolicies := BackendResourcePolicyCollection(
+		backends, ancestorCollection, routeAttachmentsBySource, references, opts)
 	status.RegisterStatus(c.status, backendResourceStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+	backendClientCertificates := backendClientCertificateCollection(backendResourcePolicies, opts)
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection(
@@ -312,12 +334,38 @@ func DestinationRuleCollection(
 			}
 		}, opts.WithName("BackendPolicyMerged")...,
 	)
-	return merged
+	return merged, backendClientCertificates
+}
+
+func backendClientCertificateCollection(
+	policies krt.Collection[BackendPolicy],
+	opts krt.OptionsBuilder,
+) krt.Collection[BackendCertificateAuthorization] {
+	return krt.NewManyCollection(
+		policies,
+		func(_ krt.HandlerContext, policy BackendPolicy) []BackendCertificateAuthorization {
+			if policy.TLS == nil ||
+				policy.TLS.Mode != networking.ClientTLSSettings_MUTUAL ||
+				!strings.HasPrefix(policy.TLS.CredentialName, credentials.KubernetesGatewaySecretType+"://") {
+				return nil
+			}
+			certificate := credentials.ToResourceName(policy.TLS.CredentialName)
+			return slices.Map(policy.Gateways, func(gateway types.NamespacedName) BackendCertificateAuthorization {
+				return BackendCertificateAuthorization{
+					Gateway:     gateway,
+					Certificate: certificate,
+					Source:      policy.Source,
+				}
+			})
+		},
+		opts.WithName("BackendClientCertificates")...,
+	)
 }
 
 func BackendResourcePolicyCollection(
 	backends krt.Collection[*gatewayx.XBackend],
 	ancestors krt.Collection[krt.IndexObject[TypedNamespacedName, AncestorBackend]],
+	routeAttachments krt.Index[string, RouteAttachment],
 	references *gatewaycommon.ReferenceSet,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gatewayx.XBackend, gatewayx.BackendStatus], krt.Collection[BackendPolicy]) {
@@ -342,6 +390,16 @@ func BackendResourcePolicyCollection(
 				NamespacedName: config.NamespacedName(i),
 				Kind:           kind.XBackend,
 			}
+			gateways := sets.New[types.NamespacedName]()
+			for _, ab := range krt.FetchIndexObjects(ctx, ancestors, self) {
+				attachments := routeAttachments.Fetch(ctx, ab.Source.String())
+				if slices.ContainsFunc(attachments, func(a RouteAttachment) bool {
+					return a.Gateway == ab.Gateway
+				}) {
+					gateways.Insert(ab.Gateway)
+				}
+			}
+			gwl := slices.SortBy(gateways.UnsortedList(), types.NamespacedName.String)
 
 			if i.Spec.Type != gatewayx.BackendTypeExternalHostname || i.Spec.ExternalHostname == nil {
 				conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
@@ -356,14 +414,10 @@ func BackendResourcePolicyCollection(
 					Port:         new(uint32(i.Spec.Port.Port)),
 					TLS:          tls,
 					CreationTime: i.CreationTimestamp.Time,
+					Gateways:     gwl,
 				})
 			}
 
-			gateways := sets.New[types.NamespacedName]()
-			for _, ab := range krt.FetchIndexObjects(ctx, ancestors, self) {
-				gateways.Insert(ab.Gateway)
-			}
-			gwl := slices.SortBy(gateways.UnsortedList(), types.NamespacedName.String)
 			ancestorStatus := make([]gatewayx.BackendAncestorStatus, 0, len(gwl)+1)
 			// We add a status for Backend (for mesh), and for each Gateway
 			meshPR := gw.ParentReference{

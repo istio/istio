@@ -32,7 +32,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -134,16 +133,12 @@ type destinationRuleIndex struct {
 	//  exportedByNamespace contains all dest rules pertaining to a service exported by a namespace.
 	exportedByNamespace map[string]*consolidatedDestRules
 	rootNamespaceLocal  *consolidatedDestRules
-	// backendClientCertificates is the set of SDS resource names for client certificates referenced by
-	// DestinationRules that Istio synthesized from Gateway API backend policies.
-	backendClientCertificates sets.String
 }
 
 func newDestinationRuleIndex() destinationRuleIndex {
 	return destinationRuleIndex{
-		namespaceLocal:            map[string]*consolidatedDestRules{},
-		exportedByNamespace:       map[string]*consolidatedDestRules{},
-		backendClientCertificates: sets.New[string](),
+		namespaceLocal:      map[string]*consolidatedDestRules{},
+		exportedByNamespace: map[string]*consolidatedDestRules{},
 	}
 }
 
@@ -187,12 +182,15 @@ type gatewayIndex struct {
 	namespace map[string][]config.Config
 	// all contains all gateways.
 	all []config.Config
+	// parentGateways maps synthesized Istio Gateway configs back to their Kubernetes Gateway parent.
+	parentGateways map[string]types.NamespacedName
 }
 
 func newGatewayIndex() gatewayIndex {
 	return gatewayIndex{
-		namespace: map[string][]config.Config{},
-		all:       []config.Config{},
+		namespace:      map[string][]config.Config{},
+		all:            []config.Config{},
+		parentGateways: map[string]types.NamespacedName{},
 	}
 }
 
@@ -2076,16 +2074,9 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	namespaceLocalDestRules := make(map[string]*consolidatedDestRules)
 	exportedDestRulesByNamespace := make(map[string]*consolidatedDestRules)
 	rootNamespaceLocalDestRules := newConsolidatedDestRules()
-	backendClientCertificates := sets.New[string]()
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
-
-		// Record client certificates referenced by synthesized backend policies so
-		// SDS can authorize them.
-		if isBackendPolicyDestinationRule(&configs[i]) {
-			collectBackendClientCertificates(rule, backendClientCertificates)
-		}
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
 		var exportToSet sets.Set[visibility.Instance]
@@ -2140,44 +2131,47 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	ps.destinationRuleIndex.namespaceLocal = namespaceLocalDestRules
 	ps.destinationRuleIndex.exportedByNamespace = exportedDestRulesByNamespace
 	ps.destinationRuleIndex.rootNamespaceLocal = rootNamespaceLocalDestRules
-	ps.destinationRuleIndex.backendClientCertificates = backendClientCertificates
 }
 
-// IsBackendClientCertificate reports whether resourceName is an upstream
-// client certificate referenced by a DestinationRule that Istio synthesized
-// from a Gateway API backend policy, such as an XBackend
-// tls.clientCertificateRef.
-func (ps *PushContext) IsBackendClientCertificate(resourceName string) bool {
-	return ps.destinationRuleIndex.backendClientCertificates.Contains(resourceName)
-}
-
-// collectBackendClientCertificates records the SDS resource names of every
-// Gateway API client certificate referenced by a synthesized DestinationRule.
-// Only kubernetes-gateway:// references are collected; ConfigMap CA
-// certificates are already allowed unconditionally by SDS, and kubernetes://
-// references carry their own same-namespace authorization rules.
-func collectBackendClientCertificates(rule *networking.DestinationRule, out sets.String) {
-	collect := func(tp *networking.TrafficPolicy) {
-		if tp == nil {
-			return
-		}
-		addBackendClientCertificate(tp.GetTls(), out)
-		for _, port := range tp.GetPortLevelSettings() {
-			addBackendClientCertificate(port.GetTls(), out)
+// IsBackendClientCertificateForProxy reports whether resourceName is an upstream client
+// certificate referenced by an XBackend attached to a Gateway implemented by proxy.
+func (ps *PushContext) IsBackendClientCertificateForProxy(proxy *Proxy, resourceName string) bool {
+	if proxy == nil {
+		return false
+	}
+	gateways := sets.New[types.NamespacedName]()
+	if proxy.MergedGateway != nil {
+		for _, gateway := range proxy.MergedGateway.GetGatewayNames() {
+			if parent, found := ps.gatewayIndex.parentGateways[gateway]; found {
+				if ps.gatewayIdentityVerified(proxy, parent, false) {
+					gateways.Insert(parent)
+				}
+			}
 		}
 	}
-	collect(rule.GetTrafficPolicy())
-	for _, subset := range rule.GetSubsets() {
-		collect(subset.GetTrafficPolicy())
+	if gatewayName, found := workloadGatewayName(labels.Instance(proxy.Labels)); found {
+		parent := types.NamespacedName{Namespace: proxy.ConfigNamespace, Name: gatewayName}
+		if ps.gatewayIdentityVerified(proxy, parent, true) {
+			gateways.Insert(parent)
+		}
 	}
+	for gateway := range gateways {
+		if ps.GatewayAPIController.BackendClientCertificateAllowed(gateway, resourceName) {
+			return true
+		}
+	}
+	return false
 }
 
-func addBackendClientCertificate(tls *networking.ClientTLSSettings, out sets.String) {
-	name := tls.GetCredentialName()
-	if !strings.HasPrefix(name, credentials.KubernetesGatewaySecretType+"://") {
-		return
+func (ps *PushContext) gatewayIdentityVerified(proxy *Proxy, gateway types.NamespacedName, requireServiceAccount bool) bool {
+	if proxy.VerifiedIdentity == nil || ps.GatewayAPIController == nil {
+		return false
 	}
-	out.Insert(credentials.ToResourceName(name))
+	expectedNamespace, expectedServiceAccount, found := ps.GatewayAPIController.GatewayWorkloadIdentity(gateway)
+	return found &&
+		proxy.VerifiedIdentity.Namespace == expectedNamespace &&
+		(!requireServiceAccount || expectedServiceAccount != "") &&
+		(expectedServiceAccount == "" || proxy.VerifiedIdentity.ServiceAccount == expectedServiceAccount)
 }
 
 // pre computes all AuthorizationPolicies per namespace
@@ -2460,6 +2454,12 @@ func (ps *PushContext) initGateways(env *Environment) {
 	gatewayConfigs := env.List(gvk.Gateway, NamespaceAll)
 
 	sortConfigByCreationTime(gatewayConfigs)
+	ps.gatewayIndex.parentGateways = make(map[string]types.NamespacedName)
+	for _, gatewayConfig := range gatewayConfigs {
+		if parent, found := kubernetesGatewayParent(gatewayConfig); found {
+			ps.gatewayIndex.parentGateways[gatewayConfig.Namespace+"/"+gatewayConfig.Name] = parent
+		}
+	}
 
 	if features.ScopeGatewayToNamespace {
 		ps.gatewayIndex.namespace = make(map[string][]config.Config)
@@ -2472,6 +2472,29 @@ func (ps *PushContext) initGateways(env *Environment) {
 	} else {
 		ps.gatewayIndex.all = gatewayConfigs
 	}
+}
+
+func kubernetesGatewayParent(gatewayConfig config.Config) (types.NamespacedName, bool) {
+	if parent := gatewayConfig.Annotations[constants.InternalGatewayParent]; parent != "" {
+		namespace, name, found := strings.Cut(parent, "/")
+		if found && namespace != "" && name != "" {
+			return types.NamespacedName{Namespace: namespace, Name: name}, true
+		}
+	}
+	for parent := range strings.SplitSeq(gatewayConfig.Annotations[constants.InternalParentNames], ",") {
+		encoded, found := strings.CutPrefix(parent, gvk.KubernetesGateway.Kind+"/")
+		if !found {
+			continue
+		}
+		namespaceSeparator := strings.LastIndexByte(encoded, '.')
+		if namespaceSeparator < 0 {
+			continue
+		}
+		nameAndSection, namespace := encoded[:namespaceSeparator], encoded[namespaceSeparator+1:]
+		name, _, _ := strings.Cut(nameAndSection, "/")
+		return types.NamespacedName{Namespace: namespace, Name: name}, true
+	}
+	return types.NamespacedName{}, false
 }
 
 func (ps *PushContext) initAmbient(env *Environment) {

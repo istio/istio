@@ -34,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
@@ -819,6 +820,7 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 			rpi := routeParentReference{
 				InternalName:      pr.InternalName,
 				InternalKind:      ir.Kind,
+				GatewayParent:     pr.GatewayParent,
 				Hostname:          pr.OriginalHostname,
 				DeniedReason:      deniedReason,
 				OriginalReference: ref,
@@ -1745,6 +1747,8 @@ var meshParentKey = parentKey{
 type parentInfo struct {
 	// InternalName refers to the internal name we can reference it by. For example, "mesh" or "my-ns/my-gateway"
 	InternalName string
+	// GatewayParent is the Kubernetes Gateway implementing this parent, including ListenerSet parents.
+	GatewayParent types.NamespacedName
 	// AllowedKinds indicates which kinds can be admitted by this parent
 	AllowedKinds []k8s.RouteGroupKind
 	// Hostnames is the hostnames that must be match to reference to the parent. For gateway this is listener hostname
@@ -1764,6 +1768,8 @@ type routeParentReference struct {
 	InternalName string
 	// InternalKind is the Group/Kind of the parent
 	InternalKind config.GroupVersionKind
+	// GatewayParent is the Kubernetes Gateway implementing the referenced Gateway or ListenerSet.
+	GatewayParent types.NamespacedName
 	// DeniedReason, if present, indicates why the reference was not valid
 	DeniedReason *ParentError
 	// OriginalReference contains the original reference

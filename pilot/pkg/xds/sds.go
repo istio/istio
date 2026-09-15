@@ -139,6 +139,12 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	resources := filterAuthorizedResources(s.parseResources(w.ResourceNames.UnsortedList(), proxy), proxy, req.Push, proxyClusterSecrets)
 
 	var results model.Resources
+	if req.Forced {
+		// A forced push may be re-evaluating authorization. Return an explicit empty
+		// response when all watched resources are denied so clients remove secrets
+		// that were delivered before authorization changed.
+		results = make(model.Resources, 0, len(resources))
+	}
 	cached, regenerated := 0, 0
 	for _, sr := range resources {
 		if updatedSecrets != nil {
@@ -281,9 +287,9 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, p
 			//
 			// VerifiedCertificateReferences only covers gateway serving
 			// certificates: Upstream client certificates, such as an XBackend
-			// tls.clientCertificateRef, are authorized separately below so that they
-			// also work for sidecars and waypoints.
-			if verified || (sameNamespace && push.IsBackendClientCertificate(r.ResourceName)) {
+			// tls.clientCertificateRef, are authorized separately for the Gateway
+			// workload implementing the attached XBackend.
+			if verified || (push != nil && push.IsBackendClientCertificateForProxy(proxy, r.ResourceName)) {
 				allowedResources = append(allowedResources, r)
 			} else {
 				deniedResources = append(deniedResources, r.Name)

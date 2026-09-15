@@ -26,6 +26,7 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
+	"istio.io/api/annotation"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
@@ -105,6 +106,9 @@ type Controller struct {
 
 	domainSuffix string // the domain suffix to use for generated resources
 
+	gateways       krt.Collection[*gatewayv1.Gateway]
+	gatewayClasses krt.Collection[*gatewayv1.GatewayClass]
+
 	shadowServiceReconciler controllers.Queue
 }
 
@@ -123,13 +127,15 @@ type TypedResource struct {
 }
 
 type Outputs struct {
-	Gateways                krt.Collection[Gateway]
-	GatewayConfigs          krt.Collection[config.Config]
-	VirtualServices         krt.Collection[config.Config]
-	ReferenceGrants         gatewaycommon.ReferenceGrants
-	DestinationRules        krt.Collection[config.Config]
-	InferencePools          krt.Collection[InferencePool]
-	InferencePoolsByGateway krt.Index[types.NamespacedName, InferencePool]
+	Gateways                           krt.Collection[Gateway]
+	GatewayConfigs                     krt.Collection[config.Config]
+	VirtualServices                    krt.Collection[config.Config]
+	ReferenceGrants                    gatewaycommon.ReferenceGrants
+	DestinationRules                   krt.Collection[config.Config]
+	BackendClientCertificates          krt.Collection[BackendCertificateAuthorization]
+	BackendClientCertificatesByGateway krt.Index[string, BackendCertificateAuthorization]
+	InferencePools                     krt.Collection[InferencePool]
+	InferencePoolsByGateway            krt.Index[types.NamespacedName, InferencePool]
 }
 
 type Inputs struct {
@@ -218,6 +224,8 @@ func NewController(
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
 		inputs.Backends = krt.NewStaticCollection[*gatewayx.XBackend](nil, nil, opts.WithName("disable/XBackend")...)
 	}
+	c.gateways = inputs.Gateways
+	c.gatewayClasses = inputs.GatewayClasses
 
 	if features.EnableGatewayAPIInferenceExtension {
 		inputs.InferencePools = buildClient[*inferencev1.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
@@ -366,11 +374,12 @@ func NewController(
 		return []TypedNamespacedName{o.Backend}
 	})
 
-	DestinationRules := DestinationRuleCollection(
+	DestinationRules, BackendClientCertificates := DestinationRuleCollection(
 		inputs.BackendTrafficPolicy,
 		inputs.BackendTLSPolicies,
 		inputs.Backends,
 		AncestorsIndex,
+		RouteAttachments,
 		references,
 		c.domainSuffix,
 		c,
@@ -401,15 +410,24 @@ func NewController(
 	InferencePoolsByGateway := krt.NewIndex(InferencePools, "byGateway", func(i InferencePool) []types.NamespacedName {
 		return i.gatewayParents.UnsortedList()
 	})
+	BackendClientCertificatesByGateway := krt.NewIndex(
+		BackendClientCertificates,
+		"byGatewayAndCertificate",
+		func(a BackendCertificateAuthorization) []string {
+			return []string{gatewayCertificateKey(a.Gateway, a.Certificate)}
+		},
+	)
 
 	outputs := Outputs{
-		ReferenceGrants:         ReferenceGrants,
-		Gateways:                Gateways,
-		GatewayConfigs:          GatewayConfigs,
-		VirtualServices:         VirtualServices,
-		DestinationRules:        DestinationRules,
-		InferencePools:          InferencePools,
-		InferencePoolsByGateway: InferencePoolsByGateway,
+		ReferenceGrants:                    ReferenceGrants,
+		Gateways:                           Gateways,
+		GatewayConfigs:                     GatewayConfigs,
+		VirtualServices:                    VirtualServices,
+		DestinationRules:                   DestinationRules,
+		BackendClientCertificates:          BackendClientCertificates,
+		BackendClientCertificatesByGateway: BackendClientCertificatesByGateway,
+		InferencePools:                     InferencePools,
+		InferencePoolsByGateway:            InferencePoolsByGateway,
 	}
 	c.outputs = outputs
 
@@ -422,7 +440,15 @@ func NewController(
 					Name:      t.Name,
 					Namespace: t.Namespace,
 				}
-			}), false),
+			}, false), false),
+		outputs.BackendClientCertificates.RegisterBatch(pushXds(xdsUpdater,
+			func(a BackendCertificateAuthorization) model.ConfigKey {
+				return model.ConfigKey{
+					Kind:      kind.Gateway,
+					Name:      a.Gateway.Name,
+					Namespace: a.Gateway.Namespace,
+				}
+			}, true), false),
 		outputs.Gateways.RegisterBatch(pushXds(xdsUpdater,
 			func(t Gateway) model.ConfigKey {
 				return model.ConfigKey{
@@ -430,7 +456,22 @@ func NewController(
 					Name:      t.Name,
 					Namespace: t.Namespace,
 				}
-			}), false),
+			}, false), false),
+		inputs.Gateways.RegisterBatch(pushXds(xdsUpdater,
+			func(t *gatewayv1.Gateway) model.ConfigKey {
+				return model.ConfigKey{
+					Kind:      kind.Gateway,
+					Name:      t.Name,
+					Namespace: t.Namespace,
+				}
+			}, true), false),
+		inputs.GatewayClasses.RegisterBatch(pushXds(xdsUpdater,
+			func(t *gatewayv1.GatewayClass) model.ConfigKey {
+				return model.ConfigKey{
+					Kind: kind.GatewayClass,
+					Name: t.Name,
+				}
+			}, true), false),
 		outputs.InferencePools.Register(func(e krt.Event[InferencePool]) {
 			obj := e.Latest()
 			c.shadowServiceReconciler.Add(types.NamespacedName{
@@ -602,6 +643,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 func (c *Controller) HasSynced() bool {
 	if !(c.outputs.VirtualServices.HasSynced() &&
 		c.outputs.DestinationRules.HasSynced() &&
+		c.outputs.BackendClientCertificates.HasSynced() &&
 		c.outputs.Gateways.HasSynced() &&
 		c.outputs.GatewayConfigs.HasSynced() &&
 		c.outputs.ReferenceGrants.Collection.HasSynced()) {
@@ -619,7 +661,39 @@ func (c *Controller) SecretAllowed(ourKind config.GroupVersionKind, resourceName
 	return c.outputs.ReferenceGrants.SecretAllowed(nil, ourKind, resourceName, namespace)
 }
 
-func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {
+func (c *Controller) GatewayWorkloadIdentity(gateway types.NamespacedName) (string, string, bool) {
+	obj := ptr.Flatten(c.gateways.GetKey(gateway.String()))
+	if obj == nil {
+		return "", "", false
+	}
+
+	class := ptr.Flatten(c.gatewayClasses.GetKey(string(obj.Spec.GatewayClassName)))
+	if class == nil {
+		return "", "", false
+	}
+	classInfo, found := gatewaycommon.ClassInfos[class.Spec.ControllerName]
+	if !found {
+		return "", "", false
+	}
+	serviceAccount := ""
+	if gatewaycommon.IsManaged(&obj.Spec) {
+		serviceAccount = model.GetOrDefault(
+			obj.Annotations[annotation.GatewayServiceAccount.Name],
+			gatewaycommon.GetDefaultName(obj.Name, &obj.Spec, classInfo.DisableNameSuffix),
+		)
+	}
+	return obj.Namespace, serviceAccount, true
+}
+
+func (c *Controller) BackendClientCertificateAllowed(gateway types.NamespacedName, resourceName string) bool {
+	return len(c.outputs.BackendClientCertificatesByGateway.Lookup(gatewayCertificateKey(gateway, resourceName))) > 0
+}
+
+func gatewayCertificateKey(gateway types.NamespacedName, resourceName string) string {
+	return gateway.String() + "|" + resourceName
+}
+
+func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey, forced bool) func(events []krt.Event[T]) {
 	return func(events []krt.Event[T]) {
 		if xds == nil {
 			return
@@ -639,6 +713,7 @@ func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 		xds.ConfigUpdate(&model.PushRequest{
 			ConfigsUpdated: cu,
 			Reason:         model.NewReasonStats(model.ConfigUpdate),
+			Forced:         forced,
 		})
 	}
 }

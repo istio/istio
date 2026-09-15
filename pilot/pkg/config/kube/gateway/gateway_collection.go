@@ -193,6 +193,7 @@ func ListenerSetCollection(
 				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
+				meta[constants.InternalGatewayParent] = config.NamespacedName(parentGwObj).String()
 
 				// For unmanaged (manual deployment) parent Gateways, we have no idea what service accounts
 				// the gateway workloads will use, so we must not enforce service account restrictions.
@@ -229,6 +230,7 @@ func ListenerSetCollection(
 				}
 				pri := parentInfo{
 					InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
+					GatewayParent:    config.NamespacedName(parentGwObj),
 					AllowedKinds:     allowed,
 					Hostnames:        server.Hosts,
 					OriginalHostname: string(ptr.OrEmpty(l.Hostname)),
@@ -395,6 +397,7 @@ func GatewayCollection(
 			}
 			pri := parentInfo{
 				InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
+				GatewayParent:    config.NamespacedName(obj),
 				AllowedKinds:     allowed,
 				Hostnames:        server.Hosts,
 				OriginalHostname: string(ptr.OrEmpty(l.Hostname)),

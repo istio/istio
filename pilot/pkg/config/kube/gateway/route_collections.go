@@ -66,9 +66,12 @@ func HTTPRouteCollection(
 ) RouteResult[*gatewayv1.HTTPRoute, gatewayv1.HTTPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, httpRoutes, gvk.HTTPRoute, opts)
 	ancestorBackends := krt.NewManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.HTTPRoute) []AncestorBackend {
+		ctx := inputs.WithCtx(krtctx)
 		return extractAncestorBackends(
+			ctx,
 			obj.ObjectMeta,
-			kind.FromString(obj.Kind),
+			gvk.HTTPRoute,
+			kind.FromString(gvk.HTTPRoute.Kind),
 			obj.Spec.ParentRefs,
 			obj.Spec.Rules,
 			func(r gatewayv1.HTTPRouteRule) []gatewayv1.HTTPBackendRef {
@@ -224,7 +227,9 @@ func HTTPRouteCollection(
 }
 
 func extractAncestorBackends[RT, BT any](
+	ctx RouteContext,
 	obj metav1.ObjectMeta,
+	routeKind config.GroupVersionKind,
 	kind kind.Kind,
 	prefs []gatewayv1.ParentReference,
 	rules []RT,
@@ -240,14 +245,13 @@ func extractAncestorBackends[RT, BT any](
 	}
 	gateways := sets.Set[types.NamespacedName]{}
 	for _, r := range prefs {
-		ref := gatewaycommon.NormalizeReference(r.Group, r.Kind, gvk.KubernetesGateway)
-		if ref != gvk.KubernetesGateway {
+		parent, err := toInternalParentReference(r, ns)
+		if err != nil || (parent.Kind != gvk.KubernetesGateway && parent.Kind != gvk.ListenerSet) {
 			continue
 		}
-		gateways.Insert(types.NamespacedName{
-			Namespace: defaultString(r.Namespace, ns),
-			Name:      string(r.Name),
-		})
+		for _, info := range ctx.RouteParents.fetch(ctx.Krt, parent) {
+			gateways.Insert(info.GatewayParent)
+		}
 	}
 	backends := sets.Set[TypedNamespacedName]{}
 	for _, r := range rules {
@@ -263,6 +267,16 @@ func extractAncestorBackends[RT, BT any](
 					Name:      string(refName),
 				},
 				Kind: k,
+			}
+			if ref == gvk.XBackend {
+				if krt.FetchOne(ctx.Krt, ctx.Backends, krt.FilterKey(be.NamespacedName.String())) == nil {
+					continue
+				}
+				if be.Namespace != ns && !ctx.Grants.BackendAllowed(
+					ctx.Krt, routeKind, gvk.XBackend, refName, gatewayv1.Namespace(be.Namespace), ns,
+				) {
+					continue
+				}
 			}
 			backends.Insert(be)
 		}
@@ -294,9 +308,12 @@ func GRPCRouteCollection(
 ) RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, grpcRoutes, gvk.GRPCRoute, opts)
 	ancestorBackends := krt.NewManyCollection(grpcRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) []AncestorBackend {
+		ctx := inputs.WithCtx(krtctx)
 		return extractAncestorBackends(
+			ctx,
 			obj.ObjectMeta,
-			kind.FromString(obj.Kind),
+			gvk.GRPCRoute,
+			kind.FromString(gvk.GRPCRoute.Kind),
 			obj.Spec.ParentRefs,
 			obj.Spec.Rules,
 			func(r gatewayv1.GRPCRouteRule) []gatewayv1.GRPCBackendRef {
@@ -445,9 +462,12 @@ func TCPRouteCollection(
 ) RouteResult[*gatewayv1.TCPRoute, gatewayv1.TCPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tcpRoutes, gvk.TCPRoute, opts)
 	ancestorBackends := krt.NewManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.TCPRoute) []AncestorBackend {
+		ctx := inputs.WithCtx(krtctx)
 		return extractAncestorBackends(
+			ctx,
 			obj.ObjectMeta,
-			kind.FromString(obj.Kind),
+			gvk.TCPRoute,
+			kind.FromString(gvk.TCPRoute.Kind),
 			obj.Spec.ParentRefs,
 			obj.Spec.Rules,
 			func(r gatewayv1.TCPRouteRule) []gatewayv1.BackendRef {
@@ -542,9 +562,12 @@ func TLSRouteCollection(
 ) RouteResult[*gatewayv1.TLSRoute, gatewayv1.TLSRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tlsRoutes, gvk.TLSRoute, opts)
 	ancestorBackends := krt.NewManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.TLSRoute) []AncestorBackend {
+		ctx := inputs.WithCtx(krtctx)
 		return extractAncestorBackends(
+			ctx,
 			obj.ObjectMeta,
-			kind.FromString(obj.Kind),
+			gvk.TLSRoute,
+			kind.FromString(gvk.TLSRoute.Kind),
 			obj.Spec.ParentRefs,
 			obj.Spec.Rules,
 			func(r gatewayv1.TLSRouteRule) []gatewayv1.BackendRef {
@@ -759,17 +782,18 @@ type RouteResult[I controllers.Object, IStatus any] struct {
 
 type RouteAttachment struct {
 	From TypedResource
-	// To is assumed to be a Gateway
+	// To is the referenced Gateway or ListenerSet. Gateway is the Kubernetes Gateway implementing it.
 	To           types.NamespacedName
+	Gateway      types.NamespacedName
 	ListenerName string
 }
 
 func (r RouteAttachment) ResourceName() string {
-	return r.From.Kind.String() + "/" + r.From.Name.String() + "/" + r.To.String() + "/" + r.ListenerName
+	return r.From.Kind.String() + "/" + r.From.Name.String() + "/" + r.To.String() + "/" + r.Gateway.String() + "/" + r.ListenerName
 }
 
 func (r RouteAttachment) Equals(other RouteAttachment) bool {
-	return r.From == other.From && r.To == other.To && r.ListenerName == other.ListenerName
+	return r.From == other.From && r.To == other.To && r.Gateway == other.Gateway && r.ListenerName == other.ListenerName
 }
 
 // gatewayRouteAttachmentCountCollection holds the generic logic to determine the parents a route is attached to, used for
@@ -798,6 +822,7 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 					Name:      e.ParentKey.Name,
 					Namespace: e.ParentKey.Namespace,
 				},
+				Gateway:      e.GatewayParent,
 				ListenerName: string(e.ParentSection),
 			}
 		})
