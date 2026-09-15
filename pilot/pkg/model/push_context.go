@@ -32,6 +32,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -133,12 +134,16 @@ type destinationRuleIndex struct {
 	//  exportedByNamespace contains all dest rules pertaining to a service exported by a namespace.
 	exportedByNamespace map[string]*consolidatedDestRules
 	rootNamespaceLocal  *consolidatedDestRules
+	// backendClientCertificates is the set of SDS resource names for client certificates referenced by
+	// DestinationRules that Istio synthesized from Gateway API backend policies.
+	backendClientCertificates sets.String
 }
 
 func newDestinationRuleIndex() destinationRuleIndex {
 	return destinationRuleIndex{
-		namespaceLocal:      map[string]*consolidatedDestRules{},
-		exportedByNamespace: map[string]*consolidatedDestRules{},
+		namespaceLocal:            map[string]*consolidatedDestRules{},
+		exportedByNamespace:       map[string]*consolidatedDestRules{},
+		backendClientCertificates: sets.New[string](),
 	}
 }
 
@@ -2071,9 +2076,16 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	namespaceLocalDestRules := make(map[string]*consolidatedDestRules)
 	exportedDestRulesByNamespace := make(map[string]*consolidatedDestRules)
 	rootNamespaceLocalDestRules := newConsolidatedDestRules()
+	backendClientCertificates := sets.New[string]()
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
+
+		// Record client certificates referenced by synthesized backend policies so
+		// SDS can authorize them.
+		if isBackendPolicyDestinationRule(&configs[i]) {
+			collectBackendClientCertificates(rule, backendClientCertificates)
+		}
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
 		var exportToSet sets.Set[visibility.Instance]
@@ -2128,6 +2140,44 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	ps.destinationRuleIndex.namespaceLocal = namespaceLocalDestRules
 	ps.destinationRuleIndex.exportedByNamespace = exportedDestRulesByNamespace
 	ps.destinationRuleIndex.rootNamespaceLocal = rootNamespaceLocalDestRules
+	ps.destinationRuleIndex.backendClientCertificates = backendClientCertificates
+}
+
+// IsBackendClientCertificate reports whether resourceName is an upstream
+// client certificate referenced by a DestinationRule that Istio synthesized
+// from a Gateway API backend policy, such as an XBackend
+// tls.clientCertificateRef.
+func (ps *PushContext) IsBackendClientCertificate(resourceName string) bool {
+	return ps.destinationRuleIndex.backendClientCertificates.Contains(resourceName)
+}
+
+// collectBackendClientCertificates records the SDS resource names of every
+// Gateway API client certificate referenced by a synthesized DestinationRule.
+// Only kubernetes-gateway:// references are collected; ConfigMap CA
+// certificates are already allowed unconditionally by SDS, and kubernetes://
+// references carry their own same-namespace authorization rules.
+func collectBackendClientCertificates(rule *networking.DestinationRule, out sets.String) {
+	collect := func(tp *networking.TrafficPolicy) {
+		if tp == nil {
+			return
+		}
+		addBackendClientCertificate(tp.GetTls(), out)
+		for _, port := range tp.GetPortLevelSettings() {
+			addBackendClientCertificate(port.GetTls(), out)
+		}
+	}
+	collect(rule.GetTrafficPolicy())
+	for _, subset := range rule.GetSubsets() {
+		collect(subset.GetTrafficPolicy())
+	}
+}
+
+func addBackendClientCertificate(tls *networking.ClientTLSSettings, out sets.String) {
+	name := tls.GetCredentialName()
+	if !strings.HasPrefix(name, credentials.KubernetesGatewaySecretType+"://") {
+		return
+	}
+	out.Insert(credentials.ToResourceName(name))
 }
 
 // pre computes all AuthorizationPolicies per namespace

@@ -136,7 +136,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	// Filter down to resources we can access. We do not return an error if they attempt to access a Secret
 	// they cannot; instead we just exclude it. This ensures that a single bad reference does not break the whole
 	// SDS flow. The pilotSDSCertificateErrors metric and logs handle visibility into invalid references.
-	resources := filterAuthorizedResources(s.parseResources(w.ResourceNames.UnsortedList(), proxy), proxy, proxyClusterSecrets)
+	resources := filterAuthorizedResources(s.parseResources(w.ResourceNames.UnsortedList(), proxy), proxy, req.Push, proxyClusterSecrets)
 
 	var results model.Resources
 	cached, regenerated := 0, 0
@@ -243,7 +243,9 @@ func recordInvalidCertificate(namespace string, name string, resourceName string
 }
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
-func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, secrets credscontroller.Controller) []SecretResource {
+func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, push *model.PushContext,
+	secrets credscontroller.Controller,
+) []SecretResource {
 	var authzResult *bool
 	var authzError error
 	// isAuthorized is a small wrapper around credscontroller.Authorize so we only call it once instead of each time in the loop
@@ -276,7 +278,12 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			// For KubernetesGateway, we only allow VerifiedCertificateReferences.
 			// This means a Secret in the same namespace as the Gateway (which also must be in the same namespace
 			// as the proxy), or a ReferencePolicy allowing the reference.
-			if verified {
+			//
+			// VerifiedCertificateReferences only covers gateway serving
+			// certificates: Upstream client certificates, such as an XBackend
+			// tls.clientCertificateRef, are authorized separately below so that they
+			// also work for sidecars and waypoints.
+			if verified || (sameNamespace && push.IsBackendClientCertificate(r.ResourceName)) {
 				allowedResources = append(allowedResources, r)
 			} else {
 				deniedResources = append(deniedResources, r.Name)
