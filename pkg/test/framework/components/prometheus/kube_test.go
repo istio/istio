@@ -19,6 +19,21 @@ import (
 	"testing"
 )
 
+func TestGetPrometheusYamlImageDefaults(t *testing.T) {
+	yaml, err := getPrometheusYaml()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, repository := range []string{
+		"quay.io/prometheus/prometheus",
+		"ghcr.io/prometheus-operator/prometheus-config-reloader",
+	} {
+		if !strings.Contains(yaml, repository) {
+			t.Errorf("rendered manifest does not contain default repository %q", repository)
+		}
+	}
+}
+
 func TestGetPrometheusYamlImageOverrides(t *testing.T) {
 	prometheusHub := "example.com/cache/prometheus"
 	reloaderHub := "example.com/cache/prometheus-operator"
