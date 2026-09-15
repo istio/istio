@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/util"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/util/assert"
@@ -331,7 +332,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 	}
 }
 
-func TestInsertCNIConfig(t *testing.T) {
+func TestInsertCNIConfigMap(t *testing.T) {
 	cases := []struct {
 		name                 string
 		expectedFailure      bool
@@ -349,12 +350,6 @@ func TestInsertCNIConfig(t *testing.T) {
 			expectedFailure:      true,
 			existingConfFilename: "list.conflist",
 			newConfFilename:      "invalid-arr.conflist",
-		},
-		{
-			name:                 "invalid existing config format (arr)",
-			expectedFailure:      true,
-			existingConfFilename: "invalid-arr.conflist",
-			newConfFilename:      "istio-cni.conf",
 		},
 		{
 			name:                 "regular network file",
@@ -377,14 +372,21 @@ func TestInsertCNIConfig(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			istioConf := testutils.ReadFile(t, filepath.Join("testdata", c.newConfFilename))
 			existingConfFilepath := filepath.Join("testdata", c.existingConfFilename)
-			existingConf := testutils.ReadFile(t, existingConfFilepath)
+			existingConf, err := util.ReadCNIConfigMap(existingConfFilepath)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-			output, err := insertCNIConfig(istioConf, existingConf)
+			cniConfigMap, err := insertCNIConfigMap(istioConf, existingConf)
 			if err != nil {
 				if !c.expectedFailure {
 					t.Fatal(err)
 				}
 				return
+			}
+			output, err := util.MarshalCNIConfig(cniConfigMap)
+			if err != nil {
+				t.Fatal(err)
 			}
 
 			goldenFilepath := existingConfFilepath + ".golden"
@@ -493,7 +495,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			specifiedConfName:   "bridge.conflist",
 			expectedConfName:    "02-istio-conf.conflist",
 			goldenConfName:      "istio-owned-bridge.conflist.golden",
-			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf"},
 			ambientEnabled:      true,
 			istioOwnedCNIConfig: true,
 		},
@@ -503,7 +505,17 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			specifiedConfName:   "list.conflist",
 			expectedConfName:    "02-istio-conf.conflist",
 			goldenConfName:      "istio-owned.conflist.golden",
-			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			existingConfFiles:   map[string]string{"list.conflist": "list.conflist"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "specified existing primary .conflist + istio-cni plugin - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "list.conflist",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned.conflist.golden",
+			existingConfFiles:   map[string]string{"list.conflist.golden": "list.conflist"},
 			ambientEnabled:      true,
 			istioOwnedCNIConfig: true,
 		},
@@ -513,7 +525,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			specifiedConfName:   "list.conf",
 			expectedConfName:    "02-istio-conf.conflist",
 			goldenConfName:      "istio-owned.conflist.golden",
-			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			existingConfFiles:   map[string]string{"list.conflist": "list.conflist"},
 			ambientEnabled:      true,
 			istioOwnedCNIConfig: true,
 		},
@@ -523,7 +535,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			specifiedConfName:   "bridge.conflist",
 			expectedConfName:    "02-istio-conf.conflist",
 			goldenConfName:      "istio-owned-bridge.conflist.golden",
-			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf"},
 			ambientEnabled:      true,
 			istioOwnedCNIConfig: true,
 		},
@@ -531,7 +543,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			name:                "specified CNI config file never created - istio owned",
 			chainedCNIPlugin:    true,
 			specifiedConfName:   "02-istio-conf.conflist",
-			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			existingConfFiles:   map[string]string{"list.conflist": "list.conflist"},
 			ambientEnabled:      true,
 			istioOwnedCNIConfig: true,
 		},
@@ -541,74 +553,76 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			specifiedConfName:   "undetectable.file",
 			expectedConfName:    "02-istio-conf.conflist",
 			goldenConfName:      "istio-owned.conflist.golden",
-			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "undetectable.file"},
+			existingConfFiles:   map[string]string{"list.conflist": "undetectable.file"},
 			ambientEnabled:      true,
 			istioOwnedCNIConfig: true,
 		},
 	}
 
 	for _, c := range cases {
-		if c.istioOwnedCNIConfig && len(c.istioOwnedCNIConfigFile) == 0 {
-			c.istioOwnedCNIConfigFile = "02-istio-conf.conflist"
-		}
-		cfg := config.InstallConfig{
-			CNIConfName:                 c.specifiedConfName,
-			ChainedCNIPlugin:            c.chainedCNIPlugin,
-			PluginLogLevel:              "debug",
-			CNIAgentRunDir:              kubeconfigFilename,
-			PodNamespace:                "my-namespace",
-			AmbientEnabled:              c.ambientEnabled,
-			IstioOwnedCNIConfig:         c.istioOwnedCNIConfig,
-			IstioOwnedCNIConfigFilename: c.istioOwnedCNIConfigFile,
-			NativeNftables:              false,
-		}
-		// Create temp directory for files
-		tempDir := t.TempDir()
+		t.Run(c.name, func(t *testing.T) {
+			if c.istioOwnedCNIConfig && len(c.istioOwnedCNIConfigFile) == 0 {
+				c.istioOwnedCNIConfigFile = "02-istio-conf.conflist"
+			}
+			cfg := config.InstallConfig{
+				CNIConfName:                 c.specifiedConfName,
+				ChainedCNIPlugin:            c.chainedCNIPlugin,
+				PluginLogLevel:              "debug",
+				CNIAgentRunDir:              kubeconfigFilename,
+				PodNamespace:                "my-namespace",
+				AmbientEnabled:              c.ambientEnabled,
+				IstioOwnedCNIConfig:         c.istioOwnedCNIConfig,
+				IstioOwnedCNIConfigFilename: c.istioOwnedCNIConfigFile,
+				NativeNftables:              false,
+			}
+			// Create temp directory for files
+			tempDir := t.TempDir()
 
-		// Create existing config files if specified in test case
-		for srcFilename, targetFilename := range c.existingConfFiles {
-			if err := file.AtomicCopy(filepath.Join("testdata", srcFilename), tempDir, targetFilename); err != nil {
+			// Create existing config files if specified in test case
+			for srcFilename, targetFilename := range c.existingConfFiles {
+				if err := file.AtomicCopy(filepath.Join("testdata", srcFilename), tempDir, targetFilename); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			cfg.MountedCNINetDir = tempDir
+
+			var expectedFilepath string
+			if len(c.expectedConfName) > 0 {
+				expectedFilepath = filepath.Join(tempDir, c.expectedConfName)
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			defer cancel()
+			resultFilepath, err := createCNIConfigFile(ctx, &cfg)
+			if err != nil {
+				assert.Equal(t, resultFilepath, "")
+				if err == context.DeadlineExceeded {
+					if len(c.expectedConfName) > 0 {
+						t.Fatalf("timed out waiting for expected %s", expectedFilepath)
+					}
+					// Successful test for never-created config file
+					return
+				}
 				t.Fatal(err)
 			}
-		}
 
-		cfg.MountedCNINetDir = tempDir
-
-		var expectedFilepath string
-		if len(c.expectedConfName) > 0 {
-			expectedFilepath = filepath.Join(tempDir, c.expectedConfName)
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		defer cancel()
-		resultFilepath, err := createCNIConfigFile(ctx, &cfg)
-		if err != nil {
-			assert.Equal(t, resultFilepath, "")
-			if err == context.DeadlineExceeded {
-				if len(c.expectedConfName) > 0 {
-					t.Fatalf("timed out waiting for expected %s", expectedFilepath)
+			if resultFilepath != expectedFilepath {
+				if len(expectedFilepath) > 0 {
+					t.Fatalf("expected %s, got %s", expectedFilepath, resultFilepath)
 				}
-				// Successful test for never-created config file
-				return
+				t.Fatalf("did not expect to retrieve a CNI config file %s", resultFilepath)
 			}
-			t.Fatal(err)
-		}
 
-		if resultFilepath != expectedFilepath {
-			if len(expectedFilepath) > 0 {
-				t.Fatalf("expected %s, got %s", expectedFilepath, resultFilepath)
+			resultConfig := testutils.ReadFile(t, resultFilepath)
+
+			goldenFilepath := filepath.Join("testdata", c.goldenConfName)
+			goldenConfig := testutils.ReadFile(t, goldenFilepath)
+			testutils.CompareBytes(t, resultConfig, goldenConfig, goldenFilepath)
+
+			if err := validateCNIConfigContents(&cfg, resultFilepath, cfg.IstioOwnedCNIConfig); err != nil {
+				t.Errorf("%s", err)
 			}
-			t.Fatalf("did not expect to retrieve a CNI config file %s", resultFilepath)
-		}
-
-		resultConfig := testutils.ReadFile(t, resultFilepath)
-
-		goldenFilepath := filepath.Join("testdata", c.goldenConfName)
-		goldenConfig := testutils.ReadFile(t, goldenFilepath)
-		testutils.CompareBytes(t, resultConfig, goldenConfig, goldenFilepath)
-
-		if err := validateCNIConfigContents(&cfg, resultFilepath, cfg.IstioOwnedCNIConfig); err != nil {
-			t.Errorf("%s", err)
-		}
+		})
 	}
 }
