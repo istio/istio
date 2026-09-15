@@ -42,8 +42,22 @@ type mappedIndexer[T any, U any] struct {
 var _ collectionTrait[any] = &mapCollection[any, any]{}
 
 // nolint: unused // (not true, its to implement an interface)
-func (m *mappedIndexer[T, U]) Lookup(k string) []U {
-	keys := m.indexer.Lookup(k)
+func (m *mappedIndexer[T, U]) LookupFiltered(k string, filter func(U) bool) []U {
+	if filter != nil {
+		var res []U
+		m.indexer.LookupFiltered(k, func(obj T) bool {
+			mapped := m.mapFunc(obj)
+			if EnableAssertions {
+				assertKeyMatch(obj, mapped, m.fromCollection)
+			}
+			if filter(mapped) {
+				res = append(res, mapped)
+			}
+			return false
+		})
+		return res
+	}
+	keys := m.indexer.LookupFiltered(k, nil)
 	res := make([]U, 0, len(keys))
 	for _, obj := range keys {
 		if EnableAssertions {

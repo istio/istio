@@ -273,19 +273,24 @@ type staticListIndex[T any] struct {
 }
 
 // nolint: unused // (not true)
-func (s staticListIndex[T]) Lookup(key string) []T {
+func (s staticListIndex[T]) LookupFiltered(key string, filter func(T) bool) []T {
 	s.parent.mu.RLock()
 	defer s.parent.mu.RUnlock()
 	keys := s.index[key]
 
-	res := make([]T, 0, len(keys))
+	var res []T
+	if filter == nil {
+		res = make([]T, 0, len(keys))
+	}
 	for k := range keys {
 		v, f := s.parent.vals[k]
 		if !f {
 			log.WithLabels("key", k).Errorf("invalid index state, object does not exist")
 			continue
 		}
-		res = append(res, v)
+		if filter == nil || filter(v) {
+			res = append(res, v)
+		}
 	}
 	return res
 }
