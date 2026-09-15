@@ -452,6 +452,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		Metadata: &model.NodeMetadata{
 			Namespace: "not-default",
 			NodeName:  "example",
+			ClusterID: "local",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -538,6 +539,34 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			proxy:    sidecar,
 			ep:       ep4,
 			expected: false,
+		},
+		{
+			name:     "test sidecar endpoint in local cluster for global service",
+			proxy:    sidecar,
+			ep:       localEp,
+			svcInfo:  globalSvc,
+			expected: true,
+		},
+		{
+			name:     "test sidecar endpoint in remote cluster for global service",
+			proxy:    sidecar,
+			ep:       remoteEp,
+			svcInfo:  globalSvc,
+			expected: true,
+		},
+		{
+			name:     "test sidecar endpoint in local cluster for local service",
+			proxy:    sidecar,
+			ep:       localEp,
+			svcInfo:  localSvc,
+			expected: true,
+		},
+		{
+			name:     "test sidecar endpoint in remote cluster for local service",
+			proxy:    sidecar,
+			ep:       remoteEp,
+			svcInfo:  localSvc,
+			expected: true,
 		},
 		{
 			name:     "test ambient endpoint in local cluster for global service",
