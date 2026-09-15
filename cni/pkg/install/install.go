@@ -176,15 +176,12 @@ func (in *Installer) Cleanup() error {
 			if err != nil {
 				return fmt.Errorf("%s: %w", in.cniConfigFilepath, err)
 			}
-			for i, rawPlugin := range plugins {
-				plugin, err := util.GetPlugin(rawPlugin)
-				if err != nil {
-					return fmt.Errorf("%s: %w", in.cniConfigFilepath, err)
-				}
-				if plugin["type"] == "istio-cni" {
-					cniConfigMap["plugins"] = append(plugins[:i], plugins[i+1:]...)
-					break
-				}
+			idx, _, err := findIstioCNIPlugin(plugins)
+			if err != nil {
+				return fmt.Errorf("%s: %w", in.cniConfigFilepath, err)
+			}
+			if idx != -1 {
+				cniConfigMap["plugins"] = append(plugins[:idx], plugins[idx+1:]...)
 			}
 
 			cniConfig, err := util.MarshalCNIConfig(cniConfigMap)
@@ -425,28 +422,15 @@ func validateCNIConfigContents(cfg *config.InstallConfig, cniConfigFilepath stri
 		return fmt.Errorf("%s: %w", cniConfigFilepath, err)
 	}
 
-	// Index plugins by type.
-	istioCniPluginIdx := -1
-	for i, rawPlugin := range plugins {
-		p, err := util.GetPlugin(rawPlugin)
-		if err != nil {
-			return fmt.Errorf("%s: %w", cniConfigFilepath, err)
-		}
-		pluginType, ok := p["type"].(string)
-		if !ok {
-			return fmt.Errorf("plugin type %v not a string", p["type"])
-		}
-		if pluginType == "istio-cni" {
-			if !pluginEqual(p, desiredIstioPlugin) {
-				return fmt.Errorf("istio-cni plugin contents differ in %s", cniConfigFilepath)
-			}
-			istioCniPluginIdx = i
-			break
-		}
+	idx, istioPlugin, err := findIstioCNIPlugin(plugins)
+	if err != nil {
+		return fmt.Errorf("%s: %w", cniConfigFilepath, err)
 	}
-
-	if istioCniPluginIdx == -1 {
+	if idx == -1 {
 		return fmt.Errorf("istio-cni plugin not found in %s", cniConfigFilepath)
+	}
+	if !pluginEqual(istioPlugin, desiredIstioPlugin) {
+		return fmt.Errorf("istio-cni plugin contents differ in %s", cniConfigFilepath)
 	}
 
 	if !istioOwned {
@@ -505,14 +489,12 @@ func assertNoIstioCNIPlugin(cniConfigMap map[string]any, cniConfigFilepath strin
 	if err != nil {
 		return fmt.Errorf("%s: %w", cniConfigFilepath, err)
 	}
-	for _, rawPlugin := range plugins {
-		plugin, err := util.GetPlugin(rawPlugin)
-		if err != nil {
-			return fmt.Errorf("%s: %w", cniConfigFilepath, err)
-		}
-		if plugin["type"] == "istio-cni" {
-			return fmt.Errorf("primary CNI config %s contains an istio-cni plugin", cniConfigFilepath)
-		}
+	idx, _, err := findIstioCNIPlugin(plugins)
+	if err != nil {
+		return fmt.Errorf("%s: %w", cniConfigFilepath, err)
+	}
+	if idx != -1 {
+		return fmt.Errorf("primary CNI config %s contains an istio-cni plugin", cniConfigFilepath)
 	}
 	return nil
 }
