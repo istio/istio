@@ -339,13 +339,15 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	includeRequestAttemptCount := util.GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound).IncludeRequestAttemptCount
 
 	servicesByName := make(map[host.Name]*model.Service)
+	destinationServicesByName := make(map[host.Name]*model.Service, len(services))
 	for _, svc := range services {
+		h := host.Name(strings.ToLower(string(svc.Hostname)))
+		destinationServicesByName[h] = svc
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
 			servicesByName[svc.Hostname] = svc
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
-			h := host.Name(strings.ToLower(string(svc.Hostname)))
 			servicesByName[h] = &model.Service{
 				Hostname:       h,
 				DefaultAddress: svc.GetAddressForProxy(node),
@@ -398,7 +400,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	mostSpecificWildcardVsIndex := egressListener.MostSpecificWildcardVirtualServiceIndex()
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push,
-		servicesByName, virtualServices, listenerPort, mostSpecificWildcardVsIndex,
+		servicesByName, destinationServicesByName, virtualServices, listenerPort, mostSpecificWildcardVsIndex,
 	)
 
 	if features.EnableRDSCaching {
