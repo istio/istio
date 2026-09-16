@@ -716,6 +716,29 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	expectServiceInstances(t, sd, otherNs, 0, otherNsExpected)
 }
 
+func TestEmptyWorkloadSelectorMatchesNoWorkloads(t *testing.T) {
+	store, sd, events := initServiceDiscovery(t)
+
+	se := selector.DeepCopy()
+	se.Name = "empty-selector"
+	se.Spec.(*networking.ServiceEntry).WorkloadSelector = &networking.WorkloadSelector{
+		Labels: map[string]string{},
+	}
+	wle := createWorkloadEntry("wl", se.Namespace, &networking.WorkloadEntry{
+		Address: "2.2.2.2",
+		Labels:  map[string]string{"app": "wle"},
+	})
+
+	createConfigs([]*config.Config{&se}, store, t)
+	expectEvents(t, events,
+		Event{Type: "service", ID: "selector.com", Namespace: se.Namespace},
+		Event{Type: "eds", ID: "selector.com", Namespace: se.Namespace},
+		Event{Type: "xds", ID: "selector.com"})
+
+	createConfigs([]*config.Config{wle}, store, t)
+	expectServiceInstances(t, sd, &se, 0, []*WorkloadServiceInstance{})
+}
+
 func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 	store, sd, events := initServiceDiscovery(t)
 
