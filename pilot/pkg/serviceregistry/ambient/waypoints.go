@@ -170,19 +170,26 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 			w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
 		return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
 	}
-	// A NAMESPACE-visibility ServiceEntry must not bind to a waypoint in another namespace: that would
-	// expose it to the waypoint's namespace. Refuse here so every consumer is covered.
-	// ServiceEntryVisibility is nil for consumers it doesn't govern (e.g. Kubernetes Services).
-	if ServiceEntryVisibility != nil && w.Namespace != o.Namespace {
-		var nsLabels map[string]string
-		if ns := krt.FetchOne(ctx, Namespaces, krt.FilterKey(o.Namespace)); ns != nil {
-			nsLabels = (*ns).Labels
-		}
-		if krt.FetchOne(ctx, ServiceEntryVisibility.AsCollection()).VisibilityFor(nsLabels) == model.ServiceVisibilityNamespace {
-			return nil, ReportWaypointCrossNamespaceForbidden(w.ResourceName())
-		}
+	if crossNamespaceWaypointForbidden(ctx, Namespaces, ServiceEntryVisibility, o.Namespace, w.Namespace) {
+		return nil, ReportWaypointCrossNamespaceForbidden(w.ResourceName())
 	}
 	return w, nil
+}
+
+// crossNamespaceWaypointForbidden refuses a cross-namespace waypoint (primary or canary) for a
+// NAMESPACE-visibility ServiceEntry. ServiceEntryVisibility is nil for consumers it doesn't govern
+// (e.g. Kubernetes Services).
+func crossNamespaceWaypointForbidden(ctx krt.HandlerContext, Namespaces krt.Collection[*v1.Namespace],
+	ServiceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher], objNamespace, waypointNamespace string,
+) bool {
+	if ServiceEntryVisibility == nil || waypointNamespace == objNamespace {
+		return false
+	}
+	var nsLabels map[string]string
+	if ns := krt.FetchOne(ctx, Namespaces, krt.FilterKey(objNamespace)); ns != nil {
+		nsLabels = (*ns).Labels
+	}
+	return krt.FetchOne(ctx, ServiceEntryVisibility.AsCollection()).VisibilityFor(nsLabels) == model.ServiceVisibilityNamespace
 }
 
 func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
@@ -294,11 +301,13 @@ func ResolveUseWaypointCanary(
 	return named, weight, valid
 }
 
-// resolveCanaryWaypoint applies the primary waypoint attachment and traffic-type checks.
+// resolveCanaryWaypoint applies the primary waypoint attachment, traffic-type and
+// ServiceEntry-visibility checks.
 func resolveCanaryWaypoint(
 	ctx krt.HandlerContext,
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	serviceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	fallbackNamespace string,
 	named *krt.Named,
 ) (*Waypoint, *model.StatusMessage) {
@@ -312,6 +321,9 @@ func resolveCanaryWaypoint(
 	if w.TrafficType != constants.ServiceTraffic && w.TrafficType != constants.AllTraffic {
 		return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
 	}
+	if crossNamespaceWaypointForbidden(ctx, namespaces, serviceEntryVisibility, fallbackNamespace, w.Namespace) {
+		return nil, ReportWaypointCrossNamespaceForbidden(w.ResourceName())
+	}
 	return w, nil
 }
 
@@ -321,6 +333,7 @@ func buildWeightedWaypoints(
 	ctx krt.HandlerContext,
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	serviceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	o metav1.ObjectMeta,
 	primary *Waypoint,
 	status *model.WaypointBindingStatus,
@@ -340,7 +353,7 @@ func buildWeightedWaypoints(
 		status.Error = ReportWaypointCanaryInvalidWeight(named.ResourceName())
 		return nil
 	}
-	canary, cerr := resolveCanaryWaypoint(ctx, waypoints, namespaces, o.Namespace, named)
+	canary, cerr := resolveCanaryWaypoint(ctx, waypoints, namespaces, serviceEntryVisibility, o.Namespace, named)
 	if cerr != nil {
 		status.Error = cerr
 		return nil
