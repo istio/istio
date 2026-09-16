@@ -484,6 +484,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			continue
 		}
 
+		waypointRouted := len(cb.req.Push.SidecarServiceWaypoints(proxy, service)) > 0
+
 		// DYNAMIC_DNS: Use Dynamic Forward Proxy for wildcard hostnames
 		if service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
 			for _, port := range service.Ports {
@@ -501,7 +503,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 				// Apply DestinationRule settings
 				destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
-				cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil)
+				cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil, waypointRouted)
 
 				if patched := cp.patch([]host.Name{service.Hostname}, dfpCluster.build()); patched != nil {
 					resources = append(resources, patched)
@@ -571,7 +573,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
-				clusterKey.endpointBuilder, clusterKey.destinationRule.GetRule(), clusterKey.serviceAccounts)
+				clusterKey.endpointBuilder, clusterKey.destinationRule.GetRule(), clusterKey.serviceAccounts, waypointRouted)
 
 			if service.UseInferenceSemantics() && proxy.Type == model.Router {
 				cb.applyOverrideHostPolicy(defaultCluster)
@@ -674,7 +676,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if defaultCluster == nil {
 				continue
 			}
-			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, endpointBuilder, destRule.GetRule(), nil)
+			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, endpointBuilder, destRule.GetRule(), nil, false)
 			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
@@ -964,6 +966,8 @@ type buildClusterOpts struct {
 	isDrWithSelector          bool
 	credentialSocketExist     bool
 	fileCredentialSocketExist bool
+	// Indicates the cluster represents a service which should be routed via a waypoint
+	waypointRouted bool
 }
 
 func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {
