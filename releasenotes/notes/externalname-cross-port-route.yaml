@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** an issue where cross-port VirtualService routing to a Kubernetes
+  ExternalName service could fail with `cluster_not_found` because the alias
+  was not resolved to its concrete service.
