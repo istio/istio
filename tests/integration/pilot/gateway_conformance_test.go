@@ -108,6 +108,7 @@ func TestGatewayConformance(t *testing.T) {
 			opts := suite.ConformanceOptions{
 				ConfigurableOptions: suite.ConfigurableOptions{
 					GatewayClassName:         gatewayClassName,
+					AllowCRDsMismatch:        true,
 					Debug:                    scopes.Framework.DebugEnabled(),
 					CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 					CleanupTestResources:     gatewayConformanceInputs.Cleanup,
@@ -163,13 +164,15 @@ func TestGatewayConformance(t *testing.T) {
 			csuite, err := suite.NewConformanceTestSuite(opts)
 			assert.NoError(t, err)
 			csuite.Setup(t, tests.ConformanceTests)
-			assert.NoError(t, csuite.Run(t, tests.ConformanceTests))
-			report, err := csuite.Report()
-			assert.NoError(t, err)
-			reportb, err := yaml.Marshal(report)
-			assert.NoError(t, err)
 			fp := filepath.Join(ctx.Settings().BaseDir, "istio-conformance.yaml")
-			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
-			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
+			t.Cleanup(func() {
+				report, err := csuite.Report()
+				assert.NoError(t, err)
+				reportb, err := yaml.Marshal(report)
+				assert.NoError(t, err)
+				t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
+				assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
+			})
+			assert.NoError(t, csuite.Run(t, tests.ConformanceTests))
 		})
 }
