@@ -1015,7 +1015,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push, tt.cluster.Name,
 				model.TrafficDirectionOutbound, "", tt.service.Hostname, tt.port.Port,
 				tt.service, destRule)
-			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, eb, destRule.GetRule(), nil)
+			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, eb, destRule.GetRule(), nil, false)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
 				t.Fatalf("Unexpected subset clusters want %v, got %v. keys=%v",
 					len(tt.expectedSubsetClusters), len(subsetClusters), xdstest.MapKeys(xdstest.ExtractClusters(subsetClusters)))
@@ -1446,7 +1446,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				tt.direction, "", service.Hostname, servicePort.Port,
 				service, nil)
 			if defaultCluster != nil {
-				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, eb, nil, nil)
+				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, eb, nil, nil, false)
 			}
 
 			if diff := cmp.Diff(defaultCluster.build(), tt.expectedCluster, protocmp.Transform()); diff != "" {
@@ -4074,7 +4074,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 				model.TrafficDirectionOutbound, "", service.Hostname, tc.port.Port,
 				service, destRule)
 
-			_ = cb.applyDestinationRule(ec, tc.clusterMode, tc.service, tc.port, eb, destRule.GetRule(), tc.serviceAcct)
+			_ = cb.applyDestinationRule(ec, tc.clusterMode, tc.service, tc.port, eb, destRule.GetRule(), tc.serviceAcct, false)
 
 			result := getTLSContext(t, ec.cluster)
 			if diff := cmp.Diff(result, tc.expectTLSContext, protocmp.Transform()); diff != "" {
