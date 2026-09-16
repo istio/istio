@@ -68,6 +68,10 @@ var (
 	EnableAmbientBaggage = registerAmbient("AMBIENT_ENABLE_BAGGAGE", false, false,
 		"If true, enables waypoints to use baggage header to discover and propagate peer metadata for metrics.")
 
+	EnableAmbientTlsProxyHttpMetrics = registerAmbient("AMBIENT_ENABLE_TLS_PROXY_HTTP_METRICS", false, false,
+		"If true, enables waypoints to register HTTP metrics for cross-cluster requests when using protocols "+
+			"like TLS or PROXY.")
+
 	// Using just EnableAmbientMultiNetwork is not enough for users that already experiment with ambient multi-network and use istio from head.
 	// While we don't provide much guarantees for alpha features like ambient multi-network, if it's easy to avoid breaking users unnecessarily
 	// we should do that.

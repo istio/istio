@@ -452,7 +452,7 @@ func applyBaggageMetadataDiscovery(c *cluster.Cluster) {
 }
 
 func addDisableBaggageDiscoveryMetadata(c *cluster.Cluster) {
-	if features.EnableAmbientBaggage {
+	if features.EnableAmbientBaggage && !features.EnableAmbientTlsProxyHttpMetrics {
 		if c.Metadata == nil {
 			c.Metadata = &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{},
