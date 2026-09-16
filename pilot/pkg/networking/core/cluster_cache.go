@@ -20,6 +20,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
@@ -162,6 +163,13 @@ func (t *clusterCache) DependentConfigs() []model.ConfigHash {
 }
 
 func (t *clusterCache) Cacheable() bool {
+	// Waypoint selection is not represented in the cache key or dependencies.
+	// TODO: Include waypoint selection and binding dependencies to safely cache CDS for sidecars
+	// while sidecar waypoint routing is enabled.
+	if t.proxyType == model.SidecarProxy && features.EnableSidecarWaypointRouting {
+		return false
+	}
+
 	return true
 }
 
