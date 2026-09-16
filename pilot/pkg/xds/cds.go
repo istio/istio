@@ -79,7 +79,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	// (ports, labels, etc.) and we need to push CDS.
 	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
 
-	relevantUpdates := make(sets.Set[model.ConfigKey])
+	relevantUpdates := make(sets.Set[model.ConfigKey], len(req.ConfigsUpdated))
 	filtered := false
 	checkGateway := false
 	for config := range req.ConfigsUpdated {
@@ -117,7 +117,8 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	if checkGateway {
 		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
 		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
-		gatewayNamesChanged := proxy.MergedGateway == nil || !slices.EqualUnordered(proxy.MergedGateway.GetGatewayNames(), proxy.PrevMergedGateway.GetGatewayNames())
+		gatewayNamesChanged := proxy.MergedGateway == nil ||
+			!slices.EqualUnordered(proxy.MergedGateway.GetGatewayNames(), proxy.PrevMergedGateway.GetGatewayNames())
 		if autoPassthroughModeChanged || autoPassthroughHostsChanged || gatewayNamesChanged {
 			needsPush = true
 		}
