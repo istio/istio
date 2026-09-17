@@ -306,12 +306,13 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 	var lbEndpoints []*endpoint.LocalityLbEndpoints
 
-	isPassthrough := subset.GetTrafficPolicy().GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH
+	usePassthrough := !opts.waypointRouted &&
+		subset.GetTrafficPolicy().GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH
 	clusterType := opts.mutable.cluster.GetType()
-	if isPassthrough {
+	if usePassthrough {
 		clusterType = cluster.Cluster_ORIGINAL_DST
 	}
-	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
+	if !(usePassthrough || clusterType == cluster.Cluster_EDS) {
 		lbEndpoints = endpointBuilder.WithSubset(subset.Name).FromServiceEndpoints()
 	}
 
