@@ -1178,10 +1178,12 @@ type AddressInfo struct {
 // NewAddressInfo builds an AddressInfo from an Address, pre-marshaling it and computing the
 // content-based Version.
 func NewAddressInfo(addr *workloadapi.Address) AddressInfo {
-	marshaled := protoconv.MessageToAny(addr)
+	// The marshaled bytes are compared in Equals and hashed into Version, so they must be stable.
+	// Workload has a map field (services) and the vtprotobuf marshal does not sort map keys.
+	marshaled := protoconv.MessageToAnyDeterministic(addr)
 	var marshaledWorkload *anypb.Any
 	if workload := addr.GetWorkload(); workload != nil {
-		marshaledWorkload = protoconv.MessageToAny(workload)
+		marshaledWorkload = protoconv.MessageToAnyDeterministic(workload)
 	}
 	return AddressInfo{
 		Address:           addr,
