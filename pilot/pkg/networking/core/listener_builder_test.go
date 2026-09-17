@@ -1230,6 +1230,82 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 	}
 }
 
+func TestWaypointHTTPFilterTLSExchange(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+
+	testCases := []struct {
+		name                    string
+		enableMultiNetwork      bool
+		enableTLSProxyHTTPStats bool
+		wantFilter              bool
+	}{
+		{
+			name:                    "enabled",
+			enableMultiNetwork:      true,
+			enableTLSProxyHTTPStats: true,
+			wantFilter:              true,
+		},
+		{
+			name:                    "multi-network disabled",
+			enableMultiNetwork:      false,
+			enableTLSProxyHTTPStats: true,
+			wantFilter:              false,
+		},
+		{
+			name:                    "TLS proxy HTTP metrics disabled",
+			enableMultiNetwork:      true,
+			enableTLSProxyHTTPStats: false,
+			wantFilter:              false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tc.enableMultiNetwork)
+			test.SetForTest(t, &features.EnableAmbientTlsProxyHttpMetrics, tc.enableTLSProxyHTTPStats)
+
+			svc := &model.Service{
+				Hostname: "svc.default.svc.cluster.local",
+				Attributes: model.ServiceAttributes{
+					Name:      "svc",
+					Namespace: "default",
+				},
+				Ports: model.PortList{{
+					Name:     "http",
+					Port:     80,
+					Protocol: protocol.HTTP,
+				}},
+			}
+			svc.ClusterVIPs.SetAddressesFor("cluster-1", []string{"10.0.0.1"})
+
+			cg := NewConfigGenTest(t, TestOptions{ClusterID: "cluster-1"})
+			proxy := cg.SetupProxy(&model.Proxy{
+				Type:            model.Waypoint,
+				ConfigNamespace: "default",
+				Metadata: &model.NodeMetadata{
+					ClusterID: "cluster-1",
+				},
+			})
+			lb := &ListenerBuilder{push: cg.PushContext(), node: proxy}
+
+			l := lb.buildWaypointInternal(nil, []*model.Service{svc})
+			chainName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, 80)
+			filterChain := xdstest.ExtractFilterChain(chainName, l)
+			if filterChain == nil {
+				t.Fatalf("expected HTTP filter chain %q", chainName)
+			}
+			_, httpFilters := xdstest.ExtractFilterNames(t, filterChain)
+			gotFilter := slices.Contains(httpFilters, "set_tls_filter_exchange")
+			if gotFilter != tc.wantFilter {
+				t.Fatalf("set_tls_filter_exchange present = %v, want %v; filters: %v", gotFilter, tc.wantFilter, httpFilters)
+			}
+			if tc.wantFilter && httpFilters[0] != "set_tls_filter_exchange" {
+				t.Fatalf("set_tls_filter_exchange must be first; filters: %v", httpFilters)
+			}
+		})
+	}
+}
+
 func TestWaypointInternalServiceInfoNilFallback(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
