@@ -21,7 +21,7 @@ import (
 
 func TestGetZipkinYamlImageOverride(t *testing.T) {
 	hub := "example.com/cache/openzipkin"
-	t.Setenv("ZIPKIN_HUB", hub)
+	t.Setenv("ZIPKIN_REGISTRY", hub)
 
 	yaml, err := getZipkinYaml()
 	if err != nil {

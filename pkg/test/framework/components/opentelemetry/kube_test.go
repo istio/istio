@@ -21,7 +21,7 @@ import (
 
 func TestGetYamlImageOverride(t *testing.T) {
 	hub := "example.com/cache/otel"
-	t.Setenv("OTEL_HUB", hub)
+	t.Setenv("OTEL_REGISTRY", hub)
 
 	yaml, err := getYaml()
 	if err != nil {
