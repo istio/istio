@@ -37,8 +37,8 @@ func TestGetPrometheusYamlImageDefaults(t *testing.T) {
 func TestGetPrometheusYamlImageOverrides(t *testing.T) {
 	prometheusHub := "example.com/cache/prometheus"
 	reloaderHub := "example.com/cache/prometheus-operator"
-	t.Setenv("PROMETHEUS_HUB", prometheusHub)
-	t.Setenv("PROMETHEUS_CONFIG_RELOADER_HUB", reloaderHub)
+	t.Setenv("PROMETHEUS_REGISTRY", prometheusHub)
+	t.Setenv("PROMETHEUS_CONFIG_RELOADER_REGISTRY", reloaderHub)
 
 	yaml, err := getPrometheusYaml()
 	if err != nil {

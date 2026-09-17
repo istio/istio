@@ -77,12 +77,12 @@ func getPrometheusYaml() (string, error) {
 		return "", err
 	}
 	yaml := string(yamlBytes)
-	if hub := os.Getenv("PROMETHEUS_HUB"); hub != "" {
+	if hub := os.Getenv("PROMETHEUS_REGISTRY"); hub != "" {
 		yaml = strings.ReplaceAll(yaml, defaultPrometheusRepository, hub+"/prometheus")
 	} else {
 		yaml = strings.ReplaceAll(yaml, defaultPrometheusRepository, "quay.io/prometheus/prometheus")
 	}
-	if hub := os.Getenv("PROMETHEUS_CONFIG_RELOADER_HUB"); hub != "" {
+	if hub := os.Getenv("PROMETHEUS_CONFIG_RELOADER_REGISTRY"); hub != "" {
 		yaml = strings.ReplaceAll(yaml, defaultPrometheusConfigReloaderRepository, hub+"/prometheus-config-reloader")
 	}
 	// For faster tests, drop scrape interval

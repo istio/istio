@@ -159,7 +159,7 @@ func getZipkinYaml() (string, error) {
 		return "", err
 	}
 	yaml := string(yamlBytes)
-	if hub := os.Getenv("ZIPKIN_HUB"); hub != "" {
+	if hub := os.Getenv("ZIPKIN_REGISTRY"); hub != "" {
 		yaml = strings.ReplaceAll(yaml, defaultZipkinRepository, hub+"/zipkin-slim")
 	}
 	return yaml, nil

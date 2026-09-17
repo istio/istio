@@ -122,7 +122,7 @@ func getYaml() (string, error) {
 		return "", err
 	}
 	yaml := string(b)
-	if hub := os.Getenv("OTEL_HUB"); hub != "" {
+	if hub := os.Getenv("OTEL_REGISTRY"); hub != "" {
 		yaml = strings.ReplaceAll(yaml, defaultOtelCollectorRepository, hub+"/opentelemetry-collector-contrib")
 	}
 	return yaml, nil
