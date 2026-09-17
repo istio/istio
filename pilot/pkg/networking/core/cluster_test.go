@@ -5257,18 +5257,30 @@ func TestSidecarWaypointDestinationRulePolicy(t *testing.T) {
 					Mode: networking.ClientTLSSettings_SIMPLE,
 				},
 			},
-			Subsets: []*networking.Subset{{
-				Name:   "v1",
-				Labels: map[string]string{"version": "v1"},
-				TrafficPolicy: &networking.TrafficPolicy{
-					Tls: &networking.ClientTLSSettings{
-						Mode:              networking.ClientTLSSettings_MUTUAL,
-						ClientCertificate: "/client-cert.pem",
-						PrivateKey:        "/client-key.pem",
-						CaCertificates:    "/root-cert.pem",
+			Subsets: []*networking.Subset{
+				{
+					Name:   "v1",
+					Labels: map[string]string{"version": "v1"},
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tls: &networking.ClientTLSSettings{
+							Mode:              networking.ClientTLSSettings_MUTUAL,
+							ClientCertificate: "/client-cert.pem",
+							PrivateKey:        "/client-key.pem",
+							CaCertificates:    "/root-cert.pem",
+						},
 					},
 				},
-			}},
+				{
+					Name: "passthrough",
+					TrafficPolicy: &networking.TrafficPolicy{
+						LoadBalancer: &networking.LoadBalancerSettings{
+							LbPolicy: &networking.LoadBalancerSettings_Simple{
+								Simple: networking.LoadBalancerSettings_PASSTHROUGH,
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -5291,6 +5303,7 @@ func TestSidecarWaypointDestinationRulePolicy(t *testing.T) {
 	clusterNames := []string{
 		"outbound|80||" + serviceHostname,
 		"outbound|80|v1|" + serviceHostname,
+		"outbound|80|passthrough|" + serviceHostname,
 	}
 
 	generateClusters := func(useWaypoint bool) []*cluster.Cluster {
@@ -5328,6 +5341,10 @@ func TestSidecarWaypointDestinationRulePolicy(t *testing.T) {
 
 	assertWaypointCluster := func(t *testing.T, c *cluster.Cluster) {
 		t.Helper()
+
+		if c.GetType() != cluster.Cluster_EDS {
+			t.Errorf("cluster type is %v, want EDS", c.GetType())
+		}
 
 		foundHBONE := false
 		for _, match := range c.TransportSocketMatches {
