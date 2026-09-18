@@ -131,7 +131,7 @@ func (s *meshDataplane) flushBranchENIRules() {
 // For any other failure after that point, returns a standard Error (which indicates the
 // function call can be retried).
 //
-// If the *last* step of sending the pod to ztunnel fails, then the pod will still be annotated
+// If a step after injecting the pod rules fails, then the pod will still be annotated
 // with a partially-captured status (indicating it has been mutated/redirected, and thus potentially
 // needs cleanup) and the error will be returned, indicating that the function call can be retried.
 func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
@@ -167,6 +167,9 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 	// Handle node healthcheck probe rewrites
 	if _, err := s.addPodToHostAddrSet(pod, podIPs); err != nil {
 		log.Errorf("failed to add pod to addressSet, pod will fail healthchecks: %v", err)
+		if annotationErr := util.AnnotatePartiallyEnrolledPod(s.kubeClient, &pod.ObjectMeta); annotationErr != nil {
+			return annotationErr
+		}
 		// Adding pod to ipset should always be an upsert, so should not fail
 		// unless we have a kernel incompatibility - thus it should either
 		// never fail, or isn't usefully retryable.
