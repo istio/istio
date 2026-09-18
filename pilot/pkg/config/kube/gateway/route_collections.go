@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -83,7 +84,7 @@ func HTTPRouteCollection(
 		ctx := inputs.WithCtx(krtctx)
 		inferencePoolCfgPairs := []struct {
 			name string
-			cfg  *inferencePoolConfig
+			cfgs inferencePoolConfigs
 		}{}
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
@@ -99,12 +100,12 @@ func HTTPRouteCollection(
 						if m != nil {
 							r.Matches = []gatewayv1.HTTPRouteMatch{*m}
 						}
-						istioRoute, ipCfg, configErr := convertHTTPRoute(ctx, r, obj, n, !mesh)
-						if istioRoute != nil && ipCfg != nil && ipCfg.enableExtProc {
+						istioRoute, ipCfgs, configErr := convertHTTPRoute(ctx, r, obj, n, !mesh)
+						if istioRoute != nil && len(ipCfgs) > 0 {
 							inferencePoolCfgPairs = append(inferencePoolCfgPairs, struct {
 								name string
-								cfg  *inferencePoolConfig
-							}{name: istioRoute.Name, cfg: ipCfg})
+								cfgs inferencePoolConfigs
+							}{name: istioRoute.Name, cfgs: ipCfgs})
 						}
 						if !yield(istioRoute, configErr) {
 							return
@@ -116,9 +117,9 @@ func HTTPRouteCollection(
 
 		// routeRuleToInferencePoolCfg stores inference pool configs discovered during route rule conversion,
 		// keyed by the istio.HTTPRoute.Name.
-		routeRuleToInferencePoolCfg := make(map[string]*inferencePoolConfig)
+		routeRuleToInferencePoolCfg := make(map[string]inferencePoolConfigs)
 		for _, pair := range inferencePoolCfgPairs {
-			routeRuleToInferencePoolCfg[pair.name] = pair.cfg
+			routeRuleToInferencePoolCfg[pair.name] = pair.cfgs
 		}
 		status.Parents = parentStatus
 
@@ -175,12 +176,16 @@ func HTTPRouteCollection(
 				extraData := make(map[string]any)
 				currentRouteInferenceConfigs := make(map[string]kube.InferencePoolRouteRuleConfig)
 				for _, httpRule := range routes { // These are []*istio.HTTPRoute
-					if ipCfg, found := routeRuleToInferencePoolCfg[httpRule.Name]; found {
-						currentRouteInferenceConfigs[httpRule.Name] = kube.InferencePoolRouteRuleConfig{
-							FQDN:             ipCfg.endpointPickerDst,
-							Port:             ipCfg.endpointPickerPort,
-							FailureModeAllow: ipCfg.endpointPickerFailureMode == string(inferencev1.EndpointPickerFailOpen),
+					if ipCfgs, found := routeRuleToInferencePoolCfg[httpRule.Name]; found {
+						backends := make(kube.InferencePoolRouteRuleConfig, len(ipCfgs))
+						for backendHost, ipCfg := range ipCfgs {
+							backends[backendHost] = kube.InferencePoolBackendConfig{
+								FQDN:             ipCfg.endpointPickerDst,
+								Port:             ipCfg.endpointPickerPort,
+								FailureModeAllow: ipCfg.endpointPickerFailureMode == string(inferencev1.EndpointPickerFailOpen),
+							}
 						}
+						currentRouteInferenceConfigs[httpRule.Name] = backends
 					}
 				}
 				if len(currentRouteInferenceConfigs) > 0 {
@@ -309,9 +314,6 @@ func GRPCRouteCollection(
 		[]RouteWithKey,
 	) {
 		ctx := inputs.WithCtx(krtctx)
-		// routeRuleToInferencePoolCfg stores inference pool configs discovered during route rule conversion.
-		// Note: GRPCRoute currently doesn't have inference pool logic, but adding for consistency.
-		routeRuleToInferencePoolCfg := make(map[string]*inferencePoolConfig)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(mesh bool, obj *gatewayv1.GRPCRoute) iter.Seq2[*istio.HTTPRoute, *ConfigError] {
@@ -326,12 +328,9 @@ func GRPCRouteCollection(
 						if m != nil {
 							r.Matches = []gatewayv1.GRPCRouteMatch{*m}
 						}
-						// GRPCRoute conversion currently doesn't return ipCfg.
+						// A GRPCRoute cannot reference an InferencePool, so there is no endpoint
+						// picker config to collect here.
 						istioRoute, configErr := convertGRPCRoute(ctx, r, obj, n, !mesh)
-						// Placeholder if GRPCRoute ever supports inference pools via ipCfg:
-						// if istioRoute != nil && ipCfg != nil && ipCfg.enableExtProc {
-						// 	routeRuleToInferencePoolCfg[istioRoute.Name] = ipCfg
-						// }
 						if !yield(istioRoute, configErr) {
 							return
 						}
@@ -386,22 +385,6 @@ func GRPCRouteCollection(
 				name := fmt.Sprintf("%s~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
 				sortHTTPRoutes(routes)
 
-				// Populate Extra field for inference pool configs (if GRPCRoute supports them)
-				extraData := make(map[string]any)
-				currentRouteInferenceConfigs := make(map[string]kube.InferencePoolRouteRuleConfig)
-				for _, httpRule := range routes {
-					if ipCfg, found := routeRuleToInferencePoolCfg[httpRule.Name]; found { // This map will be empty for GRPCRoute for now
-						currentRouteInferenceConfigs[httpRule.Name] = kube.InferencePoolRouteRuleConfig{
-							FQDN:             ipCfg.endpointPickerDst,
-							Port:             ipCfg.endpointPickerPort,
-							FailureModeAllow: ipCfg.endpointPickerFailureMode == string(inferencev1.EndpointPickerFailOpen),
-						}
-					}
-				}
-				if len(currentRouteInferenceConfigs) > 0 {
-					extraData[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = currentRouteInferenceConfigs
-				}
-
 				cfg := config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
@@ -416,7 +399,6 @@ func GRPCRouteCollection(
 						Gateways: []string{parent.InternalName},
 						Http:     routes,
 					},
-					Extra: extraData,
 				}
 				virtualServices = append(virtualServices, RouteWithKey{
 					Config: cfg,
@@ -804,6 +786,16 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 	}, opts.WithName(kind.Kind+"/count")...)
 }
 
+// cloneInferencePoolConfigs copies both levels of the per-route-rule InferencePool config map.
+// The merge writes into both, and they are shared with the collection the config came from.
+func cloneInferencePoolConfigs(in map[string]kube.InferencePoolRouteRuleConfig) map[string]kube.InferencePoolRouteRuleConfig {
+	out := make(map[string]kube.InferencePoolRouteRuleConfig, len(in))
+	for routeName, backends := range in {
+		out[routeName] = maps.Clone(backends)
+	}
+	return out
+}
+
 // mergeHTTPRoutes merges HTTProutes by key. Gateway API has semantics for the ordering of `match` rules, that merges across resource.
 // So we merge everything (by key) following that ordering logic, and sort into a linear list (how VirtualService semantics work).
 func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...krt.CollectionOption) krt.Collection[config.Config] {
@@ -833,12 +825,7 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		// The default DeepCopy() only does shallow copy of Extra field
 		if base.Extra != nil {
 			if ipConfigs, ok := base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs].(map[string]kube.InferencePoolRouteRuleConfig); ok {
-				// Create a new map to avoid modifying the shared underlying map
-				newIPConfigs := make(map[string]kube.InferencePoolRouteRuleConfig, len(ipConfigs))
-				for k, v := range ipConfigs {
-					newIPConfigs[k] = v
-				}
-				base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = newIPConfigs
+				base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = cloneInferencePoolConfigs(ipConfigs)
 			}
 		}
 		for i, config := range configs[1:] {
@@ -866,14 +853,21 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 					if baseOk && configOk {
 						log.Debugf("Merging InferencePool configs: adding %d route configs from VirtualService %d to base (namespace=%s)",
 							len(configMap), i+1, config.Namespace)
-						// Route names are composed of the HTTPRoute/VirtualService namespaced name so they can't possibly conflict
+						// Route names come from the user-supplied HTTPRouteRule.name, which is only
+						// unique within one HTTPRoute, so two routes merged here can share one.
+						// Union the backends rather than replacing: each is keyed by its own pool's
+						// hostname, so the compiled route still resolves the right picker either way.
 						for routeName, routeConfig := range configMap {
-							baseMap[routeName] = routeConfig
+							if existing, ok := baseMap[routeName]; ok {
+								maps.Copy(existing, routeConfig)
+								continue
+							}
+							baseMap[routeName] = maps.Clone(routeConfig)
 						}
 					} else if configOk {
 						if _, exists := base.Extra[k]; !exists {
 							log.Debugf("Creating new InferencePool config map from VirtualService %d (namespace=%s)", i+1, config.Namespace)
-							base.Extra[k] = v
+							base.Extra[k] = cloneInferencePoolConfigs(configMap)
 						}
 					} else if !configOk {
 						log.Debugf("Skipping InferencePool config from VirtualService %d due to unexpected type (namespace=%s)", i+1, config.Namespace)
