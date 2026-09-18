@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var log = istiolog.RegisterScope("untaint", "CNI node-untaint controller")
@@ -38,22 +39,30 @@ var istioCniLabels = map[string]string{
 	"k8s-app": "istio-cni-node",
 }
 
-type NodeUntainter struct {
-	podsClient  kclient.Client[*v1.Pod]
-	nodesClient kclient.Client[*v1.Node]
-	cnilabels   labels.Instance
-	ourNs       string
-	queue       controllers.Queue
-	taintName   string
+var ztunnelLabels = map[string]string{
+	"app": "ztunnel",
 }
 
-func filterNamespace(ns string) func(any) bool {
+type NodeUntainter struct {
+	podsClient    kclient.Client[*v1.Pod]
+	nodesClient   kclient.Client[*v1.Node]
+	cnilabels     labels.Instance
+	ztunnellabels labels.Instance
+	cniNs         string
+	systemNs      string
+	checkZtunnel  bool
+	queue         controllers.Queue
+	taintName     string
+}
+
+func filterNamespaces(nses ...string) func(any) bool {
+	set := sets.New(nses...)
 	return func(obj any) bool {
 		object := controllers.ExtractObject(obj)
 		if object == nil {
 			return false
 		}
-		return ns == object.GetNamespace()
+		return set.Contains(object.GetNamespace())
 	}
 }
 
@@ -63,18 +72,23 @@ func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sy
 	if ns == "" {
 		ns = sysNs
 	}
+	// watch both the cni namespace and the system namespace: istio-cni may run in a
+	// dedicated namespace while ztunnel always runs in the system namespace.
 	podsClient := kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
-		ObjectFilter:    kubetypes.NewStaticObjectFilter(filterNamespace(ns)),
+		ObjectFilter:    kubetypes.NewStaticObjectFilter(filterNamespaces(ns, sysNs)),
 		ObjectTransform: kubelib.StripPodUnusedFields,
 		FieldSelector:   "status.phase!=Failed",
 	})
 	nodes := kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: kubelib.StripNodeUnusedFields})
 	nt := &NodeUntainter{
-		podsClient:  podsClient,
-		nodesClient: nodes,
-		cnilabels:   labels.Instance(istioCniLabels),
-		ourNs:       ns,
-		taintName:   features.NodeUntaintTaintName,
+		podsClient:    podsClient,
+		nodesClient:   nodes,
+		cnilabels:     labels.Instance(istioCniLabels),
+		ztunnellabels: labels.Instance(ztunnelLabels),
+		cniNs:         ns,
+		systemNs:      sysNs,
+		checkZtunnel:  features.NodeUntaintCheckZtunnel,
+		taintName:     features.NodeUntaintTaintName,
 	}
 	nt.setup(stop, debugger)
 	return nt
@@ -87,7 +101,7 @@ func (n *NodeUntainter) setup(stop <-chan struct{}, debugger *krt.DebugHandler) 
 
 	readyCniPods := krt.NewCollection(pods, func(ctx krt.HandlerContext, p *v1.Pod) **v1.Pod {
 		log.Debugf("cniPods event: %s", p.Name)
-		if p.Namespace != n.ourNs {
+		if p.Namespace != n.cniNs {
 			return nil
 		}
 		if !n.cnilabels.SubsetOf(p.ObjectMeta.Labels) {
@@ -100,8 +114,29 @@ func (n *NodeUntainter) setup(stop <-chan struct{}, debugger *krt.DebugHandler) 
 		return &p
 	}, opts.WithName("cni-pods")...)
 
-	// these are all the nodes that have a ready cni pod. if the cni pod is ready,
-	// it means we are ok scheduling pods to it.
+	readyZtunnelPods := krt.NewCollection(pods, func(ctx krt.HandlerContext, p *v1.Pod) **v1.Pod {
+		log.Debugf("ztunnelPods event: %s", p.Name)
+		if p.Namespace != n.systemNs {
+			return nil
+		}
+		if !n.ztunnellabels.SubsetOf(p.ObjectMeta.Labels) {
+			return nil
+		}
+		if !IsPodReadyConditionTrue(p.Status) {
+			return nil
+		}
+		log.Debugf("ztunnel pod %s on node %s ready!", p.Name, p.Spec.NodeName)
+		return &p
+	}, opts.WithName("ztunnel-pods")...)
+
+	ztunnelByNode := krt.NewIndex(readyZtunnelPods, "node", func(p *v1.Pod) []string {
+		if p.Spec.NodeName == "" {
+			return nil
+		}
+		return []string{p.Spec.NodeName}
+	})
+
+	// nodes with a ready cni pod, and (when ambient) a ready ztunnel pod too.
 	readyCniNodes := krt.NewCollection(readyCniPods, func(ctx krt.HandlerContext, p *v1.Pod) **v1.Node {
 		pnode := krt.FetchOne(ctx, nodes, krt.FilterKey(p.Spec.NodeName))
 		if pnode == nil {
@@ -110,6 +145,13 @@ func (n *NodeUntainter) setup(stop <-chan struct{}, debugger *krt.DebugHandler) 
 		node := *pnode
 		if !n.hasTaint(node) {
 			return nil
+		}
+		if n.checkZtunnel {
+			// Fetch registers a dependency, so this recomputes when ztunnel readiness changes.
+			if len(krt.Fetch(ctx, readyZtunnelPods, krt.FilterIndex(ztunnelByNode, node.Name))) == 0 {
+				log.Debugf("node %s has a ready cni pod but no ready ztunnel, keeping it tainted", node.Name)
+				return nil
+			}
 		}
 		return pnode
 	}, opts.WithName("ready-cni-nodes")...)
