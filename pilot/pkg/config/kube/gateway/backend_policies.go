@@ -149,8 +149,13 @@ func (b BackendPolicy) Equals(other BackendPolicy) bool {
 		slices.Equal(b.Gateways, other.Gateways)
 }
 
-// DestinationRuleCollection returns a collection of DestinationRule objects. These are built from a few different
-// policy types that are merged together.
+type DestinationRuleResult struct {
+	DestinationRules          krt.Collection[config.Config]
+	BackendClientCertificates krt.Collection[BackendCertificateAuthorization]
+}
+
+// DestinationRuleCollection returns DestinationRules and their derived backend certificate authorizations.
+// DestinationRules are built from a few different policy types that are merged together.
 func DestinationRuleCollection(
 	trafficPolicies krt.Collection[*gatewayx.XBackendTrafficPolicy],
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
@@ -162,7 +167,7 @@ func DestinationRuleCollection(
 	c *Controller,
 	services krt.Collection[*v1.Service],
 	opts krt.OptionsBuilder,
-) (krt.Collection[config.Config], krt.Collection[BackendCertificateAuthorization]) {
+) DestinationRuleResult {
 	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, domainSuffix, opts)
 	status.RegisterStatus(c.status, trafficPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
@@ -334,7 +339,10 @@ func DestinationRuleCollection(
 			}
 		}, opts.WithName("BackendPolicyMerged")...,
 	)
-	return merged, backendClientCertificates
+	return DestinationRuleResult{
+		DestinationRules:          merged,
+		BackendClientCertificates: backendClientCertificates,
+	}
 }
 
 func backendClientCertificateCollection(
