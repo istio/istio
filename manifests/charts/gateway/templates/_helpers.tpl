@@ -49,6 +49,9 @@ Expects a dict with keys: ports (the networkGatewayPorts map), name (port name),
   port: {{ $cfg.port }}
   targetPort: {{ $cfg.targetPort | default .defaultTargetPort }}
   protocol: {{ $cfg.protocol | default "TCP" }}
+{{- with $cfg.nodePort }}
+  nodePort: {{ . }}
+{{- end }}
 {{- end -}}
 
 {{/*

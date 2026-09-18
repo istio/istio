@@ -150,7 +150,7 @@ func identicalVersions(remoteVersion MeshInfo) bool {
 	}
 	exemplar := remoteVersion[0].Info
 	for i := 1; i < len(remoteVersion); i++ {
-		candidate := (remoteVersion)[i].Info
+		candidate := remoteVersion[i].Info
 		// Note that we don't compare GitTag, GitRevision, BuildStatus,
 		// or DockerHub because released Istio versions may use the same version tag
 		// but differ in those fields.

@@ -53,6 +53,10 @@ const (
 	// Istio's internal SDS server uses.
 	DefaultWorkloadIdentitySocketFile = "socket"
 
+	// DefaultWorkloadIdentitySocketTimeout defines how long to wait for the workload SDS
+	// socket to become available at startup. Zero means check once and do not wait.
+	DefaultWorkloadIdentitySocketTimeout = 0 * time.Second
+
 	// CredentialNameSocketPath is the well-known path to the Unix Domain Socket for Credential Name.
 	CredentialNameSocketPath = "./var/run/secrets/credential-uds/socket"
 

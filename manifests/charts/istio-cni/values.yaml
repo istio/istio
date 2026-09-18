@@ -37,6 +37,9 @@ _internal_defaults_do_not_set:
   # Additional labels to apply on the daemonset level
   daemonSetLabels: {}
 
+  # Additional annotations to apply on the daemonset level
+  daemonSetAnnotations: {}
+
   # Custom annotations on pod level, if you need them
   podAnnotations: {}
 

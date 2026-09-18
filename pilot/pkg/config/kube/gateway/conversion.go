@@ -101,7 +101,7 @@ func sortedConfigByCreationTime(configs []config.Config) []config.Config {
 
 func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 	obj *k8s.HTTPRoute, pos int, enforceRefGrant bool,
-) (*istio.HTTPRoute, *inferencePoolConfig, *ConfigError) {
+) (*istio.HTTPRoute, inferencePoolConfigs, *ConfigError) {
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
 		vs.Name = string(*r.Name)
@@ -631,19 +631,20 @@ func referenceAllowed(
 ) (*ParentError, *WaypointError) {
 	switch parentRef.Kind {
 	case gvk.Service:
-
 		key := parentRef.Namespace + "/" + parentRef.Name
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
 
 		// check that the referenced svc exists
 		if svc == nil {
-			return &ParentError{
-					Reason:  ParentErrorNotAccepted,
-					Message: fmt.Sprintf("parent service: %q not found", parentRef.Name),
-				}, &WaypointError{
-					Reason:  WaypointErrorReasonNoMatchingParent,
-					Message: WaypointErrorMsgNoMatchingParent,
-				}
+			parentErr := &ParentError{
+				Reason:  ParentErrorNotAccepted,
+				Message: fmt.Sprintf("parent service: %q not found", parentRef.Name),
+			}
+			waypointErr := &WaypointError{
+				Reason:  WaypointErrorReasonNoMatchingParent,
+				Message: WaypointErrorMsgNoMatchingParent,
+			}
+			return parentErr, waypointErr
 		}
 
 		// check that the reference has the use-waypoint label
@@ -664,13 +665,15 @@ func referenceAllowed(
 		key := parentRef.Namespace + "/" + parentRef.Name
 		svcEntry := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(key)))
 		if svcEntry == nil {
-			return &ParentError{
-					Reason:  ParentErrorNotAccepted,
-					Message: fmt.Sprintf("parent service entry: %q not found", parentRef.Name),
-				}, &WaypointError{
-					Reason:  WaypointErrorReasonNoMatchingParent,
-					Message: WaypointErrorMsgNoMatchingParent,
-				}
+			parentErr := &ParentError{
+				Reason:  ParentErrorNotAccepted,
+				Message: fmt.Sprintf("parent service entry: %q not found", parentRef.Name),
+			}
+			waypointErr := &WaypointError{
+				Reason:  WaypointErrorReasonNoMatchingParent,
+				Message: WaypointErrorMsgNoMatchingParent,
+			}
+			return parentErr, waypointErr
 		}
 
 		// check that the reference has the use-waypoint label
@@ -979,7 +982,7 @@ func buildHTTPDestination(
 	forwardTo []k8s.HTTPBackendRef,
 	ns string,
 	enforceRefGrant bool,
-) ([]*istio.HTTPRouteDestination, *inferencePoolConfig, *ConfigError, *ConfigError) {
+) ([]*istio.HTTPRouteDestination, inferencePoolConfigs, *ConfigError, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil, nil, nil
 	}
@@ -998,11 +1001,19 @@ func buildHTTPDestination(
 	}
 
 	var invalidBackendErr *ConfigError
-	var ipCfg *inferencePoolConfig
+	var ipCfg inferencePoolConfigs
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
 		dst, ipconfig, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.HTTPRoute)
-		ipCfg = ipconfig
+		// Keyed by destination host so the xDS layer can match each weighted cluster back to the
+		// pool it came from. Collapsing these into one config per rule would hand a single pool's
+		// endpoint picker every request the rule serves.
+		if ipconfig != nil && ipconfig.enableExtProc {
+			if ipCfg == nil {
+				ipCfg = inferencePoolConfigs{}
+			}
+			ipCfg[dst.GetHost()] = ipconfig
+		}
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1123,6 +1134,10 @@ func buildGRPCDestination(
 	}
 	return res, invalidBackendErr, nil
 }
+
+// inferencePoolConfigs collects the InferencePool backendRefs of one route rule, keyed by the
+// hostname of the Service Istio synthesizes for each pool.
+type inferencePoolConfigs map[string]*inferencePoolConfig
 
 type inferencePoolConfig struct {
 	enableExtProc             bool

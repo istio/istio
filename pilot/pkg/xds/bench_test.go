@@ -275,6 +275,14 @@ func TestAddressFullGeneration(t *testing.T) {
 	testBenchmark(t, v3.AddressType, wdsCases)
 }
 
+func BenchmarkWorkloadFullGeneration(b *testing.B) {
+	runBenchmark(b, v3.WorkloadType, wdsCases)
+}
+
+func TestWorkloadFullGeneration(t *testing.T) {
+	testBenchmark(t, v3.WorkloadType, wdsCases)
+}
+
 var wdsIncrementalCases = func() []ConfigInput {
 	cases := slices.Clone(wdsCases)
 	// Request a single resource
@@ -290,6 +298,14 @@ func BenchmarkAddressIncrementalGeneration(b *testing.B) {
 
 func TestAddressIncrementalGeneration(t *testing.T) {
 	testBenchmark(t, v3.AddressType, wdsIncrementalCases)
+}
+
+func BenchmarkWorkloadIncrementalGeneration(b *testing.B) {
+	runBenchmark(b, v3.WorkloadType, wdsIncrementalCases)
+}
+
+func TestWorkloadIncrementalGeneration(t *testing.T) {
+	testBenchmark(t, v3.WorkloadType, wdsIncrementalCases)
 }
 
 func createGateways(n int) map[string]*meshconfig.Network {
@@ -422,8 +438,8 @@ func getWatchedResources(tpe string, tt ConfigInput, s *xds.FakeDiscoveryServer,
 		l := s.ConfigGen.BuildListeners(proxy, s.PushContext())
 		routeNames := xdstest.ExtractRoutesFromListeners(l)
 		return &model.WatchedResource{ResourceNames: sets.New(routeNames...)}
-	case v3.AddressType:
-		return &model.WatchedResource{TypeUrl: v3.AddressType, ResourceNames: sets.New[string](), Wildcard: true}
+	case v3.AddressType, v3.WorkloadType:
+		return &model.WatchedResource{TypeUrl: tpe, ResourceNames: sets.New[string](), Wildcard: true}
 	}
 	return nil
 }

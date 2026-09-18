@@ -37,7 +37,7 @@ import (
 )
 
 func TestProxyHeaders(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			ns := namespace.NewOrFail(t, namespace.Config{Prefix: "proxy-headers", Inject: true})
 			cfg := echo.Config{
@@ -137,7 +137,7 @@ proxyHeaders:
 }
 
 func TestXfccHeaders(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			ns := namespace.NewOrFail(t, namespace.Config{Prefix: "proxy-headers", Inject: true})
 			cfg := echo.Config{

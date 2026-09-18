@@ -151,7 +151,7 @@ func getLabelSelector(a any) map[string]string {
 	}
 	val := reflect.ValueOf(a)
 
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 
@@ -188,6 +188,15 @@ func Equal[O any](a, b O) bool {
 	}
 	if pk, ok := any(&a).(Equaler[*O]); ok {
 		return pk.Equals(&b)
+	}
+
+	// Collections are compared by identity: two collections are equal only if they are the same
+	// collection, no matter what they currently contain. Changes to their contents are reported by their
+	// own events, not by comparing them here. This also avoids falling through to reflect.DeepEqual,
+	// which would walk a collection's live internal state without holding its lock.
+	if au, ok := any(a).(uidable); ok {
+		bu, ok := any(b).(uidable)
+		return ok && au.uid() == bu.uid()
 	}
 
 	// Future improvement: add a default Kubernetes object implementation

@@ -104,13 +104,17 @@ func appendAddress(
 	switch requestedType {
 	case v3.WorkloadType:
 		if addr.GetWorkload() != nil {
+			proto := addr.MarshaledWorkload
+			if proto == nil {
+				proto = protoconv.MessageToAny(addr.GetWorkload())
+			}
 			resources = append(resources, &discovery.Resource{
 				Name: n,
 				// The Version hashes the Address wrapper rather than the Workload sent here; since
 				// the wrapping is 1:1 it still changes exactly when the content changes.
 				Version:  addr.Version,
 				Aliases:  aliases,
-				Resource: protoconv.MessageToAny(addr.GetWorkload()), // TODO: pre-marshal
+				Resource: proto,
 			})
 		}
 	case v3.AddressType:
@@ -187,6 +191,10 @@ func (e WorkloadGenerator) generateDeltasOndemand(
 	defer proxy.Unlock()
 	// For on-demand, we may have requested a VIP but gotten Pod IPs back. We need to update
 	// the internal book-keeping to subscribe to the Pods, so that we push updates to those Pods.
+	// subs can be nil if the watch was created without tracked resource names; Merge on a nil set panics.
+	if subs == nil {
+		subs = sets.New[string]()
+	}
 	w.ResourceNames = subs.Merge(have)
 	return resources, removed.UnsortedList(), model.XdsLogDetails{}, true, nil
 }

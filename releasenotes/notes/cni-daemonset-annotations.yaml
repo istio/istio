@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+    **Added** a `daemonSetAnnotations` value to the `istio-cni` chart, to set annotations on
+    the CNI DaemonSet object itself. The chart already supported `daemonSetLabels` for labels
+    and `podAnnotations` for the pods, but the DaemonSet's own annotations could not be set.

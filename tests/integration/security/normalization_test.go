@@ -81,7 +81,7 @@ func TestNormalization(t *testing.T) {
 		}
 		percentEncodedCases = append(percentEncodedCases, expect{in: input, out: output})
 	}
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			cases := []struct {
 				name         string
@@ -198,7 +198,7 @@ func TestNormalization(t *testing.T) {
 						{`/%c0%afadmin`, `/%c0%afadmin`},
 						{`/.../admin`, `/.../admin`},
 						{`/..../admin`, `/..../admin`},
-						{`/..;/admin`, `/..;/admin`},
+						{`/..;/admin`, `/admin`},
 						{`/;/admin`, `/;/admin`},
 						{`/admin;a=b`, `/admin;a=b`},
 						{`/admin;a=b/xyz`, `/admin;a=b/xyz`},

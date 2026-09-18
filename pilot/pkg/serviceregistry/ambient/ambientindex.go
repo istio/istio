@@ -590,13 +590,15 @@ func (a *index) inRevision(obj any) bool {
 
 // All return all known workloads and services. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
+	allWl := a.workloads.List()
+	allSvc := a.services.List()
 	// Add all workloads
-	res := make([]model.AddressInfo, 0, len(a.workloads.List())+len(a.services.List()))
-	for _, wl := range a.workloads.List() {
+	res := make([]model.AddressInfo, 0, len(allWl)+len(allSvc))
+	for _, wl := range allWl {
 		res = append(res, wl.AsAddress)
 	}
 	// Add all services
-	for _, s := range a.services.List() {
+	for _, s := range allSvc {
 		res = append(res, s.AsAddress)
 	}
 	return res
@@ -834,7 +836,10 @@ func LookupNetworkGateway(
 	id network.ID,
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 ) []NetworkGateway {
-	return gatewaysByNetwork.Fetch(ctx, id)
+	res := gatewaysByNetwork.Fetch(ctx, id)
+	// index lookups iterate a map and callers take the first entry, so the order must be stable
+	slices.SortBy(res, NetworkGateway.ResourceName)
+	return res
 }
 
 func LookupAllNetworkGateway(
