@@ -1262,7 +1262,7 @@ func TestWaypointHTTPFilterTLSExchange(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tc.enableMultiNetwork)
-			test.SetForTest(t, &features.EnableAmbientTLSProxyHttpMetrics, tc.enableTLSProxyHTTPStats)
+			test.SetForTest(t, &features.EnableAmbientTLSProxyHTTPMetrics, tc.enableTLSProxyHTTPStats)
 
 			svc := &model.Service{
 				Hostname: "svc.default.svc.cluster.local",

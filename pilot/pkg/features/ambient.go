@@ -68,7 +68,7 @@ var (
 	EnableAmbientBaggage = registerAmbient("AMBIENT_ENABLE_BAGGAGE", false, false,
 		"If true, enables waypoints to use baggage header to discover and propagate peer metadata for metrics.")
 
-	EnableAmbientTLSProxyHttpMetrics = registerAmbient("AMBIENT_ENABLE_TLS_PROXY_HTTP_METRICS", false, false,
+	EnableAmbientTLSProxyHTTPMetrics = registerAmbient("AMBIENT_ENABLE_TLS_PROXY_HTTP_METRICS", false, false,
 		"If true, enables waypoints to register HTTP metrics for cross-cluster requests when using protocols "+
 			"like TLS or PROXY.")
 
