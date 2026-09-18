@@ -917,7 +917,7 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 		model.ListenerInfo{Class: cls}.WithService(svc),
 		model.FilterChainTypeHTTP,
 	)
-	if features.EnableAmbientMultiNetwork && features.EnableAmbientTlsProxyHttpMetrics {
+	if features.EnableAmbientMultiNetwork && features.EnableAmbientTLSProxyHttpMetrics {
 		pre = append(pre, buildSetTLSFilterExchangeHTTPFilter())
 	}
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
