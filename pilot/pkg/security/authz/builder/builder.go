@@ -113,7 +113,7 @@ func (b Builder) BuildHTTP() []*hcm.HttpFilter {
 // the well-known name, so a route can address ALLOW alone.
 const (
 	RBACFilterNameAllow     = "istio.authorization.allow"
-	RBACRouteAnchorNameDeny = "istio.authorization.route.deny"
+	RBACRouteFilterNameDeny = "istio.authorization.route.deny"
 )
 
 // PerRouteFilterName returns the filter instance name to key per-route RBAC config by, or ""
@@ -123,7 +123,7 @@ func PerRouteFilterName(action rbacpb.RBAC_Action) string {
 	case rbacpb.RBAC_ALLOW:
 		return RBACFilterNameAllow
 	case rbacpb.RBAC_DENY:
-		return RBACRouteAnchorNameDeny
+		return RBACRouteFilterNameDeny
 	default:
 		return ""
 	}
