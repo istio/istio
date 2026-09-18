@@ -49,6 +49,9 @@ var (
 
 func parseKataRuntimeClassNames(v string) sets.String {
 	out := sets.New[string]()
+	if v == "" {
+		return out
+	}
 	for _, name := range strings.Split(v, ",") {
 		if trimmed := strings.TrimSpace(name); trimmed != "" {
 			out.Insert(trimmed)

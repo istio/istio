@@ -20,7 +20,12 @@ import (
 	"net/netip"
 
 	"istio.io/istio/cni/pkg/config"
+	istiolog "istio.io/istio/pkg/log"
 )
+
+func (cfg *IptablesConfigurator) createInpodRulesKata(_ *istiolog.Scope, _ config.PodLevelOverrides) error {
+	return errors.New("not implemented on this platform")
+}
 
 func AddInpodMarkIPRule(cfg *config.AmbientConfig) error {
 	return errors.New("not implemented on this platform")

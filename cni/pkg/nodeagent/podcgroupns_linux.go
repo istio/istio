@@ -81,7 +81,7 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 	*/
 
 	podUIDNetns := make(PodToNetns)
-	selectedNetnsHasMutilpleIface := make(map[string]bool)
+	selectedNetnsHasMultipleIface := make(map[string]bool)
 	netnsObserved := sets.New[uint64]()
 
 	entries, err := fs.ReadDir(p.proc, ".")
@@ -127,7 +127,7 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 
 			if exists {
 				log.Warnf("found more than one netns for kata pod: %s", res.uid)
-				existingHasMultipleIface := selectedNetnsHasMutilpleIface[string(res.uid)]
+				existingHasMultipleIface := selectedNetnsHasMultipleIface[string(res.uid)]
 				if existingHasMultipleIface != candidateHasMultifaceIface {
 					if existingHasMultipleIface {
 						res.netns.Close()
@@ -139,7 +139,7 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 				}
 				existingNetns.Netns.Close()
 			}
-			selectedNetnsHasMutilpleIface[string(res.uid)] = candidateHasMultifaceIface
+			selectedNetnsHasMultipleIface[string(res.uid)] = candidateHasMultifaceIface
 		}
 
 		workload := WorkloadInfo{

@@ -1,3 +1,5 @@
+//go:build linux
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +39,7 @@ type kataInpodConfig struct {
 // (*IptablesConfigurator).CreateInpodRules. It runs inside the pod netns.
 func (cfg *IptablesConfigurator) createInpodRulesKata(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
 	if len(podOverrides.VirtualInterfaces) > 0 {
-		log.Warnf("kata mode ignores virtual interfaces: %v", podOverrides.VirtualInterfaces)
+		return fmt.Errorf("kata mode does not support virtual interfaces: %v", podOverrides.VirtualInterfaces)
 	}
 
 	// Capture the CNI-provided default gateway to SNAT kubelet probe traffic so replies
@@ -76,7 +78,7 @@ func (cfg *IptablesConfigurator) createInpodRulesKata(log *istiolog.Scope, podOv
 
 	log.Debug("Adding iptables rules (kata mode)")
 	if err := ipv4Configurator.executeCommands(log, b); err != nil {
-		log.Errorf("failed to restore iptables rules: %v", err)
+		log.Errorf("failed to apply iptables rules: %v", err)
 		return err
 	}
 	return nil
@@ -315,7 +317,7 @@ func discoverPodIPs() ([]netip.Addr, []netip.Addr) {
 	var v4, v6 []netip.Addr
 	links, err := netlink.LinkList()
 	if err != nil {
-		log.Debugf("failed to list links: %v", err)
+		log.Warnf("failed to list links: %v", err)
 		return v4, v6
 	}
 

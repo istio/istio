@@ -106,12 +106,6 @@ spec:
         image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
 {{- end }}
         imagePullPolicy: {{ $.ImagePullPolicy }}
-        # Give WDS some time to catch up.
-        # See https://github.com/istio/istio/issues/58514
-        lifecycle:
-          preStop:
-            sleep:
-              seconds: 2
         args:
 {{- if $appContainer.FallbackPort }}
           - --forwarding_address=0.0.0.0:{{ $appContainer.FallbackPort }}
