@@ -91,8 +91,8 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
@@ -1462,11 +1462,8 @@ func (c *client) DynamicClientFor(g schema.GroupVersionKind, obj *unstructured.U
 }
 
 func (c *client) bestEffortToGVR(g schema.GroupVersionKind, obj *unstructured.Unstructured, namespace string) (schema.GroupVersionResource, bool) {
-	if s, f := collections.All.FindByGroupVersionAliasesKind(config.FromKubernetesGVK(g)); f {
-		gvr := s.GroupVersionResource()
-		// Might have been an alias, assign back the correct version
-		gvr.Version = g.Version
-		return gvr, !s.IsClusterScoped()
+	if r, f := gvk.ToGVR(config.FromKubernetesGVK(g)); f {
+		return r, !gvr.IsClusterScoped(r)
 	}
 	if c.mapper != nil {
 		// Fallback to dynamic lookup
