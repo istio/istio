@@ -248,6 +248,30 @@ func TestDeltaEDS(t *testing.T) {
 	}
 }
 
+func TestDeltaEDSIgnoresSkippedConfigs(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s.MemRegistry.AddHTTPService("eds-1.default.svc.cluster.local", "10.0.0.1", 80)
+	s.MemRegistry.AddHTTPService("eds-2.default.svc.cluster.local", "10.0.0.2", 80)
+	s.EnsureSynced(t)
+
+	ads := s.ConnectDeltaADS().WithType(v3.EndpointType).WithNodeType(model.Waypoint)
+	clusters := []string{
+		"outbound|80||eds-1.default.svc.cluster.local",
+		"outbound|80||eds-2.default.svc.cluster.local",
+	}
+	ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{ResourceNamesSubscribe: clusters})
+
+	s.Discovery.Push(&model.PushRequest{
+		ConfigsUpdated: sets.New(
+			model.ConfigKey{Kind: kind.Endpoints, Name: "eds-1.default.svc.cluster.local", Namespace: "default"},
+			model.ConfigKey{Kind: kind.VirtualService, Name: "unrelated", Namespace: "default"},
+		),
+	})
+
+	resp := ads.ExpectResponse()
+	assert.Equal(t, slices.Map(resp.Resources, func(r *discovery.Resource) string { return r.Name }), clusters[:1])
+}
+
 func TestDeltaWorkloadAddressOnlyUpdate(t *testing.T) {
 	test.SetForTest(t, &features.ScopedAddressPushes, true)
 	store := newTestAmbientStore()
