@@ -2047,7 +2047,7 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 			addresses = append(addresses, s.AutoAllocatedIPv6Address)
 		}
 	}
-	if (!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual {
+	if (!features.EnableDualStack && !features.EnableAmbient) || (node.GetIPMode() != Dual && node.Type != Waypoint) {
 		addresses = netutil.FilterAddressesByIPFamily(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 	}
 	if len(addresses) > 0 {
