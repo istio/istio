@@ -220,6 +220,61 @@ func BenchmarkRouteGenerationSharedMetadata(b *testing.B) {
 	logDebug(b, resources)
 }
 
+// BenchmarkRouteGenerationCacheHit measures the work left on the sidecar RDS path once
+// the serialized route configuration is already cached.
+func BenchmarkRouteGenerationCacheHit(b *testing.B) {
+	configureBenchmark(b)
+	test.SetForTest(b, &features.EnableXDSCaching, true)
+	test.SetForTest(b, &features.EnableRDSCaching, true)
+
+	s, proxy := setupAndInitializeTest(b, ConfigInput{Name: "virtualservice", Services: 100})
+	w := getWatchedResources(v3.RouteType, ConfigInput{}, s, proxy)
+	req := &model.PushRequest{Push: s.PushContext(), Forced: true, Start: time.Now()}
+	gen := s.Discovery.Generators[v3.RouteType]
+	if _, _, err := gen.Generate(proxy, w, req); err != nil {
+		b.Fatal(err)
+	}
+
+	var resources model.Resources
+	b.ResetTimer()
+	for range b.N {
+		var err error
+		resources, _, err = gen.Generate(proxy, w, req)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+	logDebug(b, resources)
+}
+
+// BenchmarkRouteGenerationCacheMiss measures the sidecar RDS path with caching enabled but never able to hit,
+// isolating the cost of computing the RDS cache dependency set (DestinationRuleDependencies) that is paid on
+// every miss, on top of BenchmarkRouteGeneration's caching-disabled baseline.
+func BenchmarkRouteGenerationCacheMiss(b *testing.B) {
+	configureBenchmark(b)
+	test.SetForTest(b, &features.EnableXDSCaching, true)
+	test.SetForTest(b, &features.EnableRDSCaching, true)
+
+	s, proxy := setupAndInitializeTest(b, ConfigInput{Name: "virtualservice", Services: 100})
+	w := getWatchedResources(v3.RouteType, ConfigInput{}, s, proxy)
+	req := &model.PushRequest{Push: s.PushContext(), Forced: true, Start: time.Now()}
+	gen := s.Discovery.Generators[v3.RouteType]
+
+	var resources model.Resources
+	b.ResetTimer()
+	for range b.N {
+		b.StopTimer()
+		s.ConfigGen.Cache.ClearAll()
+		b.StartTimer()
+		var err error
+		resources, _, err = gen.Generate(proxy, w, req)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+	logDebug(b, resources)
+}
+
 func TestRouteGeneration(t *testing.T) {
 	testBenchmark(t, v3.RouteType, testCases)
 }

@@ -101,19 +101,14 @@ type VirtualHostWrapper struct {
 // BuildSidecarVirtualHostWrapper creates virtual hosts from the given set of virtual Services
 // and a list of Services from the service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
-func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
+func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
 	virtualServices []*config.Config, listenPort int, mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
-	// dependentDestinationRules includes all the destinationrules referenced by
-	// the virtualservices, which have consistent hash policy.
-	dependentDestinationRules := []*model.ConsolidatedDestRule{}
-
 	// First build virtual host wrappers for services that have virtual services.
 	for _, virtualService := range virtualServices {
-		hashByDestination, destinationRules := hashForVirtualService(push, node, *virtualService)
-		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
+		hashByDestination := hashForVirtualService(push, node, *virtualService)
 		wrappers := buildSidecarVirtualHostsForVirtualService(
 			node, virtualService, serviceRegistry, hashByDestination, listenPort, push, mostSpecificWildcardVsIndex,
 		)
@@ -137,18 +132,11 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 		}
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTPOrSniffed() {
-				hash, destinationRule := hashForService(push, node, svc, port)
-				if hash != nil {
-					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
-				}
+				hash, _ := hashForService(push, node, svc, port)
 				// append default hosts for the service missing virtual Services.
 				out = append(out, buildSidecarVirtualHostForService(svc, port, hash, push))
 			}
 		}
-	}
-
-	if routeCache != nil {
-		routeCache.DestinationRules = dependentDestinationRules
 	}
 
 	return out
@@ -1588,24 +1576,50 @@ func hashForService(push *model.PushContext,
 func hashForVirtualService(push *model.PushContext,
 	node *model.Proxy,
 	virtualService config.Config,
-) (DestinationHashMap, []*model.ConsolidatedDestRule) {
+) DestinationHashMap {
 	hashByDestination := DestinationHashMap{}
-	destinationRules := make([]*model.ConsolidatedDestRule, 0)
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
 		for _, destination := range httpRoute.Route {
-			hash, dr := HashForHTTPDestination(push, node, destination)
+			hash, _ := HashForHTTPDestination(push, node, destination)
 			if hash != nil {
 				hashByDestination[destination] = hash
-				destinationRules = append(destinationRules, dr)
 			}
 		}
 	}
-	return hashByDestination, destinationRules
+	return hashByDestination
 }
 
 func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy, virtualService config.Config) DestinationHashMap {
-	hashByDestination, _ := hashForVirtualService(push, node, virtualService)
-	return hashByDestination
+	return hashForVirtualService(push, node, virtualService)
+}
+
+// DestinationRuleDependencies returns all DestinationRules that can contribute a consistent-hash policy to a route
+// configuration. It intentionally includes every candidate service and VirtualService; this conservative set lets the
+// RDS cache be checked before route protos are built without risking stale entries.
+func DestinationRuleDependencies(push *model.PushContext, node *model.Proxy, virtualServices []*config.Config, services []*model.Service) []*model.ConsolidatedDestRule {
+	var result []*model.ConsolidatedDestRule
+	for _, virtualService := range virtualServices {
+		for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
+			for _, destination := range httpRoute.Route {
+				hash, dr := HashForHTTPDestination(push, node, destination)
+				if hash != nil {
+					result = append(result, dr)
+				}
+			}
+		}
+	}
+	for _, svc := range services {
+		for _, port := range svc.Ports {
+			if !port.Protocol.IsHTTPOrSniffed() {
+				continue
+			}
+			hash, dr := hashForService(push, node, svc, port)
+			if hash != nil {
+				result = append(result, dr)
+			}
+		}
+	}
+	return result
 }
 
 // HashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
