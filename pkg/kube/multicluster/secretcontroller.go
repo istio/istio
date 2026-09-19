@@ -236,19 +236,11 @@ func (c *Controller) buildClustersCollection(optsBuilder krt.OptionsBuilder) {
 	}, optsBuilder.WithName("RemoteClusters")...)
 }
 
-// Clusters returns the krt collection of remote Clusters.
-func (c *Controller) Clusters() krt.Collection[*Cluster] {
-	return c.clusters
-}
-
-// ConfigCluster returns the local/config cluster.
-func (c *Controller) ConfigCluster() *Cluster {
-	return c.configCluster
-}
-
-// ClusterStore returns the underlying ClusterStore.
-func (c *Controller) ClusterStore() *ClusterStore {
-	return c.cs
+// ConfigCluster returns a collections view of the local/config cluster. Unlike remote clusters, the
+// config cluster lives for the lifetime of the process, so collections derived from it need no
+// special teardown. See ClusterCollections.
+func (c *Controller) ConfigCluster() ClusterCollections {
+	return ClusterCollections{cluster: c.configCluster}
 }
 
 type ComponentBuilder interface {
