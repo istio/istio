@@ -1755,6 +1755,25 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 }
 
+func TestBuildHTTPRoutesSharesConfigMetadata(t *testing.T) {
+	routes, err := route.BuildHTTPRoutesForVirtualService(
+		&model.Proxy{Metadata: &model.NodeMetadata{Namespace: "default"}},
+		virtualServiceWithCatchAllRoute,
+		8080,
+		sets.New("some-gateway"),
+		buildRouteOpts(nil, nil),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(routes) != 2 {
+		t.Fatalf("got %d routes, want 2", len(routes))
+	}
+	if routes[0].Metadata != routes[1].Metadata {
+		t.Fatal("routes from the same VirtualService must share config metadata")
+	}
+}
+
 func loadBalancerPolicy(name string) *networking.LoadBalancerSettings_ConsistentHash {
 	return &networking.LoadBalancerSettings_ConsistentHash{
 		ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
