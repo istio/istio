@@ -19,7 +19,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net"
+	"net/netip"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -2698,6 +2701,41 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 		}
 	}
 	return false
+}
+
+// WorkloadWaypointForAddress returns the waypoint proxy address for the workload at the given IP,
+// or empty string if the workload has no waypoint. Used by sidecars to route through workload waypoints.
+func (ps *PushContext) WorkloadWaypointForAddress(n network.ID, ip string) string {
+	infos, _ := ps.ambientIndex.AddressInformation(sets.New(n.String() + "/" + ip))
+	for _, wl := range ExtractWorkloadsFromAddresses(infos) {
+		wp := wl.Workload.GetWaypoint()
+		if wp == nil {
+			continue
+		}
+		port := wp.GetHboneMtlsPort()
+		if port == 0 {
+			port = 15008
+		}
+		switch dest := wp.GetDestination().(type) {
+		case *workloadapi.GatewayAddress_Address:
+			addr, ok := netip.AddrFromSlice(dest.Address.Address)
+			if !ok {
+				continue
+			}
+			return net.JoinHostPort(addr.String(), strconv.Itoa(int(port)))
+		case *workloadapi.GatewayAddress_Hostname:
+			svcKey := dest.Hostname.Namespace + "/" + dest.Hostname.Hostname
+			svcInfo := ps.ambientIndex.ServiceInfo(svcKey)
+			if svcInfo != nil && len(svcInfo.Service.Addresses) > 0 {
+				addr, ok := netip.AddrFromSlice(svcInfo.Service.Addresses[0].Address)
+				if !ok {
+					continue
+				}
+				return net.JoinHostPort(addr.String(), strconv.Itoa(int(port)))
+			}
+		}
+	}
+	return ""
 }
 
 // WorkloadsForWaypoint returns all workloads associated with a given waypoint identified by it's WaypointKey

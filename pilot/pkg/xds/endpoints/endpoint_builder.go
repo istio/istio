@@ -819,6 +819,14 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		tunnel = true
 	}
 
+	// For sidecar proxies, check if the destination workload has a workload waypoint.
+	// Workload waypoints only apply AuthorizationPolicy/RequestAuthentication,
+	// so there is no double-policy concern with the sidecar's outbound service policies.
+	workloadWaypoint := ""
+	if !toServiceWaypoint && tunnel && isSidecarProxy(b.proxy) {
+		workloadWaypoint = b.push.WorkloadWaypointForAddress(e.Network, e.Addresses[0])
+	}
+
 	if tunnel {
 		// Currently, Envoy cannot support tunneling to multiple IP families.
 		// TODO(https://github.com/envoyproxy/envoy/issues/36318)
@@ -837,18 +845,20 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			// // If there are multiple VIPs, we just use one. Hostname would be ideal here but isn't supported.
 			address = serviceVIPs[0]
 			port = b.port
+		} else if workloadWaypoint != "" {
+			// Workload waypoints do not apply service policies that are problematic to apply twice.
+			waypoint = workloadWaypoint
 		}
-		// We intentionally do not take into account waypoints here.
-		// 1. Workload waypoints: sidecar/ingress do not support sending traffic directly to workloads, only to services,
-		//    so these are not applicable.
-		// 2. Service waypoints: in ztunnel, we would defer handling service traffic if the service has a waypoint, and instead
-		//    send to the waypoint. However, with sidecars this is problematic. We don't know which service is the intended destination
-		//    until *after* we apply policies. If we then sent to a service waypoint, we apply service policies twice.
-		//    This can be problematic: double mirroring, fault injection, request manipulation, ....
-		//    Instead, we consider this to workload traffic. This gives the same behavior as if we were an application doing internal load balancing
-		//    with ztunnel.
-		//    Note: there is a pretty valid case for wanting to send to the service from ingress. This gives a two tier delegation.
-		//    However, it's not safe to do that by default; perhaps a future API could opt into this.
+		// We intentionally do not take into account Service waypoints here.
+		// In ztunnel, we would defer handling service traffic if the service has a waypoint, and instead
+		// send to the waypoint. However, with sidecars this is problematic. We don't know which service is the intended destination
+		// until *after* we apply policies. If we then sent to a service waypoint, we apply service policies twice.
+		// This can be problematic: double mirroring, fault injection, request manipulation, ....
+		// Instead, we consider this to workload traffic. This gives the same behavior as if we were an application doing internal load balancing
+		// with ztunnel.
+		// Note: there is a pretty valid case for wanting to send to the service from ingress. This gives a two tier delegation.
+		// However, it's not safe to do that by default; perhaps a future API could opt into this.
+
 		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
 		// Setup tunnel metadata so requests will go through the tunnel
 		target := ptr.NonEmptyOrDefault(waypoint, net.JoinHostPort(address, strconv.Itoa(port)))
