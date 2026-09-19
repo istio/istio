@@ -237,3 +237,7 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.0 // indirect
 )
+
+replace sigs.k8s.io/gateway-api/conformance => github.com/rikatz/gateway-api/conformance v0.0.0-20260916124920-67b30eaa08da
+
+replace sigs.k8s.io/gateway-api => github.com/rikatz/gateway-api v0.0.0-20260916124920-67b30eaa08da
