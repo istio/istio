@@ -44,6 +44,9 @@ func (o ObjectWithCluster[T]) ResourceName() string {
 	if o.Object == nil {
 		return ""
 	}
+	if rn, ok := any(o.Object).(ResourceNamer); ok {
+		return rn.ResourceName()
+	}
 	return GetKey(*o.Object)
 }
 

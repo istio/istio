@@ -1312,6 +1312,32 @@ func TestGetTrafficDistribution(t *testing.T) {
 	}
 }
 
+func TestInfoEqualsPointers(t *testing.T) {
+	t.Run("service", func(t *testing.T) {
+		var nilInfo *ServiceInfo
+		assert.Equal(t, nilInfo.Equals(nil), true)
+		assert.Equal(t, nilInfo.Equals(&ServiceInfo{}), false)
+
+		first := &ServiceInfo{Service: &workloadapi.Service{Namespace: "ns", Hostname: "svc.example.com"}}
+		second := &ServiceInfo{Service: &workloadapi.Service{Namespace: "ns", Hostname: "svc.example.com"}}
+		assert.Equal(t, first.Equals(second), true)
+		second.Scope = Global
+		assert.Equal(t, first.Equals(second), false)
+	})
+
+	t.Run("workload", func(t *testing.T) {
+		var nilInfo *WorkloadInfo
+		assert.Equal(t, nilInfo.Equals(nil), true)
+		assert.Equal(t, nilInfo.Equals(&WorkloadInfo{}), false)
+
+		first := &WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/ns/pod"}}
+		second := &WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/ns/pod"}}
+		assert.Equal(t, first.Equals(second), true)
+		second.Source.Kind = kind.Pod
+		assert.Equal(t, first.Equals(second), false)
+	})
+}
+
 func TestServiceInfoWaypointConditions(t *testing.T) {
 	base := func() ServiceInfo {
 		return ServiceInfo{
