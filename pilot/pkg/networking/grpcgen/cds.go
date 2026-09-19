@@ -226,6 +226,11 @@ func (b *clusterBuilder) applyLoadBalancing(c *cluster.Cluster, policy *networki
 		return
 	}
 
+	if lb.GetBackendUtilization() != nil {
+		log.Warnf("cannot apply backendUtilization LbPolicy to %s: not supported for proxyless gRPC", b.node.ID)
+		return
+	}
+
 	switch lb.GetSimple() {
 	case networking.LoadBalancerSettings_ROUND_ROBIN, networking.LoadBalancerSettings_UNSPECIFIED:
 		// Default gRPC behavior (round_robin) so no explicit `lb_policy` needed.
