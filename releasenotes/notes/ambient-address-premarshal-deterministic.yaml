@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue where the pre-marshaled workload used for change detection and versioning
+    in ambient was not stable when a workload had more than one service, which made unchanged
+    workloads look modified on every recompute and prevented unchanged workloads from being
+    skipped when a client reconnected.
