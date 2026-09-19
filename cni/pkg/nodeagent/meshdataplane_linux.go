@@ -39,7 +39,12 @@ type meshDataplane struct {
 	// keyed by pod IP. We cache it at add time so teardown can delete the rules
 	// even if aws-vpc-cni has already removed its iif rule (making re-detection fail).
 	branchENIMu    sync.Mutex
-	branchENIRules map[netip.Addr]*branchENIRoute
+	branchENIRules map[netip.Addr]branchENIRouteEntry
+}
+
+type branchENIRouteEntry struct {
+	podUID string
+	route  *branchENIRoute
 }
 
 // ConstructInitialSnapshot is always called first, before Start.
@@ -89,25 +94,41 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 
 // rememberBranchENIRoute caches the branch ENI info for a pod IP so we can
 // clean up its rules later without re-scanning.
-func (s *meshDataplane) rememberBranchENIRoute(podIP netip.Addr, info *branchENIRoute) {
+func (s *meshDataplane) rememberBranchENIRoute(podIP netip.Addr, podUID string, info *branchENIRoute) {
 	s.branchENIMu.Lock()
 	defer s.branchENIMu.Unlock()
 	if s.branchENIRules == nil {
-		s.branchENIRules = map[netip.Addr]*branchENIRoute{}
+		s.branchENIRules = map[netip.Addr]branchENIRouteEntry{}
 	}
-	s.branchENIRules[podIP] = info
+	s.branchENIRules[podIP] = branchENIRouteEntry{podUID: podUID, route: info}
 }
 
 // forgetBranchENIRoute removes a cached branch ENI entry and returns it.
 func (s *meshDataplane) forgetBranchENIRoute(podIP netip.Addr) *branchENIRoute {
 	s.branchENIMu.Lock()
 	defer s.branchENIMu.Unlock()
-	info, ok := s.branchENIRules[podIP]
+	entry, ok := s.branchENIRules[podIP]
 	if !ok {
 		return nil
 	}
 	delete(s.branchENIRules, podIP)
-	return info
+	return entry.route
+}
+
+// forgetBranchENIRoutesForPod removes all cached branch ENI entries for a pod.
+// This is used when Kubernetes has already cleared the pod IPs from status.
+func (s *meshDataplane) forgetBranchENIRoutesForPod(podUID string) map[netip.Addr]*branchENIRoute {
+	s.branchENIMu.Lock()
+	defer s.branchENIMu.Unlock()
+
+	forgotten := make(map[netip.Addr]*branchENIRoute)
+	for podIP, entry := range s.branchENIRules {
+		if entry.podUID == podUID {
+			forgotten[podIP] = entry.route
+			delete(s.branchENIRules, podIP)
+		}
+	}
+	return forgotten
 }
 
 // flushBranchENIRules removes ip rules for every branch ENI entry we remembered.
@@ -116,8 +137,8 @@ func (s *meshDataplane) flushBranchENIRules() {
 	cached := s.branchENIRules
 	s.branchENIRules = nil
 	s.branchENIMu.Unlock()
-	for podIP, info := range cached {
-		delBranchENIRules(podIP, info)
+	for podIP, entry := range cached {
+		delBranchENIRules(podIP, entry.route)
 	}
 }
 
@@ -338,7 +359,7 @@ func (s *meshDataplane) addPodToHostAddrSet(pod *corev1.Pod, podIPs []netip.Addr
 					if err := addBranchENIRules(pip, info); err != nil {
 						log.Errorf("failed to add branch ENI rules for pod %s: %v", pip, err)
 					} else {
-						s.rememberBranchENIRoute(pip, info)
+						s.rememberBranchENIRoute(pip, podUID, info)
 					}
 				}
 			}
@@ -361,6 +382,20 @@ func (s *meshDataplane) removePodFromHostAddrSet(pod *corev1.Pod) error {
 
 	podIPs := util.GetPodIPsIfPresent(pod)
 	return util.RunAsHost(func() error {
+		if len(podIPs) == 0 {
+			if err := s.hostAddrSet.ClearEntriesWithComment(podUID); err != nil {
+				return err
+			}
+			log.Debug("removed pod from host addressSet by UID")
+
+			if EnableAWSBranchENIProbe {
+				for podIP, info := range s.forgetBranchENIRoutesForPod(podUID) {
+					delBranchENIRules(podIP, info)
+				}
+			}
+			return nil
+		}
+
 		for _, pip := range podIPs {
 			if uidMismatch, err := s.hostAddrSet.ClearEntriesWithIPAndComment(pip, podUID); err != nil {
 				return err
