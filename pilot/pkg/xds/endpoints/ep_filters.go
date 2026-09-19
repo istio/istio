@@ -34,11 +34,18 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // innerConnectOriginate is the name for the resources associated with establishing double-HBONE connection.
 // Duplicated from networking/core/waypoint.go to avoid import cycle
 const innerConnectOriginate = "inner_connect_originate"
+
+// isAmbientWorkload reports whether the endpoint is captured by ztunnel, and therefore terminates
+// HBONE rather than the legacy Istio mTLS a sidecar client would otherwise speak to it.
+func isAmbientWorkload(ep *model.IstioEndpoint) bool {
+	return ep.AmbientCaptured
+}
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
@@ -99,6 +106,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 		// Create a map to keep track of the gateways used and their aggregate weights.
 		gatewayWeights := make(map[model.NetworkGateway]uint32)
+
+		// Track the gateways that carry at least one sidecar-to-ambient bridged endpoint. Only
+		// those gateway endpoints relax peer validation (see the TLSMode selection below), because
+		// only they terminate the client's mTLS instead of passing it through to the destination.
+		bridgedGateways := sets.New[model.NetworkGateway]()
 
 		// Process all the endpoints.
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
@@ -169,16 +181,25 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
+			// An ambient destination never advertises legacy Istio mTLS, so a sidecar client would
+			// normally drop it below. With the bridge enabled the E/W gateway terminates the
+			// sidecar's mTLS and originates HBONE onward, so the endpoint is reachable after all.
+			bridged := features.EnableAmbientMultiNetwork && features.EnableSidecarAmbientBridge &&
+				isSidecarProxy(b.proxy) && isAmbientWorkload(istioEndpoint)
+
 			// Cross-network traffic relies on mTLS for SNI routing in sidecar mode.
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
 			// network we skip it altogether.
 			// TODO BTS may allow us to work around this
-			if (!features.EnableAmbientMultiNetwork || isSidecarProxy(b.proxy)) && !isMtlsEnabled(lbEp) {
+			if (!features.EnableAmbientMultiNetwork || isSidecarProxy(b.proxy)) && !isMtlsEnabled(lbEp) && !bridged {
 				continue
 			}
 
 			// Apply the weight for this endpoint to the network gateways.
 			splitWeightAmongGateways(weight, reachableGateways, gatewayWeights)
+			if bridged {
+				bridgedGateways.InsertAll(reachableGateways...)
+			}
 		}
 
 		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
@@ -263,10 +284,19 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 					Metadata: &core.Metadata{},
 				}
 
+				// An AUTO_PASSTHROUGH gateway does not terminate, so the TLS peer really is the
+				// destination workload and its SANs can be validated exactly - keep the default.
+				// A bridging gateway does terminate and presents its own identity, so those
+				// endpoints (and only those) fall back to trust domain matching.
+				tlsMode := model.IstioMutualTLSModeLabel
+				if bridgedGateways.Contains(gw) {
+					tlsMode = model.GatewayTLSModeLabel
+				}
+
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
 				util.AppendLbEndpointMetadata(&model.EndpointMetadata{
 					Network:   gw.Network,
-					TLSMode:   model.IstioMutualTLSModeLabel,
+					TLSMode:   tlsMode,
 					ClusterID: gw.Cluster,
 					Labels:    labels.Instance{},
 				}, gwEp.Metadata)

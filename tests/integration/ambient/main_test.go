@@ -139,6 +139,7 @@ func TestMain(m *testing.M) {
 				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK"] = "true"
 				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK_INGRESS"] = "true"
 				cfg.Values["pilot.env.AMBIENT_ENABLE_BAGGAGE"] = "true"
+				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK_SIDECAR_BRIDGE"] = "true"
 			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
