@@ -395,9 +395,9 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 			for h, ports := range virtualServiceDestinationsFilteredBySourceNamespace(v, configNamespace) {
 				byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
 				// Default to this hostname in our config namespace
-				if s, ok := byNamespace[configNamespace]; ok {
+				if s, ok := byNamespace[configNamespace]; ok && len(s) > 0 {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					if matchedSvc := serviceMatchingPort(s, ilw, ports); matchedSvc != nil {
+					if matchedSvc := serviceMatchingPort(s[0], ilw, ports); matchedSvc != nil {
 						sc.appendSidecarServices(servicesAdded, matchedSvc)
 					}
 				} else {
@@ -415,8 +415,10 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 						pickNamespace = pickBestVisibleNamespace
 					}
 					if ns := pickNamespace(ps, byNamespace, configNamespace); ns != "" {
-						if matchedSvc := serviceMatchingPort(byNamespace[ns], ilw, ports); matchedSvc != nil {
-							sc.appendSidecarServices(servicesAdded, matchedSvc)
+						if svcs := byNamespace[ns]; len(svcs) > 0 {
+							if matchedSvc := serviceMatchingPort(svcs[0], ilw, ports); matchedSvc != nil {
+								sc.appendSidecarServices(servicesAdded, matchedSvc)
+							}
 						}
 					}
 				}
@@ -570,15 +572,14 @@ func (ps *PushContext) servicesForExactHosts(configNamespace string,
 			if !ok {
 				continue
 			}
-			svc, ok := byNamespace[ns]
-			if !ok {
-				continue
+			// Include all Services for this hostname+namespace so their ports merge, matching the scan path.
+			for _, svc := range byNamespace[ns] {
+				// HostnameAndNamespace ignores exportTo, so reapply visibility.
+				if !ps.IsServiceVisible(svc, configNamespace) {
+					continue
+				}
+				candidates = append(candidates, svc)
 			}
-			// HostnameAndNamespace contains all services regardless of exportTo, so visibility is reapplied.
-			if !ps.IsServiceVisible(svc, configNamespace) {
-				continue
-			}
-			candidates = append(candidates, svc)
 		}
 	}
 	// Sort for deterministic output, matching servicesExportedToNamespace (built from creation-ordered services).
@@ -1133,10 +1134,10 @@ func canMergeServices(s1, s2 *Service) bool {
 // Pick the Service namespace visible to the configNamespace namespace.
 // If it does not exist, return an empty string,
 // If there are more than one, pick the first alphabetically.
-func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, configNamespace string) string {
+func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string][]*Service, configNamespace string) string {
 	nss := make([]string, 0, len(byNamespace))
-	for ns := range byNamespace {
-		if ps.IsServiceVisible(byNamespace[ns], configNamespace) {
+	for ns, svcs := range byNamespace {
+		if len(svcs) > 0 && ps.IsServiceVisible(svcs[0], configNamespace) {
 			nss = append(nss, ns)
 		}
 	}
@@ -1154,9 +1155,13 @@ func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string]*Service,
 // 2. contains the oldest non-Kubernetes service which is visible to configNamespace
 // This does not consider whether a svc is in the configNamespace,
 // the calling logic has already attempted a direct lookup of byNamespace[configNamespace]
-func pickBestVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, configNamespace string) string {
+func pickBestVisibleNamespace(ps *PushContext, byNamespace map[string][]*Service, configNamespace string) string {
 	var currentBestService *Service
-	for _, svc := range byNamespace {
+	for _, svcs := range byNamespace {
+		if len(svcs) == 0 {
+			continue
+		}
+		svc := svcs[0]
 		if ps.IsServiceVisible(svc, configNamespace) {
 			// if we have a visible kube service, use it
 			if svc.Attributes.ServiceRegistry == provider.Kubernetes {
