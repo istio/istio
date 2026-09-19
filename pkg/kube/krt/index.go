@@ -27,6 +27,9 @@ import (
 
 type Index[K comparable, O any] interface {
 	Lookup(k K) []O
+	// LookupFiltered returns objects matching the key and filter. A nil filter returns all objects for the key.
+	// The filter must not modify the collection or its objects.
+	LookupFiltered(k K, filter func(O) bool) []O
 	AsCollection(opts ...CollectionOption) IndexCollection[K, O]
 	Fetch(ctx HandlerContext, key K, opts ...FetchOption) []O
 	objectHasKey(obj O, k K) bool
@@ -153,10 +156,16 @@ func (i index[K, O]) id() collectionUID {
 
 // Lookup finds all objects matching a given key
 func (i index[K, O]) Lookup(k K) []O {
+	return i.LookupFiltered(k, nil)
+}
+
+// LookupFiltered finds objects matching a given key that are accepted by filter.
+// A nil filter returns all objects matching the key.
+func (i index[K, O]) LookupFiltered(k K, filter func(O) bool) []O {
 	if i.indexer == nil {
 		return nil
 	}
-	return i.indexer.Lookup(toString(k))
+	return i.indexer.LookupFiltered(toString(k), filter)
 }
 
 func toString(rk any) string {
