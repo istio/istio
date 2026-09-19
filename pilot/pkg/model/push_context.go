@@ -182,12 +182,15 @@ type gatewayIndex struct {
 	namespace map[string][]config.Config
 	// all contains all gateways.
 	all []config.Config
+	// parentGateways maps synthesized Istio Gateway configs back to their Kubernetes Gateway parent.
+	parentGateways map[string]types.NamespacedName
 }
 
 func newGatewayIndex() gatewayIndex {
 	return gatewayIndex{
-		namespace: map[string][]config.Config{},
-		all:       []config.Config{},
+		namespace:      map[string][]config.Config{},
+		all:            []config.Config{},
+		parentGateways: map[string]types.NamespacedName{},
 	}
 }
 
@@ -2130,6 +2133,47 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	ps.destinationRuleIndex.rootNamespaceLocal = rootNamespaceLocalDestRules
 }
 
+// IsBackendClientCertificateForProxy reports whether resourceName is an upstream client
+// certificate referenced by an XBackend attached to a Gateway implemented by proxy.
+func (ps *PushContext) IsBackendClientCertificateForProxy(proxy *Proxy, resourceName string) bool {
+	if proxy == nil {
+		return false
+	}
+	gateways := sets.New[types.NamespacedName]()
+	if proxy.MergedGateway != nil {
+		for _, gateway := range proxy.MergedGateway.GetGatewayNames() {
+			if parent, found := ps.gatewayIndex.parentGateways[gateway]; found {
+				if ps.gatewayIdentityVerified(proxy, parent, false) {
+					gateways.Insert(parent)
+				}
+			}
+		}
+	}
+	if gatewayName, found := workloadGatewayName(labels.Instance(proxy.Labels)); found {
+		parent := types.NamespacedName{Namespace: proxy.ConfigNamespace, Name: gatewayName}
+		if ps.gatewayIdentityVerified(proxy, parent, true) {
+			gateways.Insert(parent)
+		}
+	}
+	for gateway := range gateways {
+		if ps.GatewayAPIController.BackendClientCertificateAllowed(gateway, resourceName) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ps *PushContext) gatewayIdentityVerified(proxy *Proxy, gateway types.NamespacedName, requireServiceAccount bool) bool {
+	if proxy.VerifiedIdentity == nil || ps.GatewayAPIController == nil {
+		return false
+	}
+	expectedNamespace, expectedServiceAccount, found := ps.GatewayAPIController.GatewayWorkloadIdentity(gateway)
+	return found &&
+		proxy.VerifiedIdentity.Namespace == expectedNamespace &&
+		(!requireServiceAccount || expectedServiceAccount != "") &&
+		(expectedServiceAccount == "" || proxy.VerifiedIdentity.ServiceAccount == expectedServiceAccount)
+}
+
 // pre computes all AuthorizationPolicies per namespace
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) {
 	ps.AuthzPolicies = GetAuthorizationPolicies(env)
@@ -2410,6 +2454,12 @@ func (ps *PushContext) initGateways(env *Environment) {
 	gatewayConfigs := env.List(gvk.Gateway, NamespaceAll)
 
 	sortConfigByCreationTime(gatewayConfigs)
+	ps.gatewayIndex.parentGateways = make(map[string]types.NamespacedName)
+	for _, gatewayConfig := range gatewayConfigs {
+		if parent, found := kubernetesGatewayParent(gatewayConfig); found {
+			ps.gatewayIndex.parentGateways[gatewayConfig.Namespace+"/"+gatewayConfig.Name] = parent
+		}
+	}
 
 	if features.ScopeGatewayToNamespace {
 		ps.gatewayIndex.namespace = make(map[string][]config.Config)
@@ -2422,6 +2472,29 @@ func (ps *PushContext) initGateways(env *Environment) {
 	} else {
 		ps.gatewayIndex.all = gatewayConfigs
 	}
+}
+
+func kubernetesGatewayParent(gatewayConfig config.Config) (types.NamespacedName, bool) {
+	if parent := gatewayConfig.Annotations[constants.InternalGatewayParent]; parent != "" {
+		namespace, name, found := strings.Cut(parent, "/")
+		if found && namespace != "" && name != "" {
+			return types.NamespacedName{Namespace: namespace, Name: name}, true
+		}
+	}
+	for parent := range strings.SplitSeq(gatewayConfig.Annotations[constants.InternalParentNames], ",") {
+		encoded, found := strings.CutPrefix(parent, gvk.KubernetesGateway.Kind+"/")
+		if !found {
+			continue
+		}
+		namespaceSeparator := strings.LastIndexByte(encoded, '.')
+		if namespaceSeparator < 0 {
+			continue
+		}
+		nameAndSection, namespace := encoded[:namespaceSeparator], encoded[namespaceSeparator+1:]
+		name, _, _ := strings.Cut(nameAndSection, "/")
+		return types.NamespacedName{Namespace: namespace, Name: name}, true
+	}
+	return types.NamespacedName{}, false
 }
 
 func (ps *PushContext) initAmbient(env *Environment) {

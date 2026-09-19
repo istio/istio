@@ -16,12 +16,14 @@ package gateway
 
 import (
 	"cmp"
+	cryptotls "crypto/tls"
 	"fmt"
 	"strings"
 	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,6 +33,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
+	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -84,6 +87,21 @@ type BackendPolicy struct {
 	LoadBalancer *networking.LoadBalancerSettings
 	RetryBudget  *networking.TrafficPolicy_RetryBudget
 	CreationTime time.Time
+	Gateways     []types.NamespacedName
+}
+
+type BackendCertificateAuthorization struct {
+	Gateway     types.NamespacedName
+	Certificate string
+	Source      TypedNamespacedName
+}
+
+func (a BackendCertificateAuthorization) ResourceName() string {
+	return a.Source.String() + "|" + a.Gateway.String() + "|" + a.Certificate
+}
+
+func (a BackendCertificateAuthorization) Equals(other BackendCertificateAuthorization) bool {
+	return a == other
 }
 
 func (b BackendPolicy) ResourceName() string {
@@ -127,22 +145,29 @@ func (b BackendPolicy) Equals(other BackendPolicy) bool {
 		ptr.Equal(b.Port, other.Port) &&
 		protoconv.Equals(b.TLS, other.TLS) &&
 		protoconv.Equals(b.LoadBalancer, other.LoadBalancer) &&
-		protoconv.Equals(b.RetryBudget, other.RetryBudget)
+		protoconv.Equals(b.RetryBudget, other.RetryBudget) &&
+		slices.Equal(b.Gateways, other.Gateways)
 }
 
-// DestinationRuleCollection returns a collection of DestinationRule objects. These are built from a few different
-// policy types that are merged together.
+type DestinationRuleResult struct {
+	DestinationRules          krt.Collection[config.Config]
+	BackendClientCertificates krt.Collection[BackendCertificateAuthorization]
+}
+
+// DestinationRuleCollection returns DestinationRules and their derived backend certificate authorizations.
+// DestinationRules are built from a few different policy types that are merged together.
 func DestinationRuleCollection(
 	trafficPolicies krt.Collection[*gatewayx.XBackendTrafficPolicy],
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
 	backends krt.Collection[*gatewayx.XBackend],
 	ancestors krt.Index[TypedNamespacedName, AncestorBackend],
+	routeAttachments krt.Collection[RouteAttachment],
 	references *gatewaycommon.ReferenceSet,
 	domainSuffix string,
 	c *Controller,
 	services krt.Collection[*v1.Service],
 	opts krt.OptionsBuilder,
-) krt.Collection[config.Config] {
+) DestinationRuleResult {
 	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, domainSuffix, opts)
 	status.RegisterStatus(c.status, trafficPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
@@ -150,11 +175,16 @@ func DestinationRuleCollection(
 	// Gateway API community if having the Gateway as an ancestor ref is required or not; we would prefer it to not be if possible.
 	// Until conformance requires it, for now we skip it.
 	ancestorCollection := ancestors.AsCollection(append(opts.WithName("AncestorBackend"), TypedNamespacedNameIndexCollectionFunc)...)
+	routeAttachmentsBySource := krt.NewIndex(routeAttachments, "route-attachments-by-source", func(a RouteAttachment) []string {
+		return []string{kind.FromString(a.From.Kind.Kind).String() + "/" + a.From.Name.String()}
+	})
 	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, domainSuffix, opts)
 	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
-	backendResourceStatus, backendResourcePolicies := BackendResourcePolicyCollection(backends, ancestorCollection, references, opts)
+	backendResourceStatus, backendResourcePolicies := BackendResourcePolicyCollection(
+		backends, ancestorCollection, routeAttachmentsBySource, references, opts)
 	status.RegisterStatus(c.status, backendResourceStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+	backendClientCertificates := backendClientCertificateCollection(backendResourcePolicies, opts)
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection(
@@ -309,12 +339,41 @@ func DestinationRuleCollection(
 			}
 		}, opts.WithName("BackendPolicyMerged")...,
 	)
-	return merged
+	return DestinationRuleResult{
+		DestinationRules:          merged,
+		BackendClientCertificates: backendClientCertificates,
+	}
+}
+
+func backendClientCertificateCollection(
+	policies krt.Collection[BackendPolicy],
+	opts krt.OptionsBuilder,
+) krt.Collection[BackendCertificateAuthorization] {
+	return krt.NewManyCollection(
+		policies,
+		func(_ krt.HandlerContext, policy BackendPolicy) []BackendCertificateAuthorization {
+			if policy.TLS == nil ||
+				policy.TLS.Mode != networking.ClientTLSSettings_MUTUAL ||
+				!strings.HasPrefix(policy.TLS.CredentialName, credentials.KubernetesGatewaySecretType+"://") {
+				return nil
+			}
+			certificate := credentials.ToResourceName(policy.TLS.CredentialName)
+			return slices.Map(policy.Gateways, func(gateway types.NamespacedName) BackendCertificateAuthorization {
+				return BackendCertificateAuthorization{
+					Gateway:     gateway,
+					Certificate: certificate,
+					Source:      policy.Source,
+				}
+			})
+		},
+		opts.WithName("BackendClientCertificates")...,
+	)
 }
 
 func BackendResourcePolicyCollection(
 	backends krt.Collection[*gatewayx.XBackend],
 	ancestors krt.Collection[krt.IndexObject[TypedNamespacedName, AncestorBackend]],
+	routeAttachments krt.Index[string, RouteAttachment],
 	references *gatewaycommon.ReferenceSet,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gatewayx.XBackend, gatewayx.BackendStatus], krt.Collection[BackendPolicy]) {
@@ -339,6 +398,16 @@ func BackendResourcePolicyCollection(
 				NamespacedName: config.NamespacedName(i),
 				Kind:           kind.XBackend,
 			}
+			gateways := sets.New[types.NamespacedName]()
+			for _, ab := range krt.FetchIndexObjects(ctx, ancestors, self) {
+				attachments := routeAttachments.Fetch(ctx, ab.Source.String())
+				if slices.ContainsFunc(attachments, func(a RouteAttachment) bool {
+					return a.Gateway == ab.Gateway
+				}) {
+					gateways.Insert(ab.Gateway)
+				}
+			}
+			gwl := slices.SortBy(gateways.UnsortedList(), types.NamespacedName.String)
 
 			if i.Spec.Type != gatewayx.BackendTypeExternalHostname || i.Spec.ExternalHostname == nil {
 				conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
@@ -353,14 +422,10 @@ func BackendResourcePolicyCollection(
 					Port:         new(uint32(i.Spec.Port.Port)),
 					TLS:          tls,
 					CreationTime: i.CreationTimestamp.Time,
+					Gateways:     gwl,
 				})
 			}
 
-			gateways := sets.New[types.NamespacedName]()
-			for _, ab := range krt.FetchIndexObjects(ctx, ancestors, self) {
-				gateways.Insert(ab.Gateway)
-			}
-			gwl := slices.SortBy(gateways.UnsortedList(), types.NamespacedName.String)
 			ancestorStatus := make([]gatewayx.BackendAncestorStatus, 0, len(gwl)+1)
 			// We add a status for Backend (for mesh), and for each Gateway
 			meshPR := gw.ParentReference{
@@ -403,12 +468,7 @@ func backendResourceTLSSettings(
 
 	switch i.Spec.TLS.Mode {
 	case gatewayx.BackendTLSModeClientAndServer:
-		// TODO(ericdbishop): resolve mTLS support for backend TLS settings.
-		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
-			Reason:  string(gw.PolicyReasonInvalid),
-			Message: "unsupported ClientAndServer TLS mode: Istio does not support client certificates on backend",
-		}
-		return nil
+		mode = networking.ClientTLSSettings_MUTUAL
 	case gatewayx.BackendTLSModeServerOnly:
 	case gatewayx.BackendTLSModeNone:
 		return nil
@@ -437,7 +497,29 @@ func backendResourceTLSSettings(
 		// XBackend's validation field is optional, so Hostname may be unset.
 		tls.Sni = string(i.Spec.ExternalHostname.Hostname)
 	}
-	tls.CredentialName = getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
+
+	switch mode {
+	case networking.ClientTLSSettings_SIMPLE:
+		tls.CredentialName = getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
+	case networking.ClientTLSSettings_MUTUAL:
+		ref := i.Spec.TLS.ClientCertificateRef
+		credentialName := getBackendClientCertificateRefCredentialName(ctx, i.Namespace, conds, references, ref)
+		if credentialName == "" {
+			return nil
+		}
+		tls.CredentialName = credentialName
+
+		caCert := getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
+		if caCert == "" {
+			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+				Reason: string(gw.PolicyReasonInvalid),
+				Message: "Backend clientAndServer TLS requires validation.caCertificateRefs, " +
+					"wellKnownCACertificates is not supported for this mode.",
+			}
+			return nil
+		}
+		tls.CaCertCredentialName = caCert
+	}
 
 	return tls
 }
@@ -752,6 +834,75 @@ func getBackendTLSCredentialName(
 		return credentials.InvalidSecretTypeURI
 	}
 	return ""
+}
+
+// Derive client TLS credentialName from BackendTLS.ClientCertificateRef, when
+// using Backend's ClientAndServer mutual TLS mode.
+func getBackendClientCertificateRefCredentialName(
+	ctx krt.HandlerContext,
+	policyNamespace string,
+	conds map[string]*condition,
+	references *gatewaycommon.ReferenceSet,
+	clientCertificateRef *gw.SecretObjectReference,
+) string {
+	if clientCertificateRef == nil {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(gw.PolicyReasonInvalid),
+			Message: "clientCertificateRef is required for TLS mode: MUTUAL",
+		}
+		return ""
+	}
+
+	if gatewaycommon.NormalizeReference(clientCertificateRef.Group, clientCertificateRef.Kind, gvk.Secret) != gvk.Secret {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(gw.PolicyReasonInvalid),
+			Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", clientCertificateRef),
+		}
+		return ""
+	}
+
+	if clientCertificateRef.Namespace != nil && string(*clientCertificateRef.Namespace) != policyNamespace {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(gw.PolicyReasonInvalid),
+			Message: "clientCertificateRef only valid for same-namespace Backend, ReferenceGrant not supported",
+		}
+		return ""
+	}
+
+	obj, err := references.LocalPolicyRef(ctx, gw.LocalObjectReference{
+		Group: ptr.OrDefault(clientCertificateRef.Group, ""),
+		Kind:  ptr.OrDefault(clientCertificateRef.Kind, ""),
+		Name:  clientCertificateRef.Name,
+	}, policyNamespace)
+	if err != nil {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(InvalidClientCertificateRef),
+			Message: "clientCertificateRef not found: " + err.Error(),
+		}
+		return ""
+	}
+
+	scrt, ok := obj.(*corev1.Secret)
+	if !ok {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(InvalidClientCertificateRef),
+			Message: "clientCertificateRef invalid or not found",
+		}
+	}
+
+	certInfo, err := kubecreds.ExtractCertInfo(scrt)
+	if err == nil {
+		_, err = cryptotls.X509KeyPair(certInfo.Cert, certInfo.Key)
+	}
+	if err != nil {
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  InvalidClientCertificateRef,
+			Message: fmt.Sprintf("invalid clientCertificateRef %v, the certificate is malformed: %v", clientCertificateRef, err),
+		}
+		return ""
+	}
+
+	return credentials.ToKubernetesGatewayResource(policyNamespace, string(clientCertificateRef.Name))
 }
 
 func BackendTrafficPolicyCollection(
