@@ -385,6 +385,9 @@ type RouteOptions struct {
 	LookupService             func(name host.Name) *model.Service
 	LookupDestinationCluster  func(destination *networking.Destination, service *model.Service, listenerPort int) string
 	LookupHash                func(*networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB
+	// ConfigMetadata is shared by all routes generated from a VirtualService. Route metadata is immutable
+	// after generation, so building it once avoids allocating the same metadata map for every match.
+	ConfigMetadata *core.Metadata
 
 	InferencePoolExtensionRefs map[string]kube.InferencePoolRouteRuleConfig
 }
@@ -407,6 +410,10 @@ func BuildHTTPRoutesForVirtualService(
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
+	}
+
+	if opts.ConfigMetadata == nil {
+		opts.ConfigMetadata = util.BuildConfigInfoMetadata(virtualService.Meta)
 	}
 
 	out := make([]*route.Route, 0, len(vs.Http))
@@ -490,10 +497,15 @@ func TranslateRoute(
 		routeName = routeName + "." + match.Name
 	}
 
+	metadata := opts.ConfigMetadata
+	if metadata == nil {
+		// TranslateRoute is also used directly by waypoint listener generation.
+		metadata = util.BuildConfigInfoMetadata(virtualService.Meta)
+	}
 	out := &route.Route{
 		Name:     routeName,
 		Match:    TranslateRouteMatch(virtualService, match),
-		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
+		Metadata: metadata,
 	}
 
 	if match != nil && match.StatPrefix != "" {
