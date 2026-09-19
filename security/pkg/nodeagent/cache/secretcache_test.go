@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
@@ -132,6 +134,23 @@ func (u *UpdateTracker) Expect(want map[string]int) {
 		}
 		return nil
 	}, retry.Timeout(time.Second*10)) // Increased timeout for Linux file system event delays
+}
+
+// ExpectAtLeast waits until every resource in want has been notified at least the given number of
+// times, tolerating extra notifications. Use it instead of Expect when a single logical certificate
+// rotation legitimately produces a platform-dependent number of filesystem events.
+func (u *UpdateTracker) ExpectAtLeast(want map[string]int) {
+	u.t.Helper()
+	retry.UntilSuccessOrFail(u.t, func() error {
+		u.mu.Lock()
+		defer u.mu.Unlock()
+		for resource, count := range want {
+			if u.hits[resource] < count {
+				return fmt.Errorf("wanted at least %+v got %+v", want, u.hits)
+			}
+		}
+		return nil
+	}, retry.Timeout(time.Second*10))
 }
 
 func (u *UpdateTracker) Reset() {
@@ -926,6 +945,14 @@ func TestSymlinkSecrets(t *testing.T) {
 func runSymlinkAgentTest(t *testing.T, sds bool) {
 	// Log OS information for debugging CI issues
 
+	// This test asserts exact callback counts that are a property of the symlink-aware watcher (on
+	// macOS it expects the three events one AtomicWrite produces for a watched symlink target).
+	// DISABLE_CERT_SYMLINK_WATCHER falls back to a single watch per file, which collapses those to one
+	// push; the equivalent coverage for that mode is in the chained symlink rotation tests below.
+	if disableCertSymlinkWatcher {
+		t.Skip("exercises the symlink-aware watcher, which DISABLE_CERT_SYMLINK_WATCHER turns off")
+	}
+
 	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
@@ -1069,6 +1096,321 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 	checkSecret(t, sc, rootResource, security.SecretItem{
 		ResourceName: rootResource,
 		RootCert:     testcerts.CACert,
+	})
+}
+
+// chainedSymlinkCertLayout is a set of configured certificate paths that reach their real files
+// through one or more symlink hops, where the final directory is rotated with the Kubernetes
+// AtomicWriter pattern: stage a new timestamped directory, atomically re-point "..data" at it, delete
+// the previous one. hops counts the symlink files between the configured path and "..data":
+//
+//	hops=0  <certsDir>/cert-chain.pem -> ..data/cert-chain.pem -> ..2026_ts1/cert-chain.pem
+//	        A kubelet secret or configmap mount: the configured directory is the payload directory.
+//	hops=1  <certsDir>/cert-chain.pem -> <dataDir>/cert-chain.pem -> ..data/cert-chain.pem -> ...
+//	        A CSI driver publishing certificates outside the configured directory.
+//	hops=2  <certsDir>/cert-chain.pem -> <hop1>/cert-chain.pem -> <dataDir>/cert-chain.pem -> ...
+type chainedSymlinkCertLayout struct {
+	t        *testing.T
+	certsDir string // holds the configured paths, e.g. /etc/certs
+	dataDir  string // AtomicWriter-managed, e.g. /var/run/athenz; equals certsDir when hops == 0
+	prevTS   string
+
+	// Contents of the initially published payload, read from ./testdata.
+	certchain, privateKey, rootCert []byte
+}
+
+var chainedCertFiles = []string{"cert-chain.pem", "key.pem", "root-cert.pem"}
+
+// newChainedSymlinkCertLayout publishes an initial payload and builds the symlink chain over it.
+func newChainedSymlinkCertLayout(t *testing.T, hops int) *chainedSymlinkCertLayout {
+	t.Helper()
+	testDir := t.TempDir()
+	l := &chainedSymlinkCertLayout{t: t, certsDir: filepath.Join(testDir, "certs")}
+	l.dataDir = l.certsDir
+	if hops > 0 {
+		l.dataDir = filepath.Join(testDir, "data")
+	}
+	dirs := []string{l.certsDir, l.dataDir}
+	// Directories for the hops between the configured path and dataDir.
+	var hopDirs []string
+	for i := 1; i < hops; i++ {
+		d := filepath.Join(testDir, fmt.Sprintf("hop%d", i))
+		hopDirs = append(hopDirs, d)
+		dirs = append(dirs, d)
+	}
+	for _, d := range dirs {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var err error
+	if l.certchain, err = os.ReadFile(filepath.Join("./testdata", "cert-chain.pem")); err != nil {
+		t.Fatalf("Error reading the cert chain file: %v", err)
+	}
+	if l.privateKey, err = os.ReadFile(filepath.Join("./testdata", "key.pem")); err != nil {
+		t.Fatalf("Error reading the private key file: %v", err)
+	}
+	if l.rootCert, err = os.ReadFile(filepath.Join("./testdata", "root-cert.pem")); err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+	l.publish("..2026_ts1", l.certchain, l.privateKey, l.rootCert)
+
+	for _, f := range chainedCertFiles {
+		if err := os.Symlink(filepath.Join("..data", f), filepath.Join(l.dataDir, f)); err != nil {
+			t.Fatal(err)
+		}
+		if hops == 0 {
+			// certsDir is dataDir, so the link just created already is the configured path.
+			continue
+		}
+		// Link the hops back towards the configured path, innermost first.
+		target := filepath.Join(l.dataDir, f)
+		for i := len(hopDirs) - 1; i >= 0; i-- {
+			hop := filepath.Join(hopDirs[i], f)
+			if err := os.Symlink(target, hop); err != nil {
+				t.Fatal(err)
+			}
+			target = hop
+		}
+		if err := os.Symlink(target, l.certPath(f)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return l
+}
+
+// publish stages a new timestamped payload directory, atomically re-points "..data" at it and deletes
+// the previous one, exactly as the Kubernetes AtomicWriter does on every update.
+func (l *chainedSymlinkCertLayout) publish(ts string, cert, key, root []byte) {
+	l.t.Helper()
+	payload := filepath.Join(l.dataDir, ts)
+	if err := os.MkdirAll(payload, 0o755); err != nil {
+		l.t.Fatal(err)
+	}
+	for name, content := range map[string][]byte{
+		"cert-chain.pem": cert,
+		"key.pem":        key,
+		"root-cert.pem":  root,
+	} {
+		if err := os.WriteFile(filepath.Join(payload, name), content, 0o644); err != nil {
+			l.t.Fatal(err)
+		}
+	}
+	tmpLink := filepath.Join(l.dataDir, "..data_tmp")
+	if err := os.Symlink(ts, tmpLink); err != nil {
+		l.t.Fatal(err)
+	}
+	if err := os.Rename(tmpLink, filepath.Join(l.dataDir, "..data")); err != nil {
+		l.t.Fatal(err)
+	}
+	if l.prevTS != "" {
+		if err := os.RemoveAll(filepath.Join(l.dataDir, l.prevTS)); err != nil {
+			l.t.Fatal(err)
+		}
+	}
+	l.prevTS = ts
+}
+
+func (l *chainedSymlinkCertLayout) certPath(name string) string {
+	return filepath.Join(l.certsDir, name)
+}
+
+func (l *chainedSymlinkCertLayout) sdsConfig() security.SdsCertificateConfig {
+	return security.SdsCertificateConfig{
+		CertificatePath:   l.certPath("cert-chain.pem"),
+		PrivateKeyPath:    l.certPath("key.pem"),
+		CaCertificatePath: l.certPath("root-cert.pem"),
+	}
+}
+
+// assertWatching checks the exact set of paths the certificate watcher is watching.
+func assertWatching(t *testing.T, sc *SecretManagerClient, want ...string) {
+	t.Helper()
+	got := append([]string(nil), sc.certWatcher.WatchList()...)
+	slices.Sort(got)
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Fatalf("watching %v, want %v", got, want)
+	}
+}
+
+// runChainedSymlinkRotationTest verifies that two consecutive AtomicWriter rotations behind hops
+// symlink hops are both detected. It must be called with DISABLE_CERT_SYMLINK_WATCHER set.
+//
+// The flag reduces watching to a single watch per configured path. inotify follows the chain to the
+// file it resolves to, and because no directory is watched alongside it the IN_DELETE_SELF that the
+// rotation produces is delivered rather than suppressed. handleFileEvent pushes the resource and
+// drops its fileCerts entry, and the GenerateSecret the push provokes re-arms the watch on the newly
+// published file. Nothing in that loop depends on how deep the chain is.
+func runChainedSymlinkRotationTest(t *testing.T, hops int) {
+	t.Helper()
+	if !disableCertSymlinkWatcher {
+		t.Fatal("test requires DISABLE_CERT_SYMLINK_WATCHER")
+	}
+
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+
+	u := NewUpdateTracker(t)
+	sc := createCache(t, fakeCACli, u.Callback, security.Options{})
+
+	l := newChainedSymlinkCertLayout(t, hops)
+	sc.existingCertificateFile = l.sdsConfig()
+	workloadResource := security.WorkloadKeyCertResourceName
+	rootResource := security.RootCertReqResourceName
+	// The key is deliberately not watched; it cannot change without the cert changing.
+	watched := []string{l.certPath("cert-chain.pem"), l.certPath("root-cert.pem")}
+
+	// Generating the secrets is what arms the file watchers.
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: l.certchain,
+		PrivateKey:       l.privateKey,
+	})
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     l.rootCert,
+	})
+	// We shouldn't get any pushes; these only happen on changes.
+	u.Expect(map[string]int{})
+	u.Reset()
+	// Only the configured files are watched. No directory watch is what keeps the Remove coming.
+	assertWatching(t, sc, watched...)
+
+	for _, r := range []struct {
+		ts              string
+		cert, key, root []byte
+	}{
+		{"..2026_ts2", testcerts.RotatedCert, testcerts.RotatedKey, testcerts.CACert},
+		{"..2026_ts3", testcerts.ServerCert, testcerts.ServerKey, testcerts.CACert},
+	} {
+		t.Logf("rotating to %s", r.ts)
+		l.publish(r.ts, r.cert, r.key, r.root)
+		u.ExpectAtLeast(map[string]int{workloadResource: 1, rootResource: 1})
+		u.Reset()
+
+		// Re-fetching is what a proxy does when it receives the push, and it is also what re-arms the
+		// watch on the file the chain now resolves to. Without it the next rotation goes unnoticed.
+		checkSecret(t, sc, workloadResource, security.SecretItem{
+			ResourceName:     workloadResource,
+			CertificateChain: r.cert,
+			PrivateKey:       r.key,
+		})
+		checkSecret(t, sc, rootResource, security.SecretItem{
+			ResourceName: rootResource,
+			RootCert:     r.root,
+		})
+		assertWatching(t, sc, watched...)
+	}
+}
+
+// TestChainedSymlinkAtomicWriterRotation covers a configured certificate path that is a symlink whose
+// target lives in a *different* directory rotated with the Kubernetes AtomicWriter pattern, which is
+// what a CSI driver publishing certificates outside the configured directory produces. Two rotations
+// on purpose: the first is still reported by a coincidental inotify IN_ATTRIB on the dying inode even
+// without the fix, so only the second shows whether rotation detection is actually alive.
+func TestChainedSymlinkAtomicWriterRotation(t *testing.T) {
+	test.SetForTest(t, &disableCertSymlinkWatcher, true)
+	runChainedSymlinkRotationTest(t, 1)
+}
+
+// TestChainedSymlinkAtomicWriterRotationDeepChain is the same as TestChainedSymlinkAtomicWriterRotation
+// with an extra symlink hop, so the configured path resolves through two intermediate files before
+// reaching the AtomicWriter payload. Chain depth is invisible to the single watch that
+// DISABLE_CERT_SYMLINK_WATCHER falls back to, since inotify resolves the whole chain when the watch is
+// added.
+func TestChainedSymlinkAtomicWriterRotationDeepChain(t *testing.T) {
+	test.SetForTest(t, &disableCertSymlinkWatcher, true)
+	runChainedSymlinkRotationTest(t, 2)
+}
+
+// TestKubeletSecretMountRotationWithSymlinkWatcherDisabled pins that DISABLE_CERT_SYMLINK_WATCHER does
+// not regress the layout the symlink-aware watcher was written for: a plain kubelet secret mount,
+// where the "..data" swap happens in the configured directory itself.
+func TestKubeletSecretMountRotationWithSymlinkWatcherDisabled(t *testing.T) {
+	test.SetForTest(t, &disableCertSymlinkWatcher, true)
+	runChainedSymlinkRotationTest(t, 0)
+}
+
+// TestFileSecretsWithSymlinkWatcherDisabled runs the plain, non-symlinked file certificate flow with
+// DISABLE_CERT_SYMLINK_WATCHER set. Such paths already take the tryAddFileWatcher route, so this pins
+// that enabling the flag leaves the common case alone.
+func TestFileSecretsWithSymlinkWatcherDisabled(t *testing.T) {
+	test.SetForTest(t, &disableCertSymlinkWatcher, true)
+	runFileAgentTest(t, false)
+}
+
+// TestChainedSymlinkAtomicWriterRotationDefaultOff pins the default behavior: with
+// DISABLE_CERT_SYMLINK_WATCHER unset, the symlink-aware watcher of #57437 also watches the configured
+// directory, which makes fsnotify suppress the IN_DELETE_SELF of the deleted payload file ("the parent
+// will already send a delete" - but the parent cannot see a deletion in another directory). The entry
+// is therefore never cleaned up, never re-armed, and the second rotation is missed. This documents a
+// known limitation rather than desired behavior; it is what the agent does today.
+//
+// Linux only. The kqueue backend used on macOS/BSD re-arms a dead file watch by diffing the parent
+// directory, so it happens to report every rotation and the limitation is not observable there.
+func TestChainedSymlinkAtomicWriterRotationDefaultOff(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skipf("inotify-specific behavior, skipping on %s", runtime.GOOS)
+	}
+	if disableCertSymlinkWatcher {
+		t.Skip("DISABLE_CERT_SYMLINK_WATCHER is set in the environment")
+	}
+
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+
+	u := NewUpdateTracker(t)
+	sc := createCache(t, fakeCACli, u.Callback, security.Options{})
+
+	l := newChainedSymlinkCertLayout(t, 1)
+	sc.existingCertificateFile = l.sdsConfig()
+	workloadResource := security.WorkloadKeyCertResourceName
+	rootResource := security.RootCertReqResourceName
+
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: l.certchain,
+		PrivateKey:       l.privateKey,
+	})
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     l.rootCert,
+	})
+	u.Expect(map[string]int{})
+	u.Reset()
+	// The symlink-aware watcher also watches the configured directory. That is the watch whose presence
+	// makes fsnotify drop the delete notification for the payload file.
+	assertWatching(t, sc, l.certsDir, l.certPath("cert-chain.pem"), l.certPath("root-cert.pem"))
+
+	// First rotation is still reported, via the IN_ATTRIB emitted when the payload inode's link count
+	// drops just before it is unlinked. This is what makes the bug easy to miss with one rotation.
+	l.publish("..2026_ts2", testcerts.RotatedCert, testcerts.RotatedKey, testcerts.CACert)
+	u.ExpectAtLeast(map[string]int{workloadResource: 1, rootResource: 1})
+	u.Reset()
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: testcerts.RotatedCert,
+		PrivateKey:       testcerts.RotatedKey,
+	})
+
+	// Second rotation is missed. Wait well past the point where a live watch delivers - rotations are
+	// observed in milliseconds when the flag is set - then confirm no push ever arrived.
+	l.publish("..2026_ts3", testcerts.ServerCert, testcerts.ServerKey, testcerts.CACert)
+	time.Sleep(2 * time.Second)
+	u.Expect(map[string]int{})
+
+	// The certificate on disk did rotate, so only the notification was lost: a proxy keeps serving the
+	// previous certificate until something else makes it re-fetch.
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: testcerts.ServerCert,
+		PrivateKey:       testcerts.ServerKey,
 	})
 }
 
