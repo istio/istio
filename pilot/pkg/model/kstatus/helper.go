@@ -58,15 +58,14 @@ func RemoveCondition(conditions []metav1.Condition, condition string) []metav1.C
 
 // UpdateConditionIfChanged updates a condition if it has been changed.
 func UpdateConditionIfChanged(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
-	ret := slices.Clone(conditions)
-	existing := slices.FindFunc(ret, func(cond metav1.Condition) bool {
+	idx := slices.IndexFunc(conditions, func(cond metav1.Condition) bool {
 		return cond.Type == condition.Type
 	})
-	if existing == nil {
-		ret = append(ret, condition)
-		return ret
+	if idx == -1 {
+		return append(slices.Clone(conditions), condition)
 	}
 
+	existing := conditions[idx]
 	if existing.Status == condition.Status {
 		if existing.Message == condition.Message &&
 			existing.ObservedGeneration == condition.ObservedGeneration {
@@ -76,7 +75,8 @@ func UpdateConditionIfChanged(conditions []metav1.Condition, condition metav1.Co
 		// retain LastTransitionTime if status is not changed
 		condition.LastTransitionTime = existing.LastTransitionTime
 	}
-	*existing = condition
+	ret := slices.Clone(conditions)
+	ret[idx] = condition
 
 	return ret
 }
