@@ -297,6 +297,7 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 	http := &extauthzhttp.ExtAuthz{
 		StatusOnError:       status,
 		FailureModeAllow:    config.FailOpen,
+		ClearRouteCache:     config.ClearRouteCache,
 		TransportApiVersion: core.ApiVersion_V3,
 		Services: &extauthzhttp.ExtAuthz_HttpService{
 			HttpService: service,
@@ -328,6 +329,7 @@ func generateGRPCConfig(
 	http := &extauthzhttp.ExtAuthz{
 		StatusOnError:    status,
 		FailureModeAllow: config.FailOpen,
+		ClearRouteCache:  config.ClearRouteCache,
 		Services: &extauthzhttp.ExtAuthz_GrpcService{
 			GrpcService: grpc,
 		},
