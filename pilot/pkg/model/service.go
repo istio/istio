@@ -599,6 +599,10 @@ type IstioEndpoint struct {
 
 	// If in k8s, the node where the pod resides
 	NodeName string
+
+	// When true, ztunnel traffic interception is set up for the workload, so it supports
+	// receiving HBONE traffic
+	SupportsHBONE bool
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
