@@ -870,6 +870,35 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 	return l
 }
 
+func buildSetTLSFilterExchangeHTTPFilter() *hcm.HttpFilter {
+	setTLSFilterExchange := &sfs.Config{
+		OnRequestHeaders: []*sfsvalue.FilterStateValue{{
+			Key: &sfsvalue.FilterStateValue_ObjectKey{
+				ObjectKey: "istio.peer_metadata.enable_tls_filter_exchange",
+			},
+			FactoryKey: "envoy.bool",
+			Value: &sfsvalue.FilterStateValue_FormatString{
+				FormatString: &core.SubstitutionFormatString{
+					Format: &core.SubstitutionFormatString_TextFormatSource{
+						TextFormatSource: &core.DataSource{
+							Specifier: &core.DataSource_InlineString{
+								InlineString: "true",
+							},
+						},
+					},
+				},
+			},
+			SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+		}},
+	}
+	return &hcm.HttpFilter{
+		Name: "set_tls_filter_exchange",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(setTLSFilterExchange),
+		},
+	}
+}
+
 // buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.
 // Authn/authz filters are prepended. Telemetry filters are appended.
 func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*hcm.HttpFilter, post []*hcm.HttpFilter) {
@@ -888,6 +917,9 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 		model.ListenerInfo{Class: cls}.WithService(svc),
 		model.FilterChainTypeHTTP,
 	)
+	if features.EnableAmbientMultiNetwork && features.EnableAmbientTLSProxyHTTPMetrics {
+		pre = append(pre, buildSetTLSFilterExchangeHTTPFilter())
+	}
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	// TODO policies here will need to be different per-chain (service attached)
 	// If the waypoint has opted in via annotation, synthesize XFCC from the
