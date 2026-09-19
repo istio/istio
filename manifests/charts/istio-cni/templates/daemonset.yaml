@@ -65,6 +65,7 @@ spec:
         {{- if .Values.useAppArmorAnnotation }}
         container.apparmor.security.beta.kubernetes.io/install-cni: unconfined
         {{- end }}
+        checksum/cni-config: {{ include (print $.Template.BasePath "/configmap-cni.yaml") . | sha256sum }}
         # Custom annotations
         {{- if .Values.podAnnotations }}
 {{ toYaml .Values.podAnnotations | indent 8 }}
