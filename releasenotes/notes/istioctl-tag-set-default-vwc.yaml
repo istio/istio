@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** `istioctl tag set default` not deactivating the previous default revision's `ValidatingWebhookConfiguration`,
+    which could leave it validating (and, if the previous control plane was removed, failing closed) alongside the new
+    `istiod-default-validator`. This mirrors the deactivation already performed on the default revision's injection
+    `MutatingWebhookConfiguration`.
