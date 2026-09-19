@@ -571,7 +571,9 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 	if connTime != "" {
 		// handle workload leak when both workload/pilot down at the same time before pilot has a chance to set disconnTime
 		connAt, err := time.Parse(timeFormat, connTime)
-		if err == nil && uint64(time.Since(connAt)) > uint64(c.maxConnectionAge) {
+		// connAt can legitimately be in the future. It is written by whichever istiod owns the connection,
+		// so clock skew between instances (or a connection timestamp that has not been reached yet) makes time.Since() negative here.
+		if err == nil && time.Since(connAt) > c.maxConnectionAge {
 			return true
 		}
 		return false
