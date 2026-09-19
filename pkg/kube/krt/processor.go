@@ -170,14 +170,12 @@ func newProcessListener[O any](
 	upstreamSyncer Syncer,
 	stop <-chan struct{},
 ) *processorListener[O] {
-	bufferSize := 1024
 	ret := &processorListener[O]{
-		nextCh:               make(chan any),
-		addCh:                make(chan any),
-		stop:                 stop,
-		handler:              handler,
-		syncTracker:          &countingTracker{upstreamSyncer: upstreamSyncer, synced: make(chan struct{})},
-		pendingNotifications: *buffer.NewTypedRingGrowing[any](buffer.RingGrowingOptions{InitialSize: bufferSize}),
+		nextCh:      make(chan any),
+		addCh:       make(chan any),
+		stop:        stop,
+		handler:     handler,
+		syncTracker: &countingTracker{upstreamSyncer: upstreamSyncer, synced: make(chan struct{})},
 	}
 
 	return ret
