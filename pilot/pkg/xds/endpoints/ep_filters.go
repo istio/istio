@@ -85,6 +85,21 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 		scaleFactor = 1
 	}
 
+	// Create a map to keep track of the gateways used and their aggregate weights.
+	// The weights are aggregated across all locality groups: a gateway that proxies
+	// for endpoints spread over multiple localities must be emitted only once, with
+	// the total weight, because Envoy deduplicates endpoints by address within a
+	// cluster - it keeps the first copy and silently drops the weight of the others.
+	// Emitting one copy per locality collapses the effective remote weight to a
+	// single locality's endpoint count. See https://github.com/istio/istio/issues/56355.
+	gatewayWeights := make(map[model.NetworkGateway]uint32)
+
+	// The locality group each gateway endpoint will be emitted into: the first group
+	// that routed an endpoint through it. Locality groups arrive in deterministic
+	// (sorted) order, and this matches the copy Envoy previously kept implicitly via
+	// its dedup-keep-first behavior, so only the weight changes.
+	gatewayGroups := make(map[model.NetworkGateway]*LocalityEndpoints)
+
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
 	// iterating so that it can be used as the weight for the gateway endpoint
@@ -96,9 +111,6 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				// Endpoints and weight will be reset below.
 			},
 		}
-
-		// Create a map to keep track of the gateways used and their aggregate weights.
-		gatewayWeights := make(map[model.NetworkGateway]uint32)
 
 		// Process all the endpoints.
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
@@ -177,108 +189,121 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
+			// Remember which locality group each gateway endpoint will be emitted
+			// into: the first group that routes an endpoint through it.
+			for _, gw := range reachableGateways {
+				if _, found := gatewayGroups[gw]; !found {
+					gatewayGroups[gw] = lbEndpoints
+				}
+			}
+
 			// Apply the weight for this endpoint to the network gateways.
 			splitWeightAmongGateways(weight, reachableGateways, gatewayWeights)
-		}
-
-		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
-		gateways := maps.Keys(gatewayWeights)
-		gateways = model.SortGateways(gateways)
-
-		// Create endpoints for the gateways.
-		for _, gw := range gateways {
-			epWeight := gatewayWeights[gw]
-			if epWeight == 0 {
-				log.Warnf("gateway weight must be greater than 0, scaleFactor is %d", scaleFactor)
-				epWeight = 1
-			}
-			// Generate a fake IstioEndpoint to carry network and cluster information.
-			gwIstioEp := &model.IstioEndpoint{
-				Network: gw.Network,
-				Locality: model.Locality{
-					ClusterID: gw.Cluster,
-				},
-				Labels: labelutil.AugmentLabels(nil, gw.Cluster, "", "", gw.Network),
-			}
-
-			// Here we generate the EDS endpoint for the E/W gateways that replace the original endpoint.
-			// Depending on whether we operate in ambient mode or not, we generated endpoints for E/W
-			// gateways differently as we use somewhat different protocols in those two distinct cases.
-			var gwEp *endpoint.LbEndpoint
-
-			if features.EnableAmbientMultiNetwork && !isSidecarProxy(b.proxy) {
-				gwAddr := gw.Addr
-				gwPort := int(gw.HBONEPort)
-
-				addr := net.JoinHostPort(gwAddr, strconv.Itoa(gwPort))
-				svcPort := b.servicePort(b.port)
-
-				gwEp = &endpoint.LbEndpoint{
-					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-						Endpoint: &endpoint.Endpoint{
-							// We need to redirect to an internal listener that will tunnel the data through
-							// a double-HBONE, we still use the E/W gateway address though for the endpoint
-							// id.
-							Address: util.BuildInternalAddressWithIdentifier(innerConnectOriginate, addr),
-						},
-					},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: epWeight,
-					},
-					Metadata: &core.Metadata{},
-				}
-
-				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-				util.AppendLbEndpointMetadata(&model.EndpointMetadata{
-					Network: gw.Network,
-					// I don't think that TLSMode affects anythig downstream of this code anymore, but for ambient
-					// mode we do not rely on the legacy Istio mTLS, so I explicitly mark it as disabled.
-					TLSMode:   model.DisabledTLSModeLabel,
-					ClusterID: gw.Cluster,
-					Labels:    labels.Instance{},
-				}, gwEp.Metadata)
-
-				// We need to add original dst metadata key with the actual E/W gateway address that we will connect to
-				gwEp.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(gwAddr, gwPort, "")
-				// and we need the original service domain name and port that to put in the :authority of the HTTP2 CONNECT.
-				util.AppendDoubleHBONEMetadata(string(b.service.Hostname), svcPort.Port, gwEp.Metadata)
-				if b.dir != model.TrafficDirectionInboundVIP {
-					gwEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
-						},
-					}
-				}
-			} else {
-				epAddr := util.BuildAddress(gw.Addr, gw.Port)
-				gwEp = &endpoint.LbEndpoint{
-					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-						Endpoint: &endpoint.Endpoint{
-							Address: epAddr,
-						},
-					},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: epWeight,
-					},
-					Metadata: &core.Metadata{},
-				}
-
-				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-				util.AppendLbEndpointMetadata(&model.EndpointMetadata{
-					Network:   gw.Network,
-					TLSMode:   model.IstioMutualTLSModeLabel,
-					ClusterID: gw.Cluster,
-					Labels:    labels.Instance{},
-				}, gwEp.Metadata)
-			}
-
-			// Currently gateway endpoint does not support tunnel.
-			lbEndpoints.append(gwIstioEp, gwEp)
 		}
 
 		// Endpoint members could be stripped or aggregated by network. Adjust weight value here.
 		lbEndpoints.refreshWeight()
 		filtered = append(filtered, lbEndpoints)
+	}
+
+	// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
+	gateways := maps.Keys(gatewayWeights)
+	gateways = model.SortGateways(gateways)
+
+	// Create endpoints for the gateways, each emitted exactly once with its total
+	// weight aggregated across all locality groups (see comment on gatewayWeights).
+	for _, gw := range gateways {
+		epWeight := gatewayWeights[gw]
+		if epWeight == 0 {
+			log.Warnf("gateway weight must be greater than 0, scaleFactor is %d", scaleFactor)
+			epWeight = 1
+		}
+		// Generate a fake IstioEndpoint to carry network and cluster information.
+		gwIstioEp := &model.IstioEndpoint{
+			Network: gw.Network,
+			Locality: model.Locality{
+				ClusterID: gw.Cluster,
+			},
+			Labels: labelutil.AugmentLabels(nil, gw.Cluster, "", "", gw.Network),
+		}
+
+		// Here we generate the EDS endpoint for the E/W gateways that replace the original endpoint.
+		// Depending on whether we operate in ambient mode or not, we generated endpoints for E/W
+		// gateways differently as we use somewhat different protocols in those two distinct cases.
+		var gwEp *endpoint.LbEndpoint
+
+		if features.EnableAmbientMultiNetwork && !isSidecarProxy(b.proxy) {
+			gwAddr := gw.Addr
+			gwPort := int(gw.HBONEPort)
+
+			addr := net.JoinHostPort(gwAddr, strconv.Itoa(gwPort))
+			svcPort := b.servicePort(b.port)
+
+			gwEp = &endpoint.LbEndpoint{
+				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+					Endpoint: &endpoint.Endpoint{
+						// We need to redirect to an internal listener that will tunnel the data through
+						// a double-HBONE, we still use the E/W gateway address though for the endpoint
+						// id.
+						Address: util.BuildInternalAddressWithIdentifier(innerConnectOriginate, addr),
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: epWeight,
+				},
+				Metadata: &core.Metadata{},
+			}
+
+			// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
+			util.AppendLbEndpointMetadata(&model.EndpointMetadata{
+				Network: gw.Network,
+				// I don't think that TLSMode affects anythig downstream of this code anymore, but for ambient
+				// mode we do not rely on the legacy Istio mTLS, so I explicitly mark it as disabled.
+				TLSMode:   model.DisabledTLSModeLabel,
+				ClusterID: gw.Cluster,
+				Labels:    labels.Instance{},
+			}, gwEp.Metadata)
+
+			// We need to add original dst metadata key with the actual E/W gateway address that we will connect to
+			gwEp.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(gwAddr, gwPort, "")
+			// and we need the original service domain name and port that to put in the :authority of the HTTP2 CONNECT.
+			util.AppendDoubleHBONEMetadata(string(b.service.Hostname), svcPort.Port, gwEp.Metadata)
+			if b.dir != model.TrafficDirectionInboundVIP {
+				gwEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+					},
+				}
+			}
+		} else {
+			epAddr := util.BuildAddress(gw.Addr, gw.Port)
+			gwEp = &endpoint.LbEndpoint{
+				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: epAddr,
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: epWeight,
+				},
+				Metadata: &core.Metadata{},
+			}
+
+			// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
+			util.AppendLbEndpointMetadata(&model.EndpointMetadata{
+				Network:   gw.Network,
+				TLSMode:   model.IstioMutualTLSModeLabel,
+				ClusterID: gw.Cluster,
+				Labels:    labels.Instance{},
+			}, gwEp.Metadata)
+		}
+
+		// Currently gateway endpoint does not support tunnel.
+		// Append into the first locality group that routed through this gateway
+		// and refresh that group's aggregate weight.
+		group := gatewayGroups[gw]
+		group.append(gwIstioEp, gwEp)
+		group.refreshWeight()
 	}
 
 	return filtered
