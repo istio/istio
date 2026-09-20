@@ -1081,6 +1081,10 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions, trustDomain strin
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
+	if customTLSCertsExists && !hasCustomTLSCertArgs(tlsOptions) &&
+		checkPathsExist(constants.DefaultPilotTLSCaCert) {
+		caCertPath = constants.DefaultPilotTLSCaCert
+	}
 	peerCertVerifier := spiffe.NewPeerCertVerifier()
 	var rootCertBytes []byte
 	var err error
