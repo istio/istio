@@ -3,7 +3,7 @@ module istio.io/istio
 go 1.25.9
 
 require (
-	cloud.google.com/go/compute/metadata v0.9.0
+	cloud.google.com/go/compute/metadata v0.9.1
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 	github.com/KimMachineGun/automemlimit v1.0.0
 	github.com/Masterminds/semver/v3 v3.5.0
@@ -50,7 +50,7 @@ require (
 	github.com/miekg/dns v1.1.73
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/moby/buildkit v0.31.2
-	github.com/onsi/gomega v1.43.0
+	github.com/onsi/gomega v1.43.1
 	github.com/openshift/api v0.0.0-20260320151444-324a1bcb9f55
 	github.com/pires/go-proxyproto v0.15.0
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240409071808-615f978279ca
@@ -80,7 +80,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.opentelemetry.io/proto/otlp v1.11.0
-	go.uber.org/atomic v1.11.0
+	go.uber.org/atomic v1.12.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/net v0.58.0
 	golang.org/x/oauth2 v0.36.0
@@ -90,7 +90,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688
-	google.golang.org/grpc v1.83.2
+	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
@@ -119,7 +119,7 @@ require (
 
 require (
 	cel.dev/expr v0.25.2 // indirect
-	cloud.google.com/go/auth v0.18.2 // indirect
+	cloud.google.com/go/auth v0.20.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
@@ -170,8 +170,8 @@ require (
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.3.14 // indirect
-	github.com/googleapis/gax-go/v2 v2.18.0 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.3.15 // indirect
+	github.com/googleapis/gax-go/v2 v2.22.0 // indirect
 	github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
@@ -211,7 +211,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/spiffe/go-spiffe/v2 v2.7.0 // indirect
+	github.com/spiffe/go-spiffe/v2 v2.8.1 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -225,6 +225,7 @@ require (
 	golang.org/x/exp v0.0.0-20260603202125-055de637280b // indirect
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
+	google.golang.org/api v0.278.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/component-base v0.35.3 // indirect
