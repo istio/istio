@@ -25,7 +25,7 @@ data:
   {{- end }}
   ISTIO_OWNED_CNI_CONFIG: {{ .Values.istioOwnedCNIConfig | quote }}
   {{- if .Values.istioOwnedCNIConfig }}
-  ISTIO_OWNED_CNI_CONF_FILENAME: {{ .Values.istioOwnedCNIConfigFileName | quote }}
+  ISTIO_OWNED_CNI_CONFIG_FILENAME: {{ .Values.istioOwnedCNIConfigFileName | quote }}
   {{- end }}
   CHAINED_CNI_PLUGIN: {{ .Values.chained | quote }}
   EXCLUDE_NAMESPACES: "{{ range $idx, $ns := .Values.excludeNamespaces }}{{ if $idx }},{{ end }}{{ $ns }}{{ end }}"
