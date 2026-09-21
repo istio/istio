@@ -18,6 +18,7 @@ package ambient
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -46,6 +47,11 @@ const (
 // sidecar-client -> ambient-server mixed-mode path under continuous traffic during the client
 // restart.
 func TestEastWestServerFirst(t *testing.T) {
+	// FIXME (stevenjin8): we get random packet loss with calico. I need to investigate further, but fairly sure its not an istio issue.
+	// https://github.com/istio/istio/issues/61665
+	if os.Getenv("KUBERNETES_CNI") == "calico" {
+		t.Skip()
+	}
 	runMigrationTest(t, runEastWestServerFirstMigration)
 }
 
@@ -193,8 +199,11 @@ func runEastWestClientFirstMigration(ctx framework.TestContext, env *testEnv) {
 // eastWestTraffic returns a traffic.Config for east-west HTTP traffic from source to server.
 func eastWestTraffic(source echo.Caller, server echo.Instance) traffic.Config {
 	return migrationTrafficConfig(source, echo.CallOptions{
-		To:   server,
-		Port: echo.Port{Name: "http"},
+		To: server,
+		// Use service IP instead of DNS name to avoid failing the test on transient DNS resolution
+		// errors. The entire Istio data path is still being tested.
+		Address: server.Address(),
+		Port:    echo.Port{Name: "http"},
 	})
 }
 
@@ -202,10 +211,13 @@ func eastWestTraffic(source echo.Caller, server echo.Instance) traffic.Config {
 func verifyAmbient(ctx framework.TestContext, source echo.Caller, server echo.Instance) {
 	ctx.Helper()
 	if _, err := source.Call(echo.CallOptions{
-		To:    server,
-		Port:  echo.Port{Name: "http"},
-		Count: 1,
-		Check: check.And(check.OK(), IsL4()),
+		To: server,
+		// Use service IP instead of DNS name to avoid failing the test on transient DNS resolution
+		// errors. The entire Istio data path is still being tested.
+		Address: server.Address(),
+		Port:    echo.Port{Name: "http"},
+		Count:   1,
+		Check:   check.And(check.OK(), IsL4()),
 	}); err != nil {
 		ctx.Fatal(err)
 	}
@@ -359,7 +371,7 @@ func newTestEnv(ctx framework.TestContext) *testEnv {
 // modes. Permissive mode may briefly allow plain-text traffic during the ambient transition;
 // strict mode disallows plain-text entirely and may surface failures the permissive run hides.
 func runMigrationTest(t *testing.T, run func(framework.TestContext, *testEnv)) {
-	framework.NewTest(t).Run(func(ctx framework.TestContext) {
+	framework.NewMulticlusterTest(t).Run(func(ctx framework.TestContext) {
 		if ctx.Settings().AmbientMultiNetwork {
 			t.Skip("skipping cross-cluster test")
 		}

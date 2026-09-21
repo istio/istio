@@ -120,7 +120,7 @@ func TestMirroringExternalService(t *testing.T) {
 
 func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			for _, c := range options.cases {
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {

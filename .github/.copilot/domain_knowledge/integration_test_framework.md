@@ -42,6 +42,46 @@ framework.NewTest(t).
     })
 ```
 
+#### Classifying Integration-Test Coverage
+
+Istio's deployment and configuration models create a large test-coverage
+matrix. To keep presubmit CI efficient, use `framework.NewTest` by default for
+tests that should run in every applicable environment. The full applicable test
+suite runs in postsubmit.
+
+Use `framework.NewFullTest` for more involved coverage that is unlikely to be
+affected by the deployment model or configuration. In presubmit, `full` tests
+run only in the standard single-cluster IPv4 environment; nonstandard and
+multicluster targets exclude them. They run in every applicable environment in
+postsubmit:
+
+```go
+framework.NewFullTest(t).Run(func(ctx framework.TestContext) {
+    // Additional standard single-cluster coverage.
+})
+```
+
+Use `framework.NewMulticlusterTest` for a test that requires multiple clusters:
+
+```go
+framework.NewMulticlusterTest(t).Run(func(ctx framework.TestContext) {
+    // Multicluster-only coverage.
+})
+```
+
+When every test in a package has the same classification, apply the label to
+`framework.NewSuite` instead of each test. This lets the framework skip the
+costly suite setup when the selected target excludes that classification:
+
+```go
+func TestMain(m *testing.M) {
+    framework.NewSuite(m).
+        Label(label.Full).
+        Setup(mySetupFunction).
+        Run()
+}
+```
+
 #### Accessing Test Context
 
 ```go
@@ -206,7 +246,9 @@ This file should be updated as the test framework evolves and new patterns or ut
 ## Best Practices
 
 - Use labels to categorize and filter tests (e.g., `label.CustomSetup`, `label.Flaky`).
+- Use `NewTest` by default, `NewFullTest` for more involved coverage unlikely to vary by deployment model or configuration, and `NewMulticlusterTest` for multicluster-only coverage.
+- Put a classification label on a suite when it applies to the entire package, so excluded jobs avoid its setup cost.
 - Always clean up resources using `defer` or test context cleanup hooks.
 - Use the provided resource and environment abstractions instead of direct Kubernetes API calls.
-- Prefer `NewTest` and `NewSuite` for test and suite setup to ensure consistent lifecycle management.
+- Prefer the appropriate `New*Test` constructor and `NewSuite` for test and suite setup to ensure consistent lifecycle management.
 - Leverage the logging and telemetry integration for debugging and observability.

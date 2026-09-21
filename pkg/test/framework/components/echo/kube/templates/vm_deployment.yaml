@@ -28,10 +28,13 @@ spec:
       # for nameservers, search namespaces, etc. ndots is set to 1 so that
       # the application will first try to resolve the hostname (a, a.ns, etc.) as is
       # before attempting to add the search namespaces.
+      # nameserver is a loopback address with nothing on :53 so lookups fail fast instead
+      # of hanging on clusters without egress, which leaves envoy STRICT_DNS clusters warming.
+      # not 127.0.0.1: the pilot dns test uses it as a server that must not be captured.
       dnsPolicy: None
       dnsConfig:
         nameservers:
-        - "8.8.8.8"
+        - "127.0.0.2"
         options:
         - name: "ndots"
           value: "1"

@@ -60,7 +60,7 @@ func GetAdditionVMImages(t framework.TestContext) []string {
 
 func TestVmOSPost(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Label(label.Postsubmit).
 		Run(func(t framework.TestContext) {
 			if t.Settings().Skip(echo.VM) {
@@ -97,7 +97,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/33154")
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			if t.Settings().Skip(echo.VM) {

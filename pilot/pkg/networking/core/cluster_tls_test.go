@@ -33,6 +33,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -1483,6 +1484,84 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 		},
 		{
+			// BackendTLSPolicy sets invalid:// when its CA ref does not resolve. On a sidecar
+			// without a workload selector this must still build a validation context (pointing at
+			// the unservable invalid:// SDS resource) so the connection fails closed, rather than
+			// being short-circuited to no transport socket, which would send traffic in plaintext.
+			name: "tls mode SIMPLE, invalid:// on sidecar without selector fails closed",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+				CredentialName:  credentials.InvalidSecretTypeURI,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+								},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									// ToResourceName("invalid://"+"-cacert") == "invalid://"
+									Name:      credentials.InvalidSecretTypeURI,
+									SdsConfig: authn_model.SDSAdsConfig,
+								},
+							},
+						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		{
+			// Reference behavior: a gateway already fails closed for invalid://. Pin it so the
+			// sidecar fix cannot diverge and so a future refactor cannot regress the gateway path.
+			name: "tls mode SIMPLE, invalid:// on gateway fails closed",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+				CredentialName:  credentials.InvalidSecretTypeURI,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			router: true,
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+								},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name:      credentials.InvalidSecretTypeURI,
+									SdsConfig: authn_model.SDSAdsConfig,
+								},
+							},
+						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		{
 			name: "tls mode SIMPLE, CredentialName is set with proxy type Sidecar and destinationRule has workload Selector",
 			opts: &buildClusterOpts{
 				mutable:          newTestCluster(),
@@ -1743,7 +1822,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			} else {
 				proxy = newSidecarProxy()
 			}
-			cb := NewClusterBuilder(proxy, nil, model.DisabledCache{})
+			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: &model.PushContext{Mesh: &meshconfig.MeshConfig{}}}, model.DisabledCache{})
 			if tc.h2 {
 				setH2Options(tc.opts.mutable)
 			}
@@ -1955,7 +2034,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cb := NewClusterBuilder(tt.proxy, nil, nil)
+			cb := NewClusterBuilder(tt.proxy, &model.PushRequest{Push: &model.PushContext{Mesh: &meshconfig.MeshConfig{}}}, nil)
 			gotTLS, gotCtxType := cb.buildUpstreamTLSSettings(tt.tls, tt.sans, tt.sni, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)

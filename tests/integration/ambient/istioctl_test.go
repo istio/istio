@@ -34,7 +34,7 @@ import (
 )
 
 func TestZtunnelConfig(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			// Test setup
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})

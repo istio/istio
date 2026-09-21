@@ -64,8 +64,7 @@ var conformanceNamespaces = []string{
 
 var skippedTests = map[string]string{
 	// The following tests were added in v1.6.0
-	"GatewayInvalidParametersRef":        "TODO",
-	"GatewayListenerUnsupportedProtocol": "TODO",
+	"GatewayInvalidParametersRef": "TODO",
 }
 
 func TestGatewayConformanceAgentgateway(t *testing.T) {

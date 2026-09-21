@@ -81,7 +81,7 @@ func TestNormalization(t *testing.T) {
 		}
 		percentEncodedCases = append(percentEncodedCases, expect{in: input, out: output})
 	}
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			cases := []struct {
 				name         string

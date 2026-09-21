@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** `istioctl install --set` not supporting several Helm chart values that were
+    missing from the operator's `values_types.proto` schema. The following values can now
+    be set: `cni.terminationGracePeriodSeconds`, `cni.updateStrategy`,
+    `cni.seLinuxOptions`, `cni.tolerations`, `pilot.initContainers`, `pilot.pdb`,
+    `pilot.deploymentAnnotations`, `pilot.sidecarInjectorWebhookAnnotations`,
+    `pilot.trustedZtunnelName`, `global.proxy_init.forceApplyIptables` and
+    `global.waypoint.tolerations`.
