@@ -141,7 +141,7 @@ spec:
 // receives metrics from both containers via the pilot-agent's merged :15020
 // endpoint, even under STRICT mTLS where direct pod scraping is blocked.
 func TestMultiPortMetricsMerge(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace.Name()
 
@@ -180,7 +180,7 @@ func TestMultiPortMetricsMerge(t *testing.T) {
 // targets is unreachable the pilot-agent still serves metrics from the healthy
 // target and increments the AppScrapeErrors counter at least once.
 func TestMultiPortMetricsMergePartialFailure(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace.Name()
 

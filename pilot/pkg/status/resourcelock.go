@@ -80,6 +80,9 @@ func (wq *WorkQueue) Push(target Resource, ctl *Controller, progress any) {
 	wq.lock.Lock()
 	key := convert(target)
 	if item, inqueue := wq.cache[key]; inqueue {
+		// The object may have been updated since it was queued. Carry the newer resource forward,
+		// otherwise the worker compares a stale generation against the live object and drops the write.
+		item.cacheResource = target
 		item.perControllerStatus[ctl] = progress
 		wq.cache[key] = item
 	} else {

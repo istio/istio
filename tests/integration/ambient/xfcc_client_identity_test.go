@@ -41,7 +41,7 @@ const xfccClientIdentityAnnotation = "ambient.istio.io/xfcc-include-client-ident
 // x-forwarded-client-cert header populated from the ztunnel-provided source workload
 // SPIFFE identity. Without the annotation XFCC does not contain the client URI.
 func TestWaypointXFCCClientIdentity(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
@@ -102,7 +102,7 @@ func TestWaypointXFCCClientIdentity(t *testing.T) {
 // x-forwarded-client-cert header populated from the ztunnel-provided source workload
 // SPIFFE identity.
 func TestSidecarXFCCClientIdentity(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			if !dst.Config().HasSidecar() {
 				t.Skip("dst has no sidecar")

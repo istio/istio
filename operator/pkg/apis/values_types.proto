@@ -1454,6 +1454,10 @@ message BaseConfig {
 
   // validation webhook CA bundle
   string validationCABundle = 5;
+
+  // Failure policy for the validation webhook. Defaults to `Ignore` on install, and is
+  // left unset on upgrade so the value set at runtime by the webhook controller is kept.
+  string validationFailurePolicy = 7;
 }
 
 message IstiodRemoteConfig {

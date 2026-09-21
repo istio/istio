@@ -37,7 +37,7 @@ import (
 // Each case tests a different way of using local resources to reach remote destination(s).
 func TestWorkloadEntryGateway(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).
+	framework.NewMulticlusterTest(t).
 		RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)

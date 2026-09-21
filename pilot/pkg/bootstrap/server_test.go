@@ -268,6 +268,88 @@ func TestNewServerCertInit(t *testing.T) {
 	}
 }
 
+// TestHasCustomTLSCerts checks which CA cert path hasCustomTLSCerts picks. The co-located
+// tls/ca.crt must win over the separate ca/root-cert.pem when both exist, since the latter may
+// not match the serving cert's CA after switching to an external CA.
+func TestHasCustomTLSCerts(t *testing.T) {
+	writeFile := func(t *testing.T, path string, contents []byte) {
+		t.Helper()
+		assert.NoError(t, os.MkdirAll(filepath.Dir(path), os.ModePerm))
+		assert.NoError(t, os.WriteFile(path, contents, 0o644))
+	}
+
+	cases := []struct {
+		name          string
+		setup         func(t *testing.T)
+		tlsOptions    TLSOptions
+		expOk         bool
+		expCaCertPath string
+	}{
+		{
+			name: "tls args take priority",
+			setup: func(t *testing.T) {
+				writeFile(t, constants.DefaultPilotTLSCert, testcerts.ServerCert)
+				writeFile(t, constants.DefaultPilotTLSKey, testcerts.ServerKey)
+				writeFile(t, constants.DefaultPilotTLSCaCertAlternatePath, testcerts.CACert)
+			},
+			tlsOptions:    TLSOptions{CertFile: "/args/cert.pem", KeyFile: "/args/key.pem", CaCertFile: "/args/ca.pem"},
+			expOk:         true,
+			expCaCertPath: "/args/ca.pem",
+		},
+		{
+			name: "only separate ca/root-cert.pem present",
+			setup: func(t *testing.T) {
+				writeFile(t, constants.DefaultPilotTLSCert, testcerts.ServerCert)
+				writeFile(t, constants.DefaultPilotTLSKey, testcerts.ServerKey)
+				writeFile(t, constants.DefaultPilotTLSCaCert, testcerts.CACert)
+			},
+			expOk:         true,
+			expCaCertPath: constants.DefaultPilotTLSCaCert,
+		},
+		{
+			name: "only co-located tls/ca.crt present",
+			setup: func(t *testing.T) {
+				writeFile(t, constants.DefaultPilotTLSCert, testcerts.ServerCert)
+				writeFile(t, constants.DefaultPilotTLSKey, testcerts.ServerKey)
+				writeFile(t, constants.DefaultPilotTLSCaCertAlternatePath, testcerts.CACert)
+			},
+			expOk:         true,
+			expCaCertPath: constants.DefaultPilotTLSCaCertAlternatePath,
+		},
+		{
+			name: "both present: co-located tls/ca.crt wins over separate ca/root-cert.pem",
+			setup: func(t *testing.T) {
+				writeFile(t, constants.DefaultPilotTLSCert, testcerts.ServerCert)
+				writeFile(t, constants.DefaultPilotTLSKey, testcerts.ServerKey)
+				// old CA
+				writeFile(t, constants.DefaultPilotTLSCaCert, testcerts.CACert)
+				// current CA
+				writeFile(t, constants.DefaultPilotTLSCaCertAlternatePath, testcerts.RotatedCert)
+			},
+			expOk:         true,
+			expCaCertPath: constants.DefaultPilotTLSCaCertAlternatePath,
+		},
+		{
+			name:  "neither present",
+			setup: func(t *testing.T) {},
+			expOk: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.NoError(t, os.Chdir(t.TempDir()))
+			c.setup(t)
+
+			ok, _, _, caCertPath := hasCustomTLSCerts(c.tlsOptions)
+			assert.Equal(t, ok, c.expOk)
+			if c.expOk {
+				assert.Equal(t, caCertPath, c.expCaCertPath)
+			}
+		})
+	}
+}
+
 func TestReloadIstiodCert(t *testing.T) {
 	dir := t.TempDir()
 	stop := make(chan struct{})

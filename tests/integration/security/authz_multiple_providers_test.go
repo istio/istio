@@ -43,7 +43,7 @@ import (
 //   - Providers don't interfere with each other
 //   - Unmatched paths remain accessible
 func TestAuthz_MultipleCustomProviders_NonOverlapping(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			// Get available providers from both authz servers
 			allProviders := append(authzServer.Providers(), localAuthzServer.Providers()...)
@@ -216,7 +216,7 @@ func TestAuthz_MultipleCustomProviders_NonOverlapping(t *testing.T) {
 //   - If ANY provider denies: request is denied
 //   - Provider evaluation order: alphabetical by provider name
 func TestAuthz_MultipleCustomProviders_Overlapping(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			allProviders := append(authzServer.Providers(), localAuthzServer.Providers()...)
 			if len(allProviders) < 2 {
@@ -361,7 +361,7 @@ func TestAuthz_MultipleCustomProviders_Overlapping(t *testing.T) {
 // - The ordering is consistent across multiple builds
 // - Provider ordering affects the generated filter chain structure
 func TestAuthz_MultipleCustomProviders_ProviderOrdering(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			allProviders := append(authzServer.Providers(), localAuthzServer.Providers()...)
 			if len(allProviders) < 2 {
@@ -475,7 +475,7 @@ spec:
 //   - Provider-specific metadata prefixes in filter configuration
 //   - Alphabetical ordering of providers in filter chain
 func TestAuthz_MultipleCustomProviders_FilterChainVerification(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			allProviders := append(authzServer.Providers(), localAuthzServer.Providers()...)
 			if len(allProviders) < 2 {
@@ -588,7 +588,7 @@ func TestAuthz_MultipleCustomProviders_FilterChainVerification(t *testing.T) {
 //
 // This ensures fail-safe behavior and provider isolation.
 func TestAuthz_MultipleCustomProviders_MisconfiguredProvider(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			allProviders := append(authzServer.Providers(), localAuthzServer.Providers()...)
 			if len(allProviders) < 1 {
@@ -695,7 +695,7 @@ spec:
 // TestAuthz_MultipleCustomProviders_DryRunMixed tests the combination of dry-run and
 // enforce policies for the same provider.
 func TestAuthz_MultipleCustomProviders_DryRunMixed(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			// This test would require creating authorization policies with
 			// istio.io/dry-run annotation and testing the shadow rules behavior

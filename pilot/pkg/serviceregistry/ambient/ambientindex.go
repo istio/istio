@@ -836,7 +836,10 @@ func LookupNetworkGateway(
 	id network.ID,
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 ) []NetworkGateway {
-	return gatewaysByNetwork.Fetch(ctx, id)
+	res := gatewaysByNetwork.Fetch(ctx, id)
+	// index lookups iterate a map and callers take the first entry, so the order must be stable
+	slices.SortBy(res, NetworkGateway.ResourceName)
+	return res
 }
 
 func LookupAllNetworkGateway(

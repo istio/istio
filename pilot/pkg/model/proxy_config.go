@@ -52,7 +52,15 @@ func (p *ProxyConfigs) EffectiveProxyConfig(meta *NodeMetadata, mc *meshconfig.M
 		effectiveProxyConfig = mergeWithPrecedence(namespacedConfig, effectiveProxyConfig)
 	}
 
-	workloadConfig := p.mergedWorkloadConfig(meta.Namespace, meta.Labels)
+	// Workload ProxyConfigs in the root namespace apply to matching workloads across
+	// the mesh. A matching ProxyConfig in the workload's own namespace takes precedence.
+	workloadConfig := p.mergedWorkloadConfig(p.rootNamespace, meta.Labels)
+	if meta.Namespace != p.rootNamespace {
+		workloadConfig = mergeWithPrecedence(
+			p.mergedWorkloadConfig(meta.Namespace, meta.Labels),
+			workloadConfig,
+		)
+	}
 
 	// Check for proxy.istio.io/config annotation and merge it with lower priority than the
 	// workload-matching ProxyConfig CRs.

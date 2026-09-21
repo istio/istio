@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	testlabel "istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/tests/integration/pilot/common"
@@ -66,6 +67,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		Label(testlabel.Full).
 		RequireMinVersion(24).
 		RequireSingleCluster().
 		Setup(func(t resource.Context) error {

@@ -168,17 +168,24 @@ func TestServiceDiscoveryServices(t *testing.T) {
 			[]string{"172.217.0.1"}, "", "", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 	}
 
-	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
-
+	createConfigs([]*config.Config{httpDNS}, store, t)
 	expectEvents(
 		t, fx,
 		Event{Type: "xds", ID: "*.google.com"},
-		Event{Type: "xds", ID: "*.istio.io"},
-		Event{Type: "xds", ID: "tcpstatic.com"},
 		Event{Type: "service", ID: "*.google.com", Namespace: httpDNS.Namespace},
 		Event{Type: "eds", ID: "*.google.com", Namespace: httpDNS.Namespace},
+	)
+	createConfigs([]*config.Config{httpDNSRR}, store, t)
+	expectEvents(
+		t, fx,
+		Event{Type: "xds", ID: "*.istio.io"},
 		Event{Type: "service", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
 		Event{Type: "eds", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
+	)
+	createConfigs([]*config.Config{tcpStatic}, store, t)
+	expectEvents(
+		t, fx,
+		Event{Type: "xds", ID: "tcpstatic.com"},
 		Event{Type: "service", ID: "tcpstatic.com", Namespace: tcpStatic.Namespace},
 		Event{Type: "eds", ID: "tcpstatic.com", Namespace: tcpStatic.Namespace},
 	)
@@ -196,8 +203,9 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 
 	store, sd, fx := initServiceDiscovery(t)
 
-	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
+	createConfigs([]*config.Config{httpDNS}, store, t)
 	fx.WaitOrFail(t, "xds")
+	createConfigs([]*config.Config{tcpStatic}, store, t)
 	fx.WaitOrFail(t, "xds")
 	service := sd.GetService(host.Name(hostDNE))
 	if service != nil {
@@ -714,6 +722,29 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	expectServiceInstances(t, sd, se1, 0, expectedPrimary)
 	expectServiceInstances(t, sd, se2, 0, expectedPrimary)
 	expectServiceInstances(t, sd, otherNs, 0, otherNsExpected)
+}
+
+func TestEmptyWorkloadSelectorMatchesNoWorkloads(t *testing.T) {
+	store, sd, events := initServiceDiscovery(t)
+
+	se := selector.DeepCopy()
+	se.Name = "empty-selector"
+	se.Spec.(*networking.ServiceEntry).WorkloadSelector = &networking.WorkloadSelector{
+		Labels: map[string]string{},
+	}
+	wle := createWorkloadEntry("wl", se.Namespace, &networking.WorkloadEntry{
+		Address: "2.2.2.2",
+		Labels:  map[string]string{"app": "wle"},
+	})
+
+	createConfigs([]*config.Config{&se}, store, t)
+	expectEvents(t, events,
+		Event{Type: "service", ID: "selector.com", Namespace: se.Namespace},
+		Event{Type: "eds", ID: "selector.com", Namespace: se.Namespace},
+		Event{Type: "xds", ID: "selector.com"})
+
+	createConfigs([]*config.Config{wle}, store, t)
+	expectServiceInstances(t, sd, &se, 0, []*WorkloadServiceInstance{})
 }
 
 func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {

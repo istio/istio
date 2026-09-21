@@ -111,7 +111,12 @@ func WarmBase(ctx context.Context, architectures []string, baseImages ...string)
 				Architecture: b.arch,
 				OS:           "linux",
 			}
-			bi, err := remote.Image(ref, remote.WithPlatform(plat), remote.WithProgress(CreateProgress(fmt.Sprintf("base %v", ref))))
+			bi, err := remote.Image(
+				ref,
+				remote.WithAuthFromKeychain(authn.DefaultKeychain),
+				remote.WithPlatform(plat),
+				remote.WithProgress(CreateProgress(fmt.Sprintf("base %v", ref))),
+			)
 			if err != nil {
 				log.WithLabels("image", b).Warnf("base failed: %v", err)
 				return
@@ -175,6 +180,7 @@ func Build(ctx context.Context, b BuildSpec) error {
 			}
 			bi, err := remote.Image(
 				ref,
+				remote.WithAuthFromKeychain(authn.DefaultKeychain),
 				remote.WithPlatform(plat),
 				remote.WithProgress(CreateProgress(fmt.Sprintf("base %v", ref))),
 			)
