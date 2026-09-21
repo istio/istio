@@ -56,25 +56,93 @@ func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	}
 }
 
-// removeStaleIstioOwnedConfig removes an istio-owned CNI config file left behind
-// after a transition from istio-owned to not-istio-owned mode. It is a no-op when
-// istio-owned mode is active or the file does not exist. It must run before config
-// discovery, because the leftover file sorts to a high priority and would otherwise
-// be mistaken for the primary CNI config.
+// previousIstioOwnedMarkerPath returns the path of the marker file recording the
+// name of the istio-owned CNI config that was last written. It lives in the CNI
+// agent run dir (istio's private host rundir), not the shared CNI net dir.
+func previousIstioOwnedMarkerPath(cfg *config.InstallConfig) string {
+	return filepath.Join(cfg.CNIAgentRunDir, constants.IstioOwnedPreviousConfigFilename)
+}
+
+// readPreviousIstioOwnedMarker returns the istio-owned config name recorded in the
+// marker file, or "" if the marker is absent or unreadable.
+func readPreviousIstioOwnedMarker(cfg *config.InstallConfig) string {
+	b, err := os.ReadFile(previousIstioOwnedMarkerPath(cfg))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// writePreviousIstioOwnedMarker records name as the istio-owned config that was last written.
+func writePreviousIstioOwnedMarker(cfg *config.InstallConfig, name string) error {
+	return file.AtomicWrite(previousIstioOwnedMarkerPath(cfg), []byte(name), 0o644)
+}
+
+// removePreviousIstioOwnedMarker deletes the marker file.
+func removePreviousIstioOwnedMarker(cfg *config.InstallConfig) error {
+	if err := os.Remove(previousIstioOwnedMarkerPath(cfg)); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// removeStaleIstioOwnedConfig removes an istio-owned CNI config file that is no longer
+// the one istio should own, so it isn't mistaken for the primary CNI config (a leftover
+// file sorts to a high priority). It must run before config discovery.
+//
+// The previously-written istio-owned name is persisted in a marker file, so cleanup works
+// across restarts and regardless of mode: when the configured name changes, or when
+// istio-owned mode is disabled (currentName == ""), the old file is removed. The marker is
+// then updated to the current name, or deleted when no longer istio-owned.
+//
+// When no marker exists yet (e.g. a pod upgraded from a pre-marker istio-owned run), it
+// falls back to removing the default/configured-named file on the transition out of owned mode.
 func removeStaleIstioOwnedConfig(cfg *config.InstallConfig) error {
+	currentName := ""
 	if useIstioOwnedCNIConfig(cfg) {
+		currentName = cfg.IstioOwnedCNIConfigFilename
+		if len(currentName) == 0 {
+			currentName = constants.DefaultIstioOwnedCNIConfigFilename
+		}
+	}
+
+	previousName := readPreviousIstioOwnedMarker(cfg)
+
+	// Marker-driven cleanup: remove the previously-owned file whenever it differs from what
+	// istio should own now (a rename, or leaving owned mode entirely).
+	if previousName != "" && previousName != currentName {
+		if err := removeIstioOwnedFile(cfg, previousName); err != nil {
+			return err
+		}
+	}
+
+	// Backward-compat fallback: no marker recorded yet, so clean up the default/configured
+	// file when transitioning out of owned mode.
+	if previousName == "" && currentName == "" {
+		leftoverName := cfg.IstioOwnedCNIConfigFilename
+		if len(leftoverName) == 0 {
+			leftoverName = constants.DefaultIstioOwnedCNIConfigFilename
+		}
+		if err := removeIstioOwnedFile(cfg, leftoverName); err != nil {
+			return err
+		}
+	}
+
+	// Keep the marker in sync with what istio owns now.
+	if currentName != "" {
+		return writePreviousIstioOwnedMarker(cfg, currentName)
+	}
+	return removePreviousIstioOwnedMarker(cfg)
+}
+
+// removeIstioOwnedFile removes a named CNI config file from the shared CNI net dir if present.
+func removeIstioOwnedFile(cfg *config.InstallConfig, name string) error {
+	path := filepath.Join(cfg.MountedCNINetDir, name)
+	if !file.Exists(path) {
 		return nil
 	}
-	leftoverName := cfg.IstioOwnedCNIConfigFilename
-	if len(leftoverName) == 0 {
-		leftoverName = constants.DefaultIstioOwnedCNIConfigFilename
-	}
-	leftoverPath := filepath.Join(cfg.MountedCNINetDir, leftoverName)
-	if !file.Exists(leftoverPath) {
-		return nil
-	}
-	installLog.Infof("removing stale istio-owned CNI config from a previous istio-owned run: %s", leftoverPath)
-	if err := os.Remove(leftoverPath); err != nil && !os.IsNotExist(err) {
+	installLog.Infof("removing stale istio-owned CNI config from a previous istio-owned run: %s", path)
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil
