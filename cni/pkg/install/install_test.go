@@ -617,4 +617,81 @@ func TestRemoveStaleIstioOwnedConfig(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+
+	t.Run("records the owned config name in the marker", func(t *testing.T) {
+		netDir := t.TempDir()
+		runDir := t.TempDir()
+		cfg := &config.InstallConfig{
+			MountedCNINetDir:            netDir,
+			CNIAgentRunDir:              runDir,
+			ChainedCNIPlugin:            true,
+			AmbientEnabled:              true,
+			IstioOwnedCNIConfig:         true,
+			IstioOwnedCNIConfigFilename: "02-istio-cni.conflist",
+		}
+		if err := removeStaleIstioOwnedConfig(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if got := readPreviousIstioOwnedMarker(cfg); got != "02-istio-cni.conflist" {
+			t.Errorf("expected marker to record owned config name, got %q", got)
+		}
+	})
+
+	t.Run("removes previously-owned file when the configured name changes", func(t *testing.T) {
+		netDir := t.TempDir()
+		runDir := t.TempDir()
+		oldName := "01-istio-cni.conflist"
+		newName := "03-istio-cni.conflist"
+		oldFile := filepath.Join(netDir, oldName)
+		if err := os.WriteFile(oldFile, []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		writePreviousIstioOwnedMarker(&config.InstallConfig{CNIAgentRunDir: runDir}, oldName)
+
+		cfg := &config.InstallConfig{
+			MountedCNINetDir:            netDir,
+			CNIAgentRunDir:              runDir,
+			ChainedCNIPlugin:            true,
+			AmbientEnabled:              true,
+			IstioOwnedCNIConfig:         true,
+			IstioOwnedCNIConfigFilename: newName,
+		}
+		if err := removeStaleIstioOwnedConfig(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if file.Exists(oldFile) {
+			t.Errorf("expected previously-owned file %s to be removed", oldName)
+		}
+		if got := readPreviousIstioOwnedMarker(cfg); got != newName {
+			t.Errorf("expected marker to record %q, got %q", newName, got)
+		}
+	})
+
+	t.Run("removes previously-owned file when leaving istio-owned mode", func(t *testing.T) {
+		netDir := t.TempDir()
+		runDir := t.TempDir()
+		// Use a non-default name so removal must be driven by the marker, not the
+		// legacy default-name fallback.
+		oldName := "01-istio-cni.conflist"
+		oldFile := filepath.Join(netDir, oldName)
+		if err := os.WriteFile(oldFile, []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		writePreviousIstioOwnedMarker(&config.InstallConfig{CNIAgentRunDir: runDir}, oldName)
+
+		cfg := &config.InstallConfig{
+			MountedCNINetDir: netDir,
+			CNIAgentRunDir:   runDir,
+			ChainedCNIPlugin: true,
+		}
+		if err := removeStaleIstioOwnedConfig(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if file.Exists(oldFile) {
+			t.Errorf("expected previously-owned file %s to be removed when leaving owned mode", oldName)
+		}
+		if got := readPreviousIstioOwnedMarker(cfg); got != "" {
+			t.Errorf("expected marker to be cleared, got %q", got)
+		}
+	})
 }
