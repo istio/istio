@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -4404,6 +4405,7 @@ func TestResolveServiceAliases(t *testing.T) {
 		Aliases      host.Names
 		ExternalName string
 	}
+
 	tests := []struct {
 		name   string
 		input  []service
@@ -4489,6 +4491,308 @@ func TestResolveServiceAliases(t *testing.T) {
 				}
 			})
 			assert.Equal(t, tt.output, out)
+		})
+	}
+}
+
+func TestGatewayClientCertificateScope(t *testing.T) {
+	const resourceName = "kubernetes-gateway://credentials/client-cert"
+	parent := types.NamespacedName{Namespace: "gateway-ns", Name: "shared"}
+	manualParent := types.NamespacedName{Namespace: "gateway-ns", Name: "manual"}
+	ps := NewPushContext()
+	ps.gatewayIndex.parentGateways["gateway-ns/generated"] = parent
+	ps.gatewayIndex.parentGateways["gateway-ns/manual-generated"] = manualParent
+	ps.GatewayAPIController = FakeController{
+		GatewayIdentities: map[types.NamespacedName]string{
+			parent:       "gateway-sa",
+			manualParent: "",
+		},
+		ClientCertificates: map[types.NamespacedName]sets.String{
+			parent:       sets.New(resourceName),
+			manualParent: sets.New(resourceName),
+		},
+	}
+
+	tests := []struct {
+		name  string
+		proxy *Proxy
+		want  bool
+	}{
+		{
+			name: "router serving attached Gateway",
+			proxy: &Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "gateway-ns", ServiceAccount: "gateway-sa"},
+				MergedGateway: &MergedGateway{
+					GatewayNameForServer: map[*networking.Server]string{nil: "gateway-ns/generated"},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "managed waypoint for attached Gateway",
+			proxy: &Proxy{
+				ConfigNamespace:  "gateway-ns",
+				Labels:           map[string]string{"gateway.networking.k8s.io/gateway-name": "shared"},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "gateway-ns", ServiceAccount: "gateway-sa"},
+			},
+			want: true,
+		},
+		{
+			name: "unrelated Gateway",
+			proxy: &Proxy{
+				ConfigNamespace:  "gateway-ns",
+				Labels:           map[string]string{"gateway.networking.k8s.io/gateway-name": "other"},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "gateway-ns", ServiceAccount: "gateway-sa"},
+			},
+			want: false,
+		},
+		{
+			name: "label cannot impersonate Gateway service account",
+			proxy: &Proxy{
+				ConfigNamespace:  "gateway-ns",
+				Labels:           map[string]string{"gateway.networking.k8s.io/gateway-name": "shared"},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "gateway-ns", ServiceAccount: "other"},
+			},
+			want: false,
+		},
+		{
+			name: "label cannot impersonate unmanaged Gateway",
+			proxy: &Proxy{
+				ConfigNamespace:  "gateway-ns",
+				Labels:           map[string]string{"gateway.networking.k8s.io/gateway-name": "manual"},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "gateway-ns", ServiceAccount: "other"},
+			},
+			want: false,
+		},
+		{
+			name: "router serving unmanaged Gateway",
+			proxy: &Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "gateway-ns", ServiceAccount: "other"},
+				MergedGateway: &MergedGateway{
+					GatewayNameForServer: map[*networking.Server]string{nil: "gateway-ns/manual-generated"},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, ps.IsClientCertificateAuthorized(tt.proxy, resourceName))
+		})
+	}
+}
+
+func TestSidecarClientCertificateAuthorization(t *testing.T) {
+	const resourceName = "kubernetes-gateway://credentials/client-cert"
+	ruleName := types.NamespacedName{Namespace: "backend", Name: "xbackend-rule"}
+	ruleHost := host.Name("backend.example.com")
+	newScope := func(rules ...*ConsolidatedDestRule) *SidecarScope {
+		return &SidecarScope{
+			Namespace: "backend",
+			destinationRules: map[host.Name][]*ConsolidatedDestRule{
+				ruleHost: rules,
+			},
+		}
+	}
+	newRule := func(tls *networking.ClientTLSSettings) config.Config {
+		return config.Config{
+			Meta: config.Meta{Name: ruleName.Name, Namespace: ruleName.Namespace},
+			Spec: &networking.DestinationRule{
+				Host:          "backend.example.com",
+				TrafficPolicy: &networking.TrafficPolicy{Tls: tls},
+			},
+		}
+	}
+	controller := FakeController{
+		ClientCertificateScopesByResourceName: map[string][]DestinationRuleClientCertificateScope{
+			resourceName: {{
+				NamespacedName: ruleName,
+				Host:           string(ruleHost),
+			}},
+		},
+	}
+	certificateRule := newRule(&networking.ClientTLSSettings{
+		Mode:           networking.ClientTLSSettings_MUTUAL,
+		CredentialName: resourceName,
+	})
+	overriddenRule := newRule(nil)
+	selectedOverride := newRule(nil)
+	selectedOverride.Namespace = "backend"
+	selectedOverride.Spec.(*networking.DestinationRule).WorkloadSelector =
+		&selectorpb.WorkloadSelector{MatchLabels: map[string]string{"app": "selected"}}
+
+	tests := []struct {
+		name   string
+		scope  *SidecarScope
+		labels map[string]string
+		want   bool
+	}{
+		{
+			name: "effective DestinationRule uses certificate",
+			scope: newScope(&ConsolidatedDestRule{
+				rule: &certificateRule,
+				from: []types.NamespacedName{ruleName},
+			}),
+			want: true,
+		},
+		{
+			name:  "DestinationRule is not in sidecar scope",
+			scope: &SidecarScope{Namespace: "backend"},
+			want:  false,
+		},
+		{
+			name: "exported DestinationRule does not authorize a sidecar in another namespace",
+			scope: &SidecarScope{
+				Namespace: "gateway-ns",
+				destinationRules: map[host.Name][]*ConsolidatedDestRule{
+					ruleHost: {{
+						rule: &certificateRule,
+						from: []types.NamespacedName{ruleName},
+					}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "effective DestinationRule no longer uses certificate",
+			scope: newScope(&ConsolidatedDestRule{
+				rule: &overriddenRule,
+				from: []types.NamespacedName{ruleName},
+			}),
+			want: false,
+		},
+		{
+			name: "effective DestinationRule uses another certificate",
+			scope: func() *SidecarScope {
+				rule := newRule(&networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_MUTUAL,
+					CredentialName: "kubernetes-gateway://credentials/other",
+				})
+				return newScope(&ConsolidatedDestRule{
+					rule: &rule,
+					from: []types.NamespacedName{ruleName},
+				})
+			}(),
+			want: false,
+		},
+		{
+			name: "workload-selected override wins over catch-all XBackend rule",
+			scope: newScope(
+				&ConsolidatedDestRule{
+					rule: &selectedOverride,
+					from: []types.NamespacedName{{Namespace: "client", Name: "user-rule"}},
+				},
+				&ConsolidatedDestRule{
+					rule: &certificateRule,
+					from: []types.NamespacedName{ruleName},
+				},
+			),
+			labels: map[string]string{"app": "selected"},
+			want:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ps := NewPushContext()
+			ps.GatewayAPIController = controller
+			proxy := &Proxy{
+				Type:         SidecarProxy,
+				SidecarScope: tt.scope,
+				Labels:       tt.labels,
+			}
+			assert.Equal(t, tt.want, ps.IsClientCertificateAuthorized(proxy, resourceName))
+		})
+	}
+}
+
+func TestDestinationRuleClientCertificateHelpers(t *testing.T) {
+	const resourceName = "kubernetes-gateway://credentials/client-cert"
+	tls := &networking.ClientTLSSettings{
+		Mode:           networking.ClientTLSSettings_MUTUAL,
+		CredentialName: resourceName,
+	}
+	tests := []struct {
+		name string
+		rule *networking.DestinationRule
+		want bool
+	}{
+		{
+			name: "top-level TLS",
+			rule: &networking.DestinationRule{
+				TrafficPolicy: &networking.TrafficPolicy{Tls: tls},
+			},
+			want: true,
+		},
+		{
+			name: "port-level TLS",
+			rule: &networking.DestinationRule{
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{Tls: tls}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "subset TLS",
+			rule: &networking.DestinationRule{
+				Subsets: []*networking.Subset{{
+					TrafficPolicy: &networking.TrafficPolicy{Tls: tls},
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "simple TLS does not send a client certificate",
+			rule: &networking.DestinationRule{
+				TrafficPolicy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_SIMPLE,
+					CredentialName: resourceName,
+				}},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.Config{Spec: tt.rule}
+			assert.Equal(t, tt.want, destinationRuleUsesClientCertificate(&cfg, resourceName))
+		})
+	}
+
+}
+
+func TestKubernetesGatewayParent(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		want        types.NamespacedName
+	}{
+		{
+			name: "Gateway",
+			annotations: map[string]string{
+				constants.InternalParentNames: "Gateway/shared/http.gateway-ns",
+			},
+			want: types.NamespacedName{Namespace: "gateway-ns", Name: "shared"},
+		},
+		{
+			name: "ListenerSet",
+			annotations: map[string]string{
+				constants.InternalParentNames:   "ListenerSet/shared-listeners/http.listeners-ns",
+				constants.InternalGatewayParent: "gateway-ns/shared",
+			},
+			want: types.NamespacedName{Namespace: "gateway-ns", Name: "shared"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.Config{Meta: config.Meta{
+				Name:        "shared~istio-autogenerated-k8s-gateway~http",
+				Namespace:   "gateway-ns",
+				Annotations: tt.annotations,
+			}}
+			got, found := kubernetesGatewayParent(cfg)
+			assert.Equal(t, true, found)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

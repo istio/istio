@@ -92,9 +92,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: 'unsupported ClientAndServer TLS mode: Istio does not support client
-        certificates on backend'
-      reason: Invalid
+      message: 'clientCertificateRef not found: reference default/my-cert (of kind
+        Secret) not found'
+      reason: InvalidClientCertificateRef
       status: "False"
       type: Accepted
     - lastTransitionTime: fake

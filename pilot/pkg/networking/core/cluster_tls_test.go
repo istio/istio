@@ -1844,6 +1844,25 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 }
 
+func TestAuthorizedCredentialAllowsSelectorlessDestinationRule(t *testing.T) {
+	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
+	tlsSettings := &networking.ClientTLSSettings{
+		Mode:           networking.ClientTLSSettings_MUTUAL,
+		CredentialName: "kubernetes-gateway://backend/client-cert",
+	}
+
+	denied, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{mutable: newTestCluster()}, tlsSettings)
+	assert.NoError(t, err)
+	assert.Equal(t, denied == nil, true)
+
+	allowed, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{
+		mutable:                            newTestCluster(),
+		isSelectorlessCredentialAuthorized: true,
+	}, tlsSettings)
+	assert.NoError(t, err)
+	assert.Equal(t, allowed != nil, true)
+}
+
 func TestBuildAutoMtlsSettings(t *testing.T) {
 	tlsSettings := &networking.ClientTLSSettings{
 		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,

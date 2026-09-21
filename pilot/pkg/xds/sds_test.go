@@ -485,6 +485,43 @@ func TestCaching(t *testing.T) {
 	}
 }
 
+func TestAuthorizationChangeDenialReturnsEmptyResponse(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		KubernetesObjects: []runtime.Object{genericCert},
+		KubeClientModifier: func(c kube.Client) {
+			cc := c.Kube().(*fake.Clientset)
+			cc.Fake.PrependReactor("create", "subjectaccessreviews", func(k8stesting.Action) (bool, runtime.Object, error) {
+				return true, nil, errors.New("not authorized")
+			})
+		},
+	})
+	gen := s.Discovery.Generators[v3.SecretType]
+	proxy := s.SetupProxy(&model.Proxy{
+		Metadata:         &model.NodeMetadata{ClusterID: constants.DefaultClusterName},
+		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		Type:             model.Router,
+		ConfigNamespace:  "istio-system",
+	})
+
+	resources, _, err := gen.Generate(
+		proxy,
+		&model.WatchedResource{ResourceNames: sets.New("kubernetes://generic")},
+		&model.PushRequest{
+			Start: time.Now(),
+			ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind:      kind.DestinationRule,
+				Name:      "backend",
+				Namespace: "istio-system",
+			}),
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, len(resources), 0)
+	if resources == nil {
+		t.Fatal("authorization denial must return an empty response to remove a previously delivered secret")
+	}
+}
+
 func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	pkpProxy := &model.Proxy{
 		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},

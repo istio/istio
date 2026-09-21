@@ -245,6 +245,25 @@ func TestValidateK8sGateway(t *testing.T) {
 	}
 }
 
+func TestRejectInternalGatewayParentAnnotation(t *testing.T) {
+	_, err := ValidateGateway(config.Config{
+		Meta: config.Meta{
+			Name:      someName,
+			Namespace: someNamespace,
+			Annotations: map[string]string{
+				constants.InternalGatewayParent: "gateway-ns/gateway",
+			},
+		},
+		Spec: &networking.Gateway{
+			Servers: []*networking.Server{{
+				Hosts: []string{"example.com"},
+				Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+			}},
+		},
+	})
+	assert.Error(t, err)
+}
+
 func TestValidateServer(t *testing.T) {
 	tests := []struct {
 		name string

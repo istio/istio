@@ -24,7 +24,10 @@ import (
 
 type FakeController struct {
 	ConfigStoreController
-	GatewaysWithInferencePools sets.Set[types.NamespacedName]
+	GatewaysWithInferencePools            sets.Set[types.NamespacedName]
+	GatewayIdentities                     map[types.NamespacedName]string
+	ClientCertificates                    map[types.NamespacedName]sets.String
+	ClientCertificateScopesByResourceName map[string][]DestinationRuleClientCertificateScope
 }
 
 func (f FakeController) HasInferencePool(gw types.NamespacedName) bool {
@@ -32,6 +35,19 @@ func (f FakeController) HasInferencePool(gw types.NamespacedName) bool {
 }
 
 func (f FakeController) Reconcile(_ *PushContext) {}
+
+func (f FakeController) GatewayWorkloadIdentity(gateway types.NamespacedName) (string, string, bool) {
+	serviceAccount, found := f.GatewayIdentities[gateway]
+	return gateway.Namespace, serviceAccount, found
+}
+
+func (f FakeController) ClientCertificateAllowedForGateway(gateway types.NamespacedName, resourceName string) bool {
+	return f.ClientCertificates[gateway].Contains(resourceName)
+}
+
+func (f FakeController) DestinationRuleClientCertificateScopes(resourceName string) []DestinationRuleClientCertificateScope {
+	return f.ClientCertificateScopesByResourceName[resourceName]
+}
 
 // NOTE: To simplify test setup, if CredentialName contains 'allowed-ns', always return true.
 func (f FakeController) SecretAllowed(_ config.GroupVersionKind, resourceName string, namespace string) bool {

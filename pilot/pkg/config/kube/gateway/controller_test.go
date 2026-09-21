@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
@@ -27,10 +28,12 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -96,6 +99,20 @@ func setupControllerWithRevision(t *testing.T, revision string, objs ...runtime.
 	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 
 	return controller
+}
+
+func TestClientCertificateAuthorizationPushesAreForced(t *testing.T) {
+	gatewayUpdater := xdsfake.NewFakeXDS()
+	scope := GatewayClientCertificateScope{
+		Gateway: types.NamespacedName{Namespace: "default", Name: "gateway"},
+	}
+	pushGatewayClientCertificateScopes(gatewayUpdater)([]krt.Event[GatewayClientCertificateScope]{{
+		New:   &scope,
+		Event: controllers.EventAdd,
+	}})
+	event := <-gatewayUpdater.Events
+	assert.Equal(t, event.Type, "xds forced")
+	assert.Equal(t, event.ID, "gateway")
 }
 
 func TestListInvalidGroupVersionKind(t *testing.T) {
