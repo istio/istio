@@ -602,7 +602,7 @@ type IstioEndpoint struct {
 
 	// When true, ztunnel traffic interception is set up for the workload, so it supports
 	// receiving HBONE traffic
-	SupportsHBONE bool
+	CapturedByZtunnel bool
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {

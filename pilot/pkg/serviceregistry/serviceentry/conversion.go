@@ -485,7 +485,7 @@ func convertWorkloadEntryToWorkloadInstance(
 		locality = pm.SanitizeLocalityLabel(localityLabel)
 	}
 	lbls := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
-	supportsHBONE := meta.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
+	capturedByZtunnel := meta.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Addresses: []string{addr},
@@ -499,11 +499,11 @@ func convertWorkloadEntryToWorkloadInstance(
 			Namespace: meta.Namespace,
 			// Workload entry config name is used as workload name, which will appear in metric label.
 			// After VM auto registry is introduced, workload group annotation should be used for workload name.
-			WorkloadName:   labels.WorkloadNameFromWorkloadEntry(meta.Name, meta.Annotations, meta.Labels),
-			Labels:         lbls,
-			TLSMode:        tlsMode,
-			ServiceAccount: sa,
-			SupportsHBONE:  supportsHBONE,
+			WorkloadName:      labels.WorkloadNameFromWorkloadEntry(meta.Name, meta.Annotations, meta.Labels),
+			Labels:            lbls,
+			TLSMode:           tlsMode,
+			ServiceAccount:    sa,
+			CapturedByZtunnel: capturedByZtunnel,
 		},
 		PortMap:             we.Ports,
 		Namespace:           meta.Namespace,

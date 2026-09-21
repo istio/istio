@@ -871,8 +871,8 @@ func TestEndpointsByNetworkFilter_AmbientMultiNetwork(t *testing.T) {
 					// The endpoint supports both mTLS and HBONE, but sidecars
 					// should only use mTLS for cross-network traffic and not
 					// double-HBONE
-					SupportsHBONE: true,
-					TLSMode:       "istio",
+					CapturedByZtunnel: true,
+					TLSMode:           "istio",
 				},
 				{
 					// The endpoint does not advertise either HBONE or mTLS, it
@@ -998,7 +998,7 @@ func TestEndpointsByNetworkFilter_AmbientMultiNetwork(t *testing.T) {
 					Addresses: []string{"20.0.0.3"},
 					// This is a different way to indicate that endpoint supports HBONE,
 					// compared to the tunnel label above.
-					SupportsHBONE: true,
+					CapturedByZtunnel: true,
 				},
 				{
 					// This endpoint does not indicate support for either mTLS or HBONE,

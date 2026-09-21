@@ -939,7 +939,7 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 		return true
 	}
 
-	return e.SupportsHBONE
+	return e.CapturedByZtunnel
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(
