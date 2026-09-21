@@ -435,7 +435,7 @@ func TestReconcileInferencePoolDeletesShadowServiceBeforeServiceCacheSync(t *tes
 	assert.NoError(t, err)
 	pool := NewInferencePool(poolName, InNamespace(namespace))
 	pool.UID = poolUID
-	client := kube.NewFakeClient(pool, managedShadowServiceForTest(serviceName, poolName, namespace, poolUID))
+	client := kube.NewFakeClient(pool, managedShadowServiceForTest(serviceName, pool))
 	stop := test.NewStop(t)
 	client.RunAndWait(stop)
 	_, err = client.Kube().CoreV1().Services(namespace).Get(t.Context(), serviceName, metav1.GetOptions{})
@@ -470,7 +470,7 @@ func TestReconcileInferencePoolDoesNotDeleteShadowServiceOnStartup(t *testing.T)
 	controller := setupController(t,
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}},
 		pool,
-		managedShadowServiceForTest(serviceName, poolName, namespace, poolUID),
+		managedShadowServiceForTest(serviceName, pool),
 	)
 
 	_, err = controller.client.Kube().CoreV1().Services(namespace).
@@ -485,9 +485,11 @@ func TestReconcileInferencePoolDoesNotDeleteShadowServiceWhenFeatureDisabled(t *
 	namespace := "default"
 	serviceName, err := InferencePoolServiceName(poolName)
 	assert.NoError(t, err)
+	pool := NewInferencePool(poolName, InNamespace(namespace))
+	pool.UID = types.UID("pool-uid")
 	controller := setupController(t,
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}},
-		managedShadowServiceForTest(serviceName, poolName, namespace, types.UID("pool-uid")),
+		managedShadowServiceForTest(serviceName, pool),
 	)
 
 	_, err = controller.client.Kube().CoreV1().Services(namespace).
@@ -506,7 +508,7 @@ func TestReconcileInferencePoolDoesNotDeleteShadowServiceAfterRevisionHandoff(t 
 	pool := NewInferencePool(poolName, InNamespace(namespace))
 	pool.UID = poolUID
 	pool.Labels = map[string]string{label.IoIstioRev.Name: "canary"}
-	service := managedShadowServiceForTest(serviceName, poolName, namespace, poolUID)
+	service := managedShadowServiceForTest(serviceName, pool)
 	controller := setupControllerWithRevision(t, "stable",
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}},
 		pool,
@@ -571,16 +573,16 @@ func TestCanDeleteShadowServiceForInference(t *testing.T) {
 	}
 }
 
-func managedShadowServiceForTest(serviceName, poolName, namespace string, poolUID types.UID) *corev1.Service {
+func managedShadowServiceForTest(serviceName string, pool *inferencev1.InferencePool) *corev1.Service {
 	return &corev1.Service{ObjectMeta: metav1.ObjectMeta{
-		Name: serviceName, Namespace: namespace, UID: types.UID("service-uid"), ResourceVersion: "1",
+		Name: serviceName, Namespace: pool.Namespace, UID: types.UID("service-uid"), ResourceVersion: "1",
 		Labels: map[string]string{
-			InferencePoolRefLabel:              poolName,
+			InferencePoolRefLabel:              pool.Name,
 			constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
 		},
 		OwnerReferences: []metav1.OwnerReference{{
 			APIVersion: gvk.InferencePool.GroupVersion(), Kind: gvk.InferencePool.Kind,
-			Name: poolName, UID: poolUID,
+			Name: pool.Name, UID: pool.UID,
 		}},
 	}}
 }
