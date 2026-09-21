@@ -606,9 +606,14 @@ func (c *Controller) reconcileShadowService(
 			if err != nil {
 				return err
 			}
-			existingService := ptr.Flatten(servicesCollection.GetKey(key.Namespace + "/" + serviceName))
-			if existingService == nil {
+			// The Service informer may not have observed a newly created shadow service yet.
+			existingService, err := kubeClient.Kube().CoreV1().Services(key.Namespace).
+				Get(context.Background(), serviceName, metav1.GetOptions{})
+			if apierrors.IsNotFound(err) {
 				return nil
+			}
+			if err != nil {
+				return err
 			}
 			canManage, reason := c.canDeleteShadowServiceForInference(existingService, key.Name, request.poolUID)
 			if !canManage {

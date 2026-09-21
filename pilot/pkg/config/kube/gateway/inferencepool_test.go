@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,12 +25,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes/fake"
+	clienttesting "k8s.io/client-go/testing"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
@@ -364,12 +368,13 @@ func TestReconcileInferencePoolDeletesShadowServiceAfterLastRoute(t *testing.T) 
 		WithBackendRef(pool.Name, pool.Namespace),
 	)
 	secondRoute := NewHTTPRoute("second-route", InNamespace("default"),
-		WithParentRefAndStatus("test-gateway", "default", "istio.io/gateway-controller"),
+		WithParentRefAndStatus("second-gateway", "default", "istio.io/gateway-controller"),
 		WithBackendRef(pool.Name, pool.Namespace),
 	)
 	controller := setupController(t,
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}},
 		NewGateway("test-gateway", InNamespace("default"), WithGatewayClass("istio")),
+		NewGateway("second-gateway", InNamespace("default"), WithGatewayClass("istio")),
 		route,
 		secondRoute,
 		pool,
@@ -377,20 +382,42 @@ func TestReconcileInferencePoolDeletesShadowServiceAfterLastRoute(t *testing.T) 
 
 	serviceName, err := InferencePoolServiceName(pool.Name)
 	assert.NoError(t, err)
+	assert.EventuallyEqual(t, func() int {
+		if p := controller.outputs.InferencePools.GetKey(pool.Namespace + "/" + pool.Name); p != nil {
+			return len(p.gatewayParents)
+		}
+		return 0
+	}, 2)
 	assert.EventuallyEqual(t, func() bool {
 		_, err := controller.client.Kube().CoreV1().Services(pool.Namespace).
 			Get(t.Context(), serviceName, metav1.GetOptions{})
 		return err == nil
 	}, true)
+	client := controller.client.Kube().(*fake.Clientset)
+	var deletingLastRoute atomic.Bool
+	client.Lock()
+	client.PrependReactor("delete", "services", func(clienttesting.Action) (bool, runtime.Object, error) {
+		if !deletingLastRoute.Load() || controller.outputs.InferencePools.GetKey(pool.Namespace+"/"+pool.Name) != nil {
+			t.Error("shadow service was deleted while a route still referenced the pool")
+		}
+		return false, nil, nil
+	})
+	client.Unlock()
 
 	assert.NoError(t, controller.client.GatewayAPI().GatewayV1().HTTPRoutes(route.Namespace).
 		Delete(t.Context(), route.Name, metav1.DeleteOptions{}))
+	// Wait for the derived pool to reflect the route deletion before checking the service.
 	assert.EventuallyEqual(t, func() bool {
-		_, err := controller.client.Kube().CoreV1().Services(pool.Namespace).
-			Get(t.Context(), serviceName, metav1.GetOptions{})
-		return err == nil
+		p := controller.outputs.InferencePools.GetKey(pool.Namespace + "/" + pool.Name)
+		return p != nil && len(p.gatewayParents) == 1 && p.gatewayParents.Contains(types.NamespacedName{
+			Namespace: pool.Namespace, Name: "second-gateway",
+		})
 	}, true)
+	_, err = controller.client.Kube().CoreV1().Services(pool.Namespace).
+		Get(t.Context(), serviceName, metav1.GetOptions{})
+	assert.NoError(t, err)
 
+	deletingLastRoute.Store(true)
 	assert.NoError(t, controller.client.GatewayAPI().GatewayV1().HTTPRoutes(secondRoute.Namespace).
 		Delete(t.Context(), secondRoute.Name, metav1.DeleteOptions{}))
 	assert.EventuallyEqual(t, func() bool {
@@ -398,6 +425,34 @@ func TestReconcileInferencePoolDeletesShadowServiceAfterLastRoute(t *testing.T) 
 			Get(t.Context(), serviceName, metav1.GetOptions{})
 		return apierrors.IsNotFound(err)
 	}, true)
+}
+
+func TestReconcileInferencePoolDeletesShadowServiceBeforeServiceCacheSync(t *testing.T) {
+	poolName := "test-pool"
+	namespace := "default"
+	poolUID := types.UID("pool-uid")
+	serviceName, err := InferencePoolServiceName(poolName)
+	assert.NoError(t, err)
+	pool := NewInferencePool(poolName, InNamespace(namespace))
+	pool.UID = poolUID
+	client := kube.NewFakeClient(pool, managedShadowServiceForTest(serviceName, poolName, namespace, poolUID))
+	stop := test.NewStop(t)
+	client.RunAndWait(stop)
+	_, err = client.Kube().CoreV1().Services(namespace).Get(t.Context(), serviceName, metav1.GetOptions{})
+	assert.NoError(t, err)
+
+	// The pool has lost its last route, but the Service informer has not observed the shadow service yet.
+	opts := krt.NewOptionsBuilder(stop, "test", nil)
+	pools := krt.NewStaticCollection[InferencePool](nil, nil, opts.WithName("InferencePools")...)
+	services := krt.NewStaticCollection[*corev1.Service](nil, nil, opts.WithName("Services")...)
+	reconcile := (&Controller{}).reconcileShadowService(client, pools, services)
+	assert.NoError(t, reconcile(shadowServiceReconcileRequest{
+		key:     types.NamespacedName{Namespace: namespace, Name: poolName},
+		delete:  true,
+		poolUID: poolUID,
+	}))
+	_, err = client.Kube().CoreV1().Services(namespace).Get(t.Context(), serviceName, metav1.GetOptions{})
+	assert.Equal(t, apierrors.IsNotFound(err), true)
 }
 
 func TestReconcileInferencePoolDoesNotDeleteShadowServiceOnStartup(t *testing.T) {
