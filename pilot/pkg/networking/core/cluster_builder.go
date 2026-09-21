@@ -328,7 +328,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 		destinationRule := CastDestinationRule(destRule)
 		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
 	}
-	opts.isBackendClientCertificate = cb.backendClientCertificateAllowed(opts.policy.GetTls().GetCredentialName())
+	opts.isSelectorlessCredentialAuthorized = cb.selectorlessCredentialAuthorized(opts.policy.GetTls().GetCredentialName())
 	// Apply traffic policy for the subset cluster.
 	cb.applyTrafficPolicy(service, opts)
 
@@ -383,7 +383,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	if destRule != nil {
 		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
 	}
-	opts.isBackendClientCertificate = cb.backendClientCertificateAllowed(opts.policy.GetTls().GetCredentialName())
+	opts.isSelectorlessCredentialAuthorized = cb.selectorlessCredentialAuthorized(opts.policy.GetTls().GetCredentialName())
 	// Apply traffic policy for the main default cluster.
 	cb.applyTrafficPolicy(service, opts)
 
@@ -429,17 +429,13 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	return subsetClusters
 }
 
-func (cb *ClusterBuilder) backendClientCertificateAllowed(resourceName string) bool {
+func (cb *ClusterBuilder) selectorlessCredentialAuthorized(resourceName string) bool {
 	if resourceName == "" || cb.req == nil || cb.req.Push == nil || cb.proxyType != model.SidecarProxy {
 		return false
 	}
-	// XBackend certificates are intentionally usable from selector-less generated
-	// DestinationRules, but only when the same sidecar-scoped check also authorizes SDS.
-	return cb.req.Push.IsBackendClientCertificateForProxy(&model.Proxy{
-		Type:         cb.proxyType,
-		SidecarScope: cb.sidecarScope,
-		Labels:       cb.proxyLabels,
-	}, resourceName)
+	// Trusted generated policies may intentionally be selector-less. Use the same
+	// sidecar-scoped authorization as SDS rather than recognizing their API source here.
+	return cb.req.Push.IsClientCertificateAuthorizedForSidecar(cb.sidecarScope, cb.proxyLabels, resourceName)
 }
 
 func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {

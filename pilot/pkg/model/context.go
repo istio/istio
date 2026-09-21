@@ -1140,13 +1140,13 @@ type GatewayController interface {
 	SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool
 	// GatewayWorkloadIdentity returns the namespace and service account allowed to implement a Kubernetes Gateway.
 	GatewayWorkloadIdentity(types.NamespacedName) (string, string, bool)
-	// BackendClientCertificateAllowed reports whether a Gateway may use an upstream client certificate.
-	BackendClientCertificateAllowed(types.NamespacedName, string) bool
-	// BackendClientCertificateDestinationRules returns synthesized DestinationRules that use an upstream client certificate.
-	BackendClientCertificateDestinationRules(string) []BackendClientCertificateDestinationRule
+	// ClientCertificateAllowedForGateway reports whether a Gateway may use an upstream client certificate.
+	ClientCertificateAllowedForGateway(gateway types.NamespacedName, resourceName string) bool
+	// DestinationRuleClientCertificateScopes returns trusted DestinationRules that use a client certificate.
+	DestinationRuleClientCertificateScopes(resourceName string) []DestinationRuleClientCertificateScope
 }
 
-type BackendClientCertificateDestinationRule struct {
+type DestinationRuleClientCertificateScope struct {
 	types.NamespacedName
 	Host string
 }

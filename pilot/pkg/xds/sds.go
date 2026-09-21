@@ -285,11 +285,10 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, p
 			// This means a Secret in the same namespace as the Gateway (which also must be in the same namespace
 			// as the proxy), or a ReferencePolicy allowing the reference.
 			//
-			// VerifiedCertificateReferences only covers gateway serving
-			// certificates: Upstream client certificates, such as an XBackend
-			// tls.clientCertificateRef, are authorized separately for the Gateway
-			// workload implementing the attached XBackend.
-			if verified || (push != nil && push.IsBackendClientCertificateForProxy(proxy, r.ResourceName)) {
+			// VerifiedCertificateReferences only covers Gateway serving certificates.
+			// Generated upstream client-certificate policies are authorized separately
+			// for the workload that consumes them.
+			if verified || (push != nil && push.IsClientCertificateAuthorized(proxy, r.ResourceName)) {
 				allowedResources = append(allowedResources, r)
 			} else {
 				deniedResources = append(deniedResources, r.Name)

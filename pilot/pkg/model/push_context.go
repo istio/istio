@@ -2133,13 +2133,14 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	ps.destinationRuleIndex.rootNamespaceLocal = rootNamespaceLocalDestRules
 }
 
-// IsBackendClientCertificateForProxy reports whether an XBackend makes resourceName available to proxy.
-// Sidecars are scoped by their effective DestinationRules; Gateway workloads are scoped by accepted Route attachments.
-func (ps *PushContext) IsBackendClientCertificateForProxy(proxy *Proxy, resourceName string) bool {
+// IsClientCertificateAuthorized reports whether a proxy may receive an upstream client certificate.
+// Sidecars are scoped by trusted destination policies; Gateway workloads use explicit Gateway authorizations.
+func (ps *PushContext) IsClientCertificateAuthorized(proxy *Proxy, resourceName string) bool {
 	if proxy == nil {
 		return false
 	}
-	if ps.sidecarCanUseBackendClientCertificate(proxy, resourceName) {
+	if proxy.Type == SidecarProxy &&
+		ps.IsClientCertificateAuthorizedForSidecar(proxy.SidecarScope, labels.Instance(proxy.Labels), resourceName) {
 		return true
 	}
 	gateways := sets.New[types.NamespacedName]()
@@ -2159,22 +2160,28 @@ func (ps *PushContext) IsBackendClientCertificateForProxy(proxy *Proxy, resource
 		}
 	}
 	for gateway := range gateways {
-		if ps.GatewayAPIController.BackendClientCertificateAllowed(gateway, resourceName) {
+		if ps.GatewayAPIController.ClientCertificateAllowedForGateway(gateway, resourceName) {
 			return true
 		}
 	}
 	return false
 }
 
-func (ps *PushContext) sidecarCanUseBackendClientCertificate(proxy *Proxy, resourceName string) bool {
-	if proxy.Type != SidecarProxy || proxy.SidecarScope == nil || ps.GatewayAPIController == nil {
+// IsClientCertificateAuthorizedForSidecar checks whether the sidecar's selected destination policy
+// is a trusted producer of resourceName. It accepts only the inputs used by DestinationRule selection.
+func (ps *PushContext) IsClientCertificateAuthorizedForSidecar(
+	scope *SidecarScope,
+	workloadLabels labels.Instance,
+	resourceName string,
+) bool {
+	if scope == nil || ps.GatewayAPIController == nil {
 		return false
 	}
-	for _, candidate := range ps.GatewayAPIController.BackendClientCertificateDestinationRules(resourceName) {
+	for _, candidate := range ps.GatewayAPIController.DestinationRuleClientCertificateScopes(resourceName) {
 		// Use the same workload-selector resolution as cluster generation, then verify
 		// the selected consolidated rule still contains the synthesized source.
-		rule := proxy.SidecarScope.DestinationRuleForSource(
-			TrafficDirectionOutbound, proxy, host.Name(candidate.Host), candidate.NamespacedName)
+		rule := scope.DestinationRuleForSource(
+			TrafficDirectionOutbound, workloadLabels, host.Name(candidate.Host), candidate.NamespacedName)
 		if destinationRuleUsesClientCertificate(rule, resourceName) {
 			return true
 		}

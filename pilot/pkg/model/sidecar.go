@@ -711,6 +711,14 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigHash) {
 
 // DestinationRule returns a destinationrule for a svc.
 func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy, svc host.Name) *ConsolidatedDestRule {
+	return sc.destinationRule(direction, labels.Instance(proxy.Labels), svc)
+}
+
+func (sc *SidecarScope) destinationRule(
+	direction TrafficDirection,
+	workloadLabels labels.Instance,
+	svc host.Name,
+) *ConsolidatedDestRule {
 	destinationRules := sc.destinationRules[svc]
 	var catchAllDr *ConsolidatedDestRule
 	for _, destRule := range destinationRules {
@@ -725,7 +733,7 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 			destinationRule.GetWorkloadSelector() != nil && direction == TrafficDirectionOutbound {
 			workloadSelector := labels.Instance(destinationRule.GetWorkloadSelector().GetMatchLabels())
 			// return destination rule if workload selector matches
-			if workloadSelector.SubsetOf(proxy.Labels) {
+			if workloadSelector.SubsetOf(workloadLabels) {
 				return destRule
 			}
 		}
@@ -750,11 +758,11 @@ func (sc *SidecarScope) DestinationRuleConfig(direction TrafficDirection, proxy 
 // Consolidated rules retain all source names in `from`, including synthesized backend-policy rules.
 func (sc *SidecarScope) DestinationRuleForSource(
 	direction TrafficDirection,
-	proxy *Proxy,
+	workloadLabels labels.Instance,
 	svc host.Name,
 	source types.NamespacedName,
 ) *config.Config {
-	cdr := sc.DestinationRule(direction, proxy, svc)
+	cdr := sc.destinationRule(direction, workloadLabels, svc)
 	if cdr == nil || !slices.Contains(cdr.from, source) {
 		return nil
 	}

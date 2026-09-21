@@ -90,26 +90,42 @@ type BackendPolicy struct {
 	Gateways     []types.NamespacedName
 }
 
-// BackendClientCertificateReference describes where an XBackend client certificate is used.
-// Gateways authorize Gateway workloads directly, while DestinationRule scopes ordinary sidecar access.
-type BackendClientCertificateReference struct {
+// DestinationRuleClientCertificateScope identifies a generated DestinationRule that may distribute a client certificate.
+// Source keeps independently generated policies distinct through their update and deletion lifecycle.
+type DestinationRuleClientCertificateScope struct {
 	Source          TypedNamespacedName
 	Certificate     string
 	DestinationRule types.NamespacedName
 	Host            string
-	Gateways        []types.NamespacedName
 }
 
-func (r BackendClientCertificateReference) ResourceName() string {
+func (r DestinationRuleClientCertificateScope) ResourceName() string {
 	return r.Source.String() + "|" + r.DestinationRule.String() + "|" + r.Certificate
 }
 
-func (r BackendClientCertificateReference) Equals(other BackendClientCertificateReference) bool {
+func (r DestinationRuleClientCertificateScope) Equals(other DestinationRuleClientCertificateScope) bool {
 	return r.Source == other.Source &&
 		r.Certificate == other.Certificate &&
 		r.DestinationRule == other.DestinationRule &&
-		r.Host == other.Host &&
-		slices.Equal(r.Gateways, other.Gateways)
+		r.Host == other.Host
+}
+
+// GatewayClientCertificateScope identifies a Gateway within which a client certificate may be distributed.
+// Keeping this independent of destination policy makes the scope reusable for Gateway-owned credentials.
+type GatewayClientCertificateScope struct {
+	Source      TypedNamespacedName
+	Gateway     types.NamespacedName
+	Certificate string
+}
+
+func (r GatewayClientCertificateScope) ResourceName() string {
+	return r.Source.String() + "|" + r.Gateway.String() + "|" + r.Certificate
+}
+
+func (r GatewayClientCertificateScope) Equals(other GatewayClientCertificateScope) bool {
+	return r.Source == other.Source &&
+		r.Gateway == other.Gateway &&
+		r.Certificate == other.Certificate
 }
 
 func (b BackendPolicy) ResourceName() string {
@@ -158,8 +174,9 @@ func (b BackendPolicy) Equals(other BackendPolicy) bool {
 }
 
 type DestinationRuleResult struct {
-	DestinationRules                   krt.Collection[config.Config]
-	BackendClientCertificateReferences krt.Collection[BackendClientCertificateReference]
+	DestinationRules                       krt.Collection[config.Config]
+	DestinationRuleClientCertificateScopes krt.Collection[DestinationRuleClientCertificateScope]
+	GatewayClientCertificateScopes         krt.Collection[GatewayClientCertificateScope]
 }
 
 // DestinationRuleCollection returns DestinationRules and their derived backend certificate authorizations.
@@ -192,7 +209,8 @@ func DestinationRuleCollection(
 	backendResourceStatus, backendResourcePolicies := BackendResourcePolicyCollection(
 		backends, ancestorCollection, routeAttachmentsBySource, references, opts)
 	status.RegisterStatus(c.status, backendResourceStatus, GetStatus, c.tagWatcher.AccessUnprotected())
-	backendClientCertificateReferences := backendClientCertificateReferenceCollection(backendResourcePolicies, opts)
+	destinationRuleClientCertificateScopes := destinationRuleClientCertificateScopeCollection(backendResourcePolicies, opts)
+	gatewayClientCertificateScopes := gatewayClientCertificateScopeCollection(backendResourcePolicies, opts)
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection(
@@ -348,36 +366,62 @@ func DestinationRuleCollection(
 		}, opts.WithName("BackendPolicyMerged")...,
 	)
 	return DestinationRuleResult{
-		DestinationRules:                   merged,
-		BackendClientCertificateReferences: backendClientCertificateReferences,
+		DestinationRules:                       merged,
+		DestinationRuleClientCertificateScopes: destinationRuleClientCertificateScopes,
+		GatewayClientCertificateScopes:         gatewayClientCertificateScopes,
 	}
 }
 
-func backendClientCertificateReferenceCollection(
+func destinationRuleClientCertificateScopeCollection(
 	policies krt.Collection[BackendPolicy],
 	opts krt.OptionsBuilder,
-) krt.Collection[BackendClientCertificateReference] {
+) krt.Collection[DestinationRuleClientCertificateScope] {
 	return krt.NewManyCollection(
 		policies,
-		func(_ krt.HandlerContext, policy BackendPolicy) []BackendClientCertificateReference {
-			if policy.TLS == nil ||
-				policy.TLS.Mode != networking.ClientTLSSettings_MUTUAL ||
-				!strings.HasPrefix(policy.TLS.CredentialName, credentials.KubernetesGatewaySecretType+"://") {
+		func(_ krt.HandlerContext, policy BackendPolicy) []DestinationRuleClientCertificateScope {
+			if !policyUsesUpstreamClientCertificate(policy) {
 				return nil
 			}
-			return []BackendClientCertificateReference{{
+			return []DestinationRuleClientCertificateScope{{
 				Source:      policy.Source,
 				Certificate: credentials.ToResourceName(policy.TLS.CredentialName),
 				DestinationRule: types.NamespacedName{
 					Namespace: policy.Target.Namespace,
 					Name:      generateDRName(policy.Target, policy.Host),
 				},
-				Host:     policy.Host,
-				Gateways: slices.Clone(policy.Gateways),
+				Host: policy.Host,
 			}}
 		},
-		opts.WithName("BackendClientCertificateReferences")...,
+		opts.WithName("DestinationRuleClientCertificateScopes")...,
 	)
+}
+
+func gatewayClientCertificateScopeCollection(
+	policies krt.Collection[BackendPolicy],
+	opts krt.OptionsBuilder,
+) krt.Collection[GatewayClientCertificateScope] {
+	return krt.NewManyCollection(
+		policies,
+		func(_ krt.HandlerContext, policy BackendPolicy) []GatewayClientCertificateScope {
+			if !policyUsesUpstreamClientCertificate(policy) {
+				return nil
+			}
+			return slices.Map(policy.Gateways, func(gateway types.NamespacedName) GatewayClientCertificateScope {
+				return GatewayClientCertificateScope{
+					Source:      policy.Source,
+					Gateway:     gateway,
+					Certificate: credentials.ToResourceName(policy.TLS.CredentialName),
+				}
+			})
+		},
+		opts.WithName("XBackendGatewayClientCertificateScopes")...,
+	)
+}
+
+func policyUsesUpstreamClientCertificate(policy BackendPolicy) bool {
+	return policy.TLS != nil &&
+		policy.TLS.Mode == networking.ClientTLSSettings_MUTUAL &&
+		strings.HasPrefix(policy.TLS.CredentialName, credentials.KubernetesGatewaySecretType+"://")
 }
 
 func BackendResourcePolicyCollection(
