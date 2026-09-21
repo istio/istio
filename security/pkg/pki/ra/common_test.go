@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/url"
 	"testing"
+	"time"
 
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -205,4 +206,90 @@ func TestCompareCSRs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPreSignTTLCap(t *testing.T) {
+	opts := &IstioRAOptions{
+		DefaultCertTTL: 24 * time.Hour,
+		MaxCertTTL:     90 * 24 * time.Hour,
+	}
+
+	cases := []struct {
+		name             string
+		maxClientCertTTL time.Duration
+		requested        time.Duration
+		wantErr          bool
+		wantTTL          time.Duration
+	}{
+		{
+			name:      "zero requested uses default",
+			requested: 0,
+			wantTTL:   24 * time.Hour,
+		},
+		{
+			name:      "below default cap accepted",
+			requested: 24 * time.Hour,
+			wantTTL:   24 * time.Hour,
+		},
+		{
+			name:      "at default cap (48h) accepted",
+			requested: 48 * time.Hour,
+			wantTTL:   48 * time.Hour,
+		},
+		{
+			name:      "above default cap rejected",
+			requested: 72 * time.Hour,
+			wantErr:   true,
+		},
+		{
+			name:             "custom cap respected when set",
+			maxClientCertTTL: 12 * time.Hour,
+			requested:        24 * time.Hour,
+			wantErr:          true,
+		},
+		{
+			name:             "custom cap allows request below it",
+			maxClientCertTTL: 72 * time.Hour,
+			requested:        60 * time.Hour,
+			wantTTL:          60 * time.Hour,
+		},
+		{
+			name:             "custom cap bounded by MaxCertTTL",
+			maxClientCertTTL: 200 * 24 * time.Hour,
+			requested:        91 * 24 * time.Hour,
+			wantErr:          true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			o := *opts
+			o.MaxClientCertTTL = tc.maxClientCertTTL
+			ttl, err := preSign(&o, validCSRPEM(t), []string{testPreSignIdentity}, tc.requested, false)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error but got TTL %s", ttl)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+			if tc.wantTTL != 0 && ttl != tc.wantTTL {
+				t.Errorf("expected TTL %s, got %s", tc.wantTTL, ttl)
+			}
+		})
+	}
+}
+
+const testPreSignIdentity = "spiffe://cluster.local/ns/default/sa/bookinfo-productpage"
+
+func validCSRPEM(t *testing.T) []byte {
+	t.Helper()
+	csrPEM, _, err := util.GenCSR(util.CertOptions{Host: testPreSignIdentity, RSAKeySize: 2048})
+	if err != nil {
+		t.Fatalf("GenCSR: %v", err)
+	}
+	return csrPEM
 }
