@@ -243,6 +243,9 @@ func DestinationRuleCollection(
 			spec := &networking.DestinationRule{
 				Host:          host,
 				TrafficPolicy: &networking.TrafficPolicy{},
+				// XBackend is consumer-owned. Keep its connection policy in the
+				// consumer namespace and namespaces of Gateways that actually use it.
+				ExportTo: backendPolicyExportTo(targetWithHost.Target, pols),
 			}
 			portLevelSettings := make(map[string]*networking.TrafficPolicy_PortTrafficPolicy)
 			numberedPortSettings := make(map[uint32]*networking.TrafficPolicy_PortTrafficPolicy)
@@ -370,6 +373,21 @@ func DestinationRuleCollection(
 		DestinationRuleClientCertificateScopes: destinationRuleClientCertificateScopes,
 		GatewayClientCertificateScopes:         gatewayClientCertificateScopes,
 	}
+}
+
+func backendPolicyExportTo(target TypedNamespacedName, policies []BackendPolicy) []string {
+	if target.Kind != kind.XBackend {
+		return nil
+	}
+	exportTo := sets.New(".")
+	for _, policy := range policies {
+		for _, gateway := range policy.Gateways {
+			if gateway.Namespace != target.Namespace {
+				exportTo.Insert(gateway.Namespace)
+			}
+		}
+	}
+	return sets.SortedList(exportTo)
 }
 
 func destinationRuleClientCertificateScopeCollection(

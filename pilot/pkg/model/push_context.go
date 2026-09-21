@@ -2178,6 +2178,11 @@ func (ps *PushContext) IsClientCertificateAuthorizedForSidecar(
 		return false
 	}
 	for _, candidate := range ps.GatewayAPIController.DestinationRuleClientCertificateScopes(resourceName) {
+		// A Backend is consumer-owned, so DestinationRule visibility in an attached
+		// Gateway's namespace does not grant ordinary sidecars access to its identity.
+		if scope.Namespace != candidate.Namespace {
+			continue
+		}
 		// Use the same workload-selector resolution as cluster generation, then verify
 		// the selected consolidated rule still contains the synthesized source.
 		rule := scope.DestinationRuleForSource(
