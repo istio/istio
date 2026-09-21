@@ -424,6 +424,44 @@ func TestOwnedCNIConfigInstall(t *testing.T) {
 					sanitycheck.RunTrafficTest(t, true)
 				})
 
+				t.NewSubTest("istio owned enabled + user owned config file").Run(func(t framework.TestContext) {
+					// enable istioOWnedCNIConfig
+					upgradeChart(maps.MergeCopy(cniValues, map[string]any{
+						"profile":                     "ambient",
+						"istioOwnedCNIConfig":         true,
+						"istioOwnedCNIConfigFileName": "01-myconfig.conflist",
+					}))
+
+					// verify the owned cni is present, and the previous default is gone
+					retry.UntilSuccessOrFail(t, func() error {
+						return expectCNIConfigs([]string{"01-myconfig.conflist", "10-kindnet.conflist"})
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+
+					retry.UntilSuccessOrFail(t, func() error {
+						plugin, err := getIstioPlugin("01-myconfig.conflist")
+						if err != nil {
+							return err
+						}
+						return hasConfigValues(plugin, map[string]any{
+							"ambient_enabled":                true,
+							"enable_ambient_detection_retry": false,
+						})
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+
+					retry.UntilSuccessOrFail(t, func() error {
+						plugin, err := getIstioPlugin("10-kindnet.conflist")
+						if err != nil {
+							return err
+						}
+						if plugin != nil {
+							return fmt.Errorf("istio-cni is present")
+						}
+						return nil
+					}, retry.Timeout(10*time.Second), retry.Delay(RetryDelay))
+
+					sanitycheck.RunTrafficTest(t, true)
+				})
+
 				t.NewSubTest("enable istio owned config").Run(func(t framework.TestContext) {
 					// enable istioOWnedCNIConfig
 					upgradeChart(maps.MergeCopy(cniValues, map[string]any{
