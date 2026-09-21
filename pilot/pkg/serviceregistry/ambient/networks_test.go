@@ -25,6 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -150,4 +152,33 @@ func TestLocalK8sGatewayToNetworkGateways(t *testing.T) {
 	t.Run("remote cluster uses the remote conversion", func(t *testing.T) {
 		assert.Equal(t, k8sGatewayToNetworkGateways(cluster.ID("cluster-2"), gateway(nil), cluster.ID("cluster-1")), nil)
 	})
+}
+
+func TestLookupNetworkGatewayOrder(t *testing.T) {
+	gws := make([]NetworkGateway, 0, 8)
+	for i := range 8 {
+		gws = append(gws, NetworkGateway{
+			NetworkGateway: model.NetworkGateway{
+				Network:   "nw1",
+				Addr:      "10.0.0." + string(rune('0'+i)),
+				HBONEPort: 15008,
+			},
+			Source: types.NamespacedName{Namespace: "istio-system", Name: "gw" + string(rune('0'+i))},
+		})
+	}
+	c := krt.NewStaticCollection(nil, gws, krt.WithDebugging(krt.GlobalDebugHandler))
+	byNetwork := krt.NewIndex(c, "network", func(o NetworkGateway) []network.ID {
+		return []network.ID{o.Network}
+	})
+	first := LookupNetworkGateway(krt.TestingDummyContext{}, "nw1", byNetwork)
+	assert.Equal(t, len(first), len(gws))
+	for i := 1; i < len(first); i++ {
+		if first[i-1].ResourceName() >= first[i].ResourceName() {
+			t.Fatalf("result not sorted: %v before %v", first[i-1].ResourceName(), first[i].ResourceName())
+		}
+	}
+	// an index lookup iterates a map; the order must not change between calls
+	for range 100 {
+		assert.Equal(t, LookupNetworkGateway(krt.TestingDummyContext{}, "nw1", byNetwork), first)
+	}
 }
