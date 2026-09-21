@@ -72,18 +72,17 @@ func (sr SecretResource) Cacheable() bool {
 }
 
 func sdsNeedsPush(forced bool, updates model.XdsUpdates) bool {
-	if forced {
-		return true
-	}
-	for update := range updates {
-		switch update.Kind {
-		case kind.Secret:
-			return true
-		case kind.ConfigMap:
-			return true
-		}
-	}
-	return false
+	return forced ||
+		model.HasConfigsOfKind(updates, kind.Secret) ||
+		model.HasConfigsOfKind(updates, kind.ConfigMap) ||
+		sdsAuthorizationChanged(updates)
+}
+
+func sdsAuthorizationChanged(updates model.XdsUpdates) bool {
+	// Sidecar certificate access follows the effective DestinationRule set, so
+	// these changes must re-filter existing SDS subscriptions.
+	return model.HasConfigsOfKind(updates, kind.DestinationRule) ||
+		model.HasConfigsOfKind(updates, kind.Sidecar)
 }
 
 // parseResources parses a list of resource names to SecretResource types, for a given proxy.
@@ -115,8 +114,9 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	if req == nil || !sdsNeedsPush(req.Forced, req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
+	reauthorize := req.Forced || sdsAuthorizationChanged(req.ConfigsUpdated)
 	var updatedSecrets sets.Set[model.ConfigKey]
-	if !req.Forced {
+	if !reauthorize {
 		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret).Merge(model.ConfigsOfKind(req.ConfigsUpdated, kind.ConfigMap))
 	}
 
@@ -139,8 +139,8 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	resources := filterAuthorizedResources(s.parseResources(w.ResourceNames.UnsortedList(), proxy), proxy, req.Push, proxyClusterSecrets)
 
 	var results model.Resources
-	if req.Forced {
-		// A forced push may be re-evaluating authorization. Return an explicit empty
+	if reauthorize {
+		// An authorization update may deny every watched resource. Return an explicit empty
 		// response when all watched resources are denied so clients remove secrets
 		// that were delivered before authorization changed.
 		results = make(model.Resources, 0, len(resources))

@@ -1142,6 +1142,13 @@ type GatewayController interface {
 	GatewayWorkloadIdentity(types.NamespacedName) (string, string, bool)
 	// BackendClientCertificateAllowed reports whether a Gateway may use an upstream client certificate.
 	BackendClientCertificateAllowed(types.NamespacedName, string) bool
+	// BackendClientCertificateDestinationRules returns synthesized DestinationRules that use an upstream client certificate.
+	BackendClientCertificateDestinationRules(string) []BackendClientCertificateDestinationRule
+}
+
+type BackendClientCertificateDestinationRule struct {
+	types.NamespacedName
+	Host string
 }
 
 type AgentgatewayController interface {

@@ -197,6 +197,10 @@ func validateMetadata(f ValidateFunc) ValidateFunc {
 			// This internal annotation escalations privileges; ban it from use for external resources.
 			return nil, fmt.Errorf("%q annotation found, this may not be set by users", constants.InternalParentNames)
 		}
+		if _, f := config.Annotations[constants.InternalGatewayParent]; f {
+			// This maps generated config to a Gateway identity used for SDS authorization.
+			return nil, fmt.Errorf("%q annotation found, this may not be set by users", constants.InternalGatewayParent)
+		}
 		return f(config)
 	}
 }

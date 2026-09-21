@@ -90,18 +90,26 @@ type BackendPolicy struct {
 	Gateways     []types.NamespacedName
 }
 
-type BackendCertificateAuthorization struct {
-	Gateway     types.NamespacedName
-	Certificate string
-	Source      TypedNamespacedName
+// BackendClientCertificateReference describes where an XBackend client certificate is used.
+// Gateways authorize Gateway workloads directly, while DestinationRule scopes ordinary sidecar access.
+type BackendClientCertificateReference struct {
+	Source          TypedNamespacedName
+	Certificate     string
+	DestinationRule types.NamespacedName
+	Host            string
+	Gateways        []types.NamespacedName
 }
 
-func (a BackendCertificateAuthorization) ResourceName() string {
-	return a.Source.String() + "|" + a.Gateway.String() + "|" + a.Certificate
+func (r BackendClientCertificateReference) ResourceName() string {
+	return r.Source.String() + "|" + r.DestinationRule.String() + "|" + r.Certificate
 }
 
-func (a BackendCertificateAuthorization) Equals(other BackendCertificateAuthorization) bool {
-	return a == other
+func (r BackendClientCertificateReference) Equals(other BackendClientCertificateReference) bool {
+	return r.Source == other.Source &&
+		r.Certificate == other.Certificate &&
+		r.DestinationRule == other.DestinationRule &&
+		r.Host == other.Host &&
+		slices.Equal(r.Gateways, other.Gateways)
 }
 
 func (b BackendPolicy) ResourceName() string {
@@ -150,8 +158,8 @@ func (b BackendPolicy) Equals(other BackendPolicy) bool {
 }
 
 type DestinationRuleResult struct {
-	DestinationRules          krt.Collection[config.Config]
-	BackendClientCertificates krt.Collection[BackendCertificateAuthorization]
+	DestinationRules                   krt.Collection[config.Config]
+	BackendClientCertificateReferences krt.Collection[BackendClientCertificateReference]
 }
 
 // DestinationRuleCollection returns DestinationRules and their derived backend certificate authorizations.
@@ -184,7 +192,7 @@ func DestinationRuleCollection(
 	backendResourceStatus, backendResourcePolicies := BackendResourcePolicyCollection(
 		backends, ancestorCollection, routeAttachmentsBySource, references, opts)
 	status.RegisterStatus(c.status, backendResourceStatus, GetStatus, c.tagWatcher.AccessUnprotected())
-	backendClientCertificates := backendClientCertificateCollection(backendResourcePolicies, opts)
+	backendClientCertificateReferences := backendClientCertificateReferenceCollection(backendResourcePolicies, opts)
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection(
@@ -340,33 +348,35 @@ func DestinationRuleCollection(
 		}, opts.WithName("BackendPolicyMerged")...,
 	)
 	return DestinationRuleResult{
-		DestinationRules:          merged,
-		BackendClientCertificates: backendClientCertificates,
+		DestinationRules:                   merged,
+		BackendClientCertificateReferences: backendClientCertificateReferences,
 	}
 }
 
-func backendClientCertificateCollection(
+func backendClientCertificateReferenceCollection(
 	policies krt.Collection[BackendPolicy],
 	opts krt.OptionsBuilder,
-) krt.Collection[BackendCertificateAuthorization] {
+) krt.Collection[BackendClientCertificateReference] {
 	return krt.NewManyCollection(
 		policies,
-		func(_ krt.HandlerContext, policy BackendPolicy) []BackendCertificateAuthorization {
+		func(_ krt.HandlerContext, policy BackendPolicy) []BackendClientCertificateReference {
 			if policy.TLS == nil ||
 				policy.TLS.Mode != networking.ClientTLSSettings_MUTUAL ||
 				!strings.HasPrefix(policy.TLS.CredentialName, credentials.KubernetesGatewaySecretType+"://") {
 				return nil
 			}
-			certificate := credentials.ToResourceName(policy.TLS.CredentialName)
-			return slices.Map(policy.Gateways, func(gateway types.NamespacedName) BackendCertificateAuthorization {
-				return BackendCertificateAuthorization{
-					Gateway:     gateway,
-					Certificate: certificate,
-					Source:      policy.Source,
-				}
-			})
+			return []BackendClientCertificateReference{{
+				Source:      policy.Source,
+				Certificate: credentials.ToResourceName(policy.TLS.CredentialName),
+				DestinationRule: types.NamespacedName{
+					Namespace: policy.Target.Namespace,
+					Name:      generateDRName(policy.Target, policy.Host),
+				},
+				Host:     policy.Host,
+				Gateways: slices.Clone(policy.Gateways),
+			}}
 		},
-		opts.WithName("BackendClientCertificates")...,
+		opts.WithName("BackendClientCertificateReferences")...,
 	)
 }
 

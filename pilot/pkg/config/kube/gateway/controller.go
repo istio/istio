@@ -50,6 +50,7 @@ import (
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -126,16 +127,21 @@ type TypedResource struct {
 	Name types.NamespacedName
 }
 
+type BackendClientCertificateOutputs struct {
+	References              krt.Collection[BackendClientCertificateReference]
+	ByGatewayAndCertificate krt.Index[string, BackendClientCertificateReference]
+	ByResourceName          krt.Index[string, BackendClientCertificateReference]
+}
+
 type Outputs struct {
-	Gateways                           krt.Collection[Gateway]
-	GatewayConfigs                     krt.Collection[config.Config]
-	VirtualServices                    krt.Collection[config.Config]
-	ReferenceGrants                    gatewaycommon.ReferenceGrants
-	DestinationRules                   krt.Collection[config.Config]
-	BackendClientCertificates          krt.Collection[BackendCertificateAuthorization]
-	BackendClientCertificatesByGateway krt.Index[string, BackendCertificateAuthorization]
-	InferencePools                     krt.Collection[InferencePool]
-	InferencePoolsByGateway            krt.Index[types.NamespacedName, InferencePool]
+	Gateways                  krt.Collection[Gateway]
+	GatewayConfigs            krt.Collection[config.Config]
+	VirtualServices           krt.Collection[config.Config]
+	ReferenceGrants           gatewaycommon.ReferenceGrants
+	DestinationRules          krt.Collection[config.Config]
+	BackendClientCertificates BackendClientCertificateOutputs
+	InferencePools            krt.Collection[InferencePool]
+	InferencePoolsByGateway   krt.Index[types.NamespacedName, InferencePool]
 }
 
 type Inputs struct {
@@ -387,7 +393,7 @@ func NewController(
 		opts,
 	)
 	DestinationRules := destinationRuleResult.DestinationRules
-	BackendClientCertificates := destinationRuleResult.BackendClientCertificates
+	BackendClientCertificateReferences := destinationRuleResult.BackendClientCertificateReferences
 
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
 	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
@@ -412,24 +418,36 @@ func NewController(
 	InferencePoolsByGateway := krt.NewIndex(InferencePools, "byGateway", func(i InferencePool) []types.NamespacedName {
 		return i.gatewayParents.UnsortedList()
 	})
-	BackendClientCertificatesByGateway := krt.NewIndex(
-		BackendClientCertificates,
+	BackendClientCertificateReferencesByGatewayAndCertificate := krt.NewIndex(
+		BackendClientCertificateReferences,
 		"byGatewayAndCertificate",
-		func(a BackendCertificateAuthorization) []string {
-			return []string{gatewayCertificateKey(a.Gateway, a.Certificate)}
+		func(r BackendClientCertificateReference) []string {
+			return slices.Map(r.Gateways, func(gateway types.NamespacedName) string {
+				return gatewayCertificateKey(gateway, r.Certificate)
+			})
+		},
+	)
+	BackendClientCertificateReferencesByResourceName := krt.NewIndex(
+		BackendClientCertificateReferences,
+		"byResourceName",
+		func(r BackendClientCertificateReference) []string {
+			return []string{r.Certificate}
 		},
 	)
 
 	outputs := Outputs{
-		ReferenceGrants:                    ReferenceGrants,
-		Gateways:                           Gateways,
-		GatewayConfigs:                     GatewayConfigs,
-		VirtualServices:                    VirtualServices,
-		DestinationRules:                   DestinationRules,
-		BackendClientCertificates:          BackendClientCertificates,
-		BackendClientCertificatesByGateway: BackendClientCertificatesByGateway,
-		InferencePools:                     InferencePools,
-		InferencePoolsByGateway:            InferencePoolsByGateway,
+		ReferenceGrants:  ReferenceGrants,
+		Gateways:         Gateways,
+		GatewayConfigs:   GatewayConfigs,
+		VirtualServices:  VirtualServices,
+		DestinationRules: DestinationRules,
+		BackendClientCertificates: BackendClientCertificateOutputs{
+			References:              BackendClientCertificateReferences,
+			ByGatewayAndCertificate: BackendClientCertificateReferencesByGatewayAndCertificate,
+			ByResourceName:          BackendClientCertificateReferencesByResourceName,
+		},
+		InferencePools:          InferencePools,
+		InferencePoolsByGateway: InferencePoolsByGateway,
 	}
 	c.outputs = outputs
 
@@ -443,14 +461,8 @@ func NewController(
 					Namespace: t.Namespace,
 				}
 			}, false), false),
-		outputs.BackendClientCertificates.RegisterBatch(pushXds(xdsUpdater,
-			func(a BackendCertificateAuthorization) model.ConfigKey {
-				return model.ConfigKey{
-					Kind:      kind.Gateway,
-					Name:      a.Gateway.Name,
-					Namespace: a.Gateway.Namespace,
-				}
-			}, true), false),
+		outputs.BackendClientCertificates.References.RegisterBatch(
+			pushBackendClientCertificateReferences(xdsUpdater), false),
 		outputs.Gateways.RegisterBatch(pushXds(xdsUpdater,
 			func(t Gateway) model.ConfigKey {
 				return model.ConfigKey{
@@ -645,7 +657,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 func (c *Controller) HasSynced() bool {
 	if !(c.outputs.VirtualServices.HasSynced() &&
 		c.outputs.DestinationRules.HasSynced() &&
-		c.outputs.BackendClientCertificates.HasSynced() &&
+		c.outputs.BackendClientCertificates.References.HasSynced() &&
 		c.outputs.Gateways.HasSynced() &&
 		c.outputs.GatewayConfigs.HasSynced() &&
 		c.outputs.ReferenceGrants.Collection.HasSynced()) {
@@ -688,11 +700,65 @@ func (c *Controller) GatewayWorkloadIdentity(gateway types.NamespacedName) (stri
 }
 
 func (c *Controller) BackendClientCertificateAllowed(gateway types.NamespacedName, resourceName string) bool {
-	return len(c.outputs.BackendClientCertificatesByGateway.Lookup(gatewayCertificateKey(gateway, resourceName))) > 0
+	key := gatewayCertificateKey(gateway, resourceName)
+	return len(c.outputs.BackendClientCertificates.ByGatewayAndCertificate.Lookup(key)) > 0
+}
+
+func (c *Controller) BackendClientCertificateDestinationRules(resourceName string) []model.BackendClientCertificateDestinationRule {
+	references := c.outputs.BackendClientCertificates.ByResourceName.Lookup(resourceName)
+	rules := sets.New[model.BackendClientCertificateDestinationRule]()
+	for _, reference := range references {
+		rules.Insert(model.BackendClientCertificateDestinationRule{
+			NamespacedName: reference.DestinationRule,
+			Host:           reference.Host,
+		})
+	}
+	return slices.SortBy(rules.UnsortedList(), func(r model.BackendClientCertificateDestinationRule) string {
+		return r.NamespacedName.String() + "/" + r.Host
+	})
 }
 
 func gatewayCertificateKey(gateway types.NamespacedName, resourceName string) string {
 	return gateway.String() + "|" + resourceName
+}
+
+func pushBackendClientCertificateReferences(
+	xds model.XDSUpdater,
+) func(events []krt.Event[BackendClientCertificateReference]) {
+	return func(events []krt.Event[BackendClientCertificateReference]) {
+		if xds == nil {
+			return
+		}
+		updated := sets.New[model.ConfigKey]()
+		for _, event := range events {
+			// Include both sides of updates so a certificate removed from a Gateway or
+			// DestinationRule is revoked from proxies that received the previous state.
+			for _, reference := range event.Items() {
+				updated.Insert(model.ConfigKey{
+					Kind:      kind.DestinationRule,
+					Name:      reference.DestinationRule.Name,
+					Namespace: reference.DestinationRule.Namespace,
+				})
+				for _, gateway := range reference.Gateways {
+					updated.Insert(model.ConfigKey{
+						Kind:      kind.Gateway,
+						Name:      gateway.Name,
+						Namespace: gateway.Namespace,
+					})
+				}
+			}
+		}
+		if len(updated) == 0 {
+			return
+		}
+		// SDS must re-evaluate existing subscriptions even though the Kubernetes
+		// Secret itself did not change.
+		xds.ConfigUpdate(&model.PushRequest{
+			ConfigsUpdated: updated,
+			Reason:         model.NewReasonStats(model.ConfigUpdate),
+			Forced:         true,
+		})
+	}
 }
 
 func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey, forced bool) func(events []krt.Event[T]) {

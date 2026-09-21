@@ -328,6 +328,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 		destinationRule := CastDestinationRule(destRule)
 		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
 	}
+	opts.isBackendClientCertificate = cb.backendClientCertificateAllowed(opts.policy.GetTls().GetCredentialName())
 	// Apply traffic policy for the subset cluster.
 	cb.applyTrafficPolicy(service, opts)
 
@@ -382,6 +383,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	if destRule != nil {
 		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
 	}
+	opts.isBackendClientCertificate = cb.backendClientCertificateAllowed(opts.policy.GetTls().GetCredentialName())
 	// Apply traffic policy for the main default cluster.
 	cb.applyTrafficPolicy(service, opts)
 
@@ -425,6 +427,19 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		}
 	}
 	return subsetClusters
+}
+
+func (cb *ClusterBuilder) backendClientCertificateAllowed(resourceName string) bool {
+	if resourceName == "" || cb.req == nil || cb.req.Push == nil || cb.proxyType != model.SidecarProxy {
+		return false
+	}
+	// XBackend certificates are intentionally usable from selector-less generated
+	// DestinationRules, but only when the same sidecar-scoped check also authorizes SDS.
+	return cb.req.Push.IsBackendClientCertificateForProxy(&model.Proxy{
+		Type:         cb.proxyType,
+		SidecarScope: cb.sidecarScope,
+		Labels:       cb.proxyLabels,
+	}, resourceName)
 }
 
 func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {

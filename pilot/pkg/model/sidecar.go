@@ -746,6 +746,21 @@ func (sc *SidecarScope) DestinationRuleConfig(direction TrafficDirection, proxy 
 	return cdr.rule
 }
 
+// DestinationRuleForSource returns the effective rule only when it contains the requested source config.
+// Consolidated rules retain all source names in `from`, including synthesized backend-policy rules.
+func (sc *SidecarScope) DestinationRuleForSource(
+	direction TrafficDirection,
+	proxy *Proxy,
+	svc host.Name,
+	source types.NamespacedName,
+) *config.Config {
+	cdr := sc.DestinationRule(direction, proxy, svc)
+	if cdr == nil || !slices.Contains(cdr.from, source) {
+		return nil
+	}
+	return cdr.rule
+}
+
 // Services returns the list of services that are visible to a sidecar.
 func (sc *SidecarScope) Services() []*Service {
 	return sc.services

@@ -2133,11 +2133,14 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	ps.destinationRuleIndex.rootNamespaceLocal = rootNamespaceLocalDestRules
 }
 
-// IsBackendClientCertificateForProxy reports whether resourceName is an upstream client
-// certificate referenced by an XBackend attached to a Gateway implemented by proxy.
+// IsBackendClientCertificateForProxy reports whether an XBackend makes resourceName available to proxy.
+// Sidecars are scoped by their effective DestinationRules; Gateway workloads are scoped by accepted Route attachments.
 func (ps *PushContext) IsBackendClientCertificateForProxy(proxy *Proxy, resourceName string) bool {
 	if proxy == nil {
 		return false
+	}
+	if ps.sidecarCanUseBackendClientCertificate(proxy, resourceName) {
+		return true
 	}
 	gateways := sets.New[types.NamespacedName]()
 	if proxy.MergedGateway != nil {
@@ -2161,6 +2164,51 @@ func (ps *PushContext) IsBackendClientCertificateForProxy(proxy *Proxy, resource
 		}
 	}
 	return false
+}
+
+func (ps *PushContext) sidecarCanUseBackendClientCertificate(proxy *Proxy, resourceName string) bool {
+	if proxy.Type != SidecarProxy || proxy.SidecarScope == nil || ps.GatewayAPIController == nil {
+		return false
+	}
+	for _, candidate := range ps.GatewayAPIController.BackendClientCertificateDestinationRules(resourceName) {
+		// Use the same workload-selector resolution as cluster generation, then verify
+		// the selected consolidated rule still contains the synthesized source.
+		rule := proxy.SidecarScope.DestinationRuleForSource(
+			TrafficDirectionOutbound, proxy, host.Name(candidate.Host), candidate.NamespacedName)
+		if destinationRuleUsesClientCertificate(rule, resourceName) {
+			return true
+		}
+	}
+	return false
+}
+
+func destinationRuleUsesClientCertificate(cfg *config.Config, resourceName string) bool {
+	if cfg == nil {
+		return false
+	}
+	usesCertificate := func(tls *networking.ClientTLSSettings) bool {
+		return tls.GetMode() == networking.ClientTLSSettings_MUTUAL &&
+			tls.GetCredentialName() == resourceName
+	}
+	trafficPolicyUsesCertificate := func(policy *networking.TrafficPolicy) bool {
+		if policy == nil {
+			return false
+		}
+		if usesCertificate(policy.GetTls()) {
+			return true
+		}
+		return slices.ContainsFunc(policy.GetPortLevelSettings(), func(port *networking.TrafficPolicy_PortTrafficPolicy) bool {
+			return usesCertificate(port.GetTls())
+		})
+	}
+
+	rule := cfg.Spec.(*networking.DestinationRule)
+	if trafficPolicyUsesCertificate(rule.GetTrafficPolicy()) {
+		return true
+	}
+	return slices.ContainsFunc(rule.GetSubsets(), func(subset *networking.Subset) bool {
+		return trafficPolicyUsesCertificate(subset.GetTrafficPolicy())
+	})
 }
 
 func (ps *PushContext) gatewayIdentityVerified(proxy *Proxy, gateway types.NamespacedName, requireServiceAccount bool) bool {
