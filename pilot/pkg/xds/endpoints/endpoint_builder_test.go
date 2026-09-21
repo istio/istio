@@ -16,6 +16,7 @@ package endpoints
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"testing"
 
@@ -36,8 +37,12 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
+
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 // TestWeightedWaypointEndpointsFailsClosed verifies weighted waypoint routing never falls back to direct endpoints.
@@ -145,6 +150,7 @@ func TestWeightedWaypointEndpointsFailsClosed(t *testing.T) {
 type mockAmbientIndex struct {
 	model.NoopAmbientIndexes
 	serviceInfos []*model.ServiceInfo
+	addressInfos map[string][]model.AddressInfo
 }
 
 func (m *mockAmbientIndex) ServiceInfo(key string) *model.ServiceInfo {
@@ -155,6 +161,19 @@ func (m *mockAmbientIndex) ServiceInfo(key string) *model.ServiceInfo {
 		}
 	}
 	return nil
+}
+
+func (m *mockAmbientIndex) AddressInformation(addresses sets.String) ([]model.AddressInfo, sets.String) {
+	if m.addressInfos == nil {
+		return nil, nil
+	}
+	var result []model.AddressInfo
+	for addr := range addresses {
+		if infos, ok := m.addressInfos[addr]; ok {
+			result = append(result, infos...)
+		}
+	}
+	return result, nil
 }
 
 // MockDiscovery is an in-memory ServiceDiscover with mock services
@@ -865,6 +884,173 @@ func TestBuildClusterLoadAssignment_InferenceServicePortFiltering(t *testing.T) 
 
 			if totalEndpoints != tt.expectedEndpoints {
 				t.Errorf("expected %d endpoints, got %d", tt.expectedEndpoints, totalEndpoints)
+			}
+		})
+	}
+}
+
+func TestBuildEnvoyLbEndpoint_WorkloadWaypoint(t *testing.T) {
+	waypointIP := net.ParseIP("10.0.1.50").To4()
+	workloadIP := "10.0.0.5"
+
+	tests := []struct {
+		name            string
+		proxy           *model.Proxy
+		waypoint        *workloadapi.GatewayAddress
+		expectWaypoint  bool
+		expectedAddress string
+	}{
+		{
+			name: "sidecar with workload waypoint routes through waypoint",
+			proxy: &model.Proxy{
+				Type: model.SidecarProxy,
+				Metadata: &model.NodeMetadata{
+					Namespace: "default",
+				},
+			},
+			waypoint: &workloadapi.GatewayAddress{
+				Destination: &workloadapi.GatewayAddress_Address{
+					Address: &workloadapi.NetworkAddress{
+						Address: waypointIP,
+					},
+				},
+				HboneMtlsPort: 15008,
+			},
+			expectWaypoint:  true,
+			expectedAddress: "10.0.1.50:15008",
+		},
+		{
+			name: "sidecar without workload waypoint routes directly",
+			proxy: &model.Proxy{
+				Type: model.SidecarProxy,
+				Metadata: &model.NodeMetadata{
+					Namespace: "default",
+				},
+			},
+			waypoint:       nil,
+			expectWaypoint: false,
+		},
+		{
+			name: "gateway proxy does not use workload waypoint",
+			proxy: &model.Proxy{
+				Type: model.Router,
+				Metadata: &model.NodeMetadata{
+					Namespace: "default",
+				},
+			},
+			waypoint: &workloadapi.GatewayAddress{
+				Destination: &workloadapi.GatewayAddress_Address{
+					Address: &workloadapi.NetworkAddress{
+						Address: waypointIP,
+					},
+				},
+				HboneMtlsPort: 15008,
+			},
+			expectWaypoint: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableHBONESend, true)
+			test.SetForTest(t, &features.PreferHBONESend, true)
+
+			svc := &model.Service{
+				Hostname: "svc-b.default.svc.cluster.local",
+				Attributes: model.ServiceAttributes{
+					Name:      "svc-b",
+					Namespace: "default",
+				},
+				Ports: model.PortList{{Port: 8080, Protocol: protocol.HTTP, Name: "http"}},
+			}
+
+			ep := &model.IstioEndpoint{
+				Addresses:       []string{workloadIP},
+				EndpointPort:    8080,
+				ServicePortName: "http",
+				TLSMode:         model.IstioMutualTLSModeLabel,
+				Labels: map[string]string{
+					model.TunnelLabel: model.TunnelHTTP,
+				},
+			}
+
+			addressInfos := map[string][]model.AddressInfo{}
+			netKey := string(network.ID("")) + "/" + workloadIP
+			workload := &workloadapi.Workload{
+				Addresses:      [][]byte{net.ParseIP(workloadIP).To4()},
+				TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
+				Waypoint:       tt.waypoint,
+			}
+			addressInfos[netKey] = []model.AddressInfo{{
+				Address: &workloadapi.Address{
+					Type: &workloadapi.Address_Workload{
+						Workload: workload,
+					},
+				},
+			}}
+
+			env := model.NewEnvironment()
+			configStore := model.NewFakeStore()
+			env.ConfigStore = configStore
+			env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})
+			env.NetworksWatcher = meshwatcher.NewFixedNetworksWatcher(nil)
+			env.ServiceDiscovery = &localServiceDiscovery{services: []*model.Service{svc}}
+			env.AmbientIndexes = &mockAmbientIndex{addressInfos: addressInfos}
+
+			xdsUpdater := xdsfake.NewFakeXDS()
+			if err := env.InitNetworksManager(xdsUpdater); err != nil {
+				t.Fatal(err)
+			}
+			env.VirtualServiceController = model.NewVirtualServiceController(
+				configStore,
+				model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+				env.Watcher,
+			)
+			stop := test.NewStop(t)
+			go configStore.Run(stop)
+			go env.VirtualServiceController.Run(stop)
+			kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+			kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+			env.Init()
+
+			push := model.NewPushContext()
+			push.InitContext(env, nil, nil)
+			env.SetPushContext(push)
+
+			tt.proxy.SetSidecarScope(push)
+
+			b := &EndpointBuilder{
+				hostname: "svc-b.default.svc.cluster.local",
+				port:     8080,
+				push:     push,
+				proxy:    tt.proxy,
+				service:  svc,
+				dir:      model.TrafficDirectionOutbound,
+				nodeType: tt.proxy.Type,
+			}
+			b.mtlsChecker = newMtlsChecker(push, tt.proxy.SidecarScope.AuthnPolicies, 8080, nil, "")
+
+			lbEp := buildEnvoyLbEndpoint(b, ep, true, false)
+
+			tunnelMeta := lbEp.Metadata.GetFilterMetadata()[util.OriginalDstMetadataKey]
+			if tt.expectWaypoint {
+				if tunnelMeta == nil {
+					t.Fatal("expected tunnel metadata but got nil")
+				}
+				wp := tunnelMeta.GetFields()["waypoint"]
+				if wp == nil {
+					t.Fatal("expected waypoint field in tunnel metadata but got nil")
+				}
+				if wp.GetStringValue() != tt.expectedAddress {
+					t.Errorf("expected waypoint address %q, got %q", tt.expectedAddress, wp.GetStringValue())
+				}
+			} else {
+				if tunnelMeta != nil {
+					wp := tunnelMeta.GetFields()["waypoint"]
+					if wp != nil && wp.GetStringValue() != "" {
+						t.Errorf("expected no waypoint but got %q", wp.GetStringValue())
+					}
+				}
 			}
 		})
 	}
