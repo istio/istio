@@ -327,6 +327,9 @@ func applyLoadBalancer(
 	if c.LbPolicy == cluster.Cluster_CLUSTER_PROVIDED {
 		return
 	}
+	if c.CommonLbConfig == nil {
+		c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
+	}
 	// If HealthyPanicThreshold is unset, disable it when service supports unhealthy endpoints as enabling it "may" send traffic to unready
 	// end points when load balancer is in panic mode.
 	if c.CommonLbConfig.HealthyPanicThreshold == nil && svc.SupportsUnhealthyEndpoints() {
@@ -564,6 +567,9 @@ func applyOutlierDetection(service *model.Service, c *cluster.Cluster, outlier *
 		// below minimum health percentage.
 		if service.ForcesSupportUnhealthyEndpoints() {
 			minHealthPercent = 0
+		}
+		if c.CommonLbConfig == nil {
+			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 		}
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(minHealthPercent)}
 	}

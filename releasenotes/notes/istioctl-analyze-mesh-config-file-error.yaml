@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue: []
+releaseNotes:
+- |
+  **Improved** `istioctl analyze` error reporting when an explicitly specified `--meshConfigFile` cannot be read or parsed.

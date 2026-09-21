@@ -3102,7 +3102,7 @@ func maybeSetupMultiCluster(t framework.TestContext) {
 				}
 			}
 			for name := range apps.WaypointProxies {
-				labelServiceGlobal(t, name, t.Clusters()...)
+				unlabelServiceGlobal(t, name, t.Clusters()...)
 			}
 		})
 		// Pilot delays pushing changes to be able to batch multiple incoming changes together and push them

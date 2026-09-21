@@ -284,6 +284,24 @@ spec:
         host: infpool-gen2-ip-97b729d1.default.svc.domain.suffix
         port:
           number: 54321
+  - match:
+    - headers:
+        my-header:
+          exact: weighted
+      uri:
+        prefix: /infpool
+    name: default.multiple-inferencepool-backend-refs.2
+    route:
+    - destination:
+        host: infpool-gen-ip-6580eb2c.default.svc.domain.suffix
+        port:
+          number: 54321
+      weight: 90
+    - destination:
+        host: infpool-gen2-ip-97b729d1.default.svc.domain.suffix
+        port:
+          number: 54321
+      weight: 10
 ---
 apiVersion: networking.istio.io/v1
 kind: VirtualService
