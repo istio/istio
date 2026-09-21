@@ -88,6 +88,7 @@ const (
 	ServiceAccountPath                 = "/var/run/secrets/kubernetes.io/serviceaccount"
 	SelfNetNSPath                      = "/proc/self/ns/net"
 	DefaultIstioOwnedCNIConfigFilename = "02-istio-cni.conflist"
+	IstioOwnedPreviousConfigFilename   = "istio-owned-previous"
 )
 
 // Exposed for testing "constants"
