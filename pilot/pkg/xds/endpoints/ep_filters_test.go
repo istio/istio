@@ -984,7 +984,7 @@ func TestEndpointsByNetworkFilter_AmbientMultiNetwork(t *testing.T) {
 		},
 		{
 			name:  "waypoint proxy only routes to remote HBONE endpoints",
-			proxy: makeWaypointProxy("network1", "cluster1"),
+			proxy: makeWaypointProxy("network3", "cluster3"),
 			endpoints: []*model.IstioEndpoint{
 				{
 					Network:   "network2",
@@ -1270,7 +1270,7 @@ func TestEndpointsByNetworkFilter_AmbientMultiNetwork(t *testing.T) {
 		},
 		{
 			name:  "ingress gateway allows mTLS endpoints without gateway",
-			proxy: makeIngressGatewayProxy("network1", "cluster1"),
+			proxy: makeIngressGatewayProxy("network2", "cluster2"),
 			endpoints: []*model.IstioEndpoint{
 				{
 					Network:   "network3",
