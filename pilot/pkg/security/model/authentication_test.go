@@ -29,6 +29,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/security"
@@ -878,6 +879,16 @@ func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 			wantCertificate:  "kubernetes://client-cert",
 			wantValidationCA: "configmap://backend/backend-ca",
 		},
+		{
+			name: "mutual TLS marks an independent Secret credential as CA-only",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_MUTUAL,
+				CredentialName:       "client-cert",
+				CaCertCredentialName: "kubernetes://backend/backend-ca",
+			},
+			wantCertificate:  "kubernetes://client-cert",
+			wantValidationCA: "kubernetes://backend/backend-ca-cacert",
+		},
 	}
 
 	for _, tt := range tests {
@@ -904,6 +915,28 @@ func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 			}
 			if got := combined.ValidationContextSdsSecretConfig.GetName(); got != tt.wantValidationCA {
 				t.Errorf("validation SDS config = %q, want %q", got, tt.wantValidationCA)
+			}
+		})
+	}
+}
+
+func TestNormalizeCaCertCredentialName(t *testing.T) {
+	tests := map[string]string{
+		"":                                "",
+		"backend-ca":                      "backend-ca-cacert",
+		"backend-ca-cacert":               "backend-ca-cacert",
+		"kubernetes://backend/backend-ca": "kubernetes://backend/backend-ca-cacert",
+		"kubernetes-gateway://backend/backend-ca":             "kubernetes-gateway://backend/backend-ca-cacert",
+		"configmap://backend/backend-ca":                      "configmap://backend/backend-ca",
+		"sds://backend-ca":                                    "sds://backend-ca",
+		credentials.InvalidSecretTypeURI:                      credentials.InvalidSecretTypeURI,
+		credentials.BuiltinGatewaySecretTypeURI:               credentials.BuiltinGatewaySecretTypeURI + SdsCaSuffix,
+		credentials.BuiltinGatewaySecretTypeURI + SdsCaSuffix: credentials.BuiltinGatewaySecretTypeURI + SdsCaSuffix,
+	}
+	for input, want := range tests {
+		t.Run(input, func(t *testing.T) {
+			if got := normalizeCaCertCredentialName(input); got != want {
+				t.Errorf("normalizeCaCertCredentialName(%q) = %q, want %q", input, got, want)
 			}
 		})
 	}

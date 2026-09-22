@@ -234,6 +234,17 @@ func constructSdsSecretConfig(maybeFileName string, fallbackName string, customF
 	return pm.ConstructSdsSecretConfig(model.GetOrDefault(maybeFileName, fallbackName))
 }
 
+func normalizeCaCertCredentialName(name string) string {
+	if name == "" ||
+		strings.HasSuffix(name, SdsCaSuffix) ||
+		strings.HasPrefix(name, credentials.KubernetesConfigMapTypeURI) ||
+		strings.HasPrefix(name, security.SDSExternalCredentialPrefix) ||
+		strings.HasPrefix(name, credentials.InvalidSecretTypeURI) {
+		return name
+	}
+	return name + SdsCaSuffix
+}
+
 // ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext
 func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 	tlsOpts *networking.ClientTLSSettings, credentialSocketExist bool,
@@ -253,6 +264,8 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 	caCert := tlsOpts.CaCertCredentialName
 	if caCert == "" {
 		caCert = tlsOpts.CredentialName + SdsCaSuffix
+	} else {
+		caCert = normalizeCaCertCredentialName(caCert)
 	}
 
 	// create SDS config for gateway to fetch certificate validation context
