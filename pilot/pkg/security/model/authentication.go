@@ -260,6 +260,13 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 	defaultValidationContext := &tls.CertificateValidationContext{
 		MatchSubjectAltNames: util.StringToExactMatch(tlsOpts.SubjectAltNames),
 	}
+	if tlsOpts.GetCaCrl() != "" {
+		defaultValidationContext.Crl = &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: tlsOpts.GetCaCrl(),
+			},
+		}
+	}
 	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 			DefaultValidationContext: defaultValidationContext,

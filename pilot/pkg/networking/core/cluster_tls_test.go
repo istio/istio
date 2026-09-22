@@ -1849,6 +1849,7 @@ func TestSimpleCaCertCredentialName(t *testing.T) {
 	settings := &networking.ClientTLSSettings{
 		Mode:                 networking.ClientTLSSettings_SIMPLE,
 		CaCertCredentialName: "configmap://backend/backend-ca",
+		CaCrl:                "/etc/certs/backend.crl",
 	}
 
 	context, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{mutable: newTestCluster()}, settings)
@@ -1856,6 +1857,10 @@ func TestSimpleCaCertCredentialName(t *testing.T) {
 	assert.Equal(t,
 		context.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(),
 		"configmap://backend/backend-ca",
+	)
+	assert.Equal(t,
+		context.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetCrl().GetFilename(),
+		"/etc/certs/backend.crl",
 	)
 }
 
@@ -1866,6 +1871,7 @@ func TestMutualCaCertCredentialNameWithFileIdentity(t *testing.T) {
 		ClientCertificate:    "/etc/certs/client.pem",
 		PrivateKey:           "/etc/certs/client-key.pem",
 		CaCertCredentialName: "configmap://backend/backend-ca",
+		CaCrl:                "/etc/certs/backend.crl",
 	}
 
 	context, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{mutable: newTestCluster()}, settings)
@@ -1874,6 +1880,10 @@ func TestMutualCaCertCredentialNameWithFileIdentity(t *testing.T) {
 	assert.Equal(t,
 		context.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(),
 		"configmap://backend/backend-ca",
+	)
+	assert.Equal(t,
+		context.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetCrl().GetFilename(),
+		"/etc/certs/backend.crl",
 	)
 }
 
