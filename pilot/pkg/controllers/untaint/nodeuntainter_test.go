@@ -287,6 +287,7 @@ func (s *nodeTainterTestServer) assertNodeHasTaintKey(t *testing.T, node, key st
 	}, true, retry.Timeout(time.Second*3))
 }
 
+// nolint: unparam
 func (s *nodeTainterTestServer) assertNodeUntainted(t *testing.T, node string) {
 	t.Helper()
 	assert.EventuallyEqual(t, func() bool {
