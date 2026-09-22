@@ -28,6 +28,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -453,6 +455,112 @@ func TestReconcileInferencePoolDeletesShadowServiceBeforeServiceCacheSync(t *tes
 	}))
 	_, err = client.Kube().CoreV1().Services(namespace).Get(t.Context(), serviceName, metav1.GetOptions{})
 	assert.Equal(t, apierrors.IsNotFound(err), true)
+}
+
+func TestReconcileInferencePoolPreservesShadowServiceAcrossRevisions(t *testing.T) {
+	for _, routeNamespace := range []string{"default", "other"} {
+		t.Run(routeNamespace, func(t *testing.T) {
+			pool := NewInferencePool("shared-pool", InNamespace("default"))
+			pool.UID = types.UID("shared-pool-uid")
+			serviceName, err := InferencePoolServiceName(pool.Name)
+			assert.NoError(t, err)
+			route := NewHTTPRoute("canary-route", InNamespace(routeNamespace),
+				WithParentRefAndStatus("canary-gateway", routeNamespace, "istio.io/gateway-controller"),
+				WithBackendRef(pool.Name, pool.Namespace),
+			)
+			route.Labels = map[string]string{label.IoIstioRev.Name: "canary"}
+			client := kube.NewFakeClient(pool, route, managedShadowServiceForTest(serviceName, pool))
+			stop := test.NewStop(t)
+			client.RunAndWait(stop)
+			opts := krt.NewOptionsBuilder(stop, "test", nil)
+			pools := krt.NewStaticCollection[InferencePool](nil, nil, opts.WithName("InferencePools")...)
+			request := shadowServiceReconcileRequest{
+				key: types.NamespacedName{Namespace: pool.Namespace, Name: pool.Name}, delete: true, poolUID: pool.UID,
+			}
+
+			// Stable lost its last route, but the API still has a canary reference
+			// which is absent from stable's revision-filtered collection.
+			reconcile := (&Controller{revision: "stable"}).reconcileShadowService(client, pools, nil)
+			assert.NoError(t, reconcile(request))
+			_, err = client.Kube().CoreV1().Services(pool.Namespace).Get(t.Context(), serviceName, metav1.GetOptions{})
+			assert.NoError(t, err)
+
+			// Canary can clean up the shared Service after losing the final reference.
+			assert.NoError(t, client.GatewayAPI().GatewayV1().HTTPRoutes(route.Namespace).
+				Delete(t.Context(), route.Name, metav1.DeleteOptions{}))
+			reconcile = (&Controller{revision: "canary"}).reconcileShadowService(client, pools, nil)
+			assert.NoError(t, reconcile(request))
+			_, err = client.Kube().CoreV1().Services(pool.Namespace).Get(t.Context(), serviceName, metav1.GetOptions{})
+			assert.Equal(t, apierrors.IsNotFound(err), true)
+		})
+	}
+}
+
+func TestReconcileInferencePoolRetriesFailedRouteLookup(t *testing.T) {
+	pool := NewInferencePool("retry-pool", InNamespace("default"))
+	pool.UID = types.UID("retry-pool-uid")
+	serviceName, err := InferencePoolServiceName(pool.Name)
+	assert.NoError(t, err)
+	client := kube.NewFakeClient(pool, managedShadowServiceForTest(serviceName, pool))
+	attempts := 0
+	client.GatewayAPI().(*gatewayapifake.Clientset).PrependReactor("list", "httproutes",
+		func(clienttesting.Action) (bool, runtime.Object, error) {
+			attempts++
+			if attempts == 1 {
+				return true, nil, apierrors.NewServiceUnavailable("route lookup failed")
+			}
+			return false, nil, nil
+		})
+	stop := test.NewStop(t)
+	client.RunAndWait(stop)
+	opts := krt.NewOptionsBuilder(stop, "test", nil)
+	pools := krt.NewStaticCollection[InferencePool](nil, nil, opts.WithName("InferencePools")...)
+	reconcile := (&Controller{}).reconcileShadowService(client, pools, nil)
+	request := shadowServiceReconcileRequest{
+		key: types.NamespacedName{Namespace: pool.Namespace, Name: pool.Name}, delete: true, poolUID: pool.UID,
+	}
+	assert.Equal(t, apierrors.IsServiceUnavailable(reconcile(request)), true)
+	_, err = client.Kube().CoreV1().Services(pool.Namespace).Get(t.Context(), serviceName, metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.NoError(t, reconcile(request))
+	_, err = client.Kube().CoreV1().Services(pool.Namespace).Get(t.Context(), serviceName, metav1.GetOptions{})
+	assert.Equal(t, apierrors.IsNotFound(err), true)
+}
+
+func TestReconcileInferencePoolPreservesShadowServiceForPaginatedReferences(t *testing.T) {
+	pool := NewInferencePool("paged-pool", InNamespace("default"))
+	pool.UID = types.UID("paged-pool-uid")
+	serviceName, err := InferencePoolServiceName(pool.Name)
+	assert.NoError(t, err)
+	route := NewHTTPRoute("other-route", InNamespace("other"),
+		WithParentRefAndStatus("other-gateway", "other", "istio.io/gateway-controller"),
+		WithBackendRef(pool.Name, pool.Namespace),
+	)
+	client := kube.NewFakeClient(pool, managedShadowServiceForTest(serviceName, pool))
+	pages := 0
+	client.GatewayAPI().(*gatewayapifake.Clientset).PrependReactor("list", "httproutes",
+		func(action clienttesting.Action) (bool, runtime.Object, error) {
+			pages++
+			assert.Equal(t, action.GetNamespace(), metav1.NamespaceAll)
+			options := action.(clienttesting.ListActionImpl).GetListOptions()
+			if pages == 1 {
+				assert.Equal(t, options.Continue, "")
+				return true, &gatewayv1.HTTPRouteList{ListMeta: metav1.ListMeta{Continue: "next-page"}}, nil
+			}
+			assert.Equal(t, options.Continue, "next-page")
+			return true, &gatewayv1.HTTPRouteList{Items: []gatewayv1.HTTPRoute{*route}}, nil
+		})
+	stop := test.NewStop(t)
+	client.RunAndWait(stop)
+	opts := krt.NewOptionsBuilder(stop, "test", nil)
+	pools := krt.NewStaticCollection[InferencePool](nil, nil, opts.WithName("InferencePools")...)
+	reconcile := (&Controller{}).reconcileShadowService(client, pools, nil)
+	assert.NoError(t, reconcile(shadowServiceReconcileRequest{
+		key: types.NamespacedName{Namespace: pool.Namespace, Name: pool.Name}, delete: true, poolUID: pool.UID,
+	}))
+	assert.Equal(t, pages, 2)
+	_, err = client.Kube().CoreV1().Services(pool.Namespace).Get(t.Context(), serviceName, metav1.GetOptions{})
+	assert.NoError(t, err)
 }
 
 func TestReconcileInferencePoolDoesNotDeleteShadowServiceOnStartup(t *testing.T) {

@@ -597,6 +597,9 @@ func (c *Controller) reconcileShadowService(
 			if err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
+			if apierrors.IsNotFound(err) {
+				livePool = nil
+			}
 			// A revision handoff or same-name recreation can remove the pool from this
 			// controller's collection without making its old delete request authoritative.
 			if livePool != nil && (livePool.UID != request.poolUID || !c.inRevision(livePool)) {
@@ -620,6 +623,17 @@ func (c *Controller) reconcileShadowService(
 				log.Debugf("skipping deletion of service %s/%s, managed by another controller: %s",
 					key.Namespace, serviceName, reason)
 				return nil
+			}
+			if livePool != nil {
+				// The derived collection only sees this revision's routes. An unlabeled
+				// pool and its shadow Service can still be used by another revision.
+				referenced, err := inferencePoolHasGatewayReferences(kubeClient, livePool)
+				if err != nil {
+					return err
+				}
+				if referenced {
+					return nil
+				}
 			}
 			var preconditions *metav1.Preconditions
 			if existingService.UID != "" || existingService.ResourceVersion != "" {
@@ -678,6 +692,26 @@ func (c *Controller) applyShadowService(kubeClient kube.Client, service *corev1.
 			Force:        ptr.Of(true),
 		})
 	return err
+}
+
+// inferencePoolHasGatewayReferences uses the same reference rules as the derived
+// collection, but without revision or namespace filtering. Backend references may
+// point to a pool in another namespace.
+func inferencePoolHasGatewayReferences(kubeClient kube.Client, pool *inferencev1.InferencePool) (bool, error) {
+	options := metav1.ListOptions{Limit: 500}
+	for {
+		routes, err := kubeClient.GatewayAPI().GatewayV1().HTTPRoutes(metav1.NamespaceAll).List(context.Background(), options)
+		if err != nil {
+			return false, err
+		}
+		if len(findGatewayParents(pool, slices.Reference(routes.Items))) > 0 {
+			return true, nil
+		}
+		if routes.Continue == "" {
+			return false, nil
+		}
+		options.Continue = routes.Continue
+	}
 }
 
 func (c *Controller) canManageShadowServiceForInference(obj *corev1.Service) (bool, string) {
