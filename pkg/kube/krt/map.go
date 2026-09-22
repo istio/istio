@@ -42,6 +42,11 @@ type mappedIndexer[T any, U any] struct {
 var _ collectionTrait[any] = &mapCollection[any, any]{}
 
 // nolint: unused // (not true, its to implement an interface)
+// LookupFiltered returns objects matching the key and filter. A nil filter returns all objects for the key.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (m *mappedIndexer[T, U]) LookupFiltered(k string, filter func(U) bool) []U {
 	if filter != nil {
 		var res []U
@@ -78,6 +83,11 @@ func (m *mapCollection[T, U]) GetKey(k string) *U {
 	return nil
 }
 
+// ListFiltered returns objects accepted by filter. A nil filter returns all objects.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (m *mapCollection[T, U]) ListFiltered(filter func(U) bool) []U {
 	if filter != nil {
 		var res []U

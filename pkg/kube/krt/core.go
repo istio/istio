@@ -59,6 +59,10 @@ func (t *collection[T]) List() []T {
 }
 
 // ListFiltered returns the collection items accepted by filter. A nil filter returns all items.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (t *collection[T]) ListFiltered(filter func(T) bool) []T {
 	return t.internalCollection.ListFiltered(filter)
 }
@@ -87,6 +91,10 @@ type collectionTrait[T any] interface {
 
 	// ListFiltered returns objects matching filter. A nil filter returns all objects.
 	// Order of the list is undefined.
+	//
+	// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+	// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+	// short-lived and non-blocking, since they can delay collection updates.
 	ListFiltered(filter func(T) bool) []T
 
 	// EventStream provides event handling capabilities for the collection, allowing clients to subscribe to changes
@@ -139,6 +147,11 @@ type internalCollection[T any] interface {
 }
 
 type indexer[T any] interface {
+	// LookupFiltered returns objects matching the key and filter. A nil filter returns all objects for the key.
+	//
+	// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+	// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+	// short-lived and non-blocking, since they can delay collection updates.
 	LookupFiltered(key string, filter func(T) bool) []T
 }
 

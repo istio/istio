@@ -54,6 +54,11 @@ func (j *join[T]) GetKey(k string) *T {
 	return nil
 }
 
+// ListFiltered returns objects accepted by filter. A nil filter returns all objects.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (j *join[T]) ListFiltered(filter func(T) bool) []T {
 	var res []T
 	if j.uncheckedOverlap {
@@ -325,6 +330,11 @@ type joinIndexer[T any] struct {
 }
 
 // nolint: unused // (not true)
+// LookupFiltered returns objects matching the key and filter. A nil filter returns all objects for the key.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (j joinIndexer[T]) LookupFiltered(key string, filter func(T) bool) []T {
 	var res []T
 	first := true

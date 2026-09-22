@@ -28,7 +28,10 @@ import (
 type Index[K comparable, O any] interface {
 	Lookup(k K) []O
 	// LookupFiltered returns objects matching the key and filter. A nil filter returns all objects for the key.
-	// The filter must not modify the collection or its objects.
+	//
+	// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+	// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+	// short-lived and non-blocking, since they can delay collection updates.
 	LookupFiltered(k K, filter func(O) bool) []O
 	AsCollection(opts ...CollectionOption) IndexCollection[K, O]
 	Fetch(ctx HandlerContext, key K, opts ...FetchOption) []O
@@ -161,6 +164,10 @@ func (i index[K, O]) Lookup(k K) []O {
 
 // LookupFiltered finds objects matching a given key that are accepted by filter.
 // A nil filter returns all objects matching the key.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (i index[K, O]) LookupFiltered(k K, filter func(O) bool) []O {
 	if i.indexer == nil {
 		return nil
@@ -226,6 +233,11 @@ func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
 	}
 }
 
+// ListFiltered returns index objects accepted by filter. A nil filter returns all index objects.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (i indexCollection[K, O]) ListFiltered(filter func(IndexObject[K, O]) bool) []IndexObject[K, O] {
 	keys := sets.New[K]()
 	i.idx.c.ListFiltered(func(oo O) bool {

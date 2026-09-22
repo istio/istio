@@ -67,6 +67,11 @@ type joinCollectionIndex[T any] struct {
 	parent  *mergejoin[T]
 }
 
+// LookupFiltered returns objects matching the key and filter. A nil filter returns all objects for the key.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (c joinCollectionIndex[T]) LookupFiltered(key string, filter func(T) bool) []T {
 	c.parent.mu.RLock()
 	defer c.parent.mu.RUnlock()
@@ -163,6 +168,11 @@ func (j *mergejoin[T]) WaitUntilSynced(s <-chan struct{}) bool {
 	return j.syncer.WaitUntilSynced(s)
 }
 
+// ListFiltered returns objects accepted by filter. A nil filter returns all objects.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (j *mergejoin[T]) ListFiltered(filter func(T) bool) []T {
 	j.mu.RLock()
 	defer j.mu.RUnlock()

@@ -246,6 +246,11 @@ type collectionIndex[I, O any] struct {
 	parent  *manyCollection[I, O]
 }
 
+// LookupFiltered returns objects matching the key and filter. A nil filter returns all objects for the key.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (c collectionIndex[I, O]) LookupFiltered(key string, filter func(O) bool) []O {
 	c.parent.mu.RLock()
 	defer c.parent.mu.RUnlock()
@@ -750,6 +755,11 @@ func (h *manyCollection[I, O]) GetKey(k string) (res *O) {
 	return nil
 }
 
+// ListFiltered returns objects accepted by filter. A nil filter returns all objects.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (h *manyCollection[I, O]) ListFiltered(filter func(O) bool) (res []O) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
