@@ -1944,6 +1944,65 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 }
 
+// BenchmarkSelectVirtualServices isolates the cost of selectVirtualServices, which
+// buildSidecarOutboundHTTPRouteConfig currently runs only after the RDS cache lookup (on a miss), so that a
+// cache hit never pays for it. This measures what a hit would additionally cost if the filtering were moved
+// earlier so the same filtered list could be used for both the cache key and the miss-path build.
+func BenchmarkSelectVirtualServices(b *testing.B) {
+	for _, n := range []int{100, 1000} {
+		_, servicesByName, virtualServices := buildSelectVSBenchInput(n, false)
+		b.Run(fmt.Sprintf("exact-match/%d", n), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				selectVirtualServices(virtualServices, servicesByName)
+			}
+		})
+	}
+	for _, n := range []int{100, 1000} {
+		_, servicesByName, virtualServices := buildSelectVSBenchInput(n, true)
+		b.Run(fmt.Sprintf("wildcard-vs-hosts/%d", n), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				selectVirtualServices(virtualServices, servicesByName)
+			}
+		})
+	}
+}
+
+// buildSelectVSBenchInput builds n services and n VirtualServices, mirroring the shape of the
+// "virtualservice"/"gateways" benchmark fixtures used in pilot/pkg/xds/bench_test.go: one VirtualService per
+// service, each with a single host. When wildcardVS is true, every VirtualService host is instead the
+// wildcard "*.host.example", which matches every service and forces selectVirtualServices onto its slow path
+// (looping over all service hosts) instead of the O(1) exact-match lookup.
+func buildSelectVSBenchInput(n int, wildcardVS bool) ([]*model.Service, map[host.Name]*model.Service, []*config.Config) {
+	services := make([]*model.Service, 0, n)
+	servicesByName := make(map[host.Name]*model.Service, n)
+	virtualServices := make([]*config.Config, 0, n)
+	for i := 0; i < n; i++ {
+		hostname := fmt.Sprintf("random-%d.host.example", i)
+		svc := buildHTTPService(hostname, visibility.Public, "1.2.3.4", "default", 80)
+		services = append(services, svc)
+		servicesByName[svc.Hostname] = svc
+
+		vsHost := hostname
+		if wildcardVS {
+			vsHost = "*.host.example"
+		}
+		spec := &networking.VirtualService{
+			Hosts: []string{vsHost},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: hostname},
+					Weight:      100,
+				}},
+			}},
+		}
+		virtualServices = append(virtualServices, &config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: fmt.Sprintf("vs-%d", i), Namespace: "default"},
+			Spec: spec,
+		})
+	}
+	return services, servicesByName, virtualServices
+}
+
 func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	sidecarConfig *config.Config, virtualServices []*config.Config, routeName string,
 	expectedHosts map[string]map[string]bool, expectedRoutes int, registryOnly bool,

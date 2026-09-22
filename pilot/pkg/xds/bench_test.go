@@ -264,7 +264,7 @@ func BenchmarkRouteGenerationCacheMiss(b *testing.B) {
 	b.ResetTimer()
 	for range b.N {
 		b.StopTimer()
-		s.ConfigGen.Cache.ClearAll()
+		s.Discovery.Cache.ClearAll()
 		b.StartTimer()
 		var err error
 		resources, _, err = gen.Generate(proxy, w, req)
