@@ -1848,11 +1848,22 @@ func TestSimpleCaCertCredentialName(t *testing.T) {
 	cb := &ClusterBuilder{proxyType: model.SidecarProxy}
 	settings := &networking.ClientTLSSettings{
 		Mode:                 networking.ClientTLSSettings_SIMPLE,
+		CaCertificates:       "/etc/certs/ca.pem",
 		CaCertCredentialName: "configmap://backend/backend-ca",
 		CaCrl:                "/etc/certs/backend.crl",
 	}
 
 	context, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{mutable: newTestCluster()}, settings)
+	assert.NoError(t, err)
+	assert.Equal(t,
+		context.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(),
+		"file-root:/etc/certs/ca.pem",
+	)
+
+	context, err = cb.buildUpstreamClusterTLSContext(&buildClusterOpts{
+		mutable:          newTestCluster(),
+		isDrWithSelector: true,
+	}, settings)
 	assert.NoError(t, err)
 	assert.Equal(t,
 		context.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(),
@@ -1874,7 +1885,10 @@ func TestMutualCaCertCredentialNameWithFileIdentity(t *testing.T) {
 		CaCrl:                "/etc/certs/backend.crl",
 	}
 
-	context, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{mutable: newTestCluster()}, settings)
+	context, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{
+		mutable:          newTestCluster(),
+		isDrWithSelector: true,
+	}, settings)
 	assert.NoError(t, err)
 	assert.Equal(t, len(context.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()), 1)
 	assert.Equal(t,
