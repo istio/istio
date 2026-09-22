@@ -852,6 +852,63 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 	}
 }
 
+func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
+	tests := []struct {
+		name             string
+		tlsOpts          *networking.ClientTLSSettings
+		wantCertificate  string
+		wantValidationCA string
+	}{
+		{
+			name: "mutual TLS derives CA from client credential",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:           networking.ClientTLSSettings_MUTUAL,
+				CredentialName: "client-cert",
+			},
+			wantCertificate:  "kubernetes://client-cert",
+			wantValidationCA: "kubernetes://client-cert-cacert",
+		},
+		{
+			name: "mutual TLS uses independent CA credential",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_MUTUAL,
+				CredentialName:       "client-cert",
+				CaCertCredentialName: "configmap://backend/backend-ca",
+			},
+			wantCertificate:  "kubernetes://client-cert",
+			wantValidationCA: "configmap://backend/backend-ca",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tlsContext := &auth.CommonTlsContext{}
+			ApplyCustomSDSToClientCommonTLSContext(tlsContext, tt.tlsOpts, false)
+
+			if tt.wantCertificate == "" {
+				if len(tlsContext.TlsCertificateSdsSecretConfigs) != 0 {
+					t.Fatalf("expected no client certificate SDS config, got %v", tlsContext.TlsCertificateSdsSecretConfigs)
+				}
+			} else {
+				if len(tlsContext.TlsCertificateSdsSecretConfigs) != 1 {
+					t.Fatalf("expected one client certificate SDS config, got %d", len(tlsContext.TlsCertificateSdsSecretConfigs))
+				}
+				if got := tlsContext.TlsCertificateSdsSecretConfigs[0].Name; got != tt.wantCertificate {
+					t.Errorf("client certificate SDS config = %q, want %q", got, tt.wantCertificate)
+				}
+			}
+
+			combined := tlsContext.GetCombinedValidationContext()
+			if combined == nil {
+				t.Fatal("expected combined validation context")
+			}
+			if got := combined.ValidationContextSdsSecretConfig.GetName(); got != tt.wantValidationCA {
+				t.Errorf("validation SDS config = %q, want %q", got, tt.wantValidationCA)
+			}
+		})
+	}
+}
+
 func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 	tests := []struct {
 		name                   string
