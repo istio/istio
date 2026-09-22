@@ -238,7 +238,7 @@ func constructSdsSecretConfig(maybeFileName string, fallbackName string, customF
 func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 	tlsOpts *networking.ClientTLSSettings, credentialSocketExist bool,
 ) {
-	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL {
+	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL && tlsOpts.CredentialName != "" {
 		// create SDS config for gateway to fetch key/cert from agent.
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, nil),

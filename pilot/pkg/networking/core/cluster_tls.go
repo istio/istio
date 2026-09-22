@@ -208,10 +208,30 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		tls = tls.DeepCopy()
 		tls.SubjectAltNames = opts.serviceAccounts
 	}
-	if tls.CredentialName != "" ||
-		(tls.Mode == networking.ClientTLSSettings_SIMPLE && tls.CaCertCredentialName != "") {
+
+	// Used to fallback to file-based approach when CredentialName is not configured. 
+	applyFileClientCertificate := func() error {
+		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
+			return fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
+				c.cluster.Name)
+		}
+		res := security.SdsCertificateConfig{
+			CertificatePath: tls.ClientCertificate,
+			PrivateKeyPath:  tls.PrivateKey,
+		}
+		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+			constructSdsSecretConfigFromFile(res.GetResourceName(), opts.fileCredentialSocketExist))
+		return nil
+	}
+
+	if tls.CredentialName != "" || tls.CaCertCredentialName != "" {
 		// If credential name is specified at Destination Rule config and originating node is egress gateway, create
 		// SDS config for egress gateway to fetch key/cert at gateway agent.
+		if mutual && tls.CredentialName == "" {
+			if err := applyFileClientCertificate(); err != nil {
+				return nil, err
+			}
+		}
 		sec_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, opts.credentialSocketExist)
 	} else {
 		// These are certs being mounted from within the pod and specified in Destination Rules.
@@ -222,15 +242,9 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		}
 		// If CredentialName is not set fallback to file based approach
 		if mutual {
-			if tls.ClientCertificate == "" || tls.PrivateKey == "" {
-				err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
-					c.cluster.Name)
+			if err := applyFileClientCertificate(); err != nil {
 				return nil, err
 			}
-			res.CertificatePath = tls.ClientCertificate
-			res.PrivateKeyPath = tls.PrivateKey
-			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				constructSdsSecretConfigFromFile(res.GetResourceName(), opts.fileCredentialSocketExist))
 		}
 		// If tls.CaCertificate or CaCertificate in Metadata isn't configured, or tls.InsecureSkipVerify is true,
 		// don't set up SdsSecretConfig

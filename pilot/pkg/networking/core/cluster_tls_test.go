@@ -1859,6 +1859,24 @@ func TestSimpleCaCertCredentialName(t *testing.T) {
 	)
 }
 
+func TestMutualCaCertCredentialNameWithFileIdentity(t *testing.T) {
+	cb := &ClusterBuilder{proxyType: model.SidecarProxy}
+	settings := &networking.ClientTLSSettings{
+		Mode:                 networking.ClientTLSSettings_MUTUAL,
+		ClientCertificate:    "/etc/certs/client.pem",
+		PrivateKey:           "/etc/certs/client-key.pem",
+		CaCertCredentialName: "configmap://backend/backend-ca",
+	}
+
+	context, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{mutable: newTestCluster()}, settings)
+	assert.NoError(t, err)
+	assert.Equal(t, len(context.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()), 1)
+	assert.Equal(t,
+		context.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(),
+		"configmap://backend/backend-ca",
+	)
+}
+
 func TestBuildAutoMtlsSettings(t *testing.T) {
 	tlsSettings := &networking.ClientTLSSettings{
 		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
