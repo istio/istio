@@ -49,20 +49,19 @@ type NodeUntainter struct {
 	cnilabels     labels.Instance
 	ztunnellabels labels.Instance
 	cniNs         string
-	systemNs      string
+	ztunnelNs     sets.String
 	checkZtunnel  bool
 	queue         controllers.Queue
 	taintName     string
 }
 
-func filterNamespaces(nses ...string) func(any) bool {
-	set := sets.New(nses...)
+func filterNamespaces(nses sets.String) func(any) bool {
 	return func(obj any) bool {
 		object := controllers.ExtractObject(obj)
 		if object == nil {
 			return false
 		}
-		return set.Contains(object.GetNamespace())
+		return nses.Contains(object.GetNamespace())
 	}
 }
 
@@ -72,10 +71,16 @@ func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sy
 	if ns == "" {
 		ns = sysNs
 	}
-	// watch both the cni namespace and the system namespace: istio-cni may run in a
-	// dedicated namespace while ztunnel always runs in the system namespace.
+	// istio-cni, ztunnel and istiod can all live in different namespaces, so watch the
+	// cni namespace plus wherever ztunnel runs (only needed when we gate on ztunnel).
+	checkZtunnel := features.NodeUntaintCheckZtunnel
+	ztunnelNs := sets.New[string]()
+	if checkZtunnel {
+		ztunnelNs = ztunnelNamespaces(sysNs)
+	}
+	watchedNs := sets.New(ns).Merge(ztunnelNs)
 	podsClient := kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
-		ObjectFilter:    kubetypes.NewStaticObjectFilter(filterNamespaces(ns, sysNs)),
+		ObjectFilter:    kubetypes.NewStaticObjectFilter(filterNamespaces(watchedNs)),
 		ObjectTransform: kubelib.StripPodUnusedFields,
 		FieldSelector:   "status.phase!=Failed",
 	})
@@ -86,12 +91,25 @@ func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sy
 		cnilabels:     labels.Instance(istioCniLabels),
 		ztunnellabels: labels.Instance(ztunnelLabels),
 		cniNs:         ns,
-		systemNs:      sysNs,
-		checkZtunnel:  features.NodeUntaintCheckZtunnel,
+		ztunnelNs:     ztunnelNs,
+		checkZtunnel:  checkZtunnel,
 		taintName:     features.NodeUntaintTaintName,
 	}
 	nt.setup(stop, debugger)
 	return nt
+}
+
+// ztunnelNamespaces returns where ztunnel may run. CA_TRUSTED_NODE_ACCOUNTS is rendered from
+// `trustedZtunnelNamespace`; istiod's own ns stays in so a bad guess can't wedge scheduling.
+func ztunnelNamespaces(sysNs string) sets.String {
+	res := sets.New(sysNs)
+	for sa := range features.CATrustedNodeAccounts {
+		if sa.Namespace != "" {
+			res.Insert(sa.Namespace)
+		}
+	}
+	log.Debugf("node untainter looking for ztunnel in namespaces %v", res)
+	return res
 }
 
 func (n *NodeUntainter) setup(stop <-chan struct{}, debugger *krt.DebugHandler) {
@@ -116,7 +134,7 @@ func (n *NodeUntainter) setup(stop <-chan struct{}, debugger *krt.DebugHandler) 
 
 	readyZtunnelPods := krt.NewCollection(pods, func(ctx krt.HandlerContext, p *v1.Pod) **v1.Pod {
 		log.Debugf("ztunnelPods event: %s", p.Name)
-		if p.Namespace != n.systemNs {
+		if !n.ztunnelNs.Contains(p.Namespace) {
 			return nil
 		}
 		if !n.ztunnellabels.SubsetOf(p.ObjectMeta.Labels) {
