@@ -208,7 +208,8 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		tls = tls.DeepCopy()
 		tls.SubjectAltNames = opts.serviceAccounts
 	}
-	if tls.CredentialName != "" {
+	if tls.CredentialName != "" ||
+		(tls.Mode == networking.ClientTLSSettings_SIMPLE && tls.CaCertCredentialName != "") {
 		// If credential name is specified at Destination Rule config and originating node is egress gateway, create
 		// SDS config for egress gateway to fetch key/cert at gateway agent.
 		sec_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, opts.credentialSocketExist)
