@@ -16,6 +16,7 @@ package kubeclient
 
 import (
 	"context"
+	"time"
 
 	kubeext "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kubetypes"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/informerfactory"
 	ktypes "istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
@@ -96,6 +98,20 @@ func GetInformerFiltered[T runtime.Object](
 	return GetInformerFilteredFromGVR(c, opts, gvr)
 }
 
+// informerListTimeout bounds each informer List request. A full list of a large
+// resource can run for minutes, past the transport wrapper's generic backstop.
+var informerListTimeout = env.Register("ISTIO_INFORMER_REQUEST_TIMEOUT", 15*time.Minute,
+	"Client-side deadline applied to each informer List request. Must accommodate a full list of the "+
+		"largest resource in the cluster. 0 disables the bound.").Get()
+
+// listContext bounds an informer List call with informerListTimeout, unless disabled.
+func listContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if informerListTimeout <= 0 {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, informerListTimeout)
+}
+
 // GetInformerFilteredFromGVR will build an informer for the given GVR. When
 // using ktypes.StandardInformer as the InformerType, the clients are selected
 // from a statically defined list. Use GetInformerFiltered[T] for dynamically
@@ -115,15 +131,17 @@ func getInformerFilteredDynamic(c ClientGetter, opts ktypes.InformerOptions, g s
 	return c.Informers().InformerFor(g, opts, func() cache.SharedIndexInformer {
 		inf := cache.NewSharedIndexInformerWithOptions(
 			cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
-				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					return c.Dynamic().Resource(g).Namespace(opts.Namespace).List(context.Background(), options)
+					ctx, cancel := listContext(ctx)
+					defer cancel()
+					return c.Dynamic().Resource(g).Namespace(opts.Namespace).List(ctx, options)
 				},
-				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					return c.Dynamic().Resource(g).Namespace(opts.Namespace).Watch(context.Background(), options)
+					return c.Dynamic().Resource(g).Namespace(opts.Namespace).Watch(ctx, options)
 				},
 			}, c.Dynamic()),
 			&unstructured.Unstructured{},
@@ -142,15 +160,17 @@ func getInformerFilteredMetadata(c ClientGetter, opts ktypes.InformerOptions, g 
 	return c.Informers().InformerFor(g, opts, func() cache.SharedIndexInformer {
 		inf := cache.NewSharedIndexInformerWithOptions(
 			cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
-				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					return c.Metadata().Resource(g).Namespace(opts.Namespace).List(context.Background(), options)
+					ctx, cancel := listContext(ctx)
+					defer cancel()
+					return c.Metadata().Resource(g).Namespace(opts.Namespace).List(ctx, options)
 				},
-				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					return c.Metadata().Resource(g).Namespace(opts.Namespace).Watch(context.Background(), options)
+					return c.Metadata().Resource(g).Namespace(opts.Namespace).Watch(ctx, options)
 				},
 			}, c.Metadata()),
 			&metav1.PartialObjectMetadata{},
@@ -198,8 +218,8 @@ var registerTypes = typemap.NewTypeMap()
 func Register[T runtime.Object](
 	gvr schema.GroupVersionResource,
 	gvk schema.GroupVersionKind,
-	list func(c ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error),
-	watch func(c ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error),
+	list func(ctx context.Context, c ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error),
+	watch func(ctx context.Context, c ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error),
 	write func(c ClientGetter, namespace string) ktypes.WriteAPI[T],
 ) {
 	reg := &internalTypeReg[T]{
@@ -227,8 +247,8 @@ type TypeRegistration[T runtime.Object] interface {
 }
 
 type internalTypeReg[T runtime.Object] struct {
-	list  func(c ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error)
-	watch func(c ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error)
+	list  func(ctx context.Context, c ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error)
+	watch func(ctx context.Context, c ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error)
 	write func(c ClientGetter, namespace string) ktypes.WriteAPI[T]
 	gvr   schema.GroupVersionResource
 	gvk   config.GroupVersionKind
@@ -251,15 +271,17 @@ func (t *internalTypeReg[T]) Write(c ClientGetter, namespace string) ktypes.Writ
 
 func (t *internalTypeReg[T]) ListWatch(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher {
 	return cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+		ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = o.FieldSelector
 			options.LabelSelector = o.LabelSelector
-			return t.list(c, o.Namespace, options)
+			ctx, cancel := listContext(ctx)
+			defer cancel()
+			return t.list(ctx, c, o.Namespace, options)
 		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+		WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
 			options.FieldSelector = o.FieldSelector
 			options.LabelSelector = o.LabelSelector
-			return t.watch(c, o.Namespace, options)
+			return t.watch(ctx, c, o.Namespace, options)
 		},
 	}, c)
 }

@@ -206,7 +206,7 @@ func TestDelayedClientWithRegisteredType(t *testing.T) {
 	kubeclient.Register[*oldistionetclient.DestinationRule](
 		gvr.DestinationRule_v1beta1,
 		gvk.DestinationRule_v1beta1.Kubernetes(),
-		func(c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error) {
+		func(ctx context.Context, c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error) {
 			// HACK: we can't  use clienttest.NewWriter with the old struct
 			return &oldistionetclient.DestinationRuleList{
 				Items: []*oldistionetclient.DestinationRule{{
@@ -214,8 +214,8 @@ func TestDelayedClientWithRegisteredType(t *testing.T) {
 				}},
 			}, nil
 		},
-		func(c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1alpha3().DestinationRules(namespace).Watch(context.Background(), o)
+		func(ctx context.Context, c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1alpha3().DestinationRules(namespace).Watch(ctx, o)
 		},
 		func(c kubeclient.ClientGetter, namespace string) kubetypes.WriteAPI[*oldistionetclient.DestinationRule] {
 			return c.Istio().NetworkingV1alpha3().DestinationRules(namespace)

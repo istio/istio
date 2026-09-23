@@ -78,18 +78,18 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 }
 
 func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) informerfactory.StartableInformer {
-	var l func(options metav1.ListOptions) (runtime.Object, error)
-	var w func(options metav1.ListOptions) (watch.Interface, error)
+	var l func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error)
+	var w func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error)
 
 	switch g {
 {{- range .Entries }}
 	{{- if not .Resource.Synthetic }}
 	case gvr.{{ .Resource.Identifier }}:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}opts.Namespace{{end}}).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}opts.Namespace{{end}}).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}opts.Namespace{{end}}).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}opts.Namespace{{end}}).Watch(ctx, options)
 		}
 	{{- end }}
 {{- end }}
@@ -99,15 +99,17 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 	return c.Informers().InformerFor(g, opts, func() cache.SharedIndexInformer {
 		inf := cache.NewSharedIndexInformer(
 			cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
-				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					return l(options)
+					ctx, cancel := listContext(ctx)
+					defer cancel()
+					return l(ctx, options)
 				},
-				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					return w(options)
+					return w(ctx, options)
 				},
 			}, c),
 			gvrToObject(g),

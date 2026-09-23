@@ -1,0 +1,32 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** Istio components hanging indefinitely when a Kubernetes API request gets no
+  response, for example when a load balancer or proxy silently drops the return path.
+  Previously such a request could stay open forever, stalling the controller that issued
+  it until the process restarted. Requests are now bounded by client-side deadlines, so a
+  stuck request is canceled and the component recovers on its own. Each cancellation is
+  logged as a warning and counted by the `kube_client_deadline_fired_total` metric.
+
+upgradeNotes:
+- title: Kubernetes API requests are now bounded by client-side deadlines
+  content: |
+    The defaults suit most clusters. Environments with a slow or heavily loaded API server
+    can raise them, or set any of them to `0` to restore the previous unbounded behavior,
+    with these environment variables on the affected component.
+
+    | Variable | Default | Applies to |
+    | --- | --- | --- |
+    | `ISTIO_KUBE_HEADER_TIMEOUT` | `90s` | How long any request may wait for its first response headers. Must stay above the API server's `--request-timeout` (60s by default). |
+    | `ISTIO_KUBE_REQUEST_TIMEOUT` | `120s` | Total duration of a normal request, including reading the response. Must exceed `ISTIO_KUBE_HEADER_TIMEOUT`. |
+    | `ISTIO_KUBE_STREAM_TIMEOUT` | `15m` | Total duration of a watch or other stream. Must exceed the API server maximum watch duration. |
+    | `ISTIO_INFORMER_REQUEST_TIMEOUT` | `15m` | Total duration of an informer list. Must accommodate a full list of the largest resource in the cluster. |
+
+    A canceled request increments `kube_client_deadline_fired_total` and logs a warning
+    naming the method and path.
+
