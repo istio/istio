@@ -116,6 +116,7 @@ type Webhook struct {
 	valuesConfig ValuesConfig
 	namespaces   *multicluster.KclientComponent[*corev1.Namespace]
 	nodes        *multicluster.KclientComponent[*corev1.Node]
+	sccs         *multicluster.Component[*SCCClient]
 
 	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
 	watcher   Watcher
@@ -216,6 +217,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if p.MultiCluster != nil {
 		if platform.IsOpenShift() {
 			wh.namespaces = multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](p.MultiCluster, kubetypes.Filter{})
+			wh.sccs = multicluster.BuildMultiClusterComponent(p.MultiCluster, func(cluster *multicluster.Cluster) *SCCClient {
+				return NewSCCClient(cluster.Client)
+			})
 		}
 	}
 
@@ -391,6 +395,7 @@ type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          types.NamespacedName
 	namespace           *corev1.Namespace
+	sccs                *SCCClient
 	nativeSidecar       bool
 	typeMeta            metav1.TypeMeta
 	templates           map[string]*template.Template
@@ -1239,6 +1244,14 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 			log.Warnf("unable to fetch namespace, failed to get client for %q", clusterID)
 		}
 
+		if wh.sccs != nil {
+			if cc := wh.sccs.ForCluster(cluster.ID(clusterID)); cc != nil {
+				params.sccs = *cc
+			} else {
+				log.Warnf("unable to resolve SCC proxy UID/GID, failed to get client for %q", clusterID)
+			}
+		}
+
 		// OpenShift automatically assigns a SecurityContext.RunAsUser to all containers in the Pod, even if the Pod's
 		// YAML does not explicitly set this value. Istio treats the values specified in the istio-proxy container as
 		// overrides and preserves them in the final Pod yaml as expected. However, the RunAsUser value which is
@@ -1286,23 +1299,34 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 }
 
 func isSidecarUserMatchingAppUser(pod *corev1.Pod) bool {
+	var sideCarUser int64
+	if sc := FindSidecar(pod); sc != nil && sc.SecurityContext != nil && sc.SecurityContext.RunAsUser != nil {
+		sideCarUser = *sc.SecurityContext.RunAsUser
+	} else {
+		return false
+	}
+	for _, appUID := range appContainerUIDs(pod) {
+		if appUID == sideCarUser {
+			return true
+		}
+	}
+	return false
+}
+
+func appContainerUIDs(pod *corev1.Pod) (uids []int64) {
 	containers := append([]corev1.Container{}, pod.Spec.Containers...)
 	containers = append(containers, pod.Spec.InitContainers...)
 
-	var sideCarUser, appUser int64
 	for i := range containers {
-		if containers[i].Name == ProxyContainerName {
-			if containers[i].SecurityContext != nil && containers[i].SecurityContext.RunAsUser != nil {
-				sideCarUser = *containers[i].SecurityContext.RunAsUser
-			}
-		} else if containers[i].Name != ValidationContainerName && containers[i].Name != InitContainerName {
-			if containers[i].SecurityContext != nil && containers[i].SecurityContext.RunAsUser != nil {
-				appUser = *containers[i].SecurityContext.RunAsUser
-			}
+		if containers[i].Name == ProxyContainerName || containers[i].Name == ValidationContainerName || containers[i].Name == InitContainerName {
+			continue
+		}
+		if containers[i].SecurityContext != nil && containers[i].SecurityContext.RunAsUser != nil {
+			uids = append(uids, *containers[i].SecurityContext.RunAsUser)
 		}
 	}
 
-	return sideCarUser == appUser
+	return uids
 }
 
 func DetectNativeSidecar(nodes kclient.Client[*corev1.Node], podNodeName string) bool {

@@ -474,7 +474,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		return nil, nil, err
 	}
 
-	proxyUID, proxyGID := GetProxyIDs(params.namespace)
+	proxyUID, proxyGID := GetProxyIDs(params.namespace, params.pod, params.sccs)
 
 	// When changing this, make sure to change TemplateInput in deploymentcontroller.go
 	data := SidecarTemplateData{
@@ -970,22 +970,31 @@ func updateClusterEnvs(container *corev1.Container, newKVs map[string]string) {
 	container.Env = envVars
 }
 
-// GetProxyIDs returns the UID and GID to be used in the RunAsUser and RunAsGroup fields in the template
-// Inspects the namespace metadata for hints and fallbacks to the usual value of 1337.
-func GetProxyIDs(namespace *corev1.Namespace) (uid int64, gid int64) {
+// GetProxyIDs returns the proxy RunAsUser/RunAsGroup. On OpenShift, a non-nil sccs resolves the
+// pod's SCC, which takes precedence over the namespace annotation; both fall back to 1337.
+func GetProxyIDs(namespace *corev1.Namespace, pod *corev1.Pod, sccs *SCCClient) (uid int64, gid int64) {
 	uid = constants.DefaultProxyUIDInt
 	gid = constants.DefaultProxyUIDInt
 
-	if namespace == nil {
-		return uid, gid
+	// Resolve OpenShift's preallocated UID/GID range from the namespace, then let a pod-specific SCC override it if one applies.
+	if namespace != nil {
+		if _, uidMax, err := getPreallocatedUIDRange(namespace); err == nil {
+			uid = *uidMax
+		}
+		if groups, err := getPreallocatedSupplementalGroups(namespace); err == nil && len(groups) > 0 {
+			gid = groups[0].Max
+		}
 	}
 
-	// Check for OpenShift specifics and returns the max number in the range specified in the namespace annotation
-	if _, uidMax, err := getPreallocatedUIDRange(namespace); err == nil {
-		uid = *uidMax
-	}
-	if groups, err := getPreallocatedSupplementalGroups(namespace); err == nil && len(groups) > 0 {
-		gid = groups[0].Max
+	if sccs != nil && pod != nil {
+		if sccUID, sccGID := GetSCCProxyIDs(sccs, namespace, pod); sccUID != nil || sccGID != nil {
+			if sccUID != nil {
+				uid = *sccUID
+			}
+			if sccGID != nil {
+				gid = *sccGID
+			}
+		}
 	}
 
 	return uid, gid
