@@ -163,6 +163,12 @@ func canSendPartialFullPushes(req *model.PushRequest) bool {
 	}
 
 	for cfg := range req.ConfigsUpdated {
+		// Skipped kinds do not affect EDS and may be coalesced with an update that does.
+		// TODO(ilrudie): Address can affect waypoint endpoint tunnel metadata. We cannot determine
+		// which services are affected, so Address updates must conservatively trigger full EDS.
+		if skippedEdsConfigs.Contains(cfg.Kind) && cfg.Kind != kind.Address {
+			continue
+		}
 		if !deltaAwareEdsConfigs.Contains(cfg.Kind) {
 			return false
 		}
