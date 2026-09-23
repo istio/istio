@@ -41,6 +41,33 @@ func TestDNS(t *testing.T) {
 	testDNS(t, d)
 }
 
+func TestDNSExact(t *testing.T) {
+	d := initDNS(t, false)
+	canonical := d.NameTable()
+	exact := make(map[string]*dnsProto.NameTable_NameInfo, len(canonical.GetTable()))
+	for name, info := range canonical.GetTable() {
+		exact[normalizeResourceName(name)] = info
+	}
+	d.BuildAlternateHosts(canonical, func(aliases map[string]struct{}, ipv4, ipv6 []netip.Addr, _ []string) {
+		for alias := range aliases {
+			alias = normalizeResourceName(alias)
+			if _, found := exact[alias]; found {
+				continue
+			}
+			addresses := make([]string, 0, len(ipv4)+len(ipv6))
+			for _, address := range ipv4 {
+				addresses = append(addresses, address.String())
+			}
+			for _, address := range ipv6 {
+				addresses = append(addresses, address.String())
+			}
+			exact[alias] = &dnsProto.NameTable_NameInfo{Ips: addresses}
+		}
+	})
+	d.RebuildExact(exact)
+	testDNS(t, d)
+}
+
 func TestBuildAlternateHosts(t *testing.T) {
 	// Create the server instance without starting it, as it's unnecessary for this test
 	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0")
@@ -125,7 +152,182 @@ func TestBuildAlternateHosts(t *testing.T) {
 	}
 }
 
+func TestExactNameTableDelta(t *testing.T) {
+	d := &LocalDNSServer{searchNamespaces: []string{"ns1.svc.cluster.local"}}
+	d.RebuildExact(map[string]*dnsProto.NameTable_NameInfo{
+		"svc-a.ns1.svc.cluster.local": {Ips: []string{"10.0.0.1"}, Registry: "Kubernetes"},
+		"www.example.com":             {Ips: []string{"1.2.3.4"}, Registry: "External"},
+	})
+
+	lookup := func(name string) ([]dns.RR, bool) {
+		t.Helper()
+		return d.lookupTable.Load().(*LookupTable).lookupHostExact(dns.TypeA, name+".", d.searchNamespaces)
+	}
+	if _, found := lookup("svc-a.ns1.svc.cluster.local"); !found {
+		t.Fatal("expected initial exact name to resolve")
+	}
+	if answers, found := lookup("www.example.com.ns1.svc.cluster.local"); !found || len(answers) != 2 {
+		t.Fatalf("expected search-domain CNAME and A response, got found=%v answers=%v", found, answers)
+	}
+
+	d.ApplyDelta(map[string]*dnsProto.NameTable_NameInfo{
+		"svc-b.ns1.svc.cluster.local": {Ips: []string{"10.0.0.2"}, Registry: "Kubernetes"},
+	}, []string{"svc-a.ns1.svc.cluster.local", "www.example.com"})
+	if _, found := lookup("svc-a.ns1.svc.cluster.local"); found {
+		t.Error("removed exact name still resolves")
+	}
+	if _, found := lookup("www.example.com.ns1.svc.cluster.local"); found {
+		t.Error("search-domain lookup for a removed exact name still resolves")
+	}
+	if _, found := lookup("svc-b.ns1.svc.cluster.local"); !found {
+		t.Error("incrementally added exact name does not resolve")
+	}
+	if got := d.NameTable().GetTable(); len(got) != 1 || got["svc-b.ns1.svc.cluster.local"] == nil {
+		t.Fatalf("debug name table is not synchronized with delta state: %v", got)
+	}
+}
+
+func TestExactNameTableDeltaCopiesOnlyTouchedShards(t *testing.T) {
+	changedName := "changed.default.svc.cluster.local"
+	unchangedName := "unchanged.default.svc.cluster.local"
+	for exactLookupShard(normalizeExactName(changedName)) == exactLookupShard(normalizeExactName(unchangedName)) {
+		unchangedName = "x." + unchangedName
+	}
+
+	d := &LocalDNSServer{}
+	d.RebuildExact(map[string]*dnsProto.NameTable_NameInfo{
+		changedName:   {Ips: []string{"10.0.0.1"}},
+		unchangedName: {Ips: []string{"10.0.0.2"}},
+	})
+	before := d.lookupTable.Load().(*LookupTable).exactTable
+	changedShard := exactLookupShard(normalizeExactName(changedName))
+	unchangedShard := exactLookupShard(normalizeExactName(unchangedName))
+	changedShardPointer := reflect.ValueOf(before.shards[changedShard]).Pointer()
+	unchangedShardPointer := reflect.ValueOf(before.shards[unchangedShard]).Pointer()
+
+	d.ApplyDelta(map[string]*dnsProto.NameTable_NameInfo{
+		changedName: {Ips: []string{"10.0.0.3"}},
+	}, nil)
+	after := d.lookupTable.Load().(*LookupTable).exactTable
+	if reflect.ValueOf(after.shards[changedShard]).Pointer() == changedShardPointer {
+		t.Fatal("changed shard was not copied")
+	}
+	if reflect.ValueOf(after.shards[unchangedShard]).Pointer() != unchangedShardPointer {
+		t.Fatal("unchanged shard was copied")
+	}
+
+	oldAnswers, _ := before.lookupHost(dns.TypeA, normalizeExactName(changedName), false)
+	newAnswers, _ := after.lookupHost(dns.TypeA, normalizeExactName(changedName), false)
+	if got := oldAnswers[0].(*dns.A).A.String(); got != "10.0.0.1" {
+		t.Fatalf("published snapshot was mutated: %s", got)
+	}
+	if got := newAnswers[0].(*dns.A).A.String(); got != "10.0.0.3" {
+		t.Fatalf("delta was not published: %s", got)
+	}
+}
+
+func TestSearchNameDoesNotOverrideExactName(t *testing.T) {
+	d := &LocalDNSServer{searchNamespaces: []string{"ns1.svc.cluster.local"}}
+	d.RebuildExact(map[string]*dnsProto.NameTable_NameInfo{
+		"www.example.com":                       {Ips: []string{"1.2.3.4"}},
+		"www.example.com.ns1.svc.cluster.local": {Ips: []string{"5.6.7.8"}},
+	})
+
+	answers, found := d.lookupTable.Load().(*LookupTable).lookupHostExact(
+		dns.TypeA, "www.example.com.ns1.svc.cluster.local.", d.searchNamespaces)
+	if !found || len(answers) != 1 {
+		t.Fatalf("expected exact record without a synthetic CNAME, got found=%v answers=%v", found, answers)
+	}
+	if got := answers[0].(*dns.A).A.String(); got != "5.6.7.8" {
+		t.Fatalf("exact record lost collision to search-domain alias: got %s", got)
+	}
+}
+
+func TestLegacyNameTableKeepsPrecomputedSearchAliases(t *testing.T) {
+	d := &LocalDNSServer{searchNamespaces: []string{"ns1.svc.cluster.local"}}
+	d.UpdateLookupTable(&dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{
+		"www.example.com": {Ips: []string{"1.2.3.4"}, Registry: "External"},
+	}})
+
+	table := d.lookupTable.Load().(*LookupTable)
+	if table.exact {
+		t.Fatal("legacy NameTable unexpectedly selected exact-name lookup")
+	}
+	expanded := "www.example.com.ns1.svc.cluster.local."
+	if len(table.cname[expanded]) != 1 || !table.allHosts.Contains(expanded) {
+		t.Fatalf("legacy search-domain CNAME was not precomputed: %v", table.cname)
+	}
+	answers, found := table.lookupHost(dns.TypeA, expanded)
+	if !found || len(answers) != 2 {
+		t.Fatalf("legacy search alias lookup changed: found=%v answers=%v", found, answers)
+	}
+}
+
+func TestExactSearchAliasExpandsWildcardOwner(t *testing.T) {
+	d := &LocalDNSServer{searchNamespaces: []string{"ns1.svc.cluster.local"}}
+	d.RebuildExact(map[string]*dnsProto.NameTable_NameInfo{
+		"*.foo.com": {Ips: []string{"1.2.3.4"}, Registry: "External"},
+	})
+
+	query := "bar.foo.com.ns1.svc.cluster.local."
+	base := "bar.foo.com."
+	answers, found := d.lookupTable.Load().(*LookupTable).lookupHostExact(dns.TypeA, query, d.searchNamespaces)
+	if !found || len(answers) != 2 {
+		t.Fatalf("expected CNAME and wildcard A response, got found=%v answers=%v", found, answers)
+	}
+	cn, ok := answers[0].(*dns.CNAME)
+	if !ok || cn.Hdr.Name != query || cn.Target != base {
+		t.Fatalf("unexpected CNAME response: %v", answers[0])
+	}
+	aRecord, ok := answers[1].(*dns.A)
+	if !ok || aRecord.Hdr.Name != base || aRecord.A.String() != "1.2.3.4" {
+		t.Fatalf("wildcard answer was not expanded to the concrete base name: %v", answers[1])
+	}
+}
+
+func TestExactSearchAliasRequiresLabelBoundary(t *testing.T) {
+	d := &LocalDNSServer{searchNamespaces: []string{"ns1.svc.cluster.local"}}
+	d.RebuildExact(map[string]*dnsProto.NameTable_NameInfo{
+		"api.bad": {Ips: []string{"1.2.3.4"}},
+	})
+
+	query := "api.badns1.svc.cluster.local."
+	answers, found := d.lookupTable.Load().(*LookupTable).lookupHostExact(dns.TypeA, query, d.searchNamespaces)
+	if found || len(answers) != 0 {
+		t.Fatalf("concatenated DNS label was treated as a search alias: found=%v answers=%v", found, answers)
+	}
+}
+
+func TestExactSearchAliasPrecedesWildcardOnExpandedName(t *testing.T) {
+	d := &LocalDNSServer{searchNamespaces: []string{"default.svc.cluster.local"}}
+	d.RebuildExact(map[string]*dnsProto.NameTable_NameInfo{
+		"api.example.com":     {Ips: []string{"1.2.3.4"}},
+		"*.svc.cluster.local": {Ips: []string{"5.6.7.8"}},
+	})
+
+	query := "api.example.com.default.svc.cluster.local."
+	answers, found := d.lookupTable.Load().(*LookupTable).lookupHostExact(dns.TypeA, query, d.searchNamespaces)
+	if !found || len(answers) != 2 {
+		t.Fatalf("expected search-domain CNAME and A response, got found=%v answers=%v", found, answers)
+	}
+	cn, ok := answers[0].(*dns.CNAME)
+	if !ok || cn.Target != "api.example.com." {
+		t.Fatalf("expanded name did not resolve through the exact search base: %v", answers[0])
+	}
+	aRecord, ok := answers[1].(*dns.A)
+	if !ok || aRecord.A.String() != "1.2.3.4" {
+		t.Fatalf("wildcard overrode the exact search base: %v", answers[1])
+	}
+}
+
 func testDNS(t *testing.T, d *LocalDNSServer) {
+	wildcardSearchTarget := "*.wildcard."
+	wildcardDomainSearchTarget := "*.svc.mesh.company.net."
+	if d.lookupTable.Load().(*LookupTable).exact {
+		// Exact lookup expands wildcard owners to the concrete search base.
+		wildcardSearchTarget = "foo.wildcard."
+		wildcardDomainSearchTarget = "foo.svc.mesh.company.net."
+	}
 	testCases := []struct {
 		name                     string
 		host                     string
@@ -274,8 +476,8 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 		{
 			name: "success: wild card with with search namespace chained pointer correctly",
 			host: "foo.wildcard.ns1.svc.cluster.local.",
-			expected: append(cname("foo.wildcard.ns1.svc.cluster.local.", "*.wildcard."),
-				a("*.wildcard.", []netip.Addr{netip.MustParseAddr("10.10.10.10")})...),
+			expected: append(cname("foo.wildcard.ns1.svc.cluster.local.", wildcardSearchTarget),
+				a(wildcardSearchTarget, []netip.Addr{netip.MustParseAddr("10.10.10.10")})...),
 		},
 		{
 			name:     "success: wild card with domain returns A record correctly",
@@ -290,8 +492,8 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 		{
 			name: "success: wild card with search domain returns A record correctly",
 			host: "foo.svc.mesh.company.net.ns1.svc.cluster.local.",
-			expected: append(cname("foo.svc.mesh.company.net.ns1.svc.cluster.local.", "*.svc.mesh.company.net."),
-				a("*.svc.mesh.company.net.", []netip.Addr{netip.MustParseAddr("10.1.2.3")})...),
+			expected: append(cname("foo.svc.mesh.company.net.ns1.svc.cluster.local.", wildcardDomainSearchTarget),
+				a(wildcardDomainSearchTarget, []netip.Addr{netip.MustParseAddr("10.1.2.3")})...),
 		},
 		{
 			name:      "success: TypeAAAA query returns AAAA records only",

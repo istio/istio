@@ -17,6 +17,7 @@ package xds
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -51,6 +52,55 @@ func TestAppendAddressWorkloadMarshal(t *testing.T) {
 				t.Fatal("appendAddress did not reuse the pre-marshaled workload")
 			}
 		})
+	}
+}
+
+func TestNameTableGeneratorUsesPrivateWatchedResource(t *testing.T) {
+	publishedValue := 1
+	publishedState := &publishedValue
+	published := &model.WatchedResource{
+		TypeUrl:        v3.NameTableType,
+		GeneratorState: publishedState,
+	}
+	proxy := &model.Proxy{WatchedResources: map[string]*model.WatchedResource{v3.NameTableType: published}}
+	generated := watchedResourceForGenerator(proxy.GetWatchedResource(v3.NameTableType))
+	if generated == published {
+		t.Fatal("NDS generation received the published watched resource")
+	}
+
+	generatedValue := 2
+	generatedState := &generatedValue
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for range 1000 {
+			generated.GeneratorState = generatedState
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for range 1000 {
+			proxy.RLock()
+			state := proxy.DeepCloneWatchedResourcesLocked()[v3.NameTableType].GeneratorState
+			proxy.RUnlock()
+			if state != publishedState {
+				t.Errorf("published generator state changed during generation: %v", state)
+				return
+			}
+		}
+	}()
+	wg.Wait()
+
+	workload := &model.WatchedResource{TypeUrl: v3.WorkloadType}
+	if watchedResourceForGenerator(workload) != workload {
+		t.Fatal("workload generation must retain mutable watched-resource access")
+	}
+	if shouldSetWatchedResources(generated) {
+		t.Fatal("named NDS must not use generic resource membership")
+	}
+	if !shouldSetWatchedResources(&model.WatchedResource{TypeUrl: v3.NameTableType}) {
+		t.Fatal("legacy NDS must retain generic resource membership")
 	}
 }
 
@@ -238,5 +288,37 @@ func TestShouldRespondDelta(t *testing.T) {
 			}
 			assert.Equal(t, shouldRespondDelta(conn, tt.request), tt.response)
 		})
+	}
+}
+
+func TestNDSNackUsesGenericHandling(t *testing.T) {
+	resourceNames := sets.New("a", "b")
+	state := &struct{}{}
+	conn := newConnection("", &fakeStream{})
+	conn.SetID("proxy")
+	conn.proxy = &model.Proxy{WatchedResources: map[string]*model.WatchedResource{
+		v3.NameTableType: {
+			NonceSent:      "nonce",
+			ResourceNames:  resourceNames,
+			GeneratorState: state,
+		},
+	}}
+
+	if shouldRespondDelta(conn, &discovery.DeltaDiscoveryRequest{
+		TypeUrl:       v3.NameTableType,
+		ResponseNonce: "nonce",
+		ErrorDetail:   &status.Status{Message: "rejected NDS response"},
+	}) {
+		t.Fatal("NACK unexpectedly requested a response")
+	}
+	got := conn.proxy.GetWatchedResource(v3.NameTableType)
+	if !got.ResourceNames.Equals(resourceNames) {
+		t.Fatalf("NACK changed resource membership: %v", got.ResourceNames)
+	}
+	if got.LastError == "" {
+		t.Fatal("NACK error was not recorded")
+	}
+	if got.GeneratorState != state {
+		t.Fatal("NDS NACK cleared generator state")
 	}
 }

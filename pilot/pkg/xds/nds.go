@@ -37,6 +37,10 @@ type NdsGenerator struct {
 
 var _ model.XdsResourceGenerator = &NdsGenerator{}
 
+var _ model.XdsDeltaResourceGenerator = &NdsGenerator{}
+
+var minimumDeltaNDSVersion = &model.IstioVersion{Major: 1, Minor: 32, Patch: 0}
+
 // Map of all configs that do not impact NDS
 var skippedNdsConfigs = func() sets.Set[kind.Kind] {
 	s := sets.New(
@@ -87,4 +91,46 @@ func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	}
 	resources := model.Resources{&discovery.Resource{Resource: protoconv.MessageToAny(nt)}}
 	return resources, model.DefaultXdsLogDetails, nil
+}
+
+// GenerateDeltas uses generic Delta xDS NACK handling: record the rejection without resetting the stream or forcing a snapshot.
+func (n NdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
+	watched *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	// DELTA_NDS expresses intent; known Istio versions before 1.32 cannot consume named resources.
+	if !supportsDeltaNDS(proxy) {
+		resources, details, err := n.Generate(proxy, watched, req)
+		return resources, nil, details, false, err
+	}
+	req, needsPush := filterNdsPush(req, proxy)
+	if !needsPush {
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
+	}
+	resources, removed, details, usedDelta := n.ConfigGenerator.BuildDeltaNameTable(proxy, req, watched)
+	return resources, removed, details, usedDelta, nil
+}
+
+func supportsDeltaNDS(proxy *model.Proxy) bool {
+	// Non-empty custom versions follow Istio's optimistic version handling; a missing version falls back to legacy NDS.
+	return proxy.Metadata != nil && bool(proxy.Metadata.DeltaNDS) && proxy.Metadata.IstioVersion != "" &&
+		proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(minimumDeltaNDSVersion)
+}
+
+// filterNdsPush retains the exact update keys needed to calculate additions and removals.
+func filterNdsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushRequest, bool) {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
+		return req, res
+	}
+	relevantUpdates := make(sets.Set[model.ConfigKey])
+	for config := range req.ConfigsUpdated {
+		if _, skipped := skippedNdsConfigs[config.Kind]; !skipped {
+			relevantUpdates.Insert(config)
+		}
+	}
+	if len(relevantUpdates) == len(req.ConfigsUpdated) {
+		return req, len(relevantUpdates) > 0
+	}
+	filteredReq := *req
+	filteredReq.ConfigsUpdated = relevantUpdates
+	return &filteredReq, len(relevantUpdates) > 0
 }

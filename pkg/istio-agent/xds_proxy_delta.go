@@ -204,6 +204,9 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
+	if !p.startDeltaResponseHandlers(con) {
+		return
+	}
 	forwardEnvoyCh := make(chan *discovery.DeltaDiscoveryResponse, 1)
 	for {
 		select {
@@ -217,6 +220,25 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 				"removes", len(resp.RemovedResources),
 			).Debugf("upstream response")
 			metrics.XdsProxyResponses.Increment()
+			if handler, found := p.deltaHandlers[resp.TypeUrl]; found {
+				active, err := p.applyDeltaResponse(con, handler, resp)
+				if !active {
+					continue
+				}
+				var errorResp *google_rpc.Status
+				if err != nil {
+					errorResp = &google_rpc.Status{
+						Code:    int32(codes.Internal),
+						Message: err.Error(),
+					}
+				}
+				con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+					TypeUrl:       resp.TypeUrl,
+					ResponseNonce: resp.Nonce,
+					ErrorDetail:   errorResp,
+				})
+				continue
+			}
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {
 					// Empty response, nothing to do
@@ -264,6 +286,31 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 			return
 		}
 	}
+}
+
+func (p *XdsProxy) startDeltaResponseHandlers(con *ProxyConnection) bool {
+	p.connectedMutex.RLock()
+	defer p.connectedMutex.RUnlock()
+	if p.connected != con {
+		return false
+	}
+	for _, handler := range p.deltaHandlers {
+		handler.OnStreamStart()
+	}
+	return true
+}
+
+func (p *XdsProxy) applyDeltaResponse(
+	con *ProxyConnection,
+	handler DeltaResponseHandler,
+	resp *discovery.DeltaDiscoveryResponse,
+) (bool, error) {
+	p.connectedMutex.RLock()
+	defer p.connectedMutex.RUnlock()
+	if p.connected != con {
+		return false, nil
+	}
+	return true, handler.Handle(resp.Resources, resp.RemovedResources)
 }
 
 func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse, forward func(resp *discovery.DeltaDiscoveryResponse)) {

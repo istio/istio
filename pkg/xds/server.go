@@ -94,6 +94,9 @@ type WatchedResource struct {
 
 	// LastError records the last error returned, if any. This is cleared on any successful ACK.
 	LastError string
+
+	// GeneratorState holds stream-local state owned by the resource generator.
+	GeneratorState any
 }
 
 type Watcher interface {

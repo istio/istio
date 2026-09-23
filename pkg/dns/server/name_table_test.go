@@ -665,6 +665,51 @@ func TestNameTable(t *testing.T) {
 	}
 }
 
+func TestExpandNameTableCollisionPrecedence(t *testing.T) {
+	cfg := dnsServer.Config{Node: &model.Proxy{
+		Metadata:  &model.NodeMetadata{Namespace: "default"},
+		DNSDomain: "default.svc.cluster.local",
+	}}
+	canonical := &dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{
+		"reviews.default.svc.cluster.local": {
+			Ips:       []string{"10.0.0.1"},
+			Registry:  string(provider.Kubernetes),
+			Shortname: "reviews",
+			Namespace: "default",
+		},
+		"reviews": {Ips: []string{"192.0.2.1"}, Registry: string(provider.External)},
+		"z.default.svc.cluster.local": {
+			Ips:       []string{"10.0.0.3"},
+			Registry:  string(provider.Kubernetes),
+			Shortname: "shared",
+			Namespace: "default",
+		},
+		"a.default.svc.cluster.local": {
+			Ips:       []string{"10.0.0.2"},
+			Registry:  string(provider.Kubernetes),
+			Shortname: "shared",
+			Namespace: "default",
+		},
+	}}
+
+	got := dnsServer.ExpandNameTable(cfg, canonical, nil)
+	if diff := cmp.Diff([]string{"192.0.2.1"}, got.Table["reviews"].Ips); diff != "" {
+		t.Fatalf("an exact name must win over a generated alias (-want +got):\n%s", diff)
+	}
+	for _, alias := range []string{
+		"reviews.default",
+		"reviews.default.svc",
+		"reviews.default.svc.cluster.local",
+	} {
+		if got.Table[alias] == nil {
+			t.Errorf("expected control plane to materialize alias %q", alias)
+		}
+	}
+	if diff := cmp.Diff([]string{"10.0.0.2"}, got.Table["shared"].Ips); diff != "" {
+		t.Fatalf("colliding aliases must have a deterministic winner (-want +got):\n%s", diff)
+	}
+}
+
 // nolint
 func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, subdomain string, healthStatus model.HealthStatus) map[int][]*model.IstioEndpoint {
 	instances := make(map[int][]*model.IstioEndpoint)

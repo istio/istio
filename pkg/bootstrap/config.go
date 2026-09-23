@@ -681,37 +681,8 @@ const (
 // The name of variable is ignored.
 // ISTIO_META_* env variables are passed through
 func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
-	meta := &model.BootstrapNodeMetadata{}
-	untypedMeta := map[string]any{}
-
-	for k, v := range options.ProxyConfig.GetProxyMetadata() {
-		if after, ok := strings.CutPrefix(k, IstioMetaPrefix); ok {
-			untypedMeta[after] = v
-		}
-	}
-
-	extractMetadata(options.Envs, IstioMetaPrefix, func(m map[string]any, key string, val string) {
-		m[key] = val
-	}, untypedMeta)
-
-	extractMetadata(options.Envs, IstioMetaJSONPrefix, func(m map[string]any, key string, val string) {
-		err := json.Unmarshal([]byte(val), &m)
-		if err != nil {
-			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
-		}
-	}, untypedMeta)
-
-	// DNS_PROXY_ADDR is not ISTIO_META_*-prefixed. Read the process env directly (pilot-agent uses os.Environ() for options.Envs).
-	if v, ok := os.LookupEnv("DNS_PROXY_ADDR"); ok && v != "" {
-		untypedMeta["DNS_PROXY_ADDR"] = v
-	}
-
-	j, err := json.Marshal(untypedMeta)
+	meta, untypedMeta, err := effectiveProxyMetadata(options.ProxyConfig, options.Envs)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := json.Unmarshal(j, meta); err != nil {
 		return nil, err
 	}
 
@@ -822,6 +793,49 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		RawMetadata: untypedMeta,
 		Locality:    l,
 	}, nil
+}
+
+// GetEffectiveProxyMetadata returns proxy metadata after applying the same source precedence used by bootstrap.
+func GetEffectiveProxyMetadata(proxyConfig *meshAPI.ProxyConfig, envs []string) (*model.BootstrapNodeMetadata, error) {
+	meta, _, err := effectiveProxyMetadata(proxyConfig, envs)
+	return meta, err
+}
+
+func effectiveProxyMetadata(proxyConfig *meshAPI.ProxyConfig, envs []string) (*model.BootstrapNodeMetadata, map[string]any, error) {
+	meta := &model.BootstrapNodeMetadata{}
+	untypedMeta := map[string]any{}
+
+	for k, v := range proxyConfig.GetProxyMetadata() {
+		if after, ok := strings.CutPrefix(k, IstioMetaPrefix); ok {
+			untypedMeta[after] = v
+		}
+	}
+
+	extractMetadata(envs, IstioMetaPrefix, func(m map[string]any, key string, val string) {
+		m[key] = val
+	}, untypedMeta)
+
+	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]any, key string, val string) {
+		err := json.Unmarshal([]byte(val), &m)
+		if err != nil {
+			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
+		}
+	}, untypedMeta)
+
+	// DNS_PROXY_ADDR is not ISTIO_META_*-prefixed. Read the process env directly (pilot-agent uses os.Environ() for options.Envs).
+	if v, ok := os.LookupEnv("DNS_PROXY_ADDR"); ok && v != "" {
+		untypedMeta["DNS_PROXY_ADDR"] = v
+	}
+
+	j, err := json.Marshal(untypedMeta)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := json.Unmarshal(j, meta); err != nil {
+		return nil, nil, err
+	}
+	return meta, untypedMeta, nil
 }
 
 func SetIstioVersion(meta *model.BootstrapNodeMetadata) *model.BootstrapNodeMetadata {

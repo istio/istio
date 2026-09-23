@@ -156,6 +156,8 @@ type Agent struct {
 type AgentOptions struct {
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
 	DNSCapture bool
+	// DeltaNDS is the effective ISTIO_META_DELTA_NDS intent flag used to install incremental handling.
+	DeltaNDS bool
 	// Enables DNS server at Gateways.
 	DNSAtGateway bool
 	// DNSAddr is the DNS capture address
@@ -614,9 +616,15 @@ func (a *Agent) isDNSServerEnabled() bool {
 
 // GetDNSTable builds DNS table used in debugging interface.
 func (a *Agent) GetDNSTable() *dnsProto.NameTable {
-	if a.localDNSServer != nil && a.localDNSServer.NameTable() != nil {
-		nt := a.localDNSServer.NameTable()
+	if a.localDNSServer != nil {
+		nt, hasAlternateNames := a.localDNSServer.NameTableSnapshot()
+		if nt == nil {
+			return nil
+		}
 		nt = protomarshal.Clone(nt)
+		if hasAlternateNames {
+			return nt
+		}
 		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, _ []string) {
 			for host := range althosts {
 				if _, exists := nt.Table[host]; !exists {

@@ -30,8 +30,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	dnsutil "istio.io/istio/pkg/dns"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -77,9 +79,24 @@ type LookupTable struct {
 	// of A or AAAA type as appropriate.
 	name4 map[string][]dns.RR
 	name6 map[string][]dns.RR
-	// The cname records here (comprised of different variants of the hosts above,
-	// expanded by the search namespaces) pointing to the actual host.
-	cname map[string][]dns.RR
+	// Search-expanded CNAMEs are precomputed only for the legacy full NameTable path.
+	cname      map[string][]dns.RR
+	exact      bool
+	exactTable *exactLookupTable
+}
+
+const exactLookupShardCount = 64
+
+type exactLookupRecord struct {
+	name4 []dns.RR
+	name6 []dns.RR
+	info  *dnsProto.NameTable_NameInfo
+	known bool
+}
+
+type exactLookupTable struct {
+	shards [exactLookupShardCount]map[string]exactLookupRecord
+	size   int
 }
 
 const (
@@ -226,6 +243,136 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
 
+// RebuildExact replaces the lookup table with final DNS names supplied by Istiod.
+func (h *LocalDNSServer) RebuildExact(table map[string]*dnsProto.NameTable_NameInfo) {
+	exact := &exactLookupTable{}
+	for hostname, info := range table {
+		if info == nil {
+			continue
+		}
+		exact.set(hostname, info)
+	}
+	lookupTable := &LookupTable{exact: true, exactTable: exact}
+	h.lookupTable.Store(lookupTable)
+	log.Debugf("rebuilt exact lookup table with %d hosts", exact.size)
+}
+
+// ApplyDelta atomically applies named NDS resources without mutating the table read by DNS requests.
+func (h *LocalDNSServer) ApplyDelta(added map[string]*dnsProto.NameTable_NameInfo, removed []string) {
+	currentLookup := h.lookupTable.Load()
+	if currentLookup == nil || !currentLookup.(*LookupTable).exact {
+		h.RebuildExact(added)
+		return
+	}
+	previous := currentLookup.(*LookupTable)
+	updated := previous.exactTable.applyDelta(added, removed)
+	lookupTable := &LookupTable{exact: true, exactTable: updated}
+	h.lookupTable.Store(lookupTable)
+	log.Debugf("applied exact lookup table delta +%d -%d, total %d hosts", len(added), len(removed), updated.size)
+}
+
+func newExactLookupRecord(hostname string, info *dnsProto.NameTable_NameInfo) exactLookupRecord {
+	record := exactLookupRecord{info: info}
+	ipv4, ipv6 := netutil.ParseIPsSplitToV4V6(info.Ips)
+	if len(ipv4) == 0 && len(ipv6) == 0 {
+		return record
+	}
+	record.known = true
+	if len(ipv4) > 0 {
+		record.name4 = a(hostname, ipv4)
+	}
+	if len(ipv6) > 0 {
+		record.name6 = aaaa(hostname, ipv6)
+	}
+	return record
+}
+
+func (table *exactLookupTable) set(hostname string, info *dnsProto.NameTable_NameInfo) {
+	hostname = normalizeExactName(hostname)
+	shard := exactLookupShard(hostname)
+	if table.shards[shard] == nil {
+		table.shards[shard] = make(map[string]exactLookupRecord)
+	}
+	if _, found := table.shards[shard][hostname]; !found {
+		table.size++
+	}
+	table.shards[shard][hostname] = newExactLookupRecord(hostname, info)
+}
+
+func (table *exactLookupTable) applyDelta(added map[string]*dnsProto.NameTable_NameInfo, removed []string) *exactLookupTable {
+	updated := *table
+	touched := sets.New[int]()
+	cloneShard := func(hostname string) int {
+		shard := exactLookupShard(hostname)
+		if touched.InsertContains(shard) {
+			return shard
+		}
+		updated.shards[shard] = maps.Clone(table.shards[shard])
+		if updated.shards[shard] == nil {
+			updated.shards[shard] = make(map[string]exactLookupRecord)
+		}
+		return shard
+	}
+	for _, hostname := range removed {
+		hostname = normalizeExactName(hostname)
+		shard := cloneShard(hostname)
+		if _, found := updated.shards[shard][hostname]; found {
+			delete(updated.shards[shard], hostname)
+			updated.size--
+		}
+	}
+	for hostname, info := range added {
+		hostname = normalizeExactName(hostname)
+		shard := cloneShard(hostname)
+		_, found := updated.shards[shard][hostname]
+		if info == nil {
+			if found {
+				delete(updated.shards[shard], hostname)
+				updated.size--
+			}
+			continue
+		}
+		if !found {
+			updated.size++
+		}
+		updated.shards[shard][hostname] = newExactLookupRecord(hostname, info)
+	}
+	return &updated
+}
+
+func (table *exactLookupTable) get(hostname string) (exactLookupRecord, bool) {
+	hostname = normalizeExactName(hostname)
+	record, found := table.shards[exactLookupShard(hostname)][hostname]
+	return record, found
+}
+
+func (table *exactLookupTable) nameTable() *dnsProto.NameTable {
+	out := &dnsProto.NameTable{Table: make(map[string]*dnsProto.NameTable_NameInfo, table.size)}
+	for i := range table.shards {
+		for hostname, record := range table.shards[i] {
+			out.Table[normalizeResourceName(hostname)] = record.info
+		}
+	}
+	return out
+}
+
+func exactLookupShard(hostname string) int {
+	var hash uint64 = 14695981039346656037
+	for i := 0; i < len(hostname); i++ {
+		hash ^= uint64(hostname[i])
+		hash *= 1099511628211
+	}
+	return int(hash % exactLookupShardCount)
+}
+
+func normalizeExactName(hostname string) string {
+	return normalizeResourceName(hostname) + "."
+}
+
+func normalizeResourceName(hostname string) string {
+	return strings.ToLower(strings.TrimSuffix(hostname, "."))
+}
+
 // BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and
 // calls the passed in function with the built alternate hosts.
 func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
@@ -238,7 +385,7 @@ func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
 		// shortname+. is only for hosts in current namespace
 		var altHosts sets.String
 		if ni.Registry == string(provider.Kubernetes) {
-			altHosts = generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
+			altHosts = dnsutil.GenerateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
 			if !strings.HasSuffix(hostname, ".") {
 				hostname += "."
@@ -307,7 +454,12 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	// This name will always end in a dot.
 	// We expect only one question in the query even though the spec allows many
 	// clients usually do not do more than one query either.
-	answers, hostFound := lookupTable.lookupHost(req.Question[0].Qtype, hostname)
+	var hostFound bool
+	if lookupTable.exact {
+		answers, hostFound = lookupTable.lookupHostExact(req.Question[0].Qtype, hostname, h.searchNamespaces)
+	} else {
+		answers, hostFound = lookupTable.lookupHost(req.Question[0].Qtype, hostname)
+	}
 
 	if hostFound {
 		response = new(dns.Msg)
@@ -342,11 +494,23 @@ func (h *LocalDNSServer) IsReady() bool {
 }
 
 func (h *LocalDNSServer) NameTable() *dnsProto.NameTable {
+	table, _ := h.NameTableSnapshot()
+	return table
+}
+
+// NameTableSnapshot returns the current table and whether it already contains alternate names.
+func (h *LocalDNSServer) NameTableSnapshot() (table *dnsProto.NameTable, hasAlternateNames bool) {
+	if lookup := h.lookupTable.Load(); lookup != nil {
+		table := lookup.(*LookupTable)
+		if table.exact {
+			return table.exactTable.nameTable(), true
+		}
+	}
 	lt := h.nameTable.Load()
 	if lt == nil {
-		return nil
+		return nil, false
 	}
-	return lt.(*dnsProto.NameTable)
+	return lt.(*dnsProto.NameTable), false
 }
 
 // Inspired by https://github.com/coredns/coredns/blob/master/plugin/loadbalance/loadbalance.go
@@ -505,37 +669,6 @@ func serverFailure(req *dns.Msg) *dns.Msg {
 	return response
 }
 
-func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, proxyNamespace, proxyDomain string,
-	proxyDomainParts []string,
-) sets.String {
-	out := sets.New[string]()
-	if strings.HasSuffix(hostname, ".") {
-		return out
-	}
-	out.Insert(hostname + ".")
-	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
-	// as we have no way to resolve conflicts on name.namespace entries across clusters of different domains
-	if proxyDomain == "" || !strings.HasSuffix(hostname, proxyDomain) {
-		return out
-	}
-	out.Insert(nameinfo.Shortname + "." + nameinfo.Namespace + ".")
-	if proxyNamespace == nameinfo.Namespace {
-		out.Insert(nameinfo.Shortname + ".")
-	}
-	// Do we need to generate entries for name.namespace.svc, name.namespace.svc.cluster, etc. ?
-	// If these are not that frequently used, then not doing so here will save some space and time
-	// as some people have very long proxy domains with multiple dots
-	// For now, we will generate just one more domain (which is usually the .svc piece).
-	out.Insert(nameinfo.Shortname + "." + nameinfo.Namespace + "." + proxyDomainParts[0] + ".")
-
-	// Add any additional alt hostnames.
-	// nolint: staticcheck
-	for _, altHost := range nameinfo.AltHosts {
-		out.Insert(altHost + ".")
-	}
-	return out
-}
-
 // Given a host, this function first decides if the host is part of our service registry.
 // If it is not part of the registry, return nil so that caller queries upstream. If it is part
 // of registry, we will look it up in one of our tables, failing which we will return NXDOMAIN.
@@ -620,6 +753,66 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 	return out, hostFound
 }
 
+// lookupHostExact derives search aliases only after an exact-name miss, preventing them from
+// overriding independently owned exact records.
+func (table *LookupTable) lookupHostExact(qtype uint16, hostname string, searchNamespaces []string) ([]dns.RR, bool) {
+	answers, found := table.exactTable.lookupHost(qtype, hostname, false)
+	if found {
+		return answers, true
+	}
+	base, found := searchBaseName(hostname, searchNamespaces)
+	if found {
+		answers, found = table.exactTable.lookupHost(qtype, base, true)
+		if found {
+			if len(answers) == 0 {
+				return nil, true
+			}
+			// Some clients do not perform another lookup after a CNAME in a recursive response.
+			return append(cname(hostname, base), answers...), true
+		}
+	}
+	return table.exactTable.lookupHost(qtype, hostname, true)
+}
+
+func (table *exactLookupTable) lookupHost(qtype uint16, hostname string, allowWildcard bool) ([]dns.RR, bool) {
+	question := normalizeExactName(hostname)
+	record, found := table.get(question)
+	wildcard := false
+	if (!found || !record.known) && allowWildcard {
+		labels := dns.SplitDomainName(question)
+		for idx := range labels {
+			candidate := "*." + strings.Join(labels[idx+1:], ".") + "."
+			if record, found = table.get(candidate); found && record.known {
+				wildcard = true
+				break
+			}
+		}
+	}
+	if !found || !record.known {
+		return nil, false
+	}
+
+	var answers []dns.RR
+	switch qtype {
+	case dns.TypeA:
+		answers = record.name4
+	case dns.TypeAAAA:
+		answers = record.name6
+	default:
+		return nil, false
+	}
+	if !wildcard || len(answers) == 0 {
+		return answers, true
+	}
+	expanded := make([]dns.RR, 0, len(answers))
+	for _, answer := range answers {
+		copied := dns.Copy(answer)
+		copied.Header().Name = question
+		expanded = append(expanded, copied)
+	}
+	return expanded, true
+}
+
 // This function stores the list of hostnames along with the precomputed DNS response for that hostname.
 // Most hostnames have a DNS response containing the A/AAAA records. In addition, this function stores a
 // variant of the host+ the first search domain in resolv.conf as the first query
@@ -666,6 +859,30 @@ func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []n
 			}
 		}
 	}
+}
+
+func searchBaseName(hostname string, searchNamespaces []string) (string, bool) {
+	if len(searchNamespaces) == 0 {
+		return "", false
+	}
+	search := strings.ToLower(strings.TrimSuffix(searchNamespaces[0], "."))
+	if search == "" {
+		return "", false
+	}
+	suffix := "." + search + "."
+	if !strings.HasSuffix(hostname, suffix) {
+		return "", false
+	}
+	base := strings.TrimSuffix(hostname, suffix)
+	if base == "" {
+		return "", false
+	}
+	base += "."
+	// Reject names that already include the search domain; they are not autopath candidates.
+	if strings.HasSuffix(strings.TrimSuffix(base, "."), "."+search) {
+		return "", false
+	}
+	return base, true
 }
 
 // Borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hosts.go
