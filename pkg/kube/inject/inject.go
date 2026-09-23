@@ -775,7 +775,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 		templateValue := outValue.FieldByName("Spec").FieldByName("Template")
 		// `Template` is defined as a pointer in some older API
 		// definitions, e.g. ReplicationController
-		if templateValue.Kind() == reflect.Ptr {
+		if templateValue.Kind() == reflect.Pointer {
 			if templateValue.IsNil() {
 				return out, fmt.Errorf("spec.template is required value")
 			}

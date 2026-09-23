@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Added** a per-type watch summary (resource name count and wildcard flag) to the `/debug/adsz`
+    endpoint, and a `?brief` parameter that omits the watched resource name lists, which can be very
+    large in big meshes.

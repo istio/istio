@@ -47,6 +47,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMultiPrimary().
+		Label(label.Full).
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
@@ -137,9 +138,7 @@ func TestMultiRevision(t *testing.T) {
 func TestMultiRevisionRouteStatusHandling(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			if err := crd.DeployGatewayAPI(t); err != nil {
-				t.Fatal(err)
-			}
+			crd.DeployGatewayAPIOrSkip(t)
 			cfg := istio.DefaultConfigOrFail(t, t)
 			stable := namespace.NewOrFail(t, namespace.Config{
 				Prefix:   "stable",

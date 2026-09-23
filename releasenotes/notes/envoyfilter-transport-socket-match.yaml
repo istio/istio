@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** support for the `transportSocket` field in the `EnvoyFilter` filter chain match, allowing patches to
+  select filter chains by the transport socket they are configured with, such as
+  `envoy.transport_sockets.tls` for filter chains that terminate TLS. Unlike `transportProtocol`, which matches
+  the traffic a filter chain accepts, this matches the extension that processes the connection bytes.

@@ -194,7 +194,7 @@ func checkForNil(e reflect.Value) error {
 				return err
 			}
 		}
-	case reflect.Ptr:
+	case reflect.Pointer:
 		if e.IsNil() {
 			return fmt.Errorf("field is nil")
 		}

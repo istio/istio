@@ -35,7 +35,7 @@ import (
 
 func TestWebhook(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			vwcName := "istio-validator"

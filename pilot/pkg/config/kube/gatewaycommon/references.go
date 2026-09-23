@@ -153,7 +153,7 @@ func ReferenceGrantsCollection(referenceGrants krt.Collection[*gatewayv1beta1.Re
 
 				ref := NormalizeReference(&to.Group, &to.Kind, config.GroupVersionKind{})
 				switch ref {
-				case gvk.ConfigMap, gvk.Secret, gvk.Service, gvk.InferencePool:
+				case gvk.ConfigMap, gvk.Secret, gvk.Service, gvk.XBackend, gvk.InferencePool:
 					toKey.Kind = ref
 				default:
 					continue

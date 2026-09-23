@@ -157,12 +157,8 @@ func GlobalNestedWorkloadServicesCollection(
 	localWaypoints krt.Collection[Waypoint],
 	ctrl *multicluster.Controller,
 	localServiceEntries krt.Collection[*networkingclient.ServiceEntry],
-	globalServices krt.Collection[krt.Collection[*v1.Service]],
-	servicesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Service]],
 	globalWaypoints krt.Collection[krt.Collection[Waypoint]],
 	waypointsByCluster krt.Index[cluster.ID, krt.Collection[Waypoint]],
-	globalNamespaces krt.Collection[krt.Collection[*v1.Namespace]],
-	namespacesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Namespace]],
 	meshConfig krt.Singleton[MeshConfig],
 	globalNetworks NetworkCollections,
 	domainSuffix string,
@@ -203,13 +199,7 @@ func GlobalNestedWorkloadServicesCollection(
 				false,
 				checkServiceScope,
 				func(ctx krt.HandlerContext) network.ID {
-					nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
-					if nw == nil {
-						log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
-						ctx.DiscardResult()
-						return ""
-					}
-					return nw.Network
+					return globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 				}, false,
 			),
 				append(
@@ -296,7 +286,7 @@ func serviceServiceBuilder(
 
 		svc := constructService(ctx, s, waypoint, domainSuffix, nsAnnotations, networkGetter)
 		svc.IngressUseWaypoint = waypointStatus.IngressUseWaypoint
-		svc.WeightedWaypoints = buildWeightedWaypoints(ctx, waypoints, namespaces, s.ObjectMeta, waypoint, &waypointStatus)
+		svc.WeightedWaypoints = buildWeightedWaypoints(ctx, waypoints, namespaces, nil, s.ObjectMeta, waypoint, &waypointStatus)
 
 		svcInfo := &model.ServiceInfo{
 			Service:       svc,
@@ -497,7 +487,7 @@ func serviceEntriesInfo(
 		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
 	}
 
-	weighted := buildWeightedWaypoints(ctx, waypoints, namespaces, s.ObjectMeta, w, &waypoint)
+	weighted := buildWeightedWaypoints(ctx, waypoints, namespaces, visibility, s.ObjectMeta, w, &waypoint)
 
 	vis := krt.FetchOne(ctx, visibility.AsCollection())
 	// Resolve the ServiceEntry's visibility once from the precompiled serviceEntryVisibility; it is

@@ -83,6 +83,8 @@ updates:
       - dependency-name: "github.com/prometheus/prometheus"
       - dependency-name: "helm.sh/helm/v3"
       - dependency-name: "github.com/moby/buildkit"
+      - dependency-name: "github.com/quic-go/quic-go"
+      - dependency-name: "golang.org/x/*"
     groups:
       all-dependencies:
         patterns:
@@ -95,6 +97,8 @@ updates:
           - "github.com/prometheus/prometheus"
           - "helm.sh/helm/v3"
           - "github.com/moby/buildkit"
+          - "github.com/quic-go/quic-go"
+          - "golang.org/x/*"
 
   - package-ecosystem: "gomod"
     directories:
@@ -115,6 +119,9 @@ updates:
       - dependency-name: "helm.sh/helm/v3"
       - dependency-name: "google.golang.org/grpc"
       - dependency-name: "github.com/moby/buildkit"
+      - dependency-name: "github.com/quic-go/quic-go"
+      - dependency-name: "golang.org/x/*"
+      - dependency-name: "github.com/docker/cli"
     groups:
       all-dependencies:
         patterns:
@@ -128,6 +135,9 @@ updates:
           - "helm.sh/helm/v3"
           - "google.golang.org/grpc"
           - "github.com/moby/buildkit"
+          - "github.com/quic-go/quic-go"
+          - "golang.org/x/*"
+          - "github.com/docker/cli"
 
   # Ignore all dependency updates in samples/
   # We do not care about the dependencies in the samples/ directory as they are not meant

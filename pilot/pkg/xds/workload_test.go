@@ -266,6 +266,60 @@ func TestWorkloadReconnect(t *testing.T) {
 		}})
 		expectAddedAndRemoved(ads.ExpectResponse(), []string{"Kubernetes//Pod/default/pod"}, nil)
 	})
+	t.Run("wildcard retains no resource names", func(t *testing.T) {
+		// A live client reconnecting to a new istiod instance sends initial_resource_versions
+		// carrying (nearly) the entire resource universe it holds. Wildcard connections never
+		// read the per-connection watch set, so storing those names is O(clients * universe)
+		// memory for nothing.
+		for name, typeURL := range map[string]string{"address": v3.AddressType, "workload": v3.WorkloadType} {
+			t.Run(name, func(t *testing.T) {
+				test.SetForTest(t, &features.EnableUnsafeAssertions, true)
+				expect := buildExpect(t)
+				s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+					KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
+				})
+				ads := s.ConnectDeltaADS().WithType(typeURL).WithMetadata(model.NodeMetadata{NodeName: "node"})
+				expect(ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{}), "Kubernetes//Pod/default/pod")
+				ads.Cleanup()
+
+				// Reconnect with initial_resource_versions carrying the retained resource.
+				ads = s.ConnectDeltaADS().WithType(typeURL).WithMetadata(model.NodeMetadata{NodeName: "node"})
+				ads.Request(&discovery.DeltaDiscoveryRequest{
+					InitialResourceVersions: map[string]string{
+						"Kubernetes//Pod/default/pod": "stale",
+					},
+				})
+				expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
+				assertNoWatchedNames := func() {
+					t.Helper()
+					for _, c := range s.Discovery.AllClients() {
+						w := c.Proxy().GetWatchedResource(typeURL)
+						if w == nil {
+							t.Fatalf("connection %v missing watched resource %v", c.ID(), typeURL)
+						}
+						assert.Equal(t, len(w.ResourceNames), 0)
+					}
+				}
+				assertNoWatchedNames()
+
+				// A spontaneous subscription on the same stream takes the subsequent-request
+				// path; it must not accumulate names either.
+				ads.Request(&discovery.DeltaDiscoveryRequest{
+					ResourceNamesSubscribe: []string{"Kubernetes//Pod/default/pod"},
+				})
+				expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
+				assertNoWatchedNames()
+
+				// A spontaneous unsubscription has no stored set to diff against; it must still
+				// be detected as a change rather than tripping the subscription-change assertion.
+				ads.Request(&discovery.DeltaDiscoveryRequest{
+					ResourceNamesUnsubscribe: []string{"Kubernetes//Pod/default/pod"},
+				})
+				expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
+				assertNoWatchedNames()
+			})
+		}
+	})
 }
 
 func TestWorkload(t *testing.T) {

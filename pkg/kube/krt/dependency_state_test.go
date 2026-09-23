@@ -99,10 +99,10 @@ func TestCollectionChangingFilterKeyDependency(t *testing.T) {
 	tt.WaitOrdered("update/ns/my-pod")
 
 	// Access the internal manyCollection to inspect indexedDependencies directly.
-	mc := Bindings.(*manyCollection[*corev1.Pod, WaypointBinding])
+	mc := Bindings.internal().(*manyCollection[*corev1.Pod, WaypointBinding])
 
 	// Get the UID of the ConfigMaps collection (the secondary dependency).
-	configMapsUID := configMaps.(internalCollection[*corev1.ConfigMap]).uid()
+	configMapsUID := configMaps.uid()
 
 	// After relabeling, the reverse-index must only contain the new key, not the old one.
 	mc.mu.RLock()

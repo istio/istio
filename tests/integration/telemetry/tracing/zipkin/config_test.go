@@ -32,7 +32,7 @@ import (
 // TestZipkinConfigDump verifies that the Zipkin tracing configuration from MeshConfig
 // is correctly converted to Envoy configuration in the proxy config dump.
 func TestZipkinConfigDump(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(ctx framework.TestContext) {
 			// Get server instances from the tracing package
 			serverInstances := tracing.GetServerInstances()
@@ -202,7 +202,7 @@ func TestZipkinConfigWithDefaultProvider(t *testing.T) {
 	// This test verifies Option 1: defaultProviders.tracing: [zipkin]
 	// The current setupConfig in main_test.go uses this approach
 
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(ctx framework.TestContext) {
 			// Get server instances from the tracing package
 			serverInstances := tracing.GetServerInstances()

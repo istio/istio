@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+- 61618
+
+releaseNotes:
+- |
+  **Fixed** a Gateway resource with HBONE listener being sent to sidecars as an
+  mTLS gateway.

@@ -55,7 +55,7 @@ type revisionedNamespace struct {
 // should test all possible revisioned namespace pairings to test traffic between all versions
 func TestMultiVersionRevision(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		// Requires installation of CPs from manifests, won't succeed

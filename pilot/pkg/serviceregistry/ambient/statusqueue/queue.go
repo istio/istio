@@ -113,7 +113,7 @@ func (q *StatusQueue) reconcile(raw any) error {
 	log.Debugf("writing patch %v", string(status))
 	// Pass key.Reporter as the fieldManager. This ensures we have a unique value there.
 	// This means we could have multiple unique writers for the same object, as long as they have a unique set of conditions.
-	return patcher.ApplyStatus(targetObject.Name, targetObject.Namespace, types.ApplyPatchType, status, key.Reporter)
+	return controllers.IgnoreNotFound(patcher.ApplyStatus(targetObject.Name, targetObject.Namespace, types.ApplyPatchType, status, key.Reporter))
 }
 
 // StatusWriter is a type that can write status messages

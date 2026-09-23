@@ -15,8 +15,6 @@
 package core
 
 import (
-	"net"
-	"strconv"
 	"time"
 
 	mysql "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/mysql_proxy/v3"
@@ -52,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -122,28 +119,8 @@ func buildAllowAnyDynamicDNSDNSCacheConfig(meta *model.NodeMetadata) *dfp.DnsCac
 	if meta == nil || !bool(meta.DNSCapture) {
 		return cfg
 	}
-	addr := meta.DNSProxyAddr
-	host, portStr, err := net.SplitHostPort(addr)
-	if err != nil {
-		log.Warnf("failed to parse DNSProxyAddr %q, falling back to 127.0.0.1:15053: %v", addr, err)
-		host, portStr = "127.0.0.1", "15053"
-	}
-	if host == "localhost" {
-		host = "127.0.0.1"
-	}
-	port, err := strconv.ParseUint(portStr, 10, 32)
-	if err != nil {
-		port = 15053
-	}
 	caresConfig, err := anypb.New(&cares.CaresDnsResolverConfig{
-		Resolvers: []*core.Address{{
-			Address: &core.Address_SocketAddress{
-				SocketAddress: &core.SocketAddress{
-					Address:       host,
-					PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)},
-				},
-			},
-		}},
+		Resolvers: []*core.Address{util.GetDNSProxyAddress(meta.InstanceIPs, meta.DNSProxyAddr)},
 	})
 	if err == nil {
 		cfg.TypedDnsResolverConfig = &core.TypedExtensionConfig{

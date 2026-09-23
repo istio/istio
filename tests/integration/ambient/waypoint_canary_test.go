@@ -64,7 +64,8 @@ var acceptAny = func(echo.CallResult, error) error { return nil }
 // count ONLY successful (200) responses as that waypoint serving. A warming or broken waypoint
 // simply yields fewer successes, so an assertion can never pass on failed traffic.
 func TestWeightedWaypointTrafficShift(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		newCanaryWaypoints(t)
 		src := apps.Captured[0]
 		dst := apps.Captured
@@ -94,7 +95,8 @@ func TestWeightedWaypointTrafficShift(t *testing.T) {
 // exist degrades gracefully: istiod reports the error on the binding status and falls back to the
 // primary waypoint, so traffic keeps flowing rather than blackholing.
 func TestWeightedWaypointCanaryNotReady(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		newServiceWaypoint(t, canaryPrimaryWP)
 		src := apps.Captured[0]
 		dst := apps.Captured
@@ -116,7 +118,8 @@ func TestWeightedWaypointCanaryNotReady(t *testing.T) {
 // all traffic is served by the canary, so if it were not programmed with the service's policy the
 // requests would be allowed (200) instead of denied (403).
 func TestWeightedWaypointPolicyPropagation(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		ns := apps.Namespace.Name()
 		newCanaryWaypoints(t)
 		src := apps.Captured[0]
@@ -175,7 +178,8 @@ spec:
 // sampling per connection. Identity is observed the same way: the gateway originates HBONE to the
 // chosen waypoint, so the destination sees that waypoint's SA.
 func TestWeightedWaypointIngressTrafficShift(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		if t.Settings().AmbientMultiNetwork {
 			t.Skip("https://github.com/istio/istio/issues/54245")
 		}

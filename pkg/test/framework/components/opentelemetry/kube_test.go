@@ -1,5 +1,3 @@
-//go:build integ
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,19 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nftables
+package opentelemetry
 
 import (
+	"strings"
 	"testing"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/tests/integration/pilot/common"
 )
 
-func TestTraffic(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(t framework.TestContext) {
-			common.RunAllTrafficTests(t, i, apps)
-		})
+func TestGetYamlImageOverride(t *testing.T) {
+	hub := "example.com/cache/otel"
+	t.Setenv("OTEL_REGISTRY", hub)
+
+	yaml, err := getYaml()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository := hub + "/opentelemetry-collector-contrib:"
+	if !strings.Contains(yaml, repository) {
+		t.Errorf("rendered manifest does not contain overridden repository %q", repository)
+	}
+	if strings.Contains(yaml, defaultOtelCollectorRepository) {
+		t.Errorf("rendered manifest still contains default repository %q", defaultOtelCollectorRepository)
+	}
 }

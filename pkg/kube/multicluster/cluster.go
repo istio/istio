@@ -287,7 +287,7 @@ func buildClusterCollections(client kube.Client, clusterID cluster.ID, opts krt.
 	}
 
 	Namespaces := krt.NewInformer[*corev1.Namespace](client, opts.With(
-		krt.WithName("informer/Namespaces"),
+		krt.WithName(fmt.Sprintf("informer/Namespaces[%s]", clusterID)),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: clusterID,
 		}),
@@ -297,7 +297,7 @@ func buildClusterCollections(client kube.Client, clusterID cluster.ID, opts krt.
 		ObjectTransform: kube.StripPodUnusedFields,
 		FieldSelector:   "status.phase!=Failed",
 	}, opts.With(
-		krt.WithName("informer/Pods"),
+		krt.WithName(fmt.Sprintf("informer/Pods[%s]", clusterID)),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: clusterID,
 		}),
@@ -305,14 +305,14 @@ func buildClusterCollections(client kube.Client, clusterID cluster.ID, opts krt.
 
 	gatewayClient := kclient.NewDelayedInformer[*gatewayv1.Gateway](client, gvr.KubernetesGateway, kubetypes.StandardInformer, defaultFilter)
 	Gateways := krt.WrapClient(gatewayClient, opts.With(
-		krt.WithName("informer/Gateways"),
+		krt.WithName(fmt.Sprintf("informer/Gateways[%s]", clusterID)),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: clusterID,
 		}),
 	)...)
 	servicesClient := kclient.NewFiltered[*corev1.Service](client, defaultFilter)
 	Services := krt.WrapClient(servicesClient, opts.With(
-		krt.WithName("informer/Services"),
+		krt.WithName(fmt.Sprintf("informer/Services[%s]", clusterID)),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: clusterID,
 		}),
@@ -322,7 +322,7 @@ func buildClusterCollections(client kube.Client, clusterID cluster.ID, opts krt.
 		ObjectFilter:    client.ObjectFilter(),
 		ObjectTransform: kube.StripNodeUnusedFields,
 	}, opts.With(
-		krt.WithName("informer/Nodes"),
+		krt.WithName(fmt.Sprintf("informer/Nodes[%s]", clusterID)),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: clusterID,
 		}),
@@ -331,7 +331,7 @@ func buildClusterCollections(client kube.Client, clusterID cluster.ID, opts krt.
 	EndpointSlices := krt.NewFilteredInformer[*discovery.EndpointSlice](client, kclient.Filter{
 		ObjectFilter: client.ObjectFilter(),
 	}, opts.With(
-		krt.WithName("informer/EndpointSlices"),
+		krt.WithName(fmt.Sprintf("informer/EndpointSlices[%s]", clusterID)),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: clusterID,
 		}),

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** an SSRF gap in istiod's `RequestAuthentication` `jwksUri` fetching. istiod now
+    blocks link-local and known cloud metadata addresses (such as `169.254.169.254`) at the dial
+    level by default and rejects fetched responses that are not a valid JWKS. Private and loopback
+    ranges remain reachable and can be blocked with `BLOCKED_CIDRS_IN_JWKS_URIS`.

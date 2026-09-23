@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 61250
+releaseNotes:
+  - |
+    **Fixed** the JWKS resolver forcing all public-key fetches to HTTP/1.1. The custom
+    `TLSClientConfig` and `DialContext` used for TLS pinning and CIDR blocking caused Go's
+    `net/http` to disable automatic HTTP/2, so ALPN never negotiated h2. HTTP/2 is now
+    re-enabled (matching `http.DefaultTransport`), fixing JWKS fetches that fail over HTTP/1.1
+    through some HTTP CONNECT proxies.

@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/proto"
@@ -237,6 +238,10 @@ func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx
 	}
 	if serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
 		tlsParamsOrNew(ctx).TlsMaximumProtocolVersion = convertTLSProtocol(serverTLSSettings.MaxProtocolVersion)
+	}
+	// Explicitly configured ALPN protocols override the ones derived from the server protocol.
+	if alpn := security.FilterALPNProtocols(serverTLSSettings.AlpnProtocols); len(alpn) > 0 {
+		ctx.AlpnProtocols = alpn
 	}
 }
 
@@ -879,6 +884,18 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 					// filter chain match
 					listenerOpts.bind.binds = actualWildcards
 					listenerOpts.cidr = append([]string{svcListenAddress}, svcExtraListenAddresses...)
+					// Now that we are binding to the wildcard address, this listener can
+					// collide with a reserved listener (for example the virtualOutbound
+					// listener on the proxy outbound port). Unlike a service with a concrete
+					// VIP, the conflict cannot be detected earlier from the service address,
+					// so re-check here and skip the port if it conflicts.
+					wildcard := actualWildcards[0]
+					if canbind, _ := lb.node.CanBindToPort(listenerOpts.bind.bindToPort, listenerOpts.proxy,
+						listenerOpts.push, wildcard, listenerOpts.port.Port, listenerOpts.port.Protocol, wildcard); !canbind {
+						log.Warnf("buildSidecarOutboundListener: skipping CIDR service port %d for node %s as it conflicts with reserved listener",
+							listenerOpts.port.Port, lb.node.ID)
+						return
+					}
 				}
 			}
 		}

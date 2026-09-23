@@ -22,7 +22,9 @@ import (
 )
 
 var (
-	typeTag = monitoring.CreateLabel("type")
+	typeTag      = monitoring.CreateLabel("type")
+	formatTag    = monitoring.CreateLabel("format")
+	downgradeTag = monitoring.CreateLabel("downgrade")
 
 	// StartupTime measures the time it takes for the agent to get ready Note: This
 	// is dependent on readiness probes. This means our granularity is correlated to
@@ -46,12 +48,31 @@ var (
 		"scrapes_total",
 		"The total number of scrapes.",
 	)
+
+	// scrapeFormats records total number of scrapes broken down by the exposition
+	// format that the merger ultimately delivered to the scraper. The "downgrade"
+	// label is "true" when the client requested protobuf (typically because
+	// native Prometheus histograms are required) but the merger had to emit text
+	// because at least one merged upstream did not produce protobuf, and "false"
+	// otherwise. The counter is incremented exactly once per scrape.
+	scrapeFormats = monitoring.NewSum(
+		"scrape_format_total",
+		"The total number of scrapes broken down by delivered exposition format.",
+	)
+	ScrapeFormatText       = scrapeFormats.With(formatTag.Value(ScrapeFormatLabelText), downgradeTag.Value("false"))
+	ScrapeFormatOpenMetric = scrapeFormats.With(formatTag.Value(ScrapeFormatLabelOpenMetrics), downgradeTag.Value("false"))
+	ScrapeFormatProto      = scrapeFormats.With(formatTag.Value(ScrapeFormatLabelProto), downgradeTag.Value("false"))
+	ScrapeFormatDowngraded = scrapeFormats.With(formatTag.Value(ScrapeFormatLabelText), downgradeTag.Value("true"))
 )
 
 var (
 	ScrapeTypeEnvoy = "envoy"
 	ScrapeTypeApp   = "application"
 	ScrapeTypeAgent = "agent"
+
+	ScrapeFormatLabelText        = "text"
+	ScrapeFormatLabelOpenMetrics = "openmetrics"
+	ScrapeFormatLabelProto       = "proto"
 )
 
 var processStartTime = time.Now()

@@ -24,6 +24,11 @@ This file provides repository-specific instructions for GitHub Copilot, summariz
 ## Testing
 - Add tests for all new features and bug fixes. Use unit, integration, or end-to-end tests as appropriate.
 - Use `make test` and related targets to run tests. Coverage and race detection are encouraged.
+- Classify integration tests by the environments in which they provide coverage:
+  - Use `framework.NewTest` by default. It runs in every applicable environment.
+  - Use `framework.NewFullTest` for more involved coverage that is unlikely to be affected by the deployment model or configuration. In presubmit, it runs only in the standard single-cluster IPv4 environment; it runs in all applicable environments in postsubmit.
+  - Use `framework.NewMulticlusterTest` when a test requires multiple clusters.
+  - Apply a suite label when every test in a package has the same classification, so excluded suites skip their setup entirely.
 
 ## Performance
 - Minimize memory allocations and garbage collection pressure. Prefer value types over pointers when possible.

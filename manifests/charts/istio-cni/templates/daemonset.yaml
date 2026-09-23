@@ -30,6 +30,10 @@ metadata:
     app.kubernetes.io/name: {{ template "name" . }}
     {{- include "istio.labels" . | nindent 4 }}
     {{ with .Values.daemonSetLabels -}}{{ toYaml . | nindent 4}}{{ end }}
+  {{- with .Values.daemonSetAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   selector:
     matchLabels:

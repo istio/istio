@@ -74,6 +74,17 @@ if ! kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experi
   fail "Unable to generate the CRDs for ${GATEWAY_VERSION}. Not updating the CRD file.";
 fi
 
+# TODO: XBackend is missing from upstream experimental kustomization in Gateway
+# API v1.6.0, so kustomize does not emit it. Fetch it directly until that is
+# fixed in the next upstream release; which will make this a no-op:
+if ! grep -q "name: xbackends.gateway.networking.x-k8s.io" "${API_TMP}/gateway-api-crd.yaml"; then
+  XBACKEND_CRD="https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${GATEWAY_VERSION}/config/crd/experimental/gateway.networking.x-k8s.io_xbackends.yaml"
+  echo "---" >> "${API_TMP}/gateway-api-crd.yaml"
+  if ! curl -sfL "${XBACKEND_CRD}" >> "${API_TMP}/gateway-api-crd.yaml"; then
+    fail "Unable to fetch the XBackend CRD for ${GATEWAY_VERSION}. Not updating the CRD file.";
+  fi
+fi
+
 rm -f "${ROOTDIR}/tests/integration/pilot/testdata/gateway-api-crd.yaml"
 cp "${API_TMP}/gateway-api-crd.yaml" "${ROOTDIR}/tests/integration/pilot/testdata/gateway-api-crd.yaml"
 
