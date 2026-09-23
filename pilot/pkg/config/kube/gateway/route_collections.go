@@ -689,6 +689,7 @@ type RouteContextInputs struct {
 	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
 	Backends        krt.Collection[*gatewayx.XBackend]
 	InferencePools  krt.Collection[*inferencev1.InferencePool]
+	Flags           FeatureFlags
 	internalContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]]
 }
 

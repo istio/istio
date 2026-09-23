@@ -1167,7 +1167,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 	var hostname string
 	switch ref {
 	case gvk.XBackend:
-		if !features.EnableAlphaGatewayAPI {
+		if !ctx.Flags.EnableAlphaGatewayAPI {
 			return &istio.Destination{}, nil, &ConfigError{
 				Reason:  InvalidDestinationKind,
 				Message: "The Alpha Gateway API is not enabled, XBackend is invalid. To enable, set PILOT_ENABLE_ALPHA_GATEWAY_API to true in istiod.",
@@ -1235,7 +1235,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case gvk.InferencePool:
-		if !features.EnableGatewayAPIInferenceExtension {
+		if !ctx.Flags.EnableGatewayAPIInferenceExtension {
 			return &istio.Destination{}, nil, &ConfigError{
 				Reason:  InvalidDestinationKind,
 				Message: "InferencePool is not enabled. To enable, set ENABLE_GATEWAY_API_INFERENCE_EXTENSION to true in istiod",
