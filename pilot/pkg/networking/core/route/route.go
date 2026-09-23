@@ -1597,7 +1597,8 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 // configuration. It intentionally includes every candidate service and VirtualService; this conservative set lets the
 // RDS cache be checked before route protos are built without risking stale entries.
 func DestinationRuleDependencies(push *model.PushContext,
-	node *model.Proxy, virtualServices []*config.Config, services []*model.Service) []*model.ConsolidatedDestRule {
+	node *model.Proxy, virtualServices []*config.Config, services []*model.Service,
+) []*model.ConsolidatedDestRule {
 	var result []*model.ConsolidatedDestRule
 	for _, virtualService := range virtualServices {
 		for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
