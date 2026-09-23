@@ -1950,7 +1950,7 @@ func TestSelectVirtualService(t *testing.T) {
 // earlier so the same filtered list could be used for both the cache key and the miss-path build.
 func BenchmarkSelectVirtualServices(b *testing.B) {
 	for _, n := range []int{100, 1000} {
-		_, servicesByName, virtualServices := buildSelectVSBenchInput(n, false)
+		servicesByName, virtualServices := buildSelectVSBenchInput(n, false)
 		b.Run(fmt.Sprintf("exact-match/%d", n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selectVirtualServices(virtualServices, servicesByName)
@@ -1958,7 +1958,7 @@ func BenchmarkSelectVirtualServices(b *testing.B) {
 		})
 	}
 	for _, n := range []int{100, 1000} {
-		_, servicesByName, virtualServices := buildSelectVSBenchInput(n, true)
+		servicesByName, virtualServices := buildSelectVSBenchInput(n, true)
 		b.Run(fmt.Sprintf("wildcard-vs-hosts/%d", n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selectVirtualServices(virtualServices, servicesByName)
@@ -1972,14 +1972,12 @@ func BenchmarkSelectVirtualServices(b *testing.B) {
 // service, each with a single host. When wildcardVS is true, every VirtualService host is instead the
 // wildcard "*.host.example", which matches every service and forces selectVirtualServices onto its slow path
 // (looping over all service hosts) instead of the O(1) exact-match lookup.
-func buildSelectVSBenchInput(n int, wildcardVS bool) ([]*model.Service, map[host.Name]*model.Service, []*config.Config) {
-	services := make([]*model.Service, 0, n)
+func buildSelectVSBenchInput(n int, wildcardVS bool) (map[host.Name]*model.Service, []*config.Config) {
 	servicesByName := make(map[host.Name]*model.Service, n)
 	virtualServices := make([]*config.Config, 0, n)
 	for i := 0; i < n; i++ {
 		hostname := fmt.Sprintf("random-%d.host.example", i)
 		svc := buildHTTPService(hostname, visibility.Public, "1.2.3.4", "default", 80)
-		services = append(services, svc)
 		servicesByName[svc.Hostname] = svc
 
 		vsHost := hostname
@@ -2000,7 +1998,7 @@ func buildSelectVSBenchInput(n int, wildcardVS bool) ([]*model.Service, map[host
 			Spec: spec,
 		})
 	}
-	return services, servicesByName, virtualServices
+	return servicesByName, virtualServices
 }
 
 func testSidecarRDSVHosts(t *testing.T, services []*model.Service,

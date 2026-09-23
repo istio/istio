@@ -1596,7 +1596,8 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 // DestinationRuleDependencies returns all DestinationRules that can contribute a consistent-hash policy to a route
 // configuration. It intentionally includes every candidate service and VirtualService; this conservative set lets the
 // RDS cache be checked before route protos are built without risking stale entries.
-func DestinationRuleDependencies(push *model.PushContext, node *model.Proxy, virtualServices []*config.Config, services []*model.Service) []*model.ConsolidatedDestRule {
+func DestinationRuleDependencies(push *model.PushContext,
+	node *model.Proxy, virtualServices []*config.Config, services []*model.Service) []*model.ConsolidatedDestRule {
 	var result []*model.ConsolidatedDestRule
 	for _, virtualService := range virtualServices {
 		for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
