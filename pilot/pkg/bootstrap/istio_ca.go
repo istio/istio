@@ -651,10 +651,11 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 		return nil, err
 	}
 	raServer.SetCACertificatesFromMeshConfig(s.environment.Mesh().CaCertificates)
+	raServer.SetCertSignerNamespaceMap(s.environment.Mesh().CertSignerNamespaceMap)
 	s.environment.AddMeshHandler(func() {
 		meshConfig := s.environment.Mesh()
-		caCertificates := meshConfig.CaCertificates
-		s.RA.SetCACertificatesFromMeshConfig(caCertificates)
+		s.RA.SetCACertificatesFromMeshConfig(meshConfig.CaCertificates)
+		s.RA.SetCertSignerNamespaceMap(meshConfig.CertSignerNamespaceMap)
 	})
 	return raServer, err
 }

@@ -15,6 +15,7 @@
 package ra
 
 import (
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -23,21 +24,29 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"net"
 	"os"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/protobuf/types/known/structpb"
 	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/security/pkg/pki/ca"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
+	caserver "istio.io/istio/security/pkg/server/ca"
 )
 
 const (
@@ -409,5 +418,169 @@ func TestValidateCSR(t *testing.T) {
 	if ValidateCSR(testCSRWithDNSHostNames, testSubjectIDs) {
 		t.Errorf("Test 5: CSR Validation failed. CSR validation" +
 			" succeeded when expected failure due to DNSHostNames")
+	}
+}
+
+// fakeAuthenticator is a minimal security.Authenticator that returns a fixed caller identity.
+type fakeAuthenticator struct {
+	identities []string
+}
+
+func (f *fakeAuthenticator) AuthenticatorType() string { return "fake" }
+
+func (f *fakeAuthenticator) Authenticate(_ security.AuthContext) (*security.Caller, error) {
+	return &security.Caller{Identities: f.identities}, nil
+}
+
+// TestCertSignerNamespaceMapIntegration exercises the full path:
+// CreateCertificate gRPC handler → KubernetesRA.Sign() → namespace map enforcement.
+func TestCertSignerNamespaceMapIntegration(t *testing.T) {
+	const (
+		signerDomain     = "kubernetes.io"
+		authorizedSigner = "kube-apiserver-client"
+	)
+	subjectID := spiffe.Identity{
+		TrustDomain:    "cluster.local",
+		Namespace:      "default",
+		ServiceAccount: "bookinfo-productpage",
+	}.String()
+
+	cases := []struct {
+		name         string
+		nsMap        map[string]string
+		certSigner   string
+		expectReject bool
+	}{
+		{
+			name:         "namespace not in map is rejected",
+			nsMap:        map[string]string{"payments": "pay-signer"},
+			certSigner:   authorizedSigner,
+			expectReject: true,
+		},
+		{
+			name:         "wrong signer for authorized namespace is rejected",
+			nsMap:        map[string]string{"default": authorizedSigner},
+			certSigner:   "other-signer",
+			expectReject: true,
+		},
+		{
+			name:         "empty map bypasses enforcement",
+			nsMap:        map[string]string{},
+			certSigner:   authorizedSigner,
+			expectReject: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := initFakeKubeClient(t, []byte(TestCertificatePEM))
+			r, err := createFakeK8sRA(client, TestCACertFile)
+			if err != nil {
+				t.Fatalf("failed to create KubernetesRA: %v", err)
+			}
+			r.certSignerDomain = signerDomain
+			r.SetCertSignerNamespaceMap(tc.nsMap)
+
+			server, err := caserver.New(r, time.Hour, []security.Authenticator{
+				&fakeAuthenticator{identities: []string{subjectID}},
+			}, nil)
+			if err != nil {
+				t.Fatalf("failed to create CA server: %v", err)
+			}
+
+			csrPEM := createDefaultFakeCsr(t)
+			req := &pb.IstioCertificateRequest{
+				Csr:              string(csrPEM),
+				ValidityDuration: 60,
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						security.CertSigner: structpb.NewStringValue(tc.certSigner),
+					},
+				},
+			}
+			p := &peer.Peer{Addr: &net.IPAddr{IP: net.IPv4(127, 0, 0, 1)}, AuthInfo: credentials.TLSInfo{}}
+			ctx := peer.NewContext(context.Background(), p)
+
+			_, err = server.CreateCertificate(ctx, req)
+			if tc.expectReject && err == nil {
+				t.Error("expected rejection but request succeeded")
+			}
+			if !tc.expectReject && err != nil {
+				// The request may still fail at the cert-chain level (root cert not in mesh config),
+				// but it must NOT fail due to namespace map authorization.
+				if errMsg := err.Error(); strings.Contains(errMsg, "cert_signer_namespace_map") || strings.Contains(errMsg, "not authorized") {
+					t.Errorf("unexpected namespace map rejection: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestCertSignerNamespaceMap(t *testing.T) {
+	cases := []struct {
+		name            string
+		nsMap           map[string]string
+		namespace       string
+		requestedSigner string
+		expectError     bool
+	}{
+		{
+			name:            "empty map passes (backward compat)",
+			nsMap:           map[string]string{},
+			namespace:       "default",
+			requestedSigner: "",
+			expectError:     false,
+		},
+		{
+			name:            "authorized namespace with correct signer passes",
+			nsMap:           map[string]string{"default": "kube-apiserver-client"},
+			namespace:       "default",
+			requestedSigner: "kube-apiserver-client",
+			expectError:     false,
+		},
+		{
+			name:            "authorized namespace with wrong signer is rejected",
+			nsMap:           map[string]string{"default": "kube-apiserver-client"},
+			namespace:       "default",
+			requestedSigner: "other-signer",
+			expectError:     true,
+		},
+		{
+			name:            "namespace not in map is rejected",
+			nsMap:           map[string]string{"payments": "pay-signer"},
+			namespace:       "default",
+			requestedSigner: "kube-apiserver-client",
+			expectError:     true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			csrPEM := createDefaultFakeCsr(t)
+			client := initFakeKubeClient(t, []byte(TestCertificatePEM))
+			r, err := createFakeK8sRA(client, TestCACertFile)
+			if err != nil {
+				t.Fatalf("Failed to create Fake K8s RA: %v", err)
+			}
+			r.certSignerDomain = "kubernetes.io"
+			r.SetCertSignerNamespaceMap(tc.nsMap)
+			subjectID := spiffe.Identity{
+				TrustDomain:    "cluster.local",
+				Namespace:      tc.namespace,
+				ServiceAccount: "bookinfo-productpage",
+			}.String()
+			certOpts := ca.CertOpts{
+				SubjectIDs: []string{subjectID},
+				TTL:        60 * time.Second,
+				ForCA:      false,
+				CertSigner: tc.requestedSigner,
+			}
+			_, err = r.Sign(csrPEM, certOpts)
+			if tc.expectError && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tc.expectError && err != nil {
+				t.Errorf("expected no error but got: %v", err)
+			}
+		})
 	}
 }
