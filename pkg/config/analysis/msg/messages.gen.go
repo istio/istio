@@ -283,6 +283,10 @@ var (
 	// EnvoyFilterMayClearRouteCache defines a diag.MessageType for message "EnvoyFilterMayClearRouteCache".
 	// Description: Using EnvoyFilters with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run.
 	EnvoyFilterMayClearRouteCache = diag.NewMessageType(diag.Warning, "IST0178", "Using an EnvoyFilter with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run. This can cause a request to be routed differently than it was when the route-dependent filter was evaluated. See https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_filters.html#security-considerations.")
+
+	// UnsupportedDestinationRuleWorkloadSelector defines a diag.MessageType for message "UnsupportedDestinationRuleWorkloadSelector".
+	// Description: DestinationRule workload selectors are unsupported for sidecar traffic routed through a waypoint.
+	UnsupportedDestinationRuleWorkloadSelector = diag.NewMessageType(diag.Warning, "IST0179", "DestinationRule %q uses a workload selector and targets service %q which uses a waypoint. When sidecar waypoint routing is enabled, this rule is ignored for traffic routed through the waypoint. Use a selectorless DestinationRule for waypoint-owned backend policy, or disable waypoint routing for this service.")
 )
 
 // All returns a list of all known message types.
@@ -357,6 +361,7 @@ func All() []*diag.MessageType {
 		GatewayAPICRDVersionBelowMinimum,
 		ConflictingServiceEntryProtocol,
 		EnvoyFilterMayClearRouteCache,
+		UnsupportedDestinationRuleWorkloadSelector,
 	}
 }
 
@@ -1037,5 +1042,15 @@ func NewEnvoyFilterMayClearRouteCache(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		EnvoyFilterMayClearRouteCache,
 		r,
+	)
+}
+
+// NewUnsupportedDestinationRuleWorkloadSelector returns a new diag.Message based on UnsupportedDestinationRuleWorkloadSelector.
+func NewUnsupportedDestinationRuleWorkloadSelector(r *resource.Instance, destinationRule string, service string) diag.Message {
+	return diag.NewMessage(
+		UnsupportedDestinationRuleWorkloadSelector,
+		r,
+		destinationRule,
+		service,
 	)
 }
