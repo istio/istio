@@ -17,7 +17,6 @@ package forwarder
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -30,8 +29,6 @@ import (
 
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
-	"golang.org/x/net/http2"
-
 	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -104,28 +101,32 @@ func newHTTP3TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 }
 
 func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
-	newConn := func() *http2.Transport {
+	newConn := func() *http.Transport {
 		if cfg.scheme == scheme.HTTPS {
-			return &http2.Transport{
+			return &http.Transport{
 				TLSClientConfig: cfg.tlsConfig,
-				DialTLS: func(network, addr string, tlsConfig *tls.Config) (net.Conn, error) {
+				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+					tlsConfig := cfg.tlsConfig.Clone()
 					return hbone.TLSDialWithDialer(newDialer(cfg), network, addr, tlsConfig)
 				},
 			}
 		}
 
-		return &http2.Transport{
-			// Golang doesn't have first class support for h2c, so we provide some workarounds
-			// See https://www.mailgun.com/blog/http-2-cleartext-h2c-client-example-go/
-			// So http2.Transport doesn't complain the URL scheme isn't 'https'
-			AllowHTTP: true,
-			// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
-			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+		transport := &http.Transport{
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				return newDialer(cfg).Dial(network, addr)
 			},
 		}
+		// Golang doesn't have first class support for h2c, so we provide some workarounds
+		// See https://www.mailgun.com/blog/http-2-cleartext-h2c-client-example-go/
+		// So http2.Transport doesn't complain the URL scheme isn't 'https'
+		transport.Protocols = new(http.Protocols)
+		transport.Protocols.SetUnencryptedHTTP2(true)
+
+		return transport
 	}
-	closeFn := func(conn *http2.Transport) func() {
+
+	closeFn := func(conn *http.Transport) func() {
 		return conn.CloseIdleConnections
 	}
 	noCloseFn := func() {}

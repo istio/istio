@@ -21,24 +21,21 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"time"
-
-	"golang.org/x/net/http2"
 )
 
 // NewDialer creates a Dialer that proxies connections over HBONE to the configured proxy.
 func NewDoubleDialer(outerCfg Config, innerCfg Config, innerTLSConfig *tls.Config) Dialer {
-	var outerTransport *http2.Transport
+	var outerTransport *http.Transport
 
 	if outerCfg.TLS != nil {
-		outerTransport = &http2.Transport{
+		outerTransport = &http.Transport{
 			TLSClientConfig: outerCfg.TLS,
 		}
 	} else {
-		outerTransport = &http2.Transport{
-			// For h2c
-			AllowHTTP: true,
-			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
+		outerTransport = &http.Transport{
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				d := net.Dialer{}
 				if outerCfg.Timeout != nil {
 					d.Timeout = *outerCfg.Timeout
@@ -46,6 +43,9 @@ func NewDoubleDialer(outerCfg Config, innerCfg Config, innerTLSConfig *tls.Confi
 				return d.Dial(network, addr)
 			},
 		}
+		// For h2c
+		outerTransport.Protocols = new(http.Protocols)
+		outerTransport.Protocols.SetUnencryptedHTTP2(true)
 	}
 
 	return &doubleDialer{
@@ -60,7 +60,7 @@ type doubleDialer struct {
 	outerCfg       Config
 	innerCfg       Config
 	innerTLSConfig *tls.Config
-	outerTransport *http2.Transport
+	outerTransport *http.Transport
 }
 
 // DialContext connects to `address` via the HBONE proxy.
@@ -80,14 +80,15 @@ func (d *doubleDialer) DialContext(ctx context.Context, network, address string)
 		reader: resp.Body,
 	}
 
-	var innerTransport *http2.Transport
+	var innerTransport *http.Transport
 	if d.innerTLSConfig != nil {
 		log.Infof("using TLS on inner connection")
-		innerTransport = &http2.Transport{
+		innerTransport = &http.Transport{
 			TLSClientConfig: d.innerTLSConfig,
-			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				// Upgrade the raw connection to a TLS connection.
-				c := tls.Client(pc, tlsCfg)
+				cfg := d.innerTLSConfig.Clone()
+				c := tls.Client(pc, cfg)
 				err := c.HandshakeContext(ctx)
 				if err != nil {
 					pc.Close()
@@ -97,13 +98,14 @@ func (d *doubleDialer) DialContext(ctx context.Context, network, address string)
 			},
 		}
 	} else {
-		innerTransport = &http2.Transport{
-			// For h2c
-			AllowHTTP: true,
-			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
+		innerTransport = &http.Transport{
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				return pc, nil
 			},
 		}
+		// For h2c
+		innerTransport.Protocols = new(http.Protocols)
+		innerTransport.Protocols.SetUnencryptedHTTP2(true)
 	}
 	// Note: outerCfg is only used to generate the final URL and host header (which is the same for double hbone)
 	_, _, err = hbone(s, address, d.innerCfg, innerTransport, true)

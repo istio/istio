@@ -25,7 +25,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/net/http2"
 	"golang.org/x/net/proxy"
 
 	istiolog "istio.io/istio/pkg/log"
@@ -50,17 +49,15 @@ type Dialer interface {
 
 // NewDialer creates a Dialer that proxies connections over HBONE to the configured proxy.
 func NewDialer(cfg Config) Dialer {
-	var transport *http2.Transport
+	var transport *http.Transport
 
 	if cfg.TLS != nil {
-		transport = &http2.Transport{
+		transport = &http.Transport{
 			TLSClientConfig: cfg.TLS,
 		}
 	} else {
-		transport = &http2.Transport{
-			// For h2c
-			AllowHTTP: true,
-			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
+		transport = &http.Transport{
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				d := net.Dialer{}
 				if cfg.Timeout != nil {
 					d.Timeout = *cfg.Timeout
@@ -68,6 +65,9 @@ func NewDialer(cfg Config) Dialer {
 				return d.Dial(network, addr)
 			},
 		}
+		// For h2c
+		transport.Protocols = new(http.Protocols)
+		transport.Protocols.SetUnencryptedHTTP2(true)
 	}
 	return &dialer{
 		cfg:       cfg,
@@ -77,7 +77,7 @@ func NewDialer(cfg Config) Dialer {
 
 type dialer struct {
 	cfg       Config
-	transport *http2.Transport
+	transport *http.Transport
 }
 
 // DialContext connects to `address` via the HBONE proxy.
@@ -98,7 +98,7 @@ func (d dialer) Dial(network, address string) (c net.Conn, err error) {
 	return d.DialContext(context.Background(), network, address)
 }
 
-func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http2.Transport, shouldCopy bool) (*http.Response, io.WriteCloser, error) {
+func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http.Transport, shouldCopy bool) (*http.Response, io.WriteCloser, error) {
 	t0 := time.Now()
 
 	url := "http://" + req.ProxyAddress
