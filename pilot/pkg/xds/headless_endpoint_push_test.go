@@ -153,3 +153,23 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 		})
 	}
 }
+
+func TestFilterNdsPushCoalescedEndpointUpdates(t *testing.T) {
+	service := model.ConfigKey{Kind: kind.ServiceEntry, Name: "db.default.svc.cluster.local", Namespace: "default"}
+	endpoint := model.ConfigKey{Kind: kind.Endpoints, Name: service.Name, Namespace: service.Namespace}
+	request := &model.PushRequest{
+		Reason:         model.NewReasonStats(model.HeadlessEndpointUpdate, model.EndpointUpdate),
+		ConfigsUpdated: sets.New(service, endpoint),
+	}
+
+	filtered, needsPush := filterNdsPush(request, &model.Proxy{Type: model.SidecarProxy})
+	if !needsPush {
+		t.Fatal("coalesced headless endpoint update did not trigger NDS")
+	}
+	if len(filtered.ConfigsUpdated) != 1 || !filtered.ConfigsUpdated.Contains(service) {
+		t.Fatalf("filtered updates = %v, want only %v", filtered.ConfigsUpdated, service)
+	}
+	if !filtered.Reason.Has(model.HeadlessEndpointUpdate) || !filtered.Reason.Has(model.EndpointUpdate) {
+		t.Fatalf("filtered reasons = %v, want both endpoint reasons", filtered.Reason)
+	}
+}

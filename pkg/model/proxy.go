@@ -296,6 +296,11 @@ type NodeMetadata struct {
 	// This depends on DNSCapture.
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
+	// DeltaNDS is the ISTIO_META_DELTA_NDS configuration-intent flag.
+	// Istiod additionally checks the proxy version for agent capability.
+	// ServiceEntry updates use full reconciliation with the legacy IP allocator.
+	DeltaNDS StringBool `json:"DELTA_NDS,omitempty"`
+
 	// DNSProxyAddr is the host:port where istio-agent listens for DNS (DNS_PROXY_ADDR). Populated from bootstrap
 	// so Pilot can point Envoy dynamic forward proxy at the same address.
 	DNSProxyAddr string `json:"DNS_PROXY_ADDR,omitempty"`

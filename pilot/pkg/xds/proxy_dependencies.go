@@ -33,9 +33,9 @@ var UnAffectedConfigKinds = map[model.NodeType]sets.Set[kind.Kind]{
 // filterRelevantUpdates filters PushRequest.ConfigsUpdated so that only configs relevant to the proxy are included,
 // returning the original PushRequest if no filtering was needed or a new PushRequest if some config filtering was performed.
 // The returned PushRequest should not be modified since it might be the original global PushRequest.
-func filterRelevantUpdates(proxy *model.Proxy, req *model.PushRequest) *model.PushRequest {
+func filterRelevantUpdates(proxy *model.Proxy, req *model.PushRequest) (*model.PushRequest, bool) {
 	if len(req.ConfigsUpdated) == 0 {
-		return req
+		return req, false
 	}
 
 	relevantUpdates := make(sets.Set[model.ConfigKey])
@@ -76,10 +76,17 @@ func filterRelevantUpdates(proxy *model.Proxy, req *model.PushRequest) *model.Pu
 	if changed {
 		newPushRequest := *req
 		newPushRequest.ConfigsUpdated = relevantUpdates
-		return &newPushRequest
+		serviceEntryFiltered := false
+		for config := range req.ConfigsUpdated {
+			if config.Kind == kind.ServiceEntry && !relevantUpdates.Contains(config) {
+				serviceEntryFiltered = true
+				break
+			}
+		}
+		return &newPushRequest, serviceEntryFiltered
 	}
 
-	return req
+	return req, false
 }
 
 func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *model.PushContext) bool {
@@ -119,18 +126,18 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 
 // DefaultProxyNeedsPush check if a proxy needs push for this push event and returns a new PushRequest in the case
 // it needs to filter relevant updates for this proxy.
-func DefaultProxyNeedsPush(proxy *model.Proxy, req *model.PushRequest) (*model.PushRequest, bool) {
+func DefaultProxyNeedsPush(proxy *model.Proxy, req *model.PushRequest) (*model.PushRequest, bool, bool) {
 	if req.Forced {
-		return req, true
+		return req, true, false
 	}
 
 	if proxy.IsWaypointProxy() || proxy.IsZTunnel() || proxy.IsAgentgateway() {
 		// Optimizations do not apply since scoping uses different mechanism
 		// TODO: implement ambient aware scoping
-		return req, true
+		return req, true, false
 	}
 
-	req = filterRelevantUpdates(proxy, req)
+	req, serviceEntryFiltered := filterRelevantUpdates(proxy, req)
 	workloadsUpdated := len(req.AddressesUpdated) > 0 && proxy.GetWatchedResource(v3.WorkloadType) != nil
-	return req, workloadsUpdated || len(req.ConfigsUpdated) > 0
+	return req, workloadsUpdated || len(req.ConfigsUpdated) > 0, serviceEntryFiltered
 }

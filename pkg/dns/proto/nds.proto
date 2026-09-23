@@ -40,5 +40,7 @@ message NameTable {
 
     // Map of hostname to resolution attributes.
     map<string, NameInfo> table = 1;
-}
 
+    // Resolution attributes for the hostname in discovery.Resource.Name.
+    NameInfo name_info = 2;
+}

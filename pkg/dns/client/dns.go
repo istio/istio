@@ -30,8 +30,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	dnsutil "istio.io/istio/pkg/dns"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -43,9 +45,6 @@ var log = istiolog.RegisterScope("dns", "Istio DNS proxy")
 type LocalDNSServer struct {
 	// Holds the pointer to the DNS lookup table
 	lookupTable atomic.Value
-
-	// nameTable holds the original NameTable, for debugging
-	nameTable atomic.Value
 
 	dnsProxies []*dnsProxy
 
@@ -77,9 +76,35 @@ type LookupTable struct {
 	// of A or AAAA type as appropriate.
 	name4 map[string][]dns.RR
 	name6 map[string][]dns.RR
-	// The cname records here (comprised of different variants of the hosts above,
-	// expanded by the search namespaces) pointing to the actual host.
-	cname map[string][]dns.RR
+	// Search-expanded CNAMEs are precomputed only for the legacy full NameTable path.
+	cname          map[string][]dns.RR
+	expanded       bool
+	expandedTable  *expandedLookupTable
+	expandedSearch expandedSearchContext
+	// legacySearchAliases preserves accepted CNAME precedence while a legacy table transitions to expanded storage.
+	legacySearchAliases map[string]string
+	// nameTable is retained only by legacy lookup snapshots for debug output.
+	nameTable *dnsProto.NameTable
+}
+
+const expandedLookupShardCount = 64
+
+type expandedLookupRecord struct {
+	name4 []dns.RR
+	name6 []dns.RR
+	info  *dnsProto.NameTable_NameInfo
+	known bool
+}
+
+type expandedLookupTable struct {
+	shards [expandedLookupShardCount]map[string]expandedLookupRecord
+	size   int
+}
+
+type expandedSearchContext struct {
+	domain       string
+	suffix       string
+	domainLabels int
 }
 
 const (
@@ -215,15 +240,226 @@ func (h *LocalDNSServer) StartDNS() {
 
 func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 	lookupTable := &LookupTable{
-		allHosts: sets.String{},
-		name4:    map[string][]dns.RR{},
-		name6:    map[string][]dns.RR{},
-		cname:    map[string][]dns.RR{},
+		allHosts:  sets.String{},
+		name4:     map[string][]dns.RR{},
+		name6:     map[string][]dns.RR{},
+		cname:     map[string][]dns.RR{},
+		nameTable: nt,
 	}
 	h.BuildAlternateHosts(nt, lookupTable.buildDNSAnswers)
+	// Publish legacy lookup and debug state together so readers cannot observe different table versions.
 	h.lookupTable.Store(lookupTable)
-	h.nameTable.Store(nt)
 	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
+}
+
+// RebuildFromExpandedNameTable replaces the lookup table with final DNS names supplied by Istiod.
+func (h *LocalDNSServer) RebuildFromExpandedNameTable(table map[string]*dnsProto.NameTable_NameInfo) {
+	expanded := &expandedLookupTable{}
+	for hostname, info := range table {
+		if info == nil {
+			continue
+		}
+		expanded.set(hostname, info)
+	}
+	lookupTable := &LookupTable{
+		expanded:       true,
+		expandedTable:  expanded,
+		expandedSearch: newExpandedSearchContext(h.searchNamespaces),
+	}
+	h.lookupTable.Store(lookupTable)
+	log.Debugf("rebuilt expanded lookup table with %d hosts", expanded.size)
+}
+
+// ApplyDelta atomically applies named NDS resources without mutating the table read by DNS requests.
+// A retained legacy table is first promoted with its materialized names so reconnect deltas preserve accepted state.
+func (h *LocalDNSServer) ApplyDelta(added map[string]*dnsProto.NameTable_NameInfo, removed []string) {
+	currentLookup := h.lookupTable.Load()
+	if currentLookup == nil {
+		h.RebuildFromExpandedNameTable(added)
+		return
+	}
+	previous := currentLookup.(*LookupTable)
+	previousExpanded := previous.expandedTable
+	legacySearchAliases := previous.legacySearchAliases
+	expandedSearch := previous.expandedSearch
+	if !previous.expanded {
+		previousExpanded, legacySearchAliases = previous.promoteToExpanded()
+		expandedSearch = newExpandedSearchContext(h.searchNamespaces)
+	}
+	updated := previousExpanded.applyDelta(added, removed)
+	if len(legacySearchAliases) > 0 {
+		aliasesCloned := false
+		changedNames := sets.NewWithLength[string](len(added) + len(removed))
+		removedNames := sets.NewWithLength[string](len(removed))
+		for _, name := range removed {
+			name = normalizeExpandedName(name)
+			changedNames.Insert(name)
+			removedNames.Insert(name)
+		}
+		for name, info := range added {
+			name = normalizeExpandedName(name)
+			changedNames.Insert(name)
+			if info == nil {
+				removedNames.Insert(name)
+			} else {
+				removedNames.Delete(name)
+			}
+		}
+		for name, target := range legacySearchAliases {
+			// Updating a surviving target preserves the accepted CNAME winner and uses its new addresses.
+			if changedNames.Contains(name) || removedNames.Contains(target) {
+				if !aliasesCloned {
+					legacySearchAliases = maps.Clone(legacySearchAliases)
+					aliasesCloned = true
+				}
+				delete(legacySearchAliases, name)
+			}
+		}
+	}
+	lookupTable := &LookupTable{
+		expanded:            true,
+		expandedTable:       updated,
+		expandedSearch:      expandedSearch,
+		legacySearchAliases: legacySearchAliases,
+	}
+	h.lookupTable.Store(lookupTable)
+	log.Debugf("applied expanded lookup table delta +%d -%d, total %d hosts", len(added), len(removed), updated.size)
+}
+
+func (table *LookupTable) promoteToExpanded() (*expandedLookupTable, map[string]string) {
+	expanded := &expandedLookupTable{}
+	names := sets.NewWithLength[string](len(table.name4) + len(table.name6))
+	for name := range table.name4 {
+		names.Insert(name)
+	}
+	for name := range table.name6 {
+		names.Insert(name)
+	}
+	for name := range names {
+		ips := make([]string, 0, len(table.name4[name])+len(table.name6[name]))
+		for _, answer := range table.name4[name] {
+			ips = append(ips, answer.(*dns.A).A.String())
+		}
+		for _, answer := range table.name6[name] {
+			ips = append(ips, answer.(*dns.AAAA).AAAA.String())
+		}
+		expanded.set(name, &dnsProto.NameTable_NameInfo{Ips: ips})
+	}
+	legacySearchAliases := make(map[string]string)
+	// Legacy lookup follows a search CNAME before a colliding direct record. Retain that
+	// precedence until a named update explicitly replaces or removes the shadowed name.
+	for name, aliases := range table.cname {
+		if !names.Contains(name) || len(aliases) == 0 {
+			continue
+		}
+		alias, ok := aliases[0].(*dns.CNAME)
+		if ok {
+			legacySearchAliases[normalizeExpandedName(name)] = normalizeExpandedName(alias.Target)
+		}
+	}
+	return expanded, legacySearchAliases
+}
+
+func newExpandedLookupRecord(hostname string, info *dnsProto.NameTable_NameInfo) expandedLookupRecord {
+	record := expandedLookupRecord{info: info}
+	ipv4, ipv6 := netutil.ParseIPsSplitToV4V6(info.Ips)
+	if len(ipv4) == 0 && len(ipv6) == 0 {
+		return record
+	}
+	record.known = true
+	if len(ipv4) > 0 {
+		record.name4 = a(hostname, ipv4)
+	}
+	if len(ipv6) > 0 {
+		record.name6 = aaaa(hostname, ipv6)
+	}
+	return record
+}
+
+func (table *expandedLookupTable) set(hostname string, info *dnsProto.NameTable_NameInfo) {
+	hostname = normalizeExpandedName(hostname)
+	shard := expandedLookupShard(hostname)
+	if table.shards[shard] == nil {
+		table.shards[shard] = make(map[string]expandedLookupRecord)
+	}
+	if _, found := table.shards[shard][hostname]; !found {
+		table.size++
+	}
+	table.shards[shard][hostname] = newExpandedLookupRecord(hostname, info)
+}
+
+func (table *expandedLookupTable) applyDelta(added map[string]*dnsProto.NameTable_NameInfo, removed []string) *expandedLookupTable {
+	updated := *table
+	var touched [expandedLookupShardCount]bool
+	cloneShard := func(hostname string) int {
+		shard := expandedLookupShard(hostname)
+		if touched[shard] {
+			return shard
+		}
+		touched[shard] = true
+		updated.shards[shard] = maps.Clone(table.shards[shard])
+		if updated.shards[shard] == nil {
+			updated.shards[shard] = make(map[string]expandedLookupRecord)
+		}
+		return shard
+	}
+	for _, hostname := range removed {
+		hostname = normalizeExpandedName(hostname)
+		shard := cloneShard(hostname)
+		if _, found := updated.shards[shard][hostname]; found {
+			delete(updated.shards[shard], hostname)
+			updated.size--
+		}
+	}
+	for hostname, info := range added {
+		hostname = normalizeExpandedName(hostname)
+		shard := cloneShard(hostname)
+		_, found := updated.shards[shard][hostname]
+		if info == nil {
+			if found {
+				delete(updated.shards[shard], hostname)
+				updated.size--
+			}
+			continue
+		}
+		if !found {
+			updated.size++
+		}
+		updated.shards[shard][hostname] = newExpandedLookupRecord(hostname, info)
+	}
+	return &updated
+}
+
+func (table *expandedLookupTable) getNormalized(hostname string) (expandedLookupRecord, bool) {
+	record, found := table.shards[expandedLookupShard(hostname)][hostname]
+	return record, found
+}
+
+func (table *expandedLookupTable) nameTable() *dnsProto.NameTable {
+	out := &dnsProto.NameTable{Table: make(map[string]*dnsProto.NameTable_NameInfo, table.size)}
+	for i := range table.shards {
+		for hostname, record := range table.shards[i] {
+			out.Table[normalizeResourceName(hostname)] = record.info
+		}
+	}
+	return out
+}
+
+func expandedLookupShard(hostname string) int {
+	var hash uint64 = 14695981039346656037
+	for i := 0; i < len(hostname); i++ {
+		hash ^= uint64(hostname[i])
+		hash *= 1099511628211
+	}
+	return int(hash % expandedLookupShardCount)
+}
+
+func normalizeExpandedName(hostname string) string {
+	return normalizeResourceName(hostname) + "."
+}
+
+func normalizeResourceName(hostname string) string {
+	return strings.ToLower(strings.TrimSuffix(hostname, "."))
 }
 
 // BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and
@@ -238,7 +474,7 @@ func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
 		// shortname+. is only for hosts in current namespace
 		var altHosts sets.String
 		if ni.Registry == string(provider.Kubernetes) {
-			altHosts = generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
+			altHosts = dnsutil.GenerateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
 			if !strings.HasSuffix(hostname, ".") {
 				hostname += "."
@@ -307,7 +543,12 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	// This name will always end in a dot.
 	// We expect only one question in the query even though the spec allows many
 	// clients usually do not do more than one query either.
-	answers, hostFound := lookupTable.lookupHost(req.Question[0].Qtype, hostname)
+	var hostFound bool
+	if lookupTable.expanded {
+		answers, hostFound = lookupTable.lookupHostExpanded(req.Question[0].Qtype, hostname)
+	} else {
+		answers, hostFound = lookupTable.lookupHost(req.Question[0].Qtype, hostname)
+	}
 
 	if hostFound {
 		response = new(dns.Msg)
@@ -342,11 +583,20 @@ func (h *LocalDNSServer) IsReady() bool {
 }
 
 func (h *LocalDNSServer) NameTable() *dnsProto.NameTable {
-	lt := h.nameTable.Load()
-	if lt == nil {
-		return nil
+	table, _ := h.NameTableSnapshot()
+	return table
+}
+
+// NameTableSnapshot returns the current table and whether it is expanded with alternate names.
+func (h *LocalDNSServer) NameTableSnapshot() (table *dnsProto.NameTable, isExpandedNameTable bool) {
+	if lookup := h.lookupTable.Load(); lookup != nil {
+		table := lookup.(*LookupTable)
+		if table.expanded {
+			return table.expandedTable.nameTable(), true
+		}
+		return table.nameTable, false
 	}
-	return lt.(*dnsProto.NameTable)
+	return nil, false
 }
 
 // Inspired by https://github.com/coredns/coredns/blob/master/plugin/loadbalance/loadbalance.go
@@ -505,37 +755,6 @@ func serverFailure(req *dns.Msg) *dns.Msg {
 	return response
 }
 
-func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, proxyNamespace, proxyDomain string,
-	proxyDomainParts []string,
-) sets.String {
-	out := sets.New[string]()
-	if strings.HasSuffix(hostname, ".") {
-		return out
-	}
-	out.Insert(hostname + ".")
-	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
-	// as we have no way to resolve conflicts on name.namespace entries across clusters of different domains
-	if proxyDomain == "" || !strings.HasSuffix(hostname, proxyDomain) {
-		return out
-	}
-	out.Insert(nameinfo.Shortname + "." + nameinfo.Namespace + ".")
-	if proxyNamespace == nameinfo.Namespace {
-		out.Insert(nameinfo.Shortname + ".")
-	}
-	// Do we need to generate entries for name.namespace.svc, name.namespace.svc.cluster, etc. ?
-	// If these are not that frequently used, then not doing so here will save some space and time
-	// as some people have very long proxy domains with multiple dots
-	// For now, we will generate just one more domain (which is usually the .svc piece).
-	out.Insert(nameinfo.Shortname + "." + nameinfo.Namespace + "." + proxyDomainParts[0] + ".")
-
-	// Add any additional alt hostnames.
-	// nolint: staticcheck
-	for _, altHost := range nameinfo.AltHosts {
-		out.Insert(altHost + ".")
-	}
-	return out
-}
-
 // Given a host, this function first decides if the host is part of our service registry.
 // If it is not part of the registry, return nil so that caller queries upstream. If it is part
 // of registry, we will look it up in one of our tables, failing which we will return NXDOMAIN.
@@ -618,6 +837,148 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		}
 	}
 	return out, hostFound
+}
+
+// lookupHostExpanded preserves accepted legacy search collisions during promotion. Otherwise it derives
+// search aliases only after an exact-name miss, preventing them from overriding exact records.
+func (table *LookupTable) lookupHostExpanded(qtype uint16, hostname string) ([]dns.RR, bool) {
+	hostname = normalizeExpandedName(hostname)
+	if len(table.legacySearchAliases) > 0 {
+		if target, found := table.legacySearchAliases[hostname]; found {
+			result := table.expandedTable.lookupHostMatchNormalized(qtype, target, false, "")
+			if result.found {
+				if len(result.answers) == 0 {
+					return nil, true
+				}
+				return append(cname(hostname, target), result.answers...), true
+			}
+		}
+	}
+	original := table.expandedTable.lookupHostMatchNormalized(qtype, hostname, false, "")
+	if original.found {
+		return original.answers, true
+	}
+	base, found := table.expandedSearch.baseName(hostname)
+	if found {
+		search := table.expandedTable.lookupHostMatchNormalized(qtype, base, true, table.expandedSearch.domain)
+		if search.found {
+			if search.wildcard {
+				original = table.expandedTable.lookupWildcardMatchNormalized(qtype, hostname, "")
+				searchMatchedSuffixLabels := search.matchedSuffixLabels + table.expandedSearch.domainLabels
+				if original.found && original.matchedSuffixLabels > searchMatchedSuffixLabels {
+					return original.answers, true
+				}
+			}
+			if len(search.answers) == 0 {
+				return nil, true
+			}
+			// Some clients do not perform another lookup after a CNAME in a recursive response.
+			return append(cname(hostname, base), search.answers...), true
+		}
+	}
+	// The exact name already missed above, so start directly with wildcard candidates.
+	wildcard := table.expandedTable.lookupWildcardMatchNormalized(qtype, hostname, "")
+	return wildcard.answers, wildcard.found
+}
+
+func (table *expandedLookupTable) lookupHost(qtype uint16, hostname string, allowWildcard bool) []dns.RR {
+	return table.lookupHostMatchNormalized(qtype, normalizeExpandedName(hostname), allowWildcard, "").answers
+}
+
+type expandedLookupMatch struct {
+	answers             []dns.RR
+	found               bool
+	wildcard            bool
+	matchedSuffixLabels int
+}
+
+func (table *expandedLookupTable) lookupHostMatchNormalized(
+	qtype uint16, question string, allowWildcard bool, searchDomain string,
+) expandedLookupMatch {
+	record, found := table.getNormalized(question)
+	if found && record.known && canExpandSearchAlias(question, searchDomain) {
+		return lookupRecordMatch(qtype, question, record, false, 0)
+	}
+	if !allowWildcard {
+		return expandedLookupMatch{}
+	}
+	return table.lookupWildcardMatchNormalized(qtype, question, searchDomain)
+}
+
+// Search aliases apply only to owners outside the search domain, so skip an ineligible wildcard and keep looking.
+func (table *expandedLookupTable) lookupWildcardMatchNormalized(
+	qtype uint16, question, searchDomain string,
+) expandedLookupMatch {
+	labels := dns.SplitDomainName(question)
+	for idx := range labels {
+		candidate := "*." + strings.Join(labels[idx+1:], ".") + "."
+		record, found := table.getNormalized(candidate)
+		if found && record.known && canExpandSearchAlias(candidate, searchDomain) {
+			return lookupRecordMatch(qtype, question, record, true, len(labels)-idx-1)
+		}
+	}
+	return expandedLookupMatch{}
+}
+
+func lookupRecordMatch(
+	qtype uint16, question string, record expandedLookupRecord, wildcard bool, matchedSuffixLabels int,
+) expandedLookupMatch {
+	var answers []dns.RR
+	switch qtype {
+	case dns.TypeA:
+		answers = record.name4
+	case dns.TypeAAAA:
+		answers = record.name6
+	default:
+		return expandedLookupMatch{}
+	}
+	if !wildcard || len(answers) == 0 {
+		return expandedLookupMatch{
+			answers: answers, found: true, wildcard: wildcard, matchedSuffixLabels: matchedSuffixLabels,
+		}
+	}
+	expanded := make([]dns.RR, 0, len(answers))
+	for _, answer := range answers {
+		copied := dns.Copy(answer)
+		copied.Header().Name = question
+		expanded = append(expanded, copied)
+	}
+	return expandedLookupMatch{
+		answers: expanded, found: true, wildcard: true, matchedSuffixLabels: matchedSuffixLabels,
+	}
+}
+
+func newExpandedSearchContext(searchNamespaces []string) expandedSearchContext {
+	if len(searchNamespaces) == 0 {
+		return expandedSearchContext{}
+	}
+	domain := normalizeExpandedName(searchNamespaces[0])
+	if domain == "." {
+		return expandedSearchContext{}
+	}
+	return expandedSearchContext{
+		domain:       domain,
+		suffix:       "." + domain,
+		domainLabels: len(dns.SplitDomainName(domain)),
+	}
+}
+
+func (context expandedSearchContext) baseName(hostname string) (string, bool) {
+	if context.suffix == "" || !strings.HasSuffix(hostname, context.suffix) {
+		return "", false
+	}
+	base := strings.TrimSuffix(hostname, context.suffix)
+	if base == "" {
+		return "", false
+	}
+	return base + ".", true
+}
+
+func canExpandSearchAlias(owner, searchDomain string) bool {
+	if searchDomain == "" {
+		return true
+	}
+	return owner != searchDomain && !strings.HasSuffix(owner, "."+searchDomain)
 }
 
 // This function stores the list of hostnames along with the precomputed DNS response for that hostname.
