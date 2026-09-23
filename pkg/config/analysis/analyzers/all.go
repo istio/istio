@@ -15,6 +15,7 @@
 package analyzers
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/pkg/config/analysis/analyzers/authn"
@@ -51,6 +52,9 @@ func All() []analysis.Analyzer {
 		&deployment.ApplicationUIDAnalyzer{},
 		&destinationrule.CaCertificateAnalyzer{},
 		&destinationrule.PodNotSelectedAnalyzer{},
+		&destinationrule.WaypointWorkloadSelectorAnalyzer{
+			Enabled: features.EnableSidecarWaypointRouting,
+		},
 		&deprecation.FieldAnalyzer{},
 		&envoyfilter.EnvoyPatchAnalyzer{},
 		&envoyfilter.RouteCacheAnalyzer{},
