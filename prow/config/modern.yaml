@@ -5,8 +5,10 @@ apiVersion: kind.x-k8s.io/v1alpha4
 featureGates: {}
 kubeadmConfigPatches:
 - |
-  apiVersion: kubeadm.k8s.io/v1beta4
+  apiVersion: kubeadm.k8s.io/v1beta3
   kind: ClusterConfiguration
+  metadata:
+    name: config
   etcd:
     local:
       # Run etcd in a tmpfs (in RAM) for performance improvements
@@ -14,18 +16,14 @@ kubeadmConfigPatches:
   # We run single node, drop leader election to reduce overhead
   controllerManager:
     extraArgs:
-    - name: leader-elect
-      value: "false"
+      leader-elect: "false"
   scheduler:
     extraArgs:
-    - name: leader-elect
-      value: "false"
+      leader-elect: "false"
   apiServer:
     extraArgs:
-    - name: service-account-issuer
-      value: "kubernetes.default.svc"
-    - name: service-account-signing-key-file
-      value: "/etc/kubernetes/pki/sa.key"
+      "service-account-issuer": "kubernetes.default.svc"
+      "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry]
