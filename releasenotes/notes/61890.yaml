@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- https://github.com/istio/istio/issues/61890
+releaseNotes:
+- |
+  **Fixed** an issue where the istio-cni helm chart did not respect the value set for istioOwneCNIConfigFileName.
+  **Fixed** an issue where updates to the istio-cni config via the helm chart did not restart the istio-cni to pick
+  up the new values.
+  **Fixed** an issue when uninstalling the istio-cni helm chart, the owned istio cni config was not removed or the
+  primary cni config did not have the istio-cni plugin removed.
+  **Fixed** an issue when enabling the owned istio cni config, the primary cni config was not cleaned up.
+  **Fixed** an issue when changing the owned istio cni config filename, the previous filename was not removed.
+
