@@ -17,6 +17,7 @@ package serviceentry
 import (
 	"cmp"
 	"fmt"
+	"hash/fnv"
 	"net"
 	"reflect"
 	"sort"
@@ -2669,6 +2670,40 @@ func Test_legacyAutoAllocateIP_deterministic(t *testing.T) {
 	}
 	inServices = deleteServices
 	allocateAndValidate()
+}
+
+func Test_legacyAutoAllocateIP_collisionReassignsAfterDelete(t *testing.T) {
+	test.SetForTest(t, &features.EnableIPAutoallocate, false)
+
+	seen := make(map[uint32]*model.Service, maxIPs)
+	var first, second *model.Service
+	for i := 0; i <= maxIPs && second == nil; i++ {
+		svc := &model.Service{
+			Hostname:       host.Name(fmt.Sprintf("collision-%d.example.com", i)),
+			DefaultAddress: constants.UnspecifiedIP,
+			Resolution:     model.ClientSideLB,
+			Attributes:     model.ServiceAttributes{Namespace: "default"},
+		}
+		hash := fnv.New32a()
+		_, _ = hash.Write([]byte(svc.Key()))
+		slot := hash.Sum32() % uint32(maxIPs)
+		if other := seen[slot]; other != nil {
+			first, second = other, svc
+		} else {
+			seen[slot] = svc
+		}
+	}
+	if second == nil {
+		t.Fatal("failed to find an allocation collision")
+	}
+
+	allocated := autoAllocateIPs([]*model.Service{first, second})
+	before := allocated[1].AutoAllocatedIPv4Address
+	after := autoAllocateIPs([]*model.Service{second})[0].AutoAllocatedIPv4Address
+	if before == after || after != allocated[0].AutoAllocatedIPv4Address {
+		t.Fatalf("deleting the preferred-slot owner did not reassign the collision: before=%s after=%s preferred=%s",
+			before, after, allocated[0].AutoAllocatedIPv4Address)
+	}
 }
 
 func Test_autoAllocateIP_with_duplicated_host(t *testing.T) {

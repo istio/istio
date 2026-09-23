@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
+	networkingcore "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -157,7 +158,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		s.computeProxyState(con.proxy, pushRequest)
 	}
 
-	pushRequest, needsPush := s.ProxyNeedsPush(con.proxy, pushRequest)
+	pushRequest, needsPush := s.deltaProxyNeedsPush(con.proxy, pushRequest)
 	if !needsPush {
 		deltaLog.Debugf("Skipping push to %v, no updates required", con.ID())
 		return nil
@@ -174,6 +175,22 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
+}
+
+func (s *DiscoveryServer) deltaProxyNeedsPush(proxy *model.Proxy, request *model.PushRequest) (*model.PushRequest, bool) {
+	request, needsPush, serviceEntryFiltered := s.ProxyNeedsPush(proxy, request)
+	// A filtered ServiceEntry change may reassign legacy auto-allocated IPs of services still in scope.
+	if serviceEntryFiltered && deltaNDSAndLegacyIPAllocationEnabled(proxy, request) {
+		request.Forced = true
+		needsPush = true
+	}
+	return request, needsPush
+}
+
+func deltaNDSAndLegacyIPAllocationEnabled(proxy *model.Proxy, request *model.PushRequest) bool {
+	return !features.EnableIPAutoallocate && supportsDeltaNDS(proxy) && proxy.GetWatchedResource(v3.NameTableType) != nil &&
+		proxy.Metadata != nil && bool(proxy.Metadata.DNSCapture) && bool(proxy.Metadata.DNSAutoAllocate) &&
+		!networkingcore.IsHeadlessEndpointOnly(request.Reason)
 }
 
 func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
@@ -229,7 +246,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 	}
 }
 
-func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newResourceNames sets.String) error {
+func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newResourceNames sets.String, generatorState any) error {
 	sendResonse := func() error {
 		start := time.Now()
 		defer func() { xds.RecordSendTime(time.Since(start)) }()
@@ -246,6 +263,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newReso
 				if newResourceNames != nil {
 					wr.ResourceNames = newResourceNames
 				}
+				wr.GeneratorState = generatorState
 				wr.NonceSent = res.Nonce
 				wr.LastSendTime = time.Now()
 				return wr
@@ -496,10 +514,13 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		// Some types opt out of this and natively handle req.Delta
 		logFiltered = " filtered:" + strconv.Itoa(len(w.ResourceNames)-len(req.Delta.Subscribed))
 		w = &model.WatchedResource{
-			TypeUrl:       w.TypeUrl,
-			ResourceNames: req.Delta.Subscribed,
+			TypeUrl:        w.TypeUrl,
+			ResourceNames:  req.Delta.Subscribed,
+			GeneratorState: w.GeneratorState,
 		}
 	}
+	// BuildDeltaNameTable may update GeneratorState while DeepCloneWatchedResourcesLocked copies the published watch.
+	w = shallowCloneWatchedResourceForDeltaNDS(w)
 
 	var res model.Resources
 	var deletedRes model.DeletedResources
@@ -524,7 +545,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		Nonce:             nonce(req.Push.PushVersion),
 		Resources:         res,
 	}
-	if usedDelta {
+	if usedDelta || generatorManagesResourceNames(w) {
 		resp.RemovedResources = deletedRes
 	} else if !logdata.Incremental {
 		// similar to sotw
@@ -570,7 +591,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		info += logFiltered
 	}
 
-	if err := con.sendDelta(resp, newResourceNames); err != nil {
+	if err := con.sendDelta(resp, newResourceNames, w.GeneratorState); err != nil {
 		logger := deltaLog.Debugf
 		if recordSendError(w.TypeUrl, err) {
 			logger = deltaLog.Warnf
@@ -602,6 +623,18 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 	return nil
 }
 
+func shallowCloneWatchedResourceForDeltaNDS(w *model.WatchedResource) *model.WatchedResource {
+	if w.TypeUrl != v3.NameTableType {
+		return w
+	}
+	private := *w
+	return &private
+}
+
+func generatorManagesResourceNames(w *model.WatchedResource) bool {
+	return w.TypeUrl == v3.NameTableType && w.GeneratorState != nil
+}
+
 func resourceNamesSet(res model.Resources) sets.Set[string] {
 	return sets.New(slices.Map(res, func(r *discovery.Resource) string {
 		return r.Name
@@ -624,8 +657,8 @@ func neverRemoveDelta(url string) bool {
 // shouldSetWatchedResources indicates whether we should set the watched resources for a given type.
 // for some type like `Address` we customly handle it in the generator
 func shouldSetWatchedResources(w *model.WatchedResource) bool {
-	if requiresResourceNamesModification(w.TypeUrl) {
-		// These handle it directly in the generator
+	if requiresResourceNamesModification(w.TypeUrl) || generatorManagesResourceNames(w) {
+		// These generators manage resource membership directly.
 		return false
 	}
 	// Else fallback based on type
