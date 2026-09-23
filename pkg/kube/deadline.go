@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,12 +45,14 @@ var (
 	unaryBackstop = env.Register("ISTIO_KUBE_REQUEST_TIMEOUT", 120*time.Second,
 		"Client-side total deadline applied to non-streaming Kubernetes API requests that do not carry "+
 			"their own context deadline. Must exceed ISTIO_KUBE_HEADER_TIMEOUT. 0 disables the deadline.").Get()
-	// Must stay above the reflector's 10m watch ceiling (client-go's defaultMaxWatchTimeout).
+	// Fallback for streams that do not set timeoutSeconds.
 	streamBackstop = env.Register("ISTIO_KUBE_STREAM_TIMEOUT", 15*time.Minute,
-		"Client-side total deadline applied to streaming Kubernetes API requests (watches, log follows, "+
-			"upgrades) that do not carry their own context deadline. Must exceed the API server's maximum "+
-			"watch duration. 0 disables the deadline.").Get()
+		"Client-side total deadline applied to streaming Kubernetes API requests (watches, log follows) "+
+			"that do not carry their own deadline. 0 disables the deadline.").Get()
 )
+
+// streamGrace is the grace period before closing a stream after its timeoutSeconds is reached.
+const streamGrace = time.Minute
 
 var (
 	windowLabel = monitoring.CreateLabel("window")
@@ -128,25 +131,42 @@ func isUpgradeRequest(req *http.Request) bool {
 	return parts[len(parts)-3] == "pods" && upgradeSubresources.Contains(parts[len(parts)-1])
 }
 
-// totalFor resolves the total deadline for a request, if any. A caller-set ctx
-// deadline overrides the default, including rest.Config.Timeout, which client-go
-// turns into one.
-func (d *deadlineRoundTripper) totalFor(ctx context.Context, stream bool) (time.Duration, bool) {
-	if _, ok := ctx.Deadline(); ok {
-		return 0, false
+// addedTimeout returns the total deadline the wrapper adds to req, or <= 0 for none.
+// Upgrades and requests whose context already has a deadline get none. Streams that
+// set timeoutSeconds get it plus streamGrace; other requests get the unary or stream backstop.
+func (d *deadlineRoundTripper) addedTimeout(req *http.Request, stream bool) time.Duration {
+	if isUpgradeRequest(req) {
+		return 0
 	}
-	if stream {
-		return d.stream, d.stream > 0
+	if _, ok := req.Context().Deadline(); ok {
+		return 0
 	}
-	return d.unary, d.unary > 0
+	if !stream {
+		return d.unary
+	}
+	if d.stream <= 0 {
+		return 0
+	}
+	if timeout := requestedTimeout(req); timeout > 0 {
+		return timeout + streamGrace
+	}
+	return d.stream
+}
+
+// requestedTimeout returns the server-side timeout req asks for with timeoutSeconds,
+// or 0 if it does not ask for a valid one.
+func requestedTimeout(req *http.Request) time.Duration {
+	n, err := strconv.ParseInt(req.URL.Query().Get("timeoutSeconds"), 10, 64)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return time.Duration(n) * time.Second
 }
 
 func (d *deadlineRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	stream := isStreamRequest(req)
-	total, hasTotal := time.Duration(0), false
-	if !isUpgradeRequest(req) {
-		total, hasTotal = d.totalFor(req.Context(), stream)
-	}
+	total := d.addedTimeout(req, stream)
+	hasTotal := total > 0
 	if d.header <= 0 && !hasTotal {
 		return d.next.RoundTrip(req)
 	}

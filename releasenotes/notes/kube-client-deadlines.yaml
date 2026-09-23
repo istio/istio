@@ -24,7 +24,7 @@ upgradeNotes:
     | --- | --- | --- |
     | `ISTIO_KUBE_HEADER_TIMEOUT` | `90s` | How long any request may wait for its first response headers. Must stay above the API server's `--request-timeout` (60s by default). |
     | `ISTIO_KUBE_REQUEST_TIMEOUT` | `120s` | Total duration of a normal request, including reading the response. Must exceed `ISTIO_KUBE_HEADER_TIMEOUT`. |
-    | `ISTIO_KUBE_STREAM_TIMEOUT` | `15m` | Total duration of a watch or other stream. Must exceed the API server maximum watch duration. |
+    | `ISTIO_KUBE_STREAM_TIMEOUT` | `15m` | Total duration of a watch or other stream. |
     | `ISTIO_INFORMER_REQUEST_TIMEOUT` | `15m` | Total duration of an informer list. Must accommodate a full list of the largest resource in the cluster. |
 
     A canceled request increments `kube_client_deadline_fired_total` and logs a warning

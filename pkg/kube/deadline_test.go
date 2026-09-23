@@ -515,16 +515,109 @@ func TestDeadlineWrapIdempotent(t *testing.T) {
 	}
 }
 
-// TestStreamBackstopClearsWatchCeiling asserts streamBackstop stays above client-go's reflector
-// watch ceiling. The ceiling holds because istio never overrides MinWatchTimeout, which
-// SharedIndexInformerOptions does not expose. On failure, re-derive it from the defaults in
-// tools/cache/reflector.go.
-func TestStreamBackstopClearsWatchCeiling(t *testing.T) {
-	const watchCeiling = 2 * 5 * time.Minute // 2 * defaultMinWatchTimeout
-	const requiredMargin = 5 * time.Minute
+// TestDeadlineAddedTimeout is a table test on the total deadline the wrapper adds per request.
+func TestDeadlineAddedTimeout(t *testing.T) {
+	rt := &deadlineRoundTripper{unary: 2 * time.Minute, stream: 15 * time.Minute}
+	disabled := &deadlineRoundTripper{unary: 2 * time.Minute, stream: 0}
+	negative := &deadlineRoundTripper{unary: -time.Second, stream: -time.Second}
+	withDeadline, cancel := context.WithTimeout(context.Background(), time.Hour)
+	t.Cleanup(cancel)
 
-	if streamBackstop < watchCeiling+requiredMargin {
-		t.Fatalf("streamBackstop (%v) must be at least %v above the client-go watch ceiling (%v)",
-			streamBackstop, requiredMargin, watchCeiling)
+	cases := []struct {
+		name string
+		rt   *deadlineRoundTripper
+		ctx  context.Context
+		url  string
+		want time.Duration
+	}{
+		{
+			name: "unary uses the unary backstop",
+			rt:   rt,
+			url:  "/api/v1/pods",
+			want: 2 * time.Minute,
+		},
+		{
+			name: "unary ignores timeoutSeconds",
+			rt:   rt,
+			url:  "/api/v1/pods?timeoutSeconds=600",
+			want: 2 * time.Minute,
+		},
+		{
+			name: "reflector watch is bounded by its timeoutSeconds plus grace",
+			rt:   rt,
+			url:  "/api/v1/pods?watch=true&timeoutSeconds=420",
+			want: 420*time.Second + streamGrace,
+		},
+		{
+			name: "watch asking for longer than the fallback gets what it asked for",
+			rt:   rt,
+			url:  "/api/v1/pods?watch=true&timeoutSeconds=3600",
+			want: time.Hour + streamGrace,
+		},
+		{
+			name: "watch without timeoutSeconds uses the fallback",
+			rt:   rt,
+			url:  "/api/v1/pods?watch=true",
+			want: 15 * time.Minute,
+		},
+		{
+			name: "log follow uses the fallback",
+			rt:   rt,
+			url:  "/api/v1/namespaces/default/pods/foo/log?follow=true",
+			want: 15 * time.Minute,
+		},
+		{
+			name: "invalid timeoutSeconds uses the fallback",
+			rt:   rt,
+			url:  "/api/v1/pods?watch=true&timeoutSeconds=abc",
+			want: 15 * time.Minute,
+		},
+		{
+			name: "zero timeoutSeconds uses the fallback",
+			rt:   rt,
+			url:  "/api/v1/pods?watch=true&timeoutSeconds=0",
+			want: 15 * time.Minute,
+		},
+		{
+			name: "disabled stream timeout ignores timeoutSeconds",
+			rt:   disabled,
+			url:  "/api/v1/pods?watch=true&timeoutSeconds=420",
+		},
+		{
+			name: "upgrade gets none",
+			rt:   rt,
+			url:  "/api/v1/namespaces/default/pods/foo/exec?command=ls",
+		},
+		{
+			name: "negative unary backstop passes through as none (<= 0)",
+			rt:   negative,
+			url:  "/api/v1/pods",
+			want: -time.Second,
+		},
+		{
+			name: "negative stream backstop adds none",
+			rt:   negative,
+			url:  "/api/v1/pods?watch=true&timeoutSeconds=420",
+		},
+		{
+			name: "caller deadline wins over timeoutSeconds",
+			rt:   rt,
+			ctx:  withDeadline,
+			url:  "/api/v1/pods?watch=true&timeoutSeconds=420",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := c.ctx
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			req := httptest.NewRequest(http.MethodGet, "http://example.com"+c.url, nil).WithContext(ctx)
+			got := c.rt.addedTimeout(req, isStreamRequest(req))
+			if got != c.want {
+				t.Fatalf("addedTimeout() = %v, want %v", got, c.want)
+			}
+		})
 	}
 }

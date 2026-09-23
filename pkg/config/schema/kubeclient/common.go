@@ -102,7 +102,7 @@ func GetInformerFiltered[T runtime.Object](
 // resource can run for minutes, past the transport wrapper's generic backstop.
 var informerListTimeout = env.Register("ISTIO_INFORMER_REQUEST_TIMEOUT", 15*time.Minute,
 	"Client-side deadline applied to each informer List request. Must accommodate a full list of the "+
-		"largest resource in the cluster. 0 disables the bound.").Get()
+		"largest resource in the cluster. 0 disables the deadline.").Get()
 
 // listContext bounds an informer List call with informerListTimeout, unless disabled.
 func listContext(ctx context.Context) (context.Context, context.CancelFunc) {
