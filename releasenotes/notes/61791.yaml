@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 61791
+releaseNotes:
+  - |
+    **Fixed** sidecar proxy UID/GID resolution on OpenShift for workloads bound to a custom
+    `SecurityContextConstraint` with a narrow or explicitly-configured UID range, which the
+    namespace's preallocated UID range annotation does not advertise.
