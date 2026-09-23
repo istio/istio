@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/platform"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -1768,6 +1769,87 @@ spec:
 				if FindContainer(ProxyContainerName, mergedPod.Spec.InitContainers) != nil {
 					t.Errorf("Expected not to find istio-proxy in initContainers")
 				}
+			}
+		})
+	}
+}
+
+func TestGetProxyIDs(t *testing.T) {
+	nsWithRange := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				securityv1.UIDRangeAnnotation:           "1000000000/10000",
+				securityv1.SupplementalGroupsAnnotation: "1000000000/10000",
+			},
+		},
+	}
+
+	sccs := newTestSCCClient(t,
+		// disjoint range from the namespace's: resolves both uid and gid from the SCC
+		&securityv1.SecurityContextConstraints{
+			ObjectMeta: metav1.ObjectMeta{Name: "uid-and-gid"},
+			RunAsUser: securityv1.RunAsUserStrategyOptions{
+				Type: securityv1.RunAsUserStrategyMustRunAsRange, UIDRangeMin: ptr.Of(int64(40)), UIDRangeMax: ptr.Of(int64(42)),
+			},
+			SupplementalGroups: securityv1.SupplementalGroupsStrategyOptions{
+				Type: securityv1.SupplementalGroupsStrategyMustRunAs, Ranges: []securityv1.IDRange{{Min: 40, Max: 43}},
+			},
+		},
+		// disjoint uid range, gid strategy has no range: resolves uid only
+		&securityv1.SecurityContextConstraints{
+			ObjectMeta: metav1.ObjectMeta{Name: "uid-only"},
+			RunAsUser: securityv1.RunAsUserStrategyOptions{
+				Type: securityv1.RunAsUserStrategyMustRunAsRange, UIDRangeMin: ptr.Of(int64(40)), UIDRangeMax: ptr.Of(int64(42)),
+			},
+			SupplementalGroups: securityv1.SupplementalGroupsStrategyOptions{Type: securityv1.SupplementalGroupsStrategyRunAsAny},
+		},
+		// uid strategy has no range, disjoint gid range: resolves gid only
+		&securityv1.SecurityContextConstraints{
+			ObjectMeta: metav1.ObjectMeta{Name: "gid-only"},
+			RunAsUser:  securityv1.RunAsUserStrategyOptions{Type: securityv1.RunAsUserStrategyRunAsAny},
+			SupplementalGroups: securityv1.SupplementalGroupsStrategyOptions{
+				Type: securityv1.SupplementalGroupsStrategyMustRunAs, Ranges: []securityv1.IDRange{{Min: 40, Max: 43}},
+			},
+		},
+		// range wide enough to contain the namespace's: namespace's range is a subset, so it wins
+		&securityv1.SecurityContextConstraints{
+			ObjectMeta: metav1.ObjectMeta{Name: "superset-range"},
+			RunAsUser: securityv1.RunAsUserStrategyOptions{
+				Type: securityv1.RunAsUserStrategyMustRunAsRange, UIDRangeMin: ptr.Of(int64(0)), UIDRangeMax: ptr.Of(int64(2000000000)),
+			},
+			SupplementalGroups: securityv1.SupplementalGroupsStrategyOptions{
+				Type: securityv1.SupplementalGroupsStrategyMustRunAs, Ranges: []securityv1.IDRange{{Min: 0, Max: 2000000000}},
+			},
+		},
+	)
+
+	cases := []struct {
+		name    string
+		ns      *corev1.Namespace
+		scc     string
+		wantUID int64
+		wantGID int64
+	}{
+		{"no namespace, no scc", nil, "", int64(1337), int64(1337)},
+		{"namespace annotation only", nsWithRange, "", 1000009999, 1000009999},
+		{"scc range not a subset, overrides namespace entirely", nsWithRange, "uid-and-gid", 42, 43},
+		{"scc uid only, gid falls back to namespace", nsWithRange, "uid-only", 42, 1000009999},
+		{"scc gid only, uid falls back to namespace", nsWithRange, "gid-only", 1000009999, 43},
+		{"scc uid only, no namespace falls back to default", nil, "uid-only", 42, int64(1337)},
+		{"namespace range is a subset of scc, namespace wins", nsWithRange, "superset-range", 1000009999, 1000009999},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pod := &corev1.Pod{}
+			if tc.scc != "" {
+				pod.Annotations = map[string]string{securityv1.ValidatedSCCAnnotation: tc.scc}
+			}
+			uid, gid := GetProxyIDs(tc.ns, pod, sccs)
+			if uid != tc.wantUID {
+				t.Errorf("uid: got %v, want %v", uid, tc.wantUID)
+			}
+			if gid != tc.wantGID {
+				t.Errorf("gid: got %v, want %v", gid, tc.wantGID)
 			}
 		})
 	}
