@@ -200,6 +200,7 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 	}
 	// Bound every request this config's clients send.
 	config.WrapTransport = transport.Wrappers(config.WrapTransport, WrapTransportWithDeadlines)
+	setResponseHeaderTimeout(config, kubeHeaderTimeout)
 
 	return config
 }

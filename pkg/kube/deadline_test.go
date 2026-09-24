@@ -29,75 +29,97 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-// newDeadlineClient builds an *http.Client whose Transport is rt.
-func newDeadlineClient(rt *deadlineRoundTripper) *http.Client {
-	return &http.Client{Transport: rt}
+const deadlineFiresName = "kube_client_deadline_fired_total"
+
+// newStallServer returns a server that sends headers at once, then stalls the body
+// until the request is canceled or the test ends.
+func newStallServer(t *testing.T) *httptest.Server {
+	done := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		select {
+		case <-done:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(done) })
+	return server
 }
 
-// TestDeadlineHeaderWindow verifies a slow-to-respond server is aborted by the header deadline.
-func TestDeadlineHeaderWindow(t *testing.T) {
+// newSlowBodyServer returns a server that sends headers at once and the body after delay.
+func newSlowBodyServer(t *testing.T, delay time.Duration) *httptest.Server {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
 		select {
-		case <-time.After(2 * time.Second):
+		case <-time.After(delay):
 		case <-r.Context().Done():
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-	}))
-	t.Cleanup(server.Close)
-
-	client := newDeadlineClient(&deadlineRoundTripper{
-		next:   http.DefaultTransport,
-		header: 50 * time.Millisecond,
-		unary:  time.Hour,
-	})
-
-	start := time.Now()
-	_, err := client.Get(server.URL)
-	elapsed := time.Since(start)
-
-	assert.Error(t, err)
-	if elapsed > time.Second {
-		t.Fatalf("expected header deadline to fire well under 2s, took %v", elapsed)
-	}
-	if !strings.Contains(err.Error(), "header deadline") {
-		t.Fatalf("expected error to mention header deadline, got: %v", err)
-	}
-}
-
-// TestDeadlineHeaderWindowClosesOnHeaders verifies the header timer stops once headers land.
-func TestDeadlineHeaderWindowClosesOnHeaders(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.(http.Flusher).Flush()
-		time.Sleep(300 * time.Millisecond)
 		_, _ = w.Write([]byte("done"))
 	}))
 	t.Cleanup(server.Close)
+	return server
+}
 
-	client := newDeadlineClient(&deadlineRoundTripper{
-		next:   http.DefaultTransport,
-		header: 50 * time.Millisecond,
-		unary:  time.Hour,
-	})
-
-	resp, err := client.Get(server.URL)
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	assert.NoError(t, err)
-	if string(body) != "done" {
-		t.Fatalf("expected body %q, got %q", "done", string(body))
+// assertNoFires verifies no deadline was recorded for requests to server. The fire is
+// recorded asynchronously, so it first waits past any deadline the test set.
+func assertNoFires(t *testing.T, mt *monitortest.MetricsTest, server *httptest.Server) {
+	t.Helper()
+	time.Sleep(200 * time.Millisecond)
+	host := strings.TrimPrefix(server.URL, "http://")
+	for _, m := range mt.Metrics() {
+		if m.Name == deadlineFiresName && m.Labels["host"] == host {
+			t.Fatalf("unexpected deadline fire: %v", m)
+		}
 	}
 }
 
-// TestDeadlineUnaryBackstop verifies a request whose body never completes is aborted.
-func TestDeadlineUnaryBackstop(t *testing.T) {
+func deadlineClient(total time.Duration) *http.Client {
+	return &http.Client{Transport: &deadlineRoundTripper{next: http.DefaultTransport, total: total}}
+}
+
+func doGet(ctx context.Context, t *testing.T, c *http.Client, url string) (string, error) {
+	t.Helper()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	assert.NoError(t, err)
+	resp, err := c.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	return string(body), err
+}
+
+// TestDeadlineDefaultApplied verifies a request without a deadline gets the default one.
+func TestDeadlineDefaultApplied(t *testing.T) {
+	mt := monitortest.New(t)
+	server := newStallServer(t)
+
+	start := time.Now()
+	_, err := doGet(context.Background(), t, deadlineClient(50*time.Millisecond), server.URL+"/api/v1/pods")
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("expected the default deadline to fire within a couple seconds, took %v", elapsed)
+	}
+	// The transport surfaces the ctx's cause, which names our deadline.
+	var deadline *deadlineError
+	if !errors.As(err, &deadline) {
+		t.Fatalf("expected a deadlineError, got %v", err)
+	}
+	mt.Assert(deadlineFiresName, map[string]string{
+		"window": "total",
+		"host":   strings.TrimPrefix(server.URL, "http://"),
+	}, monitortest.Exactly(1))
+}
+
+// TestDeadlineErrorBeforeHeaders verifies a default deadline that fires before headers
+// arrive is named in the error.
+func TestDeadlineErrorBeforeHeaders(t *testing.T) {
 	done := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.(http.Flusher).Flush()
 		select {
 		case <-done:
 		case <-r.Context().Done():
@@ -106,379 +128,90 @@ func TestDeadlineUnaryBackstop(t *testing.T) {
 	t.Cleanup(server.Close)
 	t.Cleanup(func() { close(done) })
 
-	client := newDeadlineClient(&deadlineRoundTripper{
-		next:   http.DefaultTransport,
-		header: 0,
-		unary:  50 * time.Millisecond,
-	})
-
-	resp, err := client.Get(server.URL)
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-
-	start := time.Now()
-	_, err = io.ReadAll(resp.Body)
-	elapsed := time.Since(start)
-
-	assert.Error(t, err)
-	if elapsed > 2*time.Second {
-		t.Fatalf("expected unary backstop to fire within a couple seconds, took %v", elapsed)
+	_, err := doGet(context.Background(), t, deadlineClient(50*time.Millisecond), server.URL)
+	var deadline *deadlineError
+	if !errors.As(err, &deadline) {
+		t.Fatalf("expected a deadlineError, got %v", err)
 	}
 }
 
-// TestDeadlineCallerDeadlineWins verifies a caller-supplied deadline suppresses the backstop.
+// TestDeadlineCallerDeadlineWins verifies the wrapper adds nothing to a request that
+// has its own deadline, whether shorter or longer than the default.
 func TestDeadlineCallerDeadlineWins(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.(http.Flusher).Flush()
-		time.Sleep(300 * time.Millisecond)
-		_, _ = w.Write([]byte("done"))
-	}))
-	t.Cleanup(server.Close)
-
-	client := newDeadlineClient(&deadlineRoundTripper{
-		next:   http.DefaultTransport,
-		header: 0,
-		unary:  50 * time.Millisecond,
+	t.Run("longer", func(t *testing.T) {
+		server := newSlowBodyServer(t, 300*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		body, err := doGet(ctx, t, deadlineClient(50*time.Millisecond), server.URL)
+		assert.NoError(t, err)
+		assert.Equal(t, body, "done")
 	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL, nil)
-	assert.NoError(t, err)
-
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	assert.NoError(t, err)
-	if string(body) != "done" {
-		t.Fatalf("expected body %q, got %q", "done", string(body))
-	}
-}
-
-// TestDeadlineStreamClassification is a table test on isStreamRequest.
-func TestDeadlineStreamClassification(t *testing.T) {
-	cases := []struct {
-		name  string
-		build func() *http.Request
-		want  bool
-	}{
-		{
-			name: "watch=true",
-			build: func() *http.Request {
-				return httptest.NewRequest(http.MethodGet, "http://example.com/api/v1/pods?watch=true", nil)
-			},
-			want: true,
-		},
-		{
-			name: "follow=true",
-			build: func() *http.Request {
-				return httptest.NewRequest(http.MethodGet, "http://example.com/api/v1/pods/foo/log?follow=true", nil)
-			},
-			want: true,
-		},
-		{
-			name: "connection upgrade",
-			build: func() *http.Request {
-				req := httptest.NewRequest(http.MethodGet, "http://example.com/api/v1/pods/foo/exec", nil)
-				req.Header.Set("Connection", "Upgrade")
-				req.Header.Set("Upgrade", "SPDY/3.1")
-				return req
-			},
-			want: true,
-		},
-		{
-			name: "portforward subresource, no upgrade header",
-			build: func() *http.Request {
-				// What the wrapper sees: the upgrade header is added below this layer.
-				return httptest.NewRequest(http.MethodPost,
-					"http://example.com/api/v1/namespaces/istio-system/pods/istiod-0/portforward", nil)
-			},
-			want: true,
-		},
-		{
-			name: "exec subresource, no upgrade header",
-			build: func() *http.Request {
-				return httptest.NewRequest(http.MethodPost,
-					"http://example.com/api/v1/namespaces/default/pods/foo/exec?command=ls", nil)
-			},
-			want: true,
-		},
-		{
-			name: "attach subresource, no upgrade header",
-			build: func() *http.Request {
-				return httptest.NewRequest(http.MethodPost,
-					"http://example.com/api/v1/namespaces/default/pods/foo/attach", nil)
-			},
-			want: true,
-		},
-		{
-			name: "pod named exec is not an upgrade",
-			build: func() *http.Request {
-				return httptest.NewRequest(http.MethodGet,
-					"http://example.com/api/v1/namespaces/default/pods/exec", nil)
-			},
-			want: false,
-		},
-		{
-			name: "pod log subresource is not an upgrade",
-			build: func() *http.Request {
-				return httptest.NewRequest(http.MethodGet,
-					"http://example.com/api/v1/namespaces/default/pods/foo/log", nil)
-			},
-			want: false,
-		},
-		{
-			name: "plain GET",
-			build: func() *http.Request {
-				return httptest.NewRequest(http.MethodGet, "http://example.com/api/v1/pods", nil)
-			},
-			want: false,
-		},
-		{
-			name: "watch=false",
-			build: func() *http.Request {
-				return httptest.NewRequest(http.MethodGet, "http://example.com/api/v1/pods?watch=false", nil)
-			},
-			want: false,
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			got := isStreamRequest(c.build())
-			if got != c.want {
-				t.Fatalf("isStreamRequest() = %v, want %v", got, c.want)
-			}
-		})
-	}
-}
-
-// TestDeadlineStreamBackstop verifies a watch is bounded by the stream backstop, not the unary one.
-func TestDeadlineStreamBackstop(t *testing.T) {
-	done := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.(http.Flusher).Flush()
-		select {
-		case <-done:
-		case <-r.Context().Done():
+	t.Run("shorter", func(t *testing.T) {
+		mt := monitortest.New(t)
+		server := newStallServer(t)
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+		_, err := doGet(ctx, t, deadlineClient(time.Hour), server.URL)
+		assert.Error(t, err)
+		var deadline *deadlineError
+		if errors.As(err, &deadline) {
+			t.Fatalf("caller's deadline was reported as ours: %v", err)
 		}
-	}))
-	t.Cleanup(server.Close)
-	t.Cleanup(func() { close(done) })
-
-	client := newDeadlineClient(&deadlineRoundTripper{
-		next:   http.DefaultTransport,
-		header: 0,
-		unary:  time.Hour,
-		stream: 50 * time.Millisecond,
+		assertNoFires(t, mt, server)
 	})
-
-	req, err := http.NewRequest(http.MethodGet, server.URL+"/?watch=true", nil)
-	assert.NoError(t, err)
-
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-
-	start := time.Now()
-	_, err = io.ReadAll(resp.Body)
-	elapsed := time.Since(start)
-
-	assert.Error(t, err)
-	if elapsed > 2*time.Second {
-		t.Fatalf("expected stream backstop to fire within a couple seconds, took %v", elapsed)
-	}
 }
 
-// TestDeadlineUpgradeExemptFromTotal verifies upgrades get no total deadline, only the
-// header one. The request carries no upgrade header, as the wrapper sees it in production.
-func TestDeadlineUpgradeExemptFromTotal(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.(http.Flusher).Flush()
-		time.Sleep(300 * time.Millisecond)
-		_, _ = w.Write([]byte("done"))
-	}))
-	t.Cleanup(server.Close)
-
-	client := newDeadlineClient(&deadlineRoundTripper{
-		next:   http.DefaultTransport,
-		header: time.Hour,
-		unary:  50 * time.Millisecond,
-		stream: 50 * time.Millisecond,
-	})
-
-	req, err := http.NewRequest(http.MethodPost,
-		server.URL+"/api/v1/namespaces/default/pods/foo/portforward", nil)
+// TestDeadlineDisabled verifies a zero default passes requests through.
+func TestDeadlineDisabled(t *testing.T) {
+	server := newSlowBodyServer(t, 300*time.Millisecond)
+	body, err := doGet(context.Background(), t, deadlineClient(0), server.URL)
 	assert.NoError(t, err)
-
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	assert.NoError(t, err)
-	if string(body) != "done" {
-		t.Fatalf("expected body %q, got %q", "done", string(body))
-	}
+	assert.Equal(t, body, "done")
 }
 
-// TestDeadlineUpgradeAtUnknownPathStopsTimers verifies a 101 detaches the deadline even when
-// the path was not recognized as an upgrade. Calls RoundTrip directly: http.Client eats a 101.
-func TestDeadlineUpgradeAtUnknownPathStopsTimers(t *testing.T) {
-	rt := &deadlineRoundTripper{
-		next:   switchingProtocolsRT{},
-		header: time.Hour,
-		unary:  50 * time.Millisecond,
-		stream: 50 * time.Millisecond,
-	}
-
-	req, err := http.NewRequest(http.MethodPost, "http://example.com/some/hijacking/endpoint", nil)
+// TestDeadlineUpgrade verifies a 101 is returned untouched and its deadline released, so
+// the upgraded session is not bounded. Calls RoundTrip directly: http.Client eats a 101.
+func TestDeadlineUpgrade(t *testing.T) {
+	next := &switchingProtocolsRT{}
+	rt := &deadlineRoundTripper{next: next, total: time.Hour}
+	req, err := http.NewRequest(http.MethodPost, "http://example.com/api/v1/namespaces/default/pods/foo/portforward", nil)
 	assert.NoError(t, err)
-
 	resp, err := rt.RoundTrip(req)
 	assert.NoError(t, err)
-	if resp.StatusCode != http.StatusSwitchingProtocols {
-		t.Fatalf("expected 101, got %d", resp.StatusCode)
-	}
-	// The stream machinery writes to the upgraded body, so it must not have been
-	// wrapped on the way out.
 	if _, ok := resp.Body.(io.ReadWriteCloser); !ok {
 		t.Fatalf("upgraded body was wrapped, got %T", resp.Body)
+	}
+	if next.ctx.Err() == nil {
+		t.Fatal("upgrade kept its deadline")
 	}
 }
 
 // switchingProtocolsRT returns a 101 whose body is the connection itself, the shape
 // the SPDY upgrader returns. net.Pipe stands in for the hijacked socket.
-type switchingProtocolsRT struct{}
+type switchingProtocolsRT struct {
+	ctx context.Context
+}
 
-func (switchingProtocolsRT) RoundTrip(*http.Request) (*http.Response, error) {
+func (s *switchingProtocolsRT) RoundTrip(req *http.Request) (*http.Response, error) {
+	s.ctx = req.Context()
 	conn, _ := net.Pipe()
-	return &http.Response{
-		StatusCode: http.StatusSwitchingProtocols,
-		Header:     http.Header{},
-		Body:       conn,
-	}, nil
+	return &http.Response{StatusCode: http.StatusSwitchingProtocols, Body: conn}, nil
 }
 
-// TestDeadlineWindowOrdering asserts the header deadline stays below both totals; a smaller
-// total fires first and makes the header window unreachable.
-func TestDeadlineWindowOrdering(t *testing.T) {
-	if headerDeadline <= 0 {
-		t.Skip("header deadline disabled")
-	}
-	if unaryBackstop > 0 && unaryBackstop <= headerDeadline {
-		t.Errorf("unaryBackstop (%v) must exceed headerDeadline (%v), or the header window can never fire",
-			unaryBackstop, headerDeadline)
-	}
-	if streamBackstop > 0 && streamBackstop <= headerDeadline {
-		t.Errorf("streamBackstop (%v) must exceed headerDeadline (%v), or the header window can never fire",
-			streamBackstop, headerDeadline)
-	}
-}
-
-// TestDeadlineRaceFailsCleanly drives the window where a deadline and the response land
-// together. Failing is legitimate; every failure must name the deadline that caused it.
-func TestDeadlineRaceFailsCleanly(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.(http.Flusher).Flush()
-		_, _ = w.Write([]byte("done"))
-	}))
-	t.Cleanup(server.Close)
-
-	var deadline *deadlineError
-	// Tiny header deadlines against an immediate response, to interleave both ways.
-	for i := 0; i < 300; i++ {
-		client := newDeadlineClient(&deadlineRoundTripper{
-			next:   http.DefaultTransport,
-			header: time.Duration(i%50) * time.Microsecond,
-			unary:  time.Hour,
-		})
-
-		resp, err := client.Get(server.URL)
-		if err != nil {
-			if !errors.As(err, &deadline) {
-				t.Fatalf("request failed without naming a deadline: %v", err)
-			}
-			continue
-		}
-
-		body, readErr := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if readErr != nil {
-			if !errors.As(readErr, &deadline) {
-				t.Fatalf("body read failed without naming a deadline: %v", readErr)
-			}
-			continue
-		}
-		if string(body) != "done" {
-			t.Fatalf("reported success with an incomplete body: got %q, want %q", body, "done")
-		}
-	}
-}
-
-// errReadCloser yields a fixed error, standing in for a body whose read was ended.
-type errReadCloser struct{ err error }
-
-func (e errReadCloser) Read([]byte) (int, error) { return 0, e.err }
-func (e errReadCloser) Close() error             { return nil }
-
-// TestCancelBodyNamesDeadline verifies a deadline landing mid-read surfaces as the deadline,
-// not the bare context error, and that a clean EOF is untouched.
-func TestCancelBodyNamesDeadline(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "http://example.com/api/v1/pods", nil)
-
-	t.Run("deadline ends the read", func(t *testing.T) {
-		want := &deadlineError{window: "total", class: "unary", bound: time.Second}
-		ctx, cancel := context.WithCancelCause(context.Background())
-		cancel(want)
-
-		b := &cancelBody{
-			body: errReadCloser{err: context.Canceled},
-			ctx:  ctx,
-			req:  req,
-			done: func() {},
-		}
-		_, err := b.Read(make([]byte, 8))
-
-		var got *deadlineError
-		if !errors.As(err, &got) {
-			t.Fatalf("read error did not name the deadline: %v", err)
-		}
-		if got != want {
-			t.Fatalf("named the wrong deadline: got %v, want %v", got, want)
-		}
-	})
-
-	t.Run("clean EOF is not a deadline", func(t *testing.T) {
-		b := &cancelBody{
-			body: errReadCloser{err: io.EOF},
-			ctx:  context.Background(),
-			req:  req,
-			done: func() {},
-		}
-		_, err := b.Read(make([]byte, 8))
-
-		if !errors.Is(err, io.EOF) {
-			t.Fatalf("expected io.EOF to pass through unchanged, got %v", err)
-		}
-		var unwanted *deadlineError
-		if errors.As(err, &unwanted) {
-			t.Fatalf("EOF was reported as a deadline: %v", err)
-		}
-	})
-}
-
-// TestDeadlineMetricLabels verifies a fired deadline is counted against the window,
-// class, and API server it came from.
-func TestDeadlineMetricLabels(t *testing.T) {
+// TestDeadlineNoMetricOnClose verifies a request that finishes normally records nothing.
+func TestDeadlineNoMetricOnClose(t *testing.T) {
 	mt := monitortest.New(t)
+	server := newSlowBodyServer(t, 10*time.Millisecond)
+	body, err := doGet(context.Background(), t, deadlineClient(100*time.Millisecond), server.URL)
+	assert.NoError(t, err)
+	assert.Equal(t, body, "done")
+	assertNoFires(t, mt, server)
+}
 
+// TestDeadlineHeaderTimeoutMetric verifies a transport header timeout is counted, for
+// requests with and without their own deadline.
+func TestDeadlineHeaderTimeoutMetric(t *testing.T) {
+	mt := monitortest.New(t)
 	done := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {
@@ -489,135 +222,34 @@ func TestDeadlineMetricLabels(t *testing.T) {
 	t.Cleanup(server.Close)
 	t.Cleanup(func() { close(done) })
 
-	client := newDeadlineClient(&deadlineRoundTripper{
-		next:   http.DefaultTransport,
-		header: 50 * time.Millisecond,
-		unary:  time.Hour,
-	})
+	base := http.DefaultTransport.(*http.Transport).Clone()
+	base.ResponseHeaderTimeout = 50 * time.Millisecond
+	t.Cleanup(base.CloseIdleConnections)
+	client := &http.Client{Transport: &deadlineRoundTripper{next: base, total: time.Hour}}
 
-	_, err := client.Get(server.URL + "/api/v1/pods")
+	_, err := doGet(context.Background(), t, client, server.URL)
+	assert.Error(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	_, err = doGet(ctx, t, client, server.URL)
 	assert.Error(t, err)
 
-	host := strings.TrimPrefix(server.URL, "http://")
 	mt.Assert(deadlineFiresName, map[string]string{
 		"window": "header",
-		"class":  "unary",
-		"host":   host,
-	}, monitortest.AtLeast(1))
+		"host":   strings.TrimPrefix(server.URL, "http://"),
+	}, monitortest.Exactly(2))
 }
 
-// TestDeadlineWrapIdempotent verifies that wrapping an already-wrapped transport is a no-op.
+func TestDeadlineWrappedRoundTripper(t *testing.T) {
+	rt := WrapTransportWithDeadlines(http.DefaultTransport)
+	if rt.(*deadlineRoundTripper).WrappedRoundTripper() != http.DefaultTransport {
+		t.Fatal("expected WrappedRoundTripper to return the wrapped transport")
+	}
+}
+
 func TestDeadlineWrapIdempotent(t *testing.T) {
 	rt := WrapTransportWithDeadlines(http.DefaultTransport)
-	rewrapped := WrapTransportWithDeadlines(rt)
-	if rewrapped != rt {
-		t.Fatalf("expected WrapTransportWithDeadlines to be idempotent, got a different value")
-	}
-}
-
-// TestDeadlineAddedTimeout is a table test on the total deadline the wrapper adds per request.
-func TestDeadlineAddedTimeout(t *testing.T) {
-	rt := &deadlineRoundTripper{unary: 2 * time.Minute, stream: 15 * time.Minute}
-	disabled := &deadlineRoundTripper{unary: 2 * time.Minute, stream: 0}
-	negative := &deadlineRoundTripper{unary: -time.Second, stream: -time.Second}
-	withDeadline, cancel := context.WithTimeout(context.Background(), time.Hour)
-	t.Cleanup(cancel)
-
-	cases := []struct {
-		name string
-		rt   *deadlineRoundTripper
-		ctx  context.Context
-		url  string
-		want time.Duration
-	}{
-		{
-			name: "unary uses the unary backstop",
-			rt:   rt,
-			url:  "/api/v1/pods",
-			want: 2 * time.Minute,
-		},
-		{
-			name: "unary ignores timeoutSeconds",
-			rt:   rt,
-			url:  "/api/v1/pods?timeoutSeconds=600",
-			want: 2 * time.Minute,
-		},
-		{
-			name: "reflector watch is bounded by its timeoutSeconds plus grace",
-			rt:   rt,
-			url:  "/api/v1/pods?watch=true&timeoutSeconds=420",
-			want: 420*time.Second + streamGrace,
-		},
-		{
-			name: "watch asking for longer than the fallback gets what it asked for",
-			rt:   rt,
-			url:  "/api/v1/pods?watch=true&timeoutSeconds=3600",
-			want: time.Hour + streamGrace,
-		},
-		{
-			name: "watch without timeoutSeconds uses the fallback",
-			rt:   rt,
-			url:  "/api/v1/pods?watch=true",
-			want: 15 * time.Minute,
-		},
-		{
-			name: "log follow uses the fallback",
-			rt:   rt,
-			url:  "/api/v1/namespaces/default/pods/foo/log?follow=true",
-			want: 15 * time.Minute,
-		},
-		{
-			name: "invalid timeoutSeconds uses the fallback",
-			rt:   rt,
-			url:  "/api/v1/pods?watch=true&timeoutSeconds=abc",
-			want: 15 * time.Minute,
-		},
-		{
-			name: "zero timeoutSeconds uses the fallback",
-			rt:   rt,
-			url:  "/api/v1/pods?watch=true&timeoutSeconds=0",
-			want: 15 * time.Minute,
-		},
-		{
-			name: "disabled stream timeout ignores timeoutSeconds",
-			rt:   disabled,
-			url:  "/api/v1/pods?watch=true&timeoutSeconds=420",
-		},
-		{
-			name: "upgrade gets none",
-			rt:   rt,
-			url:  "/api/v1/namespaces/default/pods/foo/exec?command=ls",
-		},
-		{
-			name: "negative unary backstop passes through as none (<= 0)",
-			rt:   negative,
-			url:  "/api/v1/pods",
-			want: -time.Second,
-		},
-		{
-			name: "negative stream backstop adds none",
-			rt:   negative,
-			url:  "/api/v1/pods?watch=true&timeoutSeconds=420",
-		},
-		{
-			name: "caller deadline wins over timeoutSeconds",
-			rt:   rt,
-			ctx:  withDeadline,
-			url:  "/api/v1/pods?watch=true&timeoutSeconds=420",
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			ctx := c.ctx
-			if ctx == nil {
-				ctx = context.Background()
-			}
-			req := httptest.NewRequest(http.MethodGet, "http://example.com"+c.url, nil).WithContext(ctx)
-			got := c.rt.addedTimeout(req, isStreamRequest(req))
-			if got != c.want {
-				t.Fatalf("addedTimeout() = %v, want %v", got, c.want)
-			}
-		})
+	if WrapTransportWithDeadlines(rt) != rt {
+		t.Fatal("expected WrapTransportWithDeadlines to be idempotent")
 	}
 }

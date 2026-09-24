@@ -16,7 +16,6 @@ package kubeclient
 
 import (
 	"context"
-	"time"
 
 	kubeext "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kubetypes"
-	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/informerfactory"
 	ktypes "istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
@@ -98,20 +96,6 @@ func GetInformerFiltered[T runtime.Object](
 	return GetInformerFilteredFromGVR(c, opts, gvr)
 }
 
-// informerListTimeout bounds each informer List request. A full list of a large
-// resource can run for minutes, past the transport wrapper's generic backstop.
-var informerListTimeout = env.Register("ISTIO_INFORMER_REQUEST_TIMEOUT", 15*time.Minute,
-	"Client-side deadline applied to each informer List request. Must accommodate a full list of the "+
-		"largest resource in the cluster. 0 disables the deadline.").Get()
-
-// listContext bounds an informer List call with informerListTimeout, unless disabled.
-func listContext(ctx context.Context) (context.Context, context.CancelFunc) {
-	if informerListTimeout <= 0 {
-		return ctx, func() {}
-	}
-	return context.WithTimeout(ctx, informerListTimeout)
-}
-
 // GetInformerFilteredFromGVR will build an informer for the given GVR. When
 // using ktypes.StandardInformer as the InformerType, the clients are selected
 // from a statically defined list. Use GetInformerFiltered[T] for dynamically
@@ -134,8 +118,6 @@ func getInformerFilteredDynamic(c ClientGetter, opts ktypes.InformerOptions, g s
 				ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					ctx, cancel := listContext(ctx)
-					defer cancel()
 					return c.Dynamic().Resource(g).Namespace(opts.Namespace).List(ctx, options)
 				},
 				WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
@@ -163,8 +145,6 @@ func getInformerFilteredMetadata(c ClientGetter, opts ktypes.InformerOptions, g 
 				ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					ctx, cancel := listContext(ctx)
-					defer cancel()
 					return c.Metadata().Resource(g).Namespace(opts.Namespace).List(ctx, options)
 				},
 				WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
@@ -274,8 +254,6 @@ func (t *internalTypeReg[T]) ListWatch(c ClientGetter, o ktypes.InformerOptions)
 		ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = o.FieldSelector
 			options.LabelSelector = o.LabelSelector
-			ctx, cancel := listContext(ctx)
-			defer cancel()
 			return t.list(ctx, c, o.Namespace, options)
 		},
 		WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
