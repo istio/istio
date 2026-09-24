@@ -143,12 +143,27 @@ func TestMultiRevision(t *testing.T) {
 									t.Logf("East-west gateway %s labels=%v (error: %v):\n%s\n%s",
 										gateway.Name, gateway.Labels, err, stdout, stderr)
 								}
-								services, err := w.Cluster().Istio().NetworkingV1().VirtualServices(systemNamespace).List(context.Background(), v1.ListOptions{})
+								services, err := w.Cluster().Istio().NetworkingV1().VirtualServices(v1.NamespaceAll).List(context.Background(), v1.ListOptions{})
 								if err != nil {
 									t.Logf("Unable to collect Istiod routing configuration: %v", err)
 								} else {
 									for _, service := range services.Items {
 										t.Logf("VirtualService %s/%s: %s", service.Namespace, service.Name, service.Spec.String())
+									}
+								}
+								configs, err := w.Cluster().Istio().NetworkingV1().Gateways(v1.NamespaceAll).List(context.Background(), v1.ListOptions{})
+								if err != nil {
+									t.Logf("Unable to collect gateway configuration: %v", err)
+								} else {
+									for _, config := range configs.Items {
+										t.Logf("Gateway %s/%s created=%v deleting=%v: %s", config.Namespace, config.Name,
+											config.CreationTimestamp, config.DeletionTimestamp, config.Spec.String())
+										ns, err := w.Cluster().Kube().CoreV1().Namespaces().Get(context.Background(), config.Namespace, v1.GetOptions{})
+										if err != nil {
+											t.Logf("Unable to collect namespace %s: %v", config.Namespace, err)
+										} else {
+											t.Logf("Namespace %s deleting=%v status=%+v", ns.Name, ns.DeletionTimestamp, ns.Status)
+										}
 									}
 								}
 							}

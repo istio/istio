@@ -44,6 +44,9 @@ func TestMain(m *testing.M) {
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
+			// These tests inspect injection locally and do not need cross-network discovery.
+			// Avoid replacing the shared gateway used by other integration suites.
+			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
 revision: rev-a
 values:
@@ -52,6 +55,7 @@ values:
 `
 		})).
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
+			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
 profile: empty
 revision: rev-b
