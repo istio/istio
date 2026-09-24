@@ -7,17 +7,18 @@ featureGates:
   EndpointSlice: true
 kubeadmConfigPatches:
   - |
+    apiVersion: kubeadm.k8s.io/v1beta4
     kind: ClusterConfiguration
-    metadata:
-      name: config
     etcd:
       local:
         # Run etcd in a tmpfs (in RAM) for performance improvements
         dataDir: /tmp/kind-cluster-etcd
     apiServer:
       extraArgs:
-        "service-account-issuer": "kubernetes.default.svc"
-        "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+      - name: service-account-issuer
+        value: "kubernetes.default.svc"
+      - name: service-account-signing-key-file
+        value: "/etc/kubernetes/pki/sa.key"
 containerdConfigPatches:
   - |-
     [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5000"]
