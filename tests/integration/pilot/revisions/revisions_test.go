@@ -114,6 +114,7 @@ func TestMultiRevision(t *testing.T) {
 				ToMatch(match.ServiceName(echo.NamespacedName{Name: "server", Namespace: canary})).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 					if from.Config().IsVM() {
+						systemNamespace := istio.DefaultConfigOrFail(t, t).SystemNamespace
 						t.Cleanup(func() {
 							if !t.Failed() {
 								return
@@ -129,6 +130,27 @@ func TestMultiRevision(t *testing.T) {
 									"tail -n 100 /var/log/istio/istio.log /var/log/istio/istio.err.log")
 								t.Logf("VM discovery diagnostics for %s/%s in %s (error: %v):\n%s\n%s",
 									from.NamespaceName(), w.PodName(), w.Cluster().Name(), err, stdout, stderr)
+								service, err := w.Cluster().Kube().CoreV1().Services(systemNamespace).Get(context.Background(), "istio-eastwestgateway", v1.GetOptions{})
+								t.Logf("East-west gateway service (error: %v): %+v", err, service)
+								gateways, err := w.Cluster().PodsForSelector(context.Background(), systemNamespace, "istio=eastwestgateway")
+								if err != nil {
+									t.Logf("Unable to find east-west gateway: %v", err)
+									continue
+								}
+								for _, gateway := range gateways.Items {
+									stdout, stderr, err := w.Cluster().PodExec(gateway.Name, gateway.Namespace, "istio-proxy",
+										"pilot-agent request GET config_dump")
+									t.Logf("East-west gateway %s labels=%v (error: %v):\n%s\n%s",
+										gateway.Name, gateway.Labels, err, stdout, stderr)
+								}
+								services, err := w.Cluster().Istio().NetworkingV1().VirtualServices(systemNamespace).List(context.Background(), v1.ListOptions{})
+								if err != nil {
+									t.Logf("Unable to collect Istiod routing configuration: %v", err)
+								} else {
+									for _, service := range services.Items {
+										t.Logf("VirtualService %s/%s: %s", service.Namespace, service.Name, service.Spec.String())
+									}
+								}
 							}
 						})
 					}
