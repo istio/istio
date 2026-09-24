@@ -683,6 +683,7 @@ func TestGetAllAddresses(t *testing.T) {
 		name                   string
 		service                *Service
 		ipMode                 IPMode
+		nodeType               NodeType
 		dualStackEnabled       bool
 		ambientEnabled         bool
 		autoAllocationEnabled  bool
@@ -788,6 +789,34 @@ func TestGetAllAddresses(t *testing.T) {
 			expectedExtraAddresses: []string{},
 		},
 		{
+			name: "IPv4 mode, waypoint proxy, auto-allocation enabled, expected both auto-allocated addresses",
+			service: &Service{
+				DefaultAddress:           "0.0.0.0",
+				AutoAllocatedIPv4Address: "240.240.0.1",
+				AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+			},
+			ipMode:                 IPv4,
+			nodeType:               Waypoint,
+			ambientEnabled:         true,
+			autoAllocationEnabled:  true,
+			expectedAddresses:      []string{"240.240.0.1", "2001:2::f0f0:e351"},
+			expectedExtraAddresses: []string{"2001:2::f0f0:e351"},
+		},
+		{
+			name: "IPv6 mode, waypoint proxy, auto-allocation enabled, expected both auto-allocated addresses",
+			service: &Service{
+				DefaultAddress:           "0.0.0.0",
+				AutoAllocatedIPv4Address: "240.240.0.1",
+				AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+			},
+			ipMode:                 IPv6,
+			nodeType:               Waypoint,
+			ambientEnabled:         true,
+			autoAllocationEnabled:  true,
+			expectedAddresses:      []string{"240.240.0.1", "2001:2::f0f0:e351"},
+			expectedExtraAddresses: []string{"2001:2::f0f0:e351"},
+		},
+		{
 			name: "IPv6 mode, auto-allocation enabled, expected auto-allocated address",
 			service: &Service{
 				DefaultAddress:           "0.0.0.0",
@@ -890,7 +919,7 @@ func TestGetAllAddresses(t *testing.T) {
 			if tc.ambientEnabled {
 				test.SetForTest(t, &features.EnableAmbient, true)
 			}
-			proxy := &Proxy{Metadata: &NodeMetadata{ClusterID: "id"}, ipMode: tc.ipMode}
+			proxy := &Proxy{Metadata: &NodeMetadata{ClusterID: "id"}, ipMode: tc.ipMode, Type: tc.nodeType}
 			if tc.autoAllocationEnabled {
 				proxy.Metadata.DNSCapture = true
 				proxy.Metadata.DNSAutoAllocate = true
