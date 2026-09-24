@@ -127,7 +127,7 @@ func (n *networkManager) networkFromMeshNetworks(endpointIP string) network.ID {
 			log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
 		}
 		if len(entries) > 0 {
-			return (entries[0].(namedRangerEntry)).name
+			return entries[0].(namedRangerEntry).name
 		}
 	}
 	return ""
@@ -422,7 +422,6 @@ func (n *networkManager) handleGatewayResource(_ *gatewayv1.Gateway, gw *gateway
 			if l.Protocol == "HBONE" {
 				networkGateway := base
 				networkGateway.Addr = addr.Value
-				networkGateway.Port = uint32(l.Port)
 				networkGateway.HBONEPort = uint32(l.Port)
 				newGateways.Insert(networkGateway)
 			}

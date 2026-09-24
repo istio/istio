@@ -321,3 +321,82 @@ func TestRetry(t *testing.T) {
 		})
 	}
 }
+
+func TestInboundRetry(t *testing.T) {
+	testCases := []struct {
+		name       string
+		retries    *networking.HTTPRetry
+		assertFunc func(g *WithT, policy *envoyroute.RetryPolicy)
+	}{
+		{
+			name: "TestNilRetryShouldReturnDefault",
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(Not(BeNil()))
+				g.Expect(policy.RetryOn).To(Equal("reset-before-request"))
+				g.Expect(policy.NumRetries.Value).To(Equal(uint32(2)))
+				// An inbound route only targets the local application cluster, so none of the host
+				// selection settings apply.
+				g.Expect(policy.RetryHostPredicate).To(BeNil())
+				g.Expect(policy.HostSelectionRetryMaxAttempts).To(Equal(int64(0)))
+				g.Expect(policy.RetryPriority).To(BeNil())
+			},
+		},
+		{
+			name: "TestZeroAttemptsShouldReturnNilPolicy",
+			// Explicitly disabling inbound retries mesh wide.
+			retries: &networking.HTTPRetry{Attempts: 0},
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(BeNil())
+			},
+		},
+		{
+			name: "TestAttemptsOnlyKeepsDefaultRetryOn",
+			retries: &networking.HTTPRetry{
+				Attempts: 5,
+			},
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(Not(BeNil()))
+				g.Expect(policy.RetryOn).To(Equal("reset-before-request"))
+				g.Expect(policy.NumRetries.Value).To(Equal(uint32(5)))
+			},
+		},
+		{
+			name: "TestRetryOnAndBackoff",
+			retries: &networking.HTTPRetry{
+				Attempts: 3,
+				RetryOn:  "reset,503",
+				Backoff:  durationpb.New(time.Millisecond * 10),
+			},
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(Not(BeNil()))
+				g.Expect(policy.NumRetries.Value).To(Equal(uint32(3)))
+				g.Expect(policy.RetryOn).To(Equal("reset,retriable-status-codes"))
+				g.Expect(policy.RetriableStatusCodes).To(Equal([]uint32{503}))
+				g.Expect(policy.RetryBackOff).To(Equal(&envoyroute.RetryPolicy_RetryBackOff{
+					BaseInterval: durationpb.New(time.Millisecond * 10),
+				}))
+			},
+		},
+		{
+			name: "TestIrrelevantFieldsAreIgnored",
+			retries: &networking.HTTPRetry{
+				Attempts:                 2,
+				PerTryTimeout:            durationpb.New(time.Second * 3),
+				RetryRemoteLocalities:    &wrappers.BoolValue{Value: true},
+				RetryIgnorePreviousHosts: &wrappers.BoolValue{Value: true},
+			},
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(Not(BeNil()))
+				g.Expect(policy.PerTryTimeout).To(BeNil())
+				g.Expect(policy.RetryPriority).To(BeNil())
+				g.Expect(policy.RetryHostPredicate).To(BeNil())
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			tc.assertFunc(g, retry.ConvertInboundPolicy(tc.retries))
+		})
+	}
+}

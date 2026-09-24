@@ -192,7 +192,7 @@ func NewKubeSource(schemas collection.Schemas) *KubeSource {
 	return &KubeSource{
 		name:    name,
 		schemas: &schemas,
-		inner:   memory.NewController(memory.MakeSkipValidation(schemas)),
+		inner:   memory.NewController(schemas, true),
 		shas:    make(map[kubeResourceKey]resourceSha),
 		byFile:  make(map[string]map[kubeResourceKey]config.GroupVersionKind),
 	}

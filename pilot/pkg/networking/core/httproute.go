@@ -137,7 +137,7 @@ func buildSidecarInboundHTTPRouteConfig(svc *model.Service, lb *ListenerBuilder,
 			}
 		}
 	} else {
-		defaultRoute = istio_route.BuildDefaultHTTPInboundRoute(lb.node, cc.clusterName, traceOperation, cc.port.Protocol)
+		defaultRoute = istio_route.BuildDefaultHTTPInboundRoute(cc.clusterName, traceOperation, cc.port.Protocol, lb.push.Mesh)
 	}
 
 	inboundVHost := &route.VirtualHost{

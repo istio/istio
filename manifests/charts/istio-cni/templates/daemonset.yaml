@@ -30,6 +30,10 @@ metadata:
     app.kubernetes.io/name: {{ template "name" . }}
     {{- include "istio.labels" . | nindent 4 }}
     {{ with .Values.daemonSetLabels -}}{{ toYaml . | nindent 4}}{{ end }}
+  {{- with .Values.daemonSetAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   selector:
     matchLabels:
@@ -185,11 +189,6 @@ spec:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.memory
-                  divisor: "1"
-            - name: GOMAXPROCS
-              valueFrom:
-                resourceFieldRef:
-                  resource: limits.cpu
                   divisor: "1"
             - name: POD_NAME
               valueFrom:

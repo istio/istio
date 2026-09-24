@@ -30,6 +30,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwk"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -88,31 +89,6 @@ const (
 )
 
 var (
-	// envoy supported retry on header values
-	supportedRetryOnPolicies = sets.New(
-		// 'x-envoy-retry-on' supported policies:
-		// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter.html#x-envoy-retry-on
-		"5xx",
-		"gateway-error",
-		"reset",
-		"reset-before-request",
-		"connect-failure",
-		"retriable-4xx",
-		"refused-stream",
-		"retriable-status-codes",
-		"retriable-headers",
-		"envoy-ratelimited",
-		"http3-post-connect-failure",
-
-		// 'x-envoy-retry-grpc-on' supported policies:
-		// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
-		"cancelled",
-		"deadline-exceeded",
-		"internal",
-		"resource-exhausted",
-		"unavailable",
-	)
-
 	// golang supported methods: https://golang.org/src/net/http/method.go
 	supportedCORSMethods = sets.New[string](
 		http.MethodGet,
@@ -525,6 +501,34 @@ func validateServerBind(port *networking.Port, bind string) (errs error) {
 	return errs
 }
 
+func validateALPNProtocols(tls *networking.ServerTLSSettings) (v Validation) {
+	if len(tls.AlpnProtocols) == 0 {
+		return v
+	}
+	// ALPN is only advertised by the proxy when it terminates TLS itself.
+	switch tls.Mode {
+	case networking.ServerTLSSettings_SIMPLE, networking.ServerTLSSettings_MUTUAL,
+		networking.ServerTLSSettings_OPTIONAL_MUTUAL:
+	default:
+		v = AppendWarningf(v, "%v mode does not advertise ALPN protocols, alpnProtocols will be ignored", tls.Mode)
+	}
+
+	duplicates := sets.New[string]()
+	seen := sets.New[string]()
+	for _, alpn := range tls.AlpnProtocols {
+		if security.IsInvalidALPNProtocol(alpn) {
+			v = AppendValidation(v,
+				fmt.Errorf("invalid ALPN protocol %q: must be between 1 and 255 characters and must not contain a comma", alpn))
+		} else if seen.InsertContains(alpn) {
+			duplicates.Insert(alpn)
+		}
+	}
+	if len(duplicates) > 0 {
+		v = AppendWarningf(v, "ignoring duplicate ALPN protocols: %v", sets.SortedList(duplicates))
+	}
+	return v
+}
+
 func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	if tls == nil {
 		// no tls config at all is valid
@@ -554,6 +558,8 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	if len(duplicateCiphers) > 0 {
 		v = AppendWarningf(v, "ignoring duplicate cipher suites: %v", sets.SortedList(duplicateCiphers))
 	}
+
+	v = AppendValidation(v, validateALPNProtocols(tls))
 
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
@@ -1253,6 +1259,37 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 			if !isPrime(ml.TableSize) {
 				errs = AppendValidation(errs, fmt.Errorf("tableSize must be a prime number for maglev"))
 			}
+		}
+	}
+
+	if bu := settings.GetBackendUtilization(); bu != nil {
+		for name, dur := range map[string]*durationpb.Duration{
+			"weightStabilizationPeriod": bu.GetWeightStabilizationPeriod(),
+			"weightExpirationPeriod":    bu.GetWeightExpirationPeriod(),
+			"weightUpdatePeriod":        bu.GetWeightUpdatePeriod(),
+		} {
+			if dur != nil && dur.AsDuration() < 0 {
+				errs = AppendValidation(errs, fmt.Errorf("%s must not be negative", name))
+			}
+		}
+		if p := bu.GetWeightUpdatePeriod(); p != nil && p.AsDuration() > 0 && p.AsDuration() < 100*time.Millisecond {
+			warn := "backendUtilization weightUpdatePeriod is less than the 100ms minimum and will be capped at 100ms"
+			scope.Warnf(warn)
+			errs = AppendValidation(errs, WrapWarning(errors.New(warn)))
+		}
+		for _, name := range bu.GetMetricNamesForComputingUtilization() {
+			if name == "" {
+				errs = AppendValidation(errs, fmt.Errorf("metricNamesForComputingUtilization entries must not be empty"))
+			}
+		}
+		// Envoy rejects a cluster combining load_balancing_policy with zone_aware_lb_config or
+		// locality_weighted_lb_config, so those are dropped when backendUtilization is used.
+		// Priority based failover still applies, but zone-aware routing and locality weighting do not.
+		if settings.GetLocalityLbSetting() != nil || settings.GetZoneAwareLbSetting() != nil {
+			warn := "backendUtilization is not compatible with localityLbSetting or zoneAwareLbSetting; " +
+				"zone-aware routing and locality weighting will not be applied"
+			scope.Warnf(warn)
+			errs = AppendValidation(errs, WrapWarning(errors.New(warn)))
 		}
 	}
 
@@ -2658,40 +2695,6 @@ func validatePortSelector(selector *networking.PortSelector) (errs error) {
 	// port must be a number
 	number := int(selector.GetNumber())
 	errs = appendErrors(errs, agent.ValidatePort(number))
-	return errs
-}
-
-func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
-	if retries == nil {
-		return errs
-	}
-
-	if retries.Attempts < 0 {
-		errs = multierror.Append(errs, errors.New("attempts cannot be negative"))
-	}
-
-	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "" || retries.RetryRemoteLocalities != nil) {
-		errs = appendErrors(errs, errors.New("http retry policy configured when attempts are set to 0 (disabled)"))
-	}
-
-	if retries.PerTryTimeout != nil {
-		errs = appendErrors(errs, agent.ValidateDuration(retries.PerTryTimeout))
-	}
-	if retries.RetryOn != "" {
-		retryOnPolicies := strings.Split(retries.RetryOn, ",")
-		for _, policy := range retryOnPolicies {
-			// Try converting it to an integer to see if it's a valid HTTP status code.
-			i, _ := strconv.Atoi(policy)
-
-			if http.StatusText(i) == "" && !supportedRetryOnPolicies.Contains(policy) {
-				errs = appendErrors(errs, fmt.Errorf("%q is not a valid retryOn policy", policy))
-			}
-		}
-	}
-	if retries.Backoff != nil {
-		errs = appendErrors(errs, agent.ValidateDuration(retries.Backoff))
-	}
-
 	return errs
 }
 

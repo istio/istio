@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 60666
+releaseNotes:
+- |
+  **Fixed** a bug where a ServiceEntry whose address is a CIDR generated an outbound
+  listener on the 0.0.0.0 wildcard for a reserved proxy port (for example the
+  outbound capture port 15001). The wildcard listener collided with the
+  virtualOutbound listener, the whole listener update was rejected, and the sidecar
+  failed to start. Such ports are now skipped, matching the behavior for services
+  with a concrete address.

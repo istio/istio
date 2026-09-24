@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/slices"
@@ -58,7 +57,8 @@ type mergejoin[T any] struct {
 	queue    queue.Instance
 	metadata Metadata
 
-	syncer Syncer
+	syncer   Syncer
+	debugger *DebugHandler
 }
 
 type joinCollectionIndex[T any] struct {
@@ -158,11 +158,20 @@ func (j *mergejoin[T]) WaitUntilSynced(s <-chan struct{}) bool {
 	return j.syncer.WaitUntilSynced(s)
 }
 
-func (j *mergejoin[T]) List() []T {
+func (j *mergejoin[T]) ListFiltered(filter func(T) bool) []T {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
 
-	return maps.Values(j.outputs)
+	var res []T
+	if filter == nil {
+		res = make([]T, 0, len(j.outputs))
+	}
+	for _, v := range j.outputs {
+		if filter == nil || filter(v) {
+			res = append(res, v)
+		}
+	}
+	return res
 }
 
 func (j *mergejoin[T]) GetKey(k string) *T {
@@ -174,10 +183,6 @@ func (j *mergejoin[T]) GetKey(k string) *T {
 		return &rf
 	}
 	return nil
-}
-
-func (j *mergejoin[T]) Register(f func(e Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched(j, f)
 }
 
 func (j *mergejoin[T]) RegisterBatch(f func(e []Event[T]), runExistingState bool) HandlerRegistration {
@@ -206,7 +211,7 @@ func (j *mergejoin[T]) RegisterBatch(f func(e []Event[T]), runExistingState bool
 // nolint: unused // (not true, its to implement an interface)
 func (j *mergejoin[T]) dump() CollectionDump {
 	return CollectionDump{
-		Outputs: eraseMap(slices.GroupUnique(j.List(), getTypedKey)),
+		Outputs: eraseMap(slices.GroupUnique(j.ListFiltered(nil), getTypedKey)),
 		Synced:  j.HasSynced(),
 		Inputs:  nil,
 	}
@@ -359,6 +364,7 @@ func (j *mergejoin[T]) updateIndexLocked(e Event[T], key Key[T]) {
 }
 
 func (j *mergejoin[T]) runQueue() {
+	defer maybeUnregisterCollectionFromDebugger(j, j.debugger)
 	// Wait until all underlying collections are synced before registering
 	syncers := slices.Map(j.collections.getCollections(), func(c Collection[T]) cache.InformerSynced {
 		return c.HasSynced
@@ -377,6 +383,13 @@ func (j *mergejoin[T]) runQueue() {
 			})
 		}, true))
 	}
+	// These registrations were made on collections that may outlive us. Once we are stopped,
+	// unregister them.
+	defer func() {
+		for _, reg := range regs {
+			reg.UnregisterHandler()
+		}
+	}()
 
 	syncers = slices.Map(regs, func(r HandlerRegistration) cache.InformerSynced {
 		return r.HasSynced
@@ -419,6 +432,7 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 			name:   o.name,
 			synced: synced,
 		},
+		debugger: o.debugger,
 	}
 
 	maybeRegisterCollectionForDebugging(j, o.debugger)
@@ -432,5 +446,5 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 	// The queue will process the initial state and mark ourselves as synced (from the NewWithSync callback)
 	go j.runQueue()
 
-	return j
+	return newCollection[T](j)
 }

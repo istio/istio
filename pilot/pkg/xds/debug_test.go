@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/features"
@@ -238,6 +239,68 @@ func TestDebugHandlers(t *testing.T) {
 	debug.ServeHTTP(rr, req)
 	if rr.Code != 200 {
 		t.Errorf("Error in generatating debug endpoint list")
+	}
+}
+
+func TestAdszWatches(t *testing.T) {
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+		KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "node")},
+	})
+
+	// Wildcard WDS subscription: the watch is tracked but resource names are intentionally elided.
+	wildcard := s.ConnectDeltaADS().WithType(v3.WorkloadType).
+		WithID("sidecar~1.1.1.1~wildcard.default~default.svc.cluster.local")
+	wildcard.Request(&discovery.DeltaDiscoveryRequest{})
+	wildcard.ExpectResponse()
+
+	// On-demand WDS subscription: subscribed and resolved names are tracked.
+	ondemand := s.ConnectDeltaADS().WithType(v3.AddressType).
+		WithID("ztunnel~2.2.2.2~ondemand.default~default.svc.cluster.local")
+	ondemand.Request(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe:   []string{"*"},
+		ResourceNamesUnsubscribe: []string{"*"},
+	})
+	ondemand.ExpectEmptyResponse()
+	ondemand.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{"/127.0.0.1"},
+	})
+
+	adsz := func(path string) xds.AdsClients {
+		t.Helper()
+		rr := httptest.NewRecorder()
+		s.DiscoveryDebug.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, path, nil))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%v returned %v", path, rr.Code)
+		}
+		got := xds.AdsClients{}
+		if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+
+	full := adsz("/debug/adsz")
+	assert.Equal(t, full.Total, 2)
+	for _, c := range full.Connected {
+		switch {
+		case strings.HasPrefix(c.ConnectionID, "wildcard.default"):
+			assert.Equal(t, c.WatchesSummary[v3.WorkloadType], xds.WatchSummary{Count: 0, Wildcard: true})
+			assert.Equal(t, len(c.Watches[v3.WorkloadType]), 0)
+		case strings.HasPrefix(c.ConnectionID, "ondemand.default"):
+			assert.Equal(t, c.WatchesSummary[v3.AddressType], xds.WatchSummary{Count: 2, Wildcard: false})
+			assert.Equal(t, sets.New(c.Watches[v3.AddressType]...), sets.New("/127.0.0.1", "Kubernetes//Pod/default/pod"))
+		default:
+			t.Fatalf("unexpected connection %v", c.ConnectionID)
+		}
+	}
+
+	brief := adsz("/debug/adsz?brief")
+	assert.Equal(t, brief.Total, 2)
+	for _, c := range brief.Connected {
+		assert.Equal(t, len(c.Watches), 0)
+		if len(c.WatchesSummary) == 0 {
+			t.Fatalf("connection %v missing watches summary", c.ConnectionID)
+		}
 	}
 }
 

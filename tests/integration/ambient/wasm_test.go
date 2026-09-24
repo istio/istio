@@ -195,8 +195,9 @@ func getTargetRefValues(targetType, targetName string) (kind, group, name string
 }
 
 func TestWasmPluginConfigurations(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			testCases := []struct {
 				desc         string
 				name         string

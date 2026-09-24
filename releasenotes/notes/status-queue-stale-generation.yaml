@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** `observedGeneration` getting stuck on a stale value when a resource is modified again
+    while an earlier status write is still queued.

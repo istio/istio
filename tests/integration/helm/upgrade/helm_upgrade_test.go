@@ -124,5 +124,6 @@ func TestInPlaceUpgradeWebhookFailurePolicy(t *testing.T) {
 func TestAmbientStableRevisionLabelsGatewayStatus(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequireKubernetesMinorVersion(31).
 		Run(runMultipleTagsFunc(true, true))
 }

@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -144,6 +145,7 @@ func TestAddInMemorySource(t *testing.T) {
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
 	src := model.NewFakeStore()
+	go src.Run(test.NewStop(t))
 	sa.AddSource(src)
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))

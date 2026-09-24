@@ -15,10 +15,13 @@
 package ambient
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
@@ -40,48 +43,66 @@ func (n Node) Equals(o Node) bool {
 		protoconv.Equals(n.Locality, o.Locality)
 }
 
+// nodeLocality maps a Kubernetes node to the minimal locality information we track.
+func nodeLocality(k *v1.Node) *Node {
+	node := &Node{
+		Name: k.Name,
+	}
+	region := k.GetLabels()[v1.LabelTopologyRegion]
+	zone := k.GetLabels()[v1.LabelTopologyZone]
+	subzone := k.GetLabels()[label.TopologySubzone.Name]
+
+	if region != "" || zone != "" || subzone != "" {
+		node.Locality = &workloadapi.Locality{
+			Region:  region,
+			Zone:    zone,
+			Subzone: subzone,
+		}
+	}
+
+	return node
+}
+
+// GlobalNodesCollection builds a nested collection of per-cluster node locality collections.
 func GlobalNodesCollection(
-	nodes krt.Collection[krt.Collection[krt.ObjectWithCluster[*v1.Node]]],
-	opts ...krt.CollectionOption,
+	localCluster *multicluster.Cluster,
+	localNodeLocality krt.Collection[Node],
+	ctrl *multicluster.Controller,
+	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[krt.ObjectWithCluster[Node]]] {
-	return krt.NewCollection(
-		nodes,
-		func(ctx krt.HandlerContext, col krt.Collection[krt.ObjectWithCluster[*v1.Node]]) *krt.Collection[krt.ObjectWithCluster[Node]] {
-			clusterID := col.Metadata()[multicluster.ClusterKRTMetadataKey]
-			if clusterID == nil {
-				panic("cluster metadata is nil for Node collection")
+	localNodeLocalityWithCluster := krt.MapCollection(
+		localNodeLocality,
+		wrapObjectWithCluster[Node](localCluster.ID),
+		append(
+			opts.WithName("LocalNodeLocalityWithCluster"),
+			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: localCluster.ID}),
+		)...,
+	)
+	return multicluster.NestedCollectionFromLocalAndRemote(
+		ctrl,
+		localNodeLocalityWithCluster,
+		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[Node]] {
+			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/nodes[%s]", c.ID), opts.Stop(), c.Nodes().HasSynced) {
+				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID)
+				return nil
 			}
-			nc := krt.NewCollection(col, func(ctx krt.HandlerContext, obj krt.ObjectWithCluster[*v1.Node]) *krt.ObjectWithCluster[Node] {
-				k := ptr.Flatten(obj.Object)
-				if k == nil {
-					log.Warnf("Node %s is nil, skipping", obj.ClusterID)
-					return nil
-				}
-				node := &Node{
-					Name: k.Name,
-				}
-				region := k.GetLabels()[v1.LabelTopologyRegion]
-				zone := k.GetLabels()[v1.LabelTopologyZone]
-				subzone := k.GetLabels()[label.TopologySubzone.Name]
-
-				if region != "" || zone != "" || subzone != "" {
-					node.Locality = &workloadapi.Locality{
-						Region:  region,
-						Zone:    zone,
-						Subzone: subzone,
-					}
-				}
-
+			clusterOpts := []krt.CollectionOption{
+				krt.WithName(fmt.Sprintf("ambient/NodeLocalityWithCluster[%s]", c.ID)),
+				krt.WithDebugging(opts.Debugger()),
+				krt.WithStop(c.GetStop()),
+				krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID}),
+			}
+			nodes := krt.NewCollection(c.Nodes(), func(ctx krt.HandlerContext, k *v1.Node) *krt.ObjectWithCluster[Node] {
 				return &krt.ObjectWithCluster[Node]{
-					ClusterID: obj.ClusterID,
-					Object:    node,
+					ClusterID: c.ID,
+					Object:    nodeLocality(k),
 				}
-			}, append(opts, krt.WithMetadata(krt.Metadata{
-				multicluster.ClusterKRTMetadataKey: clusterID,
-			}))...)
-			return ptr.Of(nc)
+			}, clusterOpts...)
+			return ptr.Of(nodes)
 		},
-		opts...)
+		"NodeLocalityWithCluster",
+		opts,
+	)
 }
 
 // NodesCollection maps a node to it's locality.
@@ -89,21 +110,6 @@ func GlobalNodesCollection(
 // By making an intermediate collection we can reduce the times we need to trigger dependants (locality should ~never change).
 func NodesCollection(nodes krt.Collection[*v1.Node], opts ...krt.CollectionOption) krt.Collection[Node] {
 	return krt.NewCollection(nodes, func(ctx krt.HandlerContext, k *v1.Node) *Node {
-		node := &Node{
-			Name: k.Name,
-		}
-		region := k.GetLabels()[v1.LabelTopologyRegion]
-		zone := k.GetLabels()[v1.LabelTopologyZone]
-		subzone := k.GetLabels()[label.TopologySubzone.Name]
-
-		if region != "" || zone != "" || subzone != "" {
-			node.Locality = &workloadapi.Locality{
-				Region:  region,
-				Zone:    zone,
-				Subzone: subzone,
-			}
-		}
-
-		return node
+		return nodeLocality(k)
 	}, opts...)
 }

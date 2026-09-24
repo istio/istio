@@ -75,6 +75,11 @@ func (efw *EnvoyFilterWrapper) GetSelector() *v1beta1.WorkloadSelector {
 	return nil
 }
 
+// maxProxyVersionLen bounds the proxyVersion match expression length. Version strings are short;
+// very long patterns are expensive to compile and are treated as a non-match rather than compiled.
+// Kept in sync with the same const in pkg/config/validation/envoyfilter, which warns on it.
+const maxProxyVersionLen = 1024
+
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
 // fields are ordered such that this struct is aligned
 type EnvoyFilterConfigPatchWrapper struct {
@@ -91,6 +96,10 @@ type EnvoyFilterConfigPatchWrapper struct {
 	Name             string
 	Namespace        string
 	FullName         string
+	// ProxyVersionNoMatch is set when the proxyVersion match expression could not be safely compiled
+	// (e.g. it exceeds maxProxyVersionLen). When true the patch matches no proxy (fail closed) rather
+	// than matching every version, which is what a nil ProxyVersionRegex would otherwise do.
+	ProxyVersionNoMatch bool
 }
 
 // wellKnownVersions defines a mapping of well known regex matches to prefix matches
@@ -180,6 +189,10 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 			// we can workaround the performance impact of regex
 			if prefix, f := wellKnownVersions[cp.Match.Proxy.ProxyVersion]; f {
 				cpw.ProxyPrefixMatch = prefix
+			} else if len(cp.Match.Proxy.ProxyVersion) > maxProxyVersionLen {
+				// Don't compile pathologically long patterns; the compile is expensive enough to be a
+				// DoS vector against istiod. Fail closed so the patch matches no proxy.
+				cpw.ProxyVersionNoMatch = true
 			} else {
 				// pre-compile the regex for proxy version if it exists
 				// ignore the error because validation catches invalid regular expressions.
@@ -210,6 +223,11 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 func proxyMatch(proxy *Proxy, cp *EnvoyFilterConfigPatchWrapper) bool {
 	if cp.Match.Proxy == nil {
 		return true
+	}
+
+	if cp.ProxyVersionNoMatch {
+		// the proxyVersion match could not be safely compiled, so we can't evaluate it; fail closed
+		return false
 	}
 
 	if cp.ProxyPrefixMatch != "" {

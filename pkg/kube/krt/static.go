@@ -19,7 +19,6 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -41,7 +40,22 @@ type staticList[T any] struct {
 	indexes        map[string]staticListIndex[T]
 }
 
-func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) StaticCollection[T] {
+func (s StaticCollection[T]) AsCollection() Collection[T] {
+	return newCollection[T](s.staticList)
+}
+
+func (s StaticCollection[T]) List() []T {
+	return s.ListFiltered(nil)
+}
+
+// NewStaticCollection creates a read-only collection initialized with the provided values.
+// Callers that need to update the collection after creation should use NewMutableCollection.
+func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) Collection[T] {
+	return NewMutableCollection(synced, vals, opts...).AsCollection()
+}
+
+// NewMutableCollection creates a StaticCollection that callers can update directly.
+func NewMutableCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) StaticCollection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("Static[%v]", ptr.TypeName[T]())
@@ -49,7 +63,11 @@ func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOptio
 
 	res := make(map[string]T, len(vals))
 	for _, v := range vals {
-		res[GetKey(v)] = v
+		k := GetKey(v)
+		if _, dupe := res[k]; dupe && EnableAssertions {
+			panic(fmt.Sprintf("duplicate key %q in %v; the collection would silently drop an entry", k, o.name))
+		}
+		res[k] = v
 	}
 
 	if synced == nil {
@@ -74,6 +92,12 @@ func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOptio
 		staticList: sl,
 	}
 	maybeRegisterCollectionForDebugging[T](c, o.debugger)
+	if o.debugger != nil && o.stopProvided {
+		go func() {
+			<-o.stop
+			maybeUnregisterCollectionFromDebugger(c, o.debugger)
+		}()
+	}
 	return c
 }
 
@@ -231,7 +255,7 @@ func (s *staticList[T]) uid() collectionUID {
 // nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) dump() CollectionDump {
 	return CollectionDump{
-		Outputs: eraseMap(slices.GroupUnique(s.List(), getTypedKey)),
+		Outputs: eraseMap(slices.GroupUnique(s.ListFiltered(nil), getTypedKey)),
 		Synced:  s.HasSynced(),
 	}
 }
@@ -311,14 +335,19 @@ func (s *staticList[T]) index(name string, extract func(o T) []string) indexer[T
 	return idx
 }
 
-func (s *staticList[T]) List() []T {
+func (s *staticList[T]) ListFiltered(filter func(T) bool) []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return maps.Values(s.vals)
-}
-
-func (s *staticList[T]) Register(f func(o Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched(s, f)
+	var res []T
+	if filter == nil {
+		res = make([]T, 0, len(s.vals))
+	}
+	for _, v := range s.vals {
+		if filter == nil || filter(v) {
+			res = append(res, v)
+		}
+	}
+	return res
 }
 
 func (s *staticList[T]) HasSynced() bool {

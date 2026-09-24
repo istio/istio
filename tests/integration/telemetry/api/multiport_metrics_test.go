@@ -75,7 +75,7 @@ spec:
     spec:
       containers:
       - name: primary
-        image: busybox:1.28
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-4
         command: ["httpd", "-f", "-p", "8080", "-h", "/www"]
         ports:
         - containerPort: 8080
@@ -83,7 +83,7 @@ spec:
         - name: primary-metrics
           mountPath: /www
       - name: secondary
-        image: busybox:1.28
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-4
         command: ["httpd", "-f", "-p", "9100", "-h", "/www"]
         ports:
         - containerPort: 9100
@@ -120,7 +120,7 @@ spec:
     spec:
       containers:
       - name: primary
-        image: busybox:1.28
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-4
         command: ["httpd", "-f", "-p", "8080", "-h", "/www"]
         ports:
         - containerPort: 8080
@@ -128,7 +128,7 @@ spec:
         - name: primary-metrics
           mountPath: /www
       - name: noop
-        image: busybox:1.28
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-4
         command: ["sleep", "infinity"]
       volumes:
       - name: primary-metrics
@@ -141,7 +141,7 @@ spec:
 // receives metrics from both containers via the pilot-agent's merged :15020
 // endpoint, even under STRICT mTLS where direct pod scraping is blocked.
 func TestMultiPortMetricsMerge(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace.Name()
 
@@ -180,7 +180,7 @@ func TestMultiPortMetricsMerge(t *testing.T) {
 // targets is unreachable the pilot-agent still serves metrics from the healthy
 // target and increments the AppScrapeErrors counter at least once.
 func TestMultiPortMetricsMergePartialFailure(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace.Name()
 

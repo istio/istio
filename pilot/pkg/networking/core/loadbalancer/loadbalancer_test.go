@@ -1226,6 +1226,8 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 		expectedLocality  *networking.LocalityLoadBalancerSetting
 		expectedZoneAware *networking.ZoneAwareLoadBalancerSetting
 		expectedForce     bool
+
+		expectedRoutingEnabled bool
 	}{
 		{
 			name: "all disabled",
@@ -1287,12 +1289,16 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 			meshZoneAware:     &networking.ZoneAwareLoadBalancerSetting{},
 			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{},
 			expectedForce:     true,
+
+			expectedRoutingEnabled: true,
 		},
 		{
 			name:              "dr zone-aware only",
 			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover}),
 			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
 			expectedForce:     true,
+
+			expectedRoutingEnabled: true,
 		},
 		{
 			name:              "dr zone-aware wins over mesh zone-aware",
@@ -1300,6 +1306,8 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover}),
 			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
 			expectedForce:     true,
+
+			expectedRoutingEnabled: true,
 		},
 		{
 			name:              "dr zone-aware wins over mesh locality",
@@ -1307,6 +1315,8 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{}),
 			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{},
 			expectedForce:     true,
+
+			expectedRoutingEnabled: true,
 		},
 		{
 			name:             "dr locality wins over mesh zone-aware",
@@ -1320,15 +1330,31 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 			meshZoneAware:     &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
 			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
 			expectedForce:     true,
+
+			expectedRoutingEnabled: true,
 		},
 		{
 			name:          "mesh zone-aware disabled",
 			meshZoneAware: &networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+
+			expectedZoneAware:      &networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+			expectedRoutingEnabled: false,
+		},
+		{
+			name:              "mesh zone-aware disabled wins over mesh locality enabled",
+			meshLocality:      &networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			meshZoneAware:     &networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+
+			expectedRoutingEnabled: false,
 		},
 		{
 			name:         "dr zone-aware disabled overrides mesh locality enabled",
 			meshLocality: &networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
 			dr:           drZA(&networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}}),
+
+			expectedZoneAware:      &networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+			expectedRoutingEnabled: false,
 		},
 		{
 			name:          "dr zone-aware enabled overrides mesh zone-aware disabled",
@@ -1338,6 +1364,8 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 				Enabled: &wrappers.BoolValue{Value: true},
 			},
 			expectedForce: true,
+
+			expectedRoutingEnabled: true,
 		},
 		{
 			name:             "service traffic distribution wins over mesh zone-aware",
@@ -1352,6 +1380,8 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 			svc:               preferSameZoneService,
 			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{},
 			expectedForce:     true,
+
+			expectedRoutingEnabled: true,
 		},
 		{
 			name:             "dr locality wins over service traffic distribution",
@@ -1367,12 +1397,15 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 				gotLocality  *networking.LocalityLoadBalancerSetting
 				gotZoneAware *networking.ZoneAwareLoadBalancerSetting
 				gotForce     bool
+
+				gotRoutingEnabled bool
 			)
 			switch s := got.(type) {
 			case LocalityLBSettings:
 				gotLocality, gotForce = s.Setting, s.ForceFailover()
 			case ZoneAwareLBSettings:
 				gotZoneAware, gotForce = s.Setting, s.ForceFailover()
+				gotRoutingEnabled = s.routingEnabled()
 			}
 			if !reflect.DeepEqual(tt.expectedLocality, gotLocality) {
 				t.Fatalf("locality: expected %v, got %v", tt.expectedLocality, gotLocality)
@@ -1382,6 +1415,9 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 			}
 			if tt.expectedForce != gotForce {
 				t.Fatalf("forceFailover: expected %v, got %v", tt.expectedForce, gotForce)
+			}
+			if tt.expectedZoneAware != nil && tt.expectedRoutingEnabled != gotRoutingEnabled {
+				t.Fatalf("routingEnabled: expected %v, got %v", tt.expectedRoutingEnabled, gotRoutingEnabled)
 			}
 		})
 	}
@@ -1499,7 +1535,7 @@ func buildEnvForClustersWithDistribute(t *testing.T, distribute []*networking.Lo
 		},
 	}
 
-	configStore := memory.NewController(memory.Make(collections.Pilot))
+	configStore := memory.NewController(collections.Pilot, false)
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
@@ -1566,7 +1602,7 @@ func buildEnvForClustersWithFailover(t *testing.T) *model.Environment {
 		},
 	}
 
-	configStore := memory.NewController(memory.Make(collections.Pilot))
+	configStore := memory.NewController(collections.Pilot, false)
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
@@ -1628,7 +1664,7 @@ func buildEnvForClustersWithFailoverPriority(t *testing.T, failoverPriority []st
 		},
 	}
 
-	configStore := memory.NewController(memory.Make(collections.Pilot))
+	configStore := memory.NewController(collections.Pilot, false)
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
@@ -1696,7 +1732,7 @@ func buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(t *testing.
 		},
 	}
 
-	configStore := memory.NewController(memory.Make(collections.Pilot))
+	configStore := memory.NewController(collections.Pilot, false)
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery

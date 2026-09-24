@@ -101,7 +101,7 @@ spec:
           protocol: TCP
           name: http-envoy-prom
         {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+        image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
         {{- else }}
         image: "{{ .ProxyImage }}"
         {{- end }}
@@ -180,11 +180,6 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: limits.memory
-              divisor: "1"
-        - name: GOMAXPROCS
-          valueFrom:
-            resourceFieldRef:
-              resource: limits.cpu
               divisor: "1"
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"

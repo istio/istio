@@ -238,6 +238,24 @@ func (e *EndpointIndex) DeleteShard(shardKey ShardKey) {
 	e.cache.ClearAll()
 }
 
+// PruneShard removes shardKey from every (service, namespace) entry not present in keep. A
+// registry calls this after completing a full resync (e.g. following a credential rotation) to
+// clean up shard entries for services that no longer exist in the source: such a service never
+// generates a delete event of its own, since a full resync only lists what currently exists -
+// there's nothing left to diff a fresh list against.
+func (e *EndpointIndex) PruneShard(shardKey ShardKey, keep map[string]sets.String) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for svc, shardsByNamespace := range e.shardsBySvc {
+		for ns := range shardsByNamespace {
+			if keep[svc].Contains(ns) {
+				continue
+			}
+			e.deleteServiceInner(shardKey, svc, ns, false)
+		}
+	}
+}
+
 // must be called with lock
 func (e *EndpointIndex) deleteServiceInner(shard ShardKey, serviceName, namespace string, preserveKeys bool) {
 	if e.shardsBySvc[serviceName] == nil ||
@@ -268,7 +286,8 @@ const (
 	NoPush PushType = iota
 	// IncrementalPush just pushes endpoints.
 	IncrementalPush
-	// FullPush triggers full push - typically used for new services.
+	// FullPush triggers full push - used when endpoint changes require regenerating more than EDS,
+	// such as a change to the set of service accounts backing a service.
 	FullPush
 )
 
@@ -298,23 +317,19 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 
 	pushType := IncrementalPush
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
-	ep, created := e.GetOrCreateEndpointShard(hostname, namespace)
-	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
-	if created {
-		if logPushType {
-			log.Infof("Full push, new service %s/%s", namespace, hostname)
-		} else {
-			log.Infof("Cache Update, new service %s/%s", namespace, hostname)
-		}
-		pushType = FullPush
-	}
+	// Creating a shard means we have not seen endpoints for this service before, but it does not
+	// warrant a full push. Endpoints are recorded below regardless of the push type, and registries
+	// trigger their own service update (a kind.ServiceEntry ConfigUpdate, see initRegistryEventHandlers)
+	// whenever a service is added, which re-initializes the service registry and picks these endpoints
+	// up. If the service is not known yet, an endpoint-only push is simply a no-op until it is.
+	ep, _ := e.GetOrCreateEndpointShard(hostname, namespace)
 
 	ep.Lock()
 	defer ep.Unlock()
 	oldIstioEndpoints := ep.Shards[shard]
 	newIstioEndpoints, needPush := endpointUpdateRequiresPush(oldIstioEndpoints, istioEndpoints)
 
-	if pushType != FullPush && !needPush {
+	if !needPush {
 		log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
 		pushType = NoPush
 	}
@@ -325,8 +340,7 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	saUpdated := updateShardServiceAccount(ep, hostname)
 
 	// For existing endpoints, we need to do full push if service accounts change.
-	if saUpdated && pushType != FullPush {
-		// Avoid extra logging if already a full push
+	if saUpdated {
 		if logPushType {
 			log.Infof("Full push, service accounts changed, %v", hostname)
 		} else {

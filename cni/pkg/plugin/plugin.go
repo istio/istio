@@ -173,16 +173,18 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	// by the CNI pod or it is invalid which cause the CNI pod to be unable to start if
 	// on the creation of a new K8s client. We preemptively check if the pod is a CNI pod
 	// to avoid a deadlock on the kubeconfig when the k8s client is unnecessary to process
-	// the CNI add event for the CNI pod itself.
-	if conf.AmbientEnabled {
-		k8sArgs := K8sArgs{}
-		if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
-			return fmt.Errorf("failed to load args: %v", err)
-		}
-		if isCNIPod(conf, &k8sArgs) {
-			// If we are in a degraded state and this is our own agent pod, skip
-			return pluginResponse(conf)
-		}
+	// the CNI add event for the CNI pod itself. This applies to both ambient and sidecar
+	// mode, since newK8sClient below runs unconditionally and would otherwise deadlock the
+	// CNI pod when its kubeconfig is not yet present (for example after a node reboot).
+	k8sArgs := K8sArgs{}
+	if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
+		return fmt.Errorf("failed to load args: %v", err)
+	}
+	if isCNIPod(conf, &k8sArgs) {
+		// This is our own agent pod, so the kube client is not needed to process the
+		// event. Skip it rather than block on a kubeconfig that may not exist yet.
+		log.Infof("%v looks like our own agent pod, skipping", k8sArgs.K8S_POD_NAME)
+		return pluginResponse(conf)
 	}
 
 	// Create a kube client
@@ -300,7 +302,14 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 		//
 		// TODO NRI could probably give us more identifying information here OOB from k8s.
 		if isCNIPod(conf, &k8sArgs) {
+			log.Infof("in a degraded state and %v looks like our own agent pod, skipping", k8sArgs.K8S_POD_NAME)
 			return nil
+		}
+		if attempt == 1 {
+			// Only warn once: this loop retries up to podRetrievalMaxRetries times and the
+			// verdict does not change between attempts.
+			log.Warnf("in a degraded state and %s is not a CNI pod, podNamespace: %s, conf pod namespace: %s",
+				k8sArgs.K8S_POD_NAME, k8sArgs.K8S_POD_NAMESPACE, conf.PodNamespace)
 		}
 
 		time.Sleep(podRetrievalInterval)
@@ -422,15 +431,14 @@ func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, sel
 		return false, fmt.Errorf("failed to get pod or namespace info: podErr=%v, nsErr=%v", podErr, nsErr)
 	}
 
-	return compiledSelectors.Matches(pod.Labels, pod.Annotations, ns.Labels), nil
+	return compiledSelectors.Matches(pod, ns.Labels), nil
 }
 
+// isCNIPod reports whether the CNI args look like our own istio-cni node agent pod.
+// It deliberately does not log: it is called both on the normal path for every ADD,
+// where a false result is unremarkable, and from the degraded failsafe, where a false
+// result is worth a warning. The caller has the context to pick the right level.
 func isCNIPod(conf *Config, k8sArgs *K8sArgs) bool {
-	if strings.HasPrefix(string(k8sArgs.K8S_POD_NAME), "istio-cni-node-") &&
-		string(k8sArgs.K8S_POD_NAMESPACE) == conf.PodNamespace {
-		log.Infof("in a degraded state and %v looks like our own agent pod, skipping", k8sArgs.K8S_POD_NAME)
-		return true
-	}
-	log.Warnf("not a CNI pod, podName: %s, podNamespace: %s, conf pod namespace: %s", k8sArgs.K8S_POD_NAME, k8sArgs.K8S_POD_NAMESPACE, conf.PodNamespace)
-	return false
+	return strings.HasPrefix(string(k8sArgs.K8S_POD_NAME), "istio-cni-node-") &&
+		string(k8sArgs.K8S_POD_NAMESPACE) == conf.PodNamespace
 }

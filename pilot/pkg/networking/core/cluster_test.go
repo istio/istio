@@ -1405,6 +1405,42 @@ func TestApplyOutlierDetection(t *testing.T) {
 			},
 		},
 		{
+			"Failure percentage threshold is set",
+			&networking.OutlierDetection{
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 85},
+			},
+			&cluster.OutlierDetection{
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 85},
+				EnforcingFailurePercentage: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:       &wrappers.UInt32Value{Value: 0},
+			},
+		},
+		{
+			"Failure percentage threshold is set to 0",
+			&networking.OutlierDetection{
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 0},
+			},
+			&cluster.OutlierDetection{
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 0},
+				EnforcingFailurePercentage: &wrappers.UInt32Value{Value: 0},
+				EnforcingSuccessRate:       &wrappers.UInt32Value{Value: 0},
+			},
+		},
+		{
+			"Failure percentage threshold combined with consecutive 5xx",
+			&networking.OutlierDetection{
+				Consecutive_5XxErrors:      &wrappers.UInt32Value{Value: 4},
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 50},
+			},
+			&cluster.OutlierDetection{
+				Consecutive_5Xx:            &wrappers.UInt32Value{Value: 4},
+				EnforcingConsecutive_5Xx:   &wrappers.UInt32Value{Value: 100},
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 50},
+				EnforcingFailurePercentage: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:       &wrappers.UInt32Value{Value: 0},
+			},
+		},
+		{
 			"Local origin errors is enabled",
 			&networking.OutlierDetection{
 				SplitExternalLocalOriginErrors: true,
@@ -1436,6 +1472,23 @@ func TestApplyOutlierDetection(t *testing.T) {
 			g.Expect(c.OutlierDetection).To(Equal(tt.o))
 		})
 	}
+}
+
+// TestApplyOutlierDetectionNilCommonLbConfig guards against a nil pointer panic when
+// CommonLbConfig is unset on the cluster passed in, which is the case for DFP clusters
+// built by buildDFPCluster and buildAllowAnyDFPCluster.
+func TestApplyOutlierDetectionNilCommonLbConfig(t *testing.T) {
+	g := NewWithT(t)
+
+	c := &cluster.Cluster{}
+	g.Expect(c.CommonLbConfig).To(BeNil())
+
+	applyOutlierDetection(&model.Service{}, c, &networking.OutlierDetection{
+		MinHealthPercent: 10,
+	})
+
+	g.Expect(c.CommonLbConfig).ToNot(BeNil())
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 }
 
 func TestApplyOutlierDetectionErrorCodes(t *testing.T) {

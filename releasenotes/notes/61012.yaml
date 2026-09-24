@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/60747
+releaseNotes:
+- |
+  **Added** experimental support for the Gateway API `XBackend` resource, used
+  to describe the behavior clients must use when connecting to specific destinations.
+  Support for the `ClientAndServer` Backend TLS mode is currently disabled.

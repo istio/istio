@@ -429,6 +429,7 @@ func TestEnvoyFilters(t *testing.T) {
 func TestEnvoyFilterOrder(t *testing.T) {
 	env := &Environment{}
 	store := NewFakeStore()
+	go store.Run(test.NewStop(t))
 
 	ctime := time.Now()
 
@@ -616,6 +617,7 @@ func buildPatchStruct(config string) *structpb.Struct {
 func TestEnvoyFilterOrderAcrossNamespaces(t *testing.T) {
 	env := &Environment{}
 	store := NewFakeStore()
+	go store.Run(test.NewStop(t))
 
 	proxy := &Proxy{
 		Metadata:        &NodeMetadata{IstioVersion: "foobar"},
@@ -997,6 +999,7 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env := &Environment{}
 			store := NewFakeStore()
+			go store.Run(test.NewStop(t))
 			for _, cfg := range initialEnvoyFilters {
 				_, _ = store.Create(cfg)
 			}
@@ -1123,6 +1126,7 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 func TestTrafficExtensions(t *testing.T) {
 	env := &Environment{}
 	store := NewFakeStore()
+	go store.Run(test.NewStop(t))
 
 	trafficExtensions := map[string]config.Config{
 		"invalid-type": {
@@ -2346,7 +2350,8 @@ func TestInitPushContext(t *testing.T) {
 
 	// Check to ensure the update is identical to the old one
 	// There is probably a better way to do this.
-	diff := cmp.Diff(old, newPush,
+	diff := cmp.Diff(
+		old, newPush,
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, consolidatedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
@@ -2373,6 +2378,7 @@ func TestSidecarScope(t *testing.T) {
 	ps.ServiceIndex.HostnameAndNamespace["svc3.istio-system.cluster.local"] = map[string]*Service{"istio-system": nil}
 
 	configStore := NewFakeStore()
+	go configStore.Run(test.NewStop(t))
 	sidecarWithWorkloadSelector := &networking.Sidecar{
 		WorkloadSelector: &networking.WorkloadSelector{
 			Labels: map[string]string{"app": "foo"},
@@ -2585,6 +2591,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	ps.Mesh = env.Mesh()
 
 	configStore := NewFakeStore()
+	go configStore.Run(test.NewStop(t))
 
 	// Add beta policies
 	_, _ = configStore.Create(*createTestPeerAuthenticationResource("default", wholeNS, time.Now(), nil, securityBeta.PeerAuthentication_MutualTLS_STRICT))
@@ -3973,11 +3980,13 @@ func TestInitVirtualService(t *testing.T) {
 		})
 	}
 
-	testCase(false,
+	testCase(
+		false,
 		sets.New("delegate.ns2", "public.ns3", "private.ns1", "match-ns1.ns5", "match-ns1.ns1", "match-ns7.ns7"),
 		sets.New("invisible.ns5"),
 	)
-	testCase(true,
+	testCase(
+		true,
 		sets.New("delegate.ns2", "public.ns3", "private.ns1", "match-ns1.ns5", "match-ns1.ns1"),
 		sets.New("invisible.ns5"),
 	)

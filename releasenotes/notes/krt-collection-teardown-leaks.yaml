@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60033
+releaseNotes:
+  - |
+    **Fixed** goroutine and memory leaks in istiod in ambient multi-cluster mode when remote
+    clusters are removed or updated. The internal collections built for each remote cluster did
+    not release the event handlers they had registered on their inputs when torn down, causing
+    goroutines and memory to accumulate over time as clusters were removed or reconfigured.

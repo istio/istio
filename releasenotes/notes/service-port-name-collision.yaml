@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: []
+releaseNotes:
+  - |
+    **Fixed** generated Gateway `Service`s being rejected when two listener names sanitize to the
+    same Service port name (names differing only by periods versus dashes, or only past the
+    63-character limit), which blocked every unpublished port on the Gateway. Colliding port names
+    are now disambiguated with the listener's port number.

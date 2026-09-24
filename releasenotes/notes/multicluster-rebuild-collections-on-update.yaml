@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60033
+releaseNotes:
+  - |
+    **Fixed** ambient multi-cluster serving a stale snapshot of a remote cluster after its credentials
+    were rotated. The per-cluster collections were cached by cluster ID alone, so a secret update
+    carrying a new kubeconfig kept reusing the collections built for the previous generation, whose
+    client and informers are shut down once the new one syncs. They are now cached per generation and
+    rebuilt on the new client.

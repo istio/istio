@@ -533,7 +533,26 @@ func TestHTTPCompressionOnStats(t *testing.T) {
 	}
 }
 
-func TestExcludeProtobufEncoding(t *testing.T) {
+// negotiateFormat mirrors the deprecated expfmt.NegotiateIncludingOpenMetrics.
+func negotiateFormat(h http.Header) expfmt.Format {
+	om001, _ := expfmt.NewOpenMetricsFormat(expfmt.OpenMetricsVersion_0_0_1)
+	return expfmt.NegotiateAccept(h,
+		expfmt.NewFormat(expfmt.TypeOpenMetrics),
+		om001,
+		expfmt.NewFormat(expfmt.TypeProtoDelim),
+		expfmt.NewFormat(expfmt.TypeProtoText),
+		expfmt.NewFormat(expfmt.TypeProtoCompact),
+		expfmt.NewFormat(expfmt.TypeTextPlain),
+	)
+}
+
+// TestContentTypeNegotiation verifies end-to-end Content-Type negotiation
+// through handleStats. The merger forwards the client's Accept header verbatim
+// to upstreams; each upstream negotiates its own format via the standard
+// promhttp content negotiator. The merger then emits the upstream-negotiated
+// format (proto via writeMergedProtoPath; text/OM via the byte-concat fast
+// path when all upstreams agree on text/plain).
+func TestContentTypeNegotiation(t *testing.T) {
 	envoyReg := prometheus.NewRegistry()
 	envoyCounter := promauto.With(envoyReg).NewCounter(prometheus.CounterOpts{
 		Name: "counter1",
@@ -570,9 +589,10 @@ func TestExcludeProtobufEncoding(t *testing.T) {
 		prometheus: &PrometheusScrapeConfiguration{
 			Port: fmt.Sprintf("%d", appPort),
 		},
-		envoyStatsPort: envoyPort,
-		http:           &http.Client{},
-		registry:       TestingRegistry(t),
+		envoyStatsPort:  envoyPort,
+		http:            &http.Client{},
+		registry:        TestingRegistry(t),
+		maxAppBodyBytes: defaultMaxAppMetricsBodyBytes,
 	}
 
 	tests := []struct {
@@ -598,6 +618,9 @@ func TestExcludeProtobufEncoding(t *testing.T) {
 			want: "application/openmetrics-text",
 		},
 		{
+			// Protobuf passthrough for native Prometheus histograms: when the client
+			// advertises proto and both upstreams negotiate proto, the merger emits
+			// proto via writeMergedProtoPath. See #49950.
 			name: "typical accept header with protobuf",
 			acceptHeader: "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited;q=0.6," +
 				"application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.5," +
@@ -605,12 +628,12 @@ func TestExcludeProtobufEncoding(t *testing.T) {
 				"text/plain;version=1.0.0;escaping=allow-utf-8;q=0.3," +
 				"text/plain;version=0.0.4;q=0.2," +
 				"*/*;q=0.1",
-			want: "application/openmetrics-text",
+			want: "application/vnd.google.protobuf",
 		},
 		{
 			name:         "protobuf only",
 			acceptHeader: "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited",
-			want:         "text/plain",
+			want:         "application/vnd.google.protobuf",
 		},
 		{
 			name:         "openmetrics text only",
@@ -624,14 +647,17 @@ func TestExcludeProtobufEncoding(t *testing.T) {
 			want: "text/plain",
 		},
 		{
-			name:         "expand MIME wildcard",
+			name:         "MIME wildcard */*",
 			acceptHeader: "*/*",
 			want:         "text/plain",
 		},
 		{
-			name:         "expand MIME range",
+			// `application/*` — no longer expanded to `application/openmetrics-text`
+			// since the Accept-header allow-list was removed; upstreams negotiate
+			// directly, and promhttp falls back to text on a bare MIME range.
+			name:         "MIME range application/*",
 			acceptHeader: "application/*",
-			want:         "application/openmetrics-text",
+			want:         "text/plain",
 		},
 		{
 			name:         "invalid accept header",
@@ -717,7 +743,7 @@ my_other_metric{} 0
 			}))
 			defer envoy.Close()
 			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
+				format := negotiateFormat(r.Header)
 				var negotiatedMetrics string
 				if strings.Contains(string(format), "text/plain") {
 					negotiatedMetrics = appText004
@@ -1250,7 +1276,7 @@ my_other_metric{} 0
 	}))
 	t.Cleanup(envoyServer.Close)
 	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
+		format := negotiateFormat(r.Header)
 		var negotiatedMetrics string
 		if format == FmtText {
 			negotiatedMetrics = appText

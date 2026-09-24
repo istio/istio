@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** a `defaultInboundHttpRetryPolicy` mesh config field to configure the default retry policy
+  applied to inbound routes on sidecars. Previously this policy was hardcoded to 2 attempts on
+  `reset-before-request` and could not be tuned or turned off. Only `attempts`, `retryOn` and
+  `backoff` apply; setting `defaultInboundHttpRetryPolicy: {}` disables inbound retries mesh-wide.

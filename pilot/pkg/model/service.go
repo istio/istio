@@ -599,6 +599,10 @@ type IstioEndpoint struct {
 
 	// If in k8s, the node where the pod resides
 	NodeName string
+
+	// When true, ztunnel traffic interception is set up for the workload, so it supports
+	// receiving HBONE traffic
+	CapturedByZtunnel bool
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
@@ -1165,6 +1169,8 @@ var _ AmbientIndexes = NoopAmbientIndexes{}
 type AddressInfo struct {
 	*workloadapi.Address
 	Marshaled *anypb.Any
+	// MarshaledWorkload contains the pre-marshaled inner Workload, when present.
+	MarshaledWorkload *anypb.Any
 	// Version is a content-based hash of Marshaled, sent as the resource version over WDS.
 	// Clients echo it back in InitialResourceVersions on reconnect, letting the server skip
 	// resources the client already has; hashing the content keeps versions consistent across
@@ -1176,11 +1182,18 @@ type AddressInfo struct {
 // NewAddressInfo builds an AddressInfo from an Address, pre-marshaling it and computing the
 // content-based Version.
 func NewAddressInfo(addr *workloadapi.Address) AddressInfo {
-	marshaled := protoconv.MessageToAny(addr)
+	// The marshaled bytes are compared in Equals and hashed into Version, so they must be stable.
+	// Workload has a map field (services) and the vtprotobuf marshal does not sort map keys.
+	marshaled := protoconv.MessageToAnyDeterministic(addr)
+	var marshaledWorkload *anypb.Any
+	if workload := addr.GetWorkload(); workload != nil {
+		marshaledWorkload = protoconv.MessageToAnyDeterministic(workload)
+	}
 	return AddressInfo{
-		Address:   addr,
-		Marshaled: marshaled,
-		Version:   strconv.FormatUint(xxhash.Sum64(marshaled.Value), 16),
+		Address:           addr,
+		Marshaled:         marshaled,
+		MarshaledWorkload: marshaledWorkload,
+		Version:           strconv.FormatUint(xxhash.Sum64(marshaled.Value), 16),
 	}
 }
 

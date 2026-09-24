@@ -23,7 +23,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
@@ -76,7 +75,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Merg
 // Returns a boolean indicating if the merge was handled by this function; if false, it should still be called
 // outside of this function.
 func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (merged bool, err error) {
-	cpValueCast, okCpCast := (cp.Value).(*cluster.Cluster)
+	cpValueCast, okCpCast := cp.Value.(*cluster.Cluster)
 	if !okCpCast {
 		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
 	}
@@ -115,9 +114,9 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		dst := ts.GetTypedConfig()
 		srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
 		if dst != nil && srcPatch != nil {
-			retVal, errMerge := util.MergeAnyWithAny(dst, srcPatch)
+			retVal, errMerge := mergeAnyPatchValue(cp.Operation, dst, srcPatch)
 			if errMerge != nil {
-				return false, fmt.Errorf("function MergeAnyWithAny failed for ApplyClusterMerge: %v", errMerge)
+				return false, fmt.Errorf("function mergeAnyPatchValue failed for ApplyClusterMerge: %v", errMerge)
 			}
 
 			// Merge the above result with the whole cluster

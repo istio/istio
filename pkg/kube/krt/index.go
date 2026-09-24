@@ -62,7 +62,7 @@ func NewIndex[K comparable, O any](
 	name string,
 	extract func(o O) []K,
 ) Index[K, O] {
-	idx := c.(internalCollection[O]).index(name, func(o O) []string {
+	idx := c.internal().index(name, func(o O) []string {
 		return slices.Map(extract(o), func(e K) string {
 			return toString(e)
 		})
@@ -122,7 +122,13 @@ func (i index[K, O]) AsCollection(opts ...CollectionOption) IndexCollection[K, O
 		c.metadata = o.metadata
 	}
 	maybeRegisterCollectionForDebugging(c, o.debugger)
-	return c
+	if o.debugger != nil && o.stopProvided {
+		go func() {
+			<-o.stop
+			maybeUnregisterCollectionFromDebugger(c, o.debugger)
+		}()
+	}
+	return newCollection[IndexObject[K, O]](c)
 }
 
 // Fetch fetches all entries from the index with dependency tracking
@@ -184,7 +190,7 @@ func (i indexCollection[K, O]) uid() collectionUID {
 func (i indexCollection[K, O]) dump() CollectionDump {
 	return CollectionDump{
 		Outputs:         i.dumpOutput(),
-		InputCollection: i.idx.c.(internalCollection[O]).name(),
+		InputCollection: i.idx.c.name(),
 		Synced:          i.HasSynced(),
 	}
 }
@@ -211,15 +217,21 @@ func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
 	}
 }
 
-func (i indexCollection[K, O]) List() []IndexObject[K, O] {
-	o := i.idx.c.List()
+func (i indexCollection[K, O]) ListFiltered(filter func(IndexObject[K, O]) bool) []IndexObject[K, O] {
 	keys := sets.New[K]()
-	for _, oo := range o {
+	i.idx.c.ListFiltered(func(oo O) bool {
 		keys.InsertAll(i.idx.extractKeys(oo)...)
+		return false
+	})
+	var res []IndexObject[K, O]
+	if filter == nil {
+		res = make([]IndexObject[K, O], 0, len(keys))
 	}
-	res := make([]IndexObject[K, O], 0, len(keys))
 	for k := range keys {
-		res = append(res, *i.GetKey(toString(k)))
+		v := *i.GetKey(toString(k))
+		if filter == nil || filter(v) {
+			res = append(res, v)
+		}
 	}
 	return res
 }
@@ -251,14 +263,6 @@ func (i indexCollection[K, O]) HasSynced() bool {
 
 func (i indexCollection[K, O]) Metadata() Metadata {
 	return i.metadata
-}
-
-func (i indexCollection[K, O]) Register(f func(o Event[IndexObject[K, O]])) HandlerRegistration {
-	return i.RegisterBatch(func(events []Event[IndexObject[K, O]]) {
-		for _, o := range events {
-			f(o)
-		}
-	}, true)
 }
 
 func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]), runExistingState bool) HandlerRegistration {

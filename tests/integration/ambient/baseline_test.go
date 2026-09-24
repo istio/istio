@@ -285,9 +285,9 @@ func TestPodIP(t *testing.T) {
 									t.Skip("not supported yet")
 								}
 
-								if t.Settings().AmbientMultiNetwork && srcWl.Cluster() != dstWl.Cluster() {
+								if t.Settings().AmbientMultiNetwork && srcWl.Cluster().NetworkName() != dstWl.Cluster().NetworkName() {
 									// TODO: Enable when we support multi-network workload addressing
-									t.Skip("not supported yet")
+									t.Skip("direct workload to workload communication is not supported in multi-network deployments")
 								}
 								for _, opt := range basicCalls {
 									opt := opt.DeepCopy()
@@ -394,6 +394,7 @@ func TestServerSideLB(t *testing.T) {
 
 func TestWaypointChanges(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		waypointName := "waypoint-service"
 		getGracePeriod := func(want int64) bool {
 			pods, err := kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"="+waypointName)()
@@ -430,6 +431,7 @@ func TestWaypointChanges(t *testing.T) {
 
 func TestOtherRevisionIgnored(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		// This is a negative test, ensuring gateways with tags other
 		// than my tags do not get controlled by me.
 		nsConfig, err := namespace.New(t, namespace.Config{
@@ -470,6 +472,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 
 func TestRemoveAddWaypoint(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		for _, c := range t.Clusters() {
 			istioctl.NewOrFail(t, istioctl.Config{
 				Cluster: c,
@@ -545,6 +548,7 @@ func TestRemoveAddWaypoint(t *testing.T) {
 
 func TestBogusUseWaypoint(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		check := func(t framework.TestContext) {
 			dst := apps.Captured
 			for _, src := range apps.All {
@@ -579,6 +583,7 @@ func TestBogusUseWaypoint(t *testing.T) {
 
 func TestServerRouting(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
@@ -660,6 +665,7 @@ spec:
 
 func TestWaypointEnvoyFilter(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need at least one waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
@@ -733,6 +739,7 @@ spec:
 
 func TestTrafficSplit(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		if t.Settings().AmbientMultiNetwork {
 			t.Skip("https://github.com/istio/istio/issues/58140")
 		}
@@ -1087,6 +1094,8 @@ spec:
 
 func TestAuthorizationServiceAttached(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
+		maybeSetupMultiCluster(t)
 		applyDrainingWorkaround(t)
 		src := apps.Captured
 		authzDst := apps.ServiceAddressedWaypoint
@@ -1333,6 +1342,7 @@ spec:
 
 func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		applyDrainingWorkaround(t)
 		runTestContextIndividual(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if !dst.Config().HasAnyWaypointProxy() {
@@ -1737,6 +1747,9 @@ func TestL7JWT(t *testing.T) {
 
 func TestDestinationRule(t *testing.T) {
 	dst := apps.ServiceAddressedWaypoint
+	if len(dst) == 0 {
+		t.Skip("requires gateway API (k8s 1.31+)")
+	}
 	cases := []struct {
 		name   string
 		config string
@@ -1901,6 +1914,7 @@ spec:
 		},
 	}
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		maybeSetupMultiCluster(t)
 		for _, tt := range cases {
 			t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 				for _, src := range apps.All {
@@ -3065,20 +3079,17 @@ func runAllTests(t framework.TestContext, f func(t framework.TestContext, src ec
 	runTestContextForCalls(t, allCalls, f)
 }
 
-func runTestContextForCalls(
-	t framework.TestContext,
-	callOptions []echo.CallOptions,
-	f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions),
-) {
-	svcs := apps.All
+func maybeSetupMultiCluster(t framework.TestContext) {
 	if t.Settings().AmbientMultiNetwork {
 		// all meshed services need to be labeled as global for the reachability tests.
 		for _, app := range apps.Mesh {
 			if app.Config().IsAmbient() {
-				// don't label sidecar services until https://github.com/istio/istio/issues/57877 is resolved.
+				// don't label sidecar services until https://github.com/istio/istio/issues/57877 is
+				// resolved.
 				labelServiceGlobal(t, app.ServiceName(), app.Config().Cluster)
 			}
 		}
+
 		for name := range apps.WaypointProxies {
 			labelServiceGlobal(t, name, t.Clusters()...)
 		}
@@ -3091,7 +3102,7 @@ func runTestContextForCalls(
 				}
 			}
 			for name := range apps.WaypointProxies {
-				labelServiceGlobal(t, name, t.Clusters()...)
+				unlabelServiceGlobal(t, name, t.Clusters()...)
 			}
 		})
 		// Pilot delays pushing changes to be able to batch multiple incoming changes together and push them
@@ -3105,7 +3116,15 @@ func runTestContextForCalls(
 		// to account for this issue.
 		time.Sleep(2 * features.DebounceAfter)
 	}
-	for _, src := range svcs {
+}
+
+func runTestContextForCalls(
+	t framework.TestContext,
+	callOptions []echo.CallOptions,
+	f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions),
+) {
+	maybeSetupMultiCluster(t)
+	for _, src := range apps.All {
 		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
 			for _, dst := range getAllInstancesByServiceName() {
 				t.NewSubTestf("to all %v", dst.Config().Service).Run(func(t framework.TestContext) {
@@ -3152,6 +3171,7 @@ func runIngressTest(t *testing.T, f func(t framework.TestContext, src ingress.In
 func TestL7Telemetry(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(tc framework.TestContext) {
+			skipIfGatewayAPIUnsupported(tc)
 			// ensure that some traffic from each captured workload is
 			// sent to each waypoint proxy. This will likely have happened in
 			// the other tests (without the teardown), but we want to make
@@ -3204,6 +3224,7 @@ func TestL7Telemetry(t *testing.T) {
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			t.ConfigIstio().YAML(apps.Namespace.Name(), `
 apiVersion: telemetry.istio.io/v1
 kind: Telemetry
@@ -3269,7 +3290,7 @@ spec:
 						return err
 					}
 					return nil
-				}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
+				}, retry.Timeout(30*time.Second), retry.BackoffDelay(1*time.Second))
 				// check tag removed
 				if strings.Contains(httpMetricVal, "source_principal") {
 					t.Errorf("failed to remove tag: source_principal")
@@ -3319,7 +3340,7 @@ func TestL4Telemetry(t *testing.T) {
 								return false
 							}
 							return true
-						}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
+						}, retry.Timeout(30*time.Second), retry.BackoffDelay(1*time.Second))
 						if err != nil {
 							util.PromDiff(t, prom, localSrc.Config().Cluster, query)
 							stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
@@ -3463,6 +3484,7 @@ func TestAPIServer(t *testing.T) {
 
 func TestDirect(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
 			for _, cluster := range t.Clusters() {
@@ -3765,6 +3787,7 @@ func TestServiceRestart(t *testing.T) {
 	}
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		generators := []traffic.Generator{}
 		mkGen := func(src echo.Caller, dst echo.Instances) {
 			g := traffic.NewGenerator(t, traffic.Config{
@@ -3810,6 +3833,7 @@ func TestZtunnelRestart(t *testing.T) {
 	const sidecarSuccessThreshold = .9
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		mkGen := func(src echo.Caller, dst echo.Instances) traffic.Generator {
 			g := traffic.NewGenerator(t, traffic.Config{
 				Source: src,
@@ -3858,6 +3882,7 @@ func TestServiceDynamicEnroll(t *testing.T) {
 	successThreshold := 0.5
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		if t.Settings().AmbientMultiNetwork {
 			t.Skip("https://github.com/istio/istio/issues/58228")
 		}
@@ -4016,6 +4041,7 @@ func daemonsetsetComplete(ds *appsv1.DaemonSet) bool {
 func TestWaypointWithInvalidBackend(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			// We should expect a 500 error since the backend is invalid.
 			t.ConfigIstio().
 				Eval(apps.Namespace.Name(), apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
@@ -4058,6 +4084,7 @@ spec:
 func TestWaypointWithSidecarBackend(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			// Ensure we go through the waypoint (verified by modifying the request) and that we are doing mTLS.
 			t.ConfigIstio().
 				Eval(apps.Namespace.Name(), apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1

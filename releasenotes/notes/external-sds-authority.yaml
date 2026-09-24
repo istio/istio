@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+- |
+  **Fixed** external SDS providers configured through `extensionProviders` to use the configured service hostname
+  as the gRPC authority.

@@ -77,15 +77,7 @@ unexpectedFiles="$(
     grep -v '^usr/bin/nft' | \
     grep -v '^usr/share/doc/nftables/examples/.*.nft' | \
     grep -v '^etc/apk/commit_hooks.d/ldconfig-commit.sh$' | \
-    grep -v '.*\.so[0-9\.]*' | \
-    # TODO: Remove the following test files when getting a nftables-slim=1.1.1 package from packages.wolfi.dev/os
-    grep -v '^usr/bin/clear' | \
-    grep -v '^usr/bin/infocmp' | \
-    grep -v '^usr/bin/tabs' | \
-    grep -v '^usr/bin/tic' | \
-    grep -v '^usr/bin/toe' | \
-    grep -v '^usr/bin/tput' | \
-    grep -v '^usr/bin/tset' || true
+    grep -v '.*\.so[0-9\.]*' || true
 )"
 expectedFiles=(
   "usr/bin/xtables-legacy-multi"

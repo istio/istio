@@ -522,7 +522,7 @@ func TestAmbientIndex_ServiceEntry_DisableK8SServiceSelectWorkloadEntries(t *tes
 			s := newAmbientTestServerWithFlags(t, testC, testNW, FeatureFlags{
 				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 				EnableK8SServiceSelectWorkloadEntries: false,
-			}, "")
+			}, "", true)
 
 			s.addPods(t, "140.140.0.10", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 			s.assertEvent(t, s.podXdsName("pod1"))

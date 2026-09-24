@@ -55,6 +55,8 @@ func TestMergeGateways(t *testing.T) {
 	gwMutualCredInNotAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_MUTUAL, []string{fmt.Sprintf("kubernetes-gateway://%s/foo", NotAllowedNamespace)}, "sa")
 	// Even if we allow any SA name, we still should do namespace checks
 	gwMutualCredInNotAllowedNSNoSA := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_MUTUAL, []string{fmt.Sprintf("kubernetes-gateway://%s/foo", NotAllowedNamespace)}, "")
+	// OPTIONAL_MUTUAL must authorize the -cacert resource just like MUTUAL, otherwise the validation context is never allowed via SDS.
+	gwOptionalMutualCredInAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_OPTIONAL_MUTUAL, []string{fmt.Sprintf("kubernetes-gateway://%s/foo", AllowedNamespace)}, "sa")
 
 	proxyNoInput := makeProxy(func() *spiffe.Identity { return nil })
 	proxyIdentity := makeProxy(func() *spiffe.Identity {
@@ -267,6 +269,16 @@ func TestMergeGateways(t *testing.T) {
 		{
 			"mutual-cred-in-allowed-ns",
 			[]config.Config{gwMutualCredInAllowedNS},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+			2,
+		},
+		{
+			"optional-mutual-cred-in-allowed-ns",
+			[]config.Config{gwOptionalMutualCredInAllowedNS},
 			proxyIdentity,
 			1,
 			1,

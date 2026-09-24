@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -1024,6 +1025,58 @@ func TestValidateTlsOptions(t *testing.T) {
 			"requires a private key", "not-a-cipher-suite",
 		},
 		{
+			"valid alpn protocols",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				AlpnProtocols:  []string{"h2", "http/1.1"},
+			},
+			"", "",
+		},
+		{
+			"empty alpn protocol",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				AlpnProtocols:  []string{"h2", ""},
+			},
+			"invalid ALPN protocol", "",
+		},
+		{
+			"alpn protocol with comma",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				AlpnProtocols:  []string{"h2,http/1.1"},
+			},
+			"invalid ALPN protocol", "",
+		},
+		{
+			"duplicate alpn protocols",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				AlpnProtocols:  []string{"h2", "h2"},
+			},
+			"", "ignoring duplicate ALPN protocols",
+		},
+		{
+			"alpn protocols with istio_mutual",
+			&networking.ServerTLSSettings{
+				Mode:          networking.ServerTLSSettings_ISTIO_MUTUAL,
+				AlpnProtocols: []string{"h2"},
+			},
+			"", "alpnProtocols will be ignored",
+		},
+		{
+			"alpn protocols with passthrough",
+			&networking.ServerTLSSettings{
+				Mode:          networking.ServerTLSSettings_PASSTHROUGH,
+				AlpnProtocols: []string{"h2"},
+			},
+			"", "alpnProtocols will be ignored",
+		},
+		{
 			"crl specified for SIMPLE TLS",
 			&networking.ServerTLSSettings{
 				Mode:  networking.ServerTLSSettings_SIMPLE,
@@ -1431,7 +1484,7 @@ func TestValidateHTTPRetry(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := validateHTTPRetry(tc.in); (got == nil) != tc.valid {
+			if got := agent.ValidateHTTPRetry(tc.in); (got == nil) != tc.valid {
 				t.Errorf("got valid=%v, want valid=%v: %v",
 					got == nil, tc.valid, got)
 			}
@@ -3707,6 +3760,68 @@ func TestValidateLoadBalancer(t *testing.T) {
 				},
 			},
 			valid: true,
+		},
+
+		{
+			name: "valid: empty backendUtilization",
+			in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_BackendUtilization{
+					BackendUtilization: &networking.LoadBalancerSettings_BackendUtilizationLB{},
+				},
+			},
+			valid: true,
+		},
+
+		{
+			name: "valid: fully specified backendUtilization",
+			in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_BackendUtilization{
+					BackendUtilization: &networking.LoadBalancerSettings_BackendUtilizationLB{
+						WeightStabilizationPeriod:          durationpb.New(10 * time.Second),
+						WeightExpirationPeriod:             durationpb.New(3 * time.Minute),
+						WeightUpdatePeriod:                 durationpb.New(time.Second),
+						ErrorUtilizationPenaltyPercent:     150,
+						MetricNamesForComputingUtilization: []string{"named_metrics.foo"},
+					},
+				},
+			},
+			valid: true,
+		},
+
+		{
+			name: "valid: backendUtilization weightUpdatePeriod below 100ms is only a warning",
+			in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_BackendUtilization{
+					BackendUtilization: &networking.LoadBalancerSettings_BackendUtilizationLB{
+						WeightUpdatePeriod: durationpb.New(50 * time.Millisecond),
+					},
+				},
+			},
+			valid: true,
+		},
+
+		{
+			name: "invalid: backendUtilization with negative weightExpirationPeriod",
+			in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_BackendUtilization{
+					BackendUtilization: &networking.LoadBalancerSettings_BackendUtilizationLB{
+						WeightExpirationPeriod: durationpb.New(-1 * time.Second),
+					},
+				},
+			},
+			valid: false,
+		},
+
+		{
+			name: "invalid: backendUtilization with empty metric name",
+			in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_BackendUtilization{
+					BackendUtilization: &networking.LoadBalancerSettings_BackendUtilizationLB{
+						MetricNamesForComputingUtilization: []string{"named_metrics.foo", ""},
+					},
+				},
+			},
+			valid: false,
 		},
 	}
 

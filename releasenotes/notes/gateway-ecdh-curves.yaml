@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+  - |
+    **Added** support for configuring ECDH curves for TLS-terminating gateways with the Gateway resource's `ecdhCurves` field.

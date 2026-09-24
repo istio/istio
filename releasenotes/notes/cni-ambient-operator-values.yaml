@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 61180
+releaseNotes:
+  - |
+    **Fixed** `istioctl install` and `istioctl manifest generate` rejecting the `cni.ambient.enablementSelectors`,
+    `cni.ambient.shareHostNetworkNamespace` and `cni.ambient.enableAmbientDetectionRetry` values. The `istio-cni` chart
+    supports them, but they were missing from the `IstioOperator` values schema, so they could only be set by installing
+    the chart directly with Helm.

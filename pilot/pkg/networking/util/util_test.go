@@ -29,6 +29,7 @@ import (
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -2064,6 +2065,81 @@ func TestSelectDNSLookupFamily(t *testing.T) {
 			if got := SelectDNSLookupFamily(tc.ips); got != tc.want {
 				t.Errorf("SelectDNSLookupFamily(%v) = %v, want %v", tc.ips, got, tc.want)
 			}
+		})
+	}
+}
+
+func TestGetDNSProxyAddress(t *testing.T) {
+	tests := []struct {
+		name         string
+		ips          []string
+		dnsProxyAddr string
+		wantHost     string
+		wantPort     uint32
+	}{
+		{"no ips defaults to v4", nil, "", model.LocalhostAddressPrefix, 15053},
+		{"ipv4 localhost", []string{"10.0.0.1"}, "localhost:15053", model.LocalhostAddressPrefix, 15053},
+		{"ipv6 localhost", []string{"2001:db8::1"}, "localhost:15053", model.LocalhostIPv6AddressPrefix, 15053},
+		{"dual stack defaults to v4", []string{"10.0.0.1", "2001:db8::1"}, "", model.LocalhostAddressPrefix, 15053},
+		{"custom address", []string{"2001:db8::1"}, "10.0.0.1:53", "10.0.0.1", 53},
+		{"invalid address falls back to ipv6", []string{"2001:db8::1"}, "invalid", model.LocalhostIPv6AddressPrefix, 15053},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			sa := GetDNSProxyAddress(tc.ips, tc.dnsProxyAddr).GetSocketAddress()
+			if sa == nil {
+				t.Fatal("expected SocketAddress")
+			}
+			if sa.Address != tc.wantHost {
+				t.Errorf("expected host %q, got %q", tc.wantHost, sa.Address)
+			}
+			if sa.GetPortValue() != tc.wantPort {
+				t.Errorf("expected port %d, got %d", tc.wantPort, sa.GetPortValue())
+			}
+		})
+	}
+}
+
+func TestMergeAnyWithAny(t *testing.T) {
+	dst := protoconv.MessageToAny(&hcm.HttpConnectionManager{
+		StatPrefix:  "dst",
+		HttpFilters: []*hcm.HttpFilter{{Name: "istio.metadata_exchange"}},
+	})
+	src := protoconv.MessageToAny(&hcm.HttpConnectionManager{
+		HttpFilters: []*hcm.HttpFilter{{Name: "envoy.filters.http.router"}},
+	})
+
+	tests := []struct {
+		name  string
+		merge func(dst, src *anypb.Any) (*anypb.Any, error)
+		want  *hcm.HttpConnectionManager
+	}{
+		{
+			name:  "MergeAnyWithAny appends lists",
+			merge: MergeAnyWithAny,
+			want: &hcm.HttpConnectionManager{
+				StatPrefix: "dst",
+				HttpFilters: []*hcm.HttpFilter{
+					{Name: "istio.metadata_exchange"},
+					{Name: "envoy.filters.http.router"},
+				},
+			},
+		},
+		{
+			name:  "MergeAnyWithAnyReplaceList replaces lists",
+			merge: MergeAnyWithAnyReplaceList,
+			want: &hcm.HttpConnectionManager{
+				StatPrefix:  "dst",
+				HttpFilters: []*hcm.HttpFilter{{Name: "envoy.filters.http.router"}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.merge(dst, src)
+			assert.NoError(t, err)
+			assert.Equal(t, got, protoconv.MessageToAny(tt.want))
 		})
 	}
 }

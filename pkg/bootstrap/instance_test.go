@@ -233,6 +233,20 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
+			base: "stats_interval_minutes",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval":    "1m",
+				"sidecar.istio.io/statsEvictionInterval": "5m",
+			},
+		},
+		{
+			base: "stats_interval_subsecond",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval":    "500ms",
+				"sidecar.istio.io/statsEvictionInterval": "2500ms",
+			},
+		},
+		{
 			base: "global_downstream_max_connections_meta",
 			envVars: map[string]string{
 				GlobalDownstreamMaxConnections: "10000",
@@ -245,6 +259,18 @@ func TestGolden(t *testing.T) {
 			base: "global_downstream_max_connections_both",
 			envVars: map[string]string{
 				GlobalDownstreamMaxConnections: "20000",
+			},
+		},
+		{
+			// connection_settings.global_downstream_connection_limit set via ProxyConfig.
+			base: "global_downstream_connection_settings",
+		},
+		{
+			// Both connection_settings.global_downstream_connection_limit and
+			// ISTIO_META_GLOBAL_DOWNSTREAM_MAX_CONNECTIONS set; connection_settings wins.
+			base: "global_downstream_connection_settings_with_meta",
+			envVars: map[string]string{
+				GlobalDownstreamMaxConnections: "10000",
 			},
 		},
 		{

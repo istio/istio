@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61157
+releaseNotes:
+  - |
+    **Fixed** an issue where a pod selected by a `ServiceEntry` `workloadSelector` could start up
+    missing that service from its sidecar's inbound configuration. Traffic to the port was not
+    handled as the protocol declared in the `ServiceEntry`, and port-level `PeerAuthentication`
+    was not applied. The pod did not recover on its own; only restarting istiod repaired it.

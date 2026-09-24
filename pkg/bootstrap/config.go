@@ -328,7 +328,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		d, err := time.ParseDuration(v)
 		if err == nil {
 			statsFlushInterval = d
-			options = append(options, option.EnvoyStatsFlushInterval(statsFlushInterval))
+			options = append(options, option.EnvoyStatsFlushInterval(durationpb.New(statsFlushInterval)))
 		} else {
 			log.Warnf("Failed to parse stats flush interval %v: %v", v, err)
 		}
@@ -341,8 +341,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		} else if statsEvictionInterval%statsFlushInterval != 0 {
 			log.Warnf("StatsEvictionInterval must be a multiple of the StatsFlushInterval")
 		} else {
-			duration := &durationpb.Duration{Seconds: int64(statsEvictionInterval.Seconds())}
-			options = append(options, option.EnvoyStatsEvictionInterval(duration))
+			options = append(options, option.EnvoyStatsEvictionInterval(durationpb.New(statsEvictionInterval)))
 		}
 	}
 
@@ -364,19 +363,26 @@ func getNodeMetadataOptions(node *model.Node, policy string) []option.Instance {
 		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig, policy)),
 		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
-	// Default value of max connections is the maximum integer value.
+	// Resolve the global downstream connection limit. Precedence (highest to lowest):
+	// 1. ProxyConfig.ConnectionSettings.GlobalDownstreamConnectionLimit (new API)
+	// 2. ISTIO_META_GLOBAL_DOWNSTREAM_MAX_CONNECTIONS proxy metadata
+	// 3. overload.global_downstream_max_connections runtime flag (deprecated)
+	// 4. math.MaxInt32 (effectively unlimited)
 	globalDownstreamMaxConnections := math.MaxInt32
-	// If proxy metadata is set, use it to set the global downstream max connections.
-	// If not set, use the default value of max connections.
-	// TODO: Consider moving this to proxy config A
-	metadataExists := false
-	if node.Metadata.ProxyConfig.ProxyMetadata != nil {
-		if maxConnections, err := strconv.Atoi(node.Metadata.ProxyConfig.ProxyMetadata[GlobalDownstreamMaxConnections]); err == nil {
-			globalDownstreamMaxConnections = maxConnections
-			metadataExists = true
+	resolved := false
+	if cs := node.Metadata.ProxyConfig.ConnectionSettings; cs != nil {
+		if v := cs.GetGlobalDownstreamConnectionLimit(); v != nil && v.GetValue() > 0 {
+			globalDownstreamMaxConnections = int(v.GetValue())
+			resolved = true
 		}
 	}
-	if !metadataExists {
+	if !resolved && node.Metadata.ProxyConfig.ProxyMetadata != nil {
+		if maxConnections, err := strconv.Atoi(node.Metadata.ProxyConfig.ProxyMetadata[GlobalDownstreamMaxConnections]); err == nil {
+			globalDownstreamMaxConnections = maxConnections
+			resolved = true
+		}
+	}
+	if !resolved {
 		// If the runtime flag overload.global_downstream_max_connections is set, honor it
 		// for backwards compatibility. This will be removed in a future release.
 		globalDownstreamMaxConnectionsRuntime := globalDownstreamMaxConnectionsRuntimeFlag(node.Metadata.ProxyConfig)

@@ -522,6 +522,38 @@ var (
 			}),
 		},
 	}
+
+	// SidecarXFCCClientIdentityFilter synthesizes an x-forwarded-client-cert header
+	// on the main_internal HCM, populated from the ztunnel-provided source
+	// workload identity kept in filter state. mTLS is terminated on the outer
+	// CONNECT listener, so Envoy's native XFCC handling on main_internal has no peer
+	// cert and cannot populate the header.
+	SidecarXFCCClientIdentityFilter = func(overwrite bool) *hcm.HttpFilter {
+		action := core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD
+		if overwrite {
+			action = core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD
+		}
+		return &hcm.HttpFilter{
+			Name: "istio.sidecar.xfcc_client_identity",
+			ConfigType: &hcm.HttpFilter_TypedConfig{
+				TypedConfig: protoconv.MessageToAny(&header_mutationv3.HeaderMutation{
+					Mutations: &header_mutationv3.Mutations{
+						RequestMutations: []*mutation_rulesv3.HeaderMutation{{
+							Action: &mutation_rulesv3.HeaderMutation_Append{
+								Append: &core.HeaderValueOption{
+									Header: &core.HeaderValue{
+										Key:   "x-forwarded-client-cert",
+										Value: `By=%FILTER_STATE(io.istio.local_principal:PLAIN)%;URI=%FILTER_STATE(io.istio.peer_principal:PLAIN)%`,
+									},
+									AppendAction: action,
+								},
+							},
+						}},
+					},
+				}),
+			},
+		}
+	}
 )
 
 // Router is used a bunch, so its worth precomputing even though we have a few options.

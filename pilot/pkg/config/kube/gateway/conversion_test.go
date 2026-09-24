@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	crdvalidation "istio.io/istio/pkg/config/crd"
+	gatewaykube "istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -368,6 +369,35 @@ var services = []*model.Service{
 		},
 		Ports:    ports,
 		Hostname: "httpbin-alt.default.svc.domain.suffix",
+	},
+	// Stand-ins for the ServiceEntries the ServiceEntry registry synthesizes from XBackends.
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "secure.example.net",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "allowed-1",
+		},
+		Ports:    ports,
+		Hostname: "cross.example.net",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "plaintext.example.net",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "tcp.example.net",
 	},
 	{
 		Attributes: model.ServiceAttributes{
@@ -799,13 +829,21 @@ func TestConvertResources(t *testing.T) {
 			),
 		},
 		{name: "frontend-tls-invalid"},
+		{
+			name: "frontend-tls-refgrant",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"certs/^existing-",
+			),
+		},
 		{name: "backend-tls-client-cert"},
+		{name: "xbackend"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			stop := test.NewStop(t)
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator, tt.validationIgnorer)
 			kc := kube.NewFakeClient(input...)
@@ -879,6 +917,7 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 		gvr.TCPRoute,
 		gvr.TLSRoute,
 		gvr.ServiceEntry,
+		gvr.XBackend,
 		gvr.XBackendTrafficPolicy,
 		gvr.BackendTLSPolicy,
 		gvr.InferencePool,
@@ -2071,4 +2110,115 @@ func TestListenerSetStatusTruncatesOnListenerRemoval(t *testing.T) {
 	// With the fix, the orphaned "stale" entry is pruned and status matches the 2 spec
 	// listeners. Without the fix, status stays at 3.
 	assert.EventuallyEqual(t, statusListenerCount, 2)
+}
+
+// XBackend is an alpha Gateway API resource. With PILOT_ENABLE_ALPHA_GATEWAY_API off, no
+// DestinationRule may be derived from one, and routes referencing one must be told why.
+func TestXBackendAlphaDisabled(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
+	test.SetForTest(t, &features.EnableAlphaGatewayAPI, false)
+	validator := crdvalidation.NewIstioValidator(t)
+	stop := test.NewStop(t)
+
+	input := readConfig(t, "testdata/xbackend.yaml", validator, nil)
+	kc := kube.NewFakeClient(input...)
+	setupClientCRDs(t, kc)
+	cg := core.NewConfigGenTest(t, core.TestOptions{Services: services})
+
+	dbg := &krt.DebugHandler{}
+	dumpOnFailure(t, dbg)
+	ctrl := NewController(kc, AlwaysReady, controller.Options{DomainSuffix: "domain.suffix", KrtDebugger: dbg}, nil)
+	sq := &TestStatusQueue{state: map[status.Resource]any{}}
+	go ctrl.Run(stop)
+	kc.RunAndWait(stop)
+	ctrl.Reconcile(cg.PushContext())
+	kube.WaitForCacheSync("test", stop, ctrl.HasSynced)
+	for _, st := range ctrl.status.SetQueue(sq) {
+		st.WaitUntilSynced(stop)
+	}
+
+	if drs := ctrl.List(gvk.DestinationRule, ""); len(drs) != 0 {
+		t.Fatalf("expected no DestinationRules with the alpha API disabled, got %v", drs)
+	}
+
+	dump := sq.Dump()
+	if strings.Contains(dump, "kind: XBackend") {
+		t.Errorf("expected no XBackend status with the alpha API disabled, got:\n%s", dump)
+	}
+	if !strings.Contains(dump, "PILOT_ENABLE_ALPHA_GATEWAY_API") {
+		t.Errorf("expected routes to explain that the alpha API is disabled, got:\n%s", dump)
+	}
+}
+
+// TestInferencePoolExtraConfigs covers what the golden files cannot: `Extra` is dropped by
+// crd.ConvertConfig, so the endpoint picker configs a VirtualService carries are invisible there.
+// They are resolved per InferencePool backendRef, because a rule may weight traffic across
+// several pools and each pool has to be scored by its own picker.
+func TestInferencePoolExtraConfigs(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
+	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
+
+	genHost := fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen")))
+	gen2Host := fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen2")))
+	eppOne := gatewaykube.InferencePoolBackendConfig{FQDN: "ext-proc-svc.default.svc.domain.suffix", Port: "9002"}
+	eppTwo := gatewaykube.InferencePoolBackendConfig{FQDN: "ext-proc-svc-2.default.svc.domain.suffix", Port: "9002"}
+
+	cases := []struct {
+		hostname string
+		expect   map[string]gatewaykube.InferencePoolRouteRuleConfig
+	}{
+		{
+			hostname: "canary.domain.example",
+			expect: map[string]gatewaykube.InferencePoolRouteRuleConfig{
+				"split": {genHost: eppOne, gen2Host: eppTwo},
+			},
+		},
+		{
+			// The ordinary Service sharing the rule contributes nothing; before the pickers were
+			// resolved per backendRef, a trailing non-pool backendRef wiped the whole rule's config.
+			hostname: "mixed.domain.example",
+			expect: map[string]gatewaykube.InferencePoolRouteRuleConfig{
+				"mixed": {genHost: eppOne},
+			},
+		},
+		{
+			// Two HTTPRoutes merged into one VirtualService, both with a rule named "primary".
+			// The colliding rule names union rather than overwrite, so neither pool loses its picker.
+			hostname: "merged.domain.example",
+			expect: map[string]gatewaykube.InferencePoolRouteRuleConfig{
+				"primary": {genHost: eppOne, gen2Host: eppTwo},
+			},
+		},
+	}
+
+	stop := test.NewStop(t)
+	input := readConfig(t, "testdata/inferencepool-weighted.yaml", crdvalidation.NewIstioValidator(t), nil)
+	kc := kube.NewFakeClient(input...)
+	setupClientCRDs(t, kc)
+	cg := core.NewConfigGenTest(t, core.TestOptions{Services: services})
+	dbg := &krt.DebugHandler{}
+	dumpOnFailure(t, dbg)
+	ctrl := NewController(kc, AlwaysReady, controller.Options{DomainSuffix: "domain.suffix", KrtDebugger: dbg}, nil)
+	go ctrl.Run(stop)
+	kc.RunAndWait(stop)
+	ctrl.Reconcile(cg.PushContext())
+	kube.WaitForCacheSync("test", stop, ctrl.HasSynced)
+
+	byHostname := map[string]config.Config{}
+	for _, vs := range ctrl.List(gvk.VirtualService, "") {
+		for _, h := range vs.Spec.(*istio.VirtualService).Hosts {
+			byHostname[h] = vs
+		}
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.hostname, func(t *testing.T) {
+			vs, found := byHostname[tt.hostname]
+			if !found {
+				t.Fatalf("no VirtualService for %v", tt.hostname)
+			}
+			got, _ := vs.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs].(map[string]gatewaykube.InferencePoolRouteRuleConfig)
+			assert.Equal(t, got, tt.expect)
+		})
+	}
 }

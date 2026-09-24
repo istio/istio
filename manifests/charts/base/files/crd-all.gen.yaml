@@ -936,11 +936,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -1167,6 +1205,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -1201,6 +1240,13 @@ spec:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
                               maximum: 4294967295
+                              minimum: 0
+                              nullable: true
+                              type: integer
+                            failurePercentageThreshold:
+                              description: The failure percentage to use when determining
+                                failure percentage-based outlier detection.
+                              maximum: 100
                               minimum: 0
                               nullable: true
                               type: integer
@@ -1384,11 +1430,49 @@ spec:
                                       - simple
                                     - required:
                                       - consistentHash
+                                    - required:
+                                      - backendUtilization
                                 - required:
                                   - simple
                                 - required:
                                   - consistentHash
+                                - required:
+                                  - backendUtilization
                                 properties:
+                                  backendUtilization:
+                                    description: Utilization-based load balancing
+                                      that uses backend-reported ORCA metrics to weight
+                                      endpoints by their current load.
+                                    properties:
+                                      errorUtilizationPenaltyPercent:
+                                        description: Additional penalty applied to
+                                          endpoints that return errors, expressed
+                                          as a percentage of the utilization.
+                                        maximum: 4294967295
+                                        minimum: 0
+                                        type: integer
+                                      metricNamesForComputingUtilization:
+                                        description: Custom ORCA metric names used
+                                          to compute utilization.
+                                        items:
+                                          type: string
+                                        type: array
+                                      weightExpirationPeriod:
+                                        description: If an endpoint stops reporting
+                                          utilization metrics for this long, its reported
+                                          weight is discarded and it reverts to the
+                                          default (equal) weight.
+                                        type: string
+                                      weightStabilizationPeriod:
+                                        description: Duration after an endpoint first
+                                          reports metrics before its weight is trusted.
+                                        type: string
+                                      weightUpdatePeriod:
+                                        description: How often the load balancer recomputes
+                                          endpoint weights from the latest reported
+                                          utilization data.
+                                        type: string
+                                    type: object
                                   consistentHash:
                                     allOf:
                                     - oneOf:
@@ -1621,6 +1705,7 @@ spec:
                                         description: Minimum number of hosts in the
                                           upstream cluster's local region required
                                           for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -1656,6 +1741,14 @@ spec:
                                     description: The number of consecutive locally
                                       originated failures before ejection occurs.
                                     maximum: 4294967295
+                                    minimum: 0
+                                    nullable: true
+                                    type: integer
+                                  failurePercentageThreshold:
+                                    description: The failure percentage to use when
+                                      determining failure percentage-based outlier
+                                      detection.
+                                    maximum: 100
                                     minimum: 0
                                     nullable: true
                                     type: integer
@@ -1707,6 +1800,11 @@ spec:
                                 description: TLS related settings for connections
                                   to the upstream service.
                                 properties:
+                                  caCertCredentialName:
+                                    description: The name of the secret or the configmap
+                                      that holds CA certificates used to verify the
+                                      server's certificate.
+                                    type: string
                                   caCertificates:
                                     description: 'OPTIONAL: The path to the file containing
                                       certificate authority certificates to use in
@@ -1802,6 +1900,11 @@ spec:
                           description: TLS related settings for connections to the
                             upstream service.
                           properties:
+                            caCertCredentialName:
+                              description: The name of the secret or the configmap
+                                that holds CA certificates used to verify the server's
+                                certificate.
+                              type: string
                             caCertificates:
                               description: 'OPTIONAL: The path to the file containing
                                 certificate authority certificates to use in verifying
@@ -2013,11 +2116,45 @@ spec:
                           - simple
                         - required:
                           - consistentHash
+                        - required:
+                          - backendUtilization
                     - required:
                       - simple
                     - required:
                       - consistentHash
+                    - required:
+                      - backendUtilization
                     properties:
+                      backendUtilization:
+                        description: Utilization-based load balancing that uses backend-reported
+                          ORCA metrics to weight endpoints by their current load.
+                        properties:
+                          errorUtilizationPenaltyPercent:
+                            description: Additional penalty applied to endpoints that
+                              return errors, expressed as a percentage of the utilization.
+                            maximum: 4294967295
+                            minimum: 0
+                            type: integer
+                          metricNamesForComputingUtilization:
+                            description: Custom ORCA metric names used to compute
+                              utilization.
+                            items:
+                              type: string
+                            type: array
+                          weightExpirationPeriod:
+                            description: If an endpoint stops reporting utilization
+                              metrics for this long, its reported weight is discarded
+                              and it reverts to the default (equal) weight.
+                            type: string
+                          weightStabilizationPeriod:
+                            description: Duration after an endpoint first reports
+                              metrics before its weight is trusted.
+                            type: string
+                          weightUpdatePeriod:
+                            description: How often the load balancer recomputes endpoint
+                              weights from the latest reported utilization data.
+                            type: string
+                        type: object
                       consistentHash:
                         allOf:
                         - oneOf:
@@ -2239,6 +2376,7 @@ spec:
                             description: Minimum number of hosts in the upstream cluster's
                               local region required for zone-aware load balancing
                               to be enabled.
+                            maximum: 4294967295
                             minimum: 1
                             nullable: true
                             type: integer
@@ -2273,6 +2411,13 @@ spec:
                         description: The number of consecutive locally originated
                           failures before ejection occurs.
                         maximum: 4294967295
+                        minimum: 0
+                        nullable: true
+                        type: integer
+                      failurePercentageThreshold:
+                        description: The failure percentage to use when determining
+                          failure percentage-based outlier detection.
+                        maximum: 100
                         minimum: 0
                         nullable: true
                         type: integer
@@ -2453,11 +2598,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -2684,6 +2867,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -2718,6 +2902,13 @@ spec:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
                               maximum: 4294967295
+                              minimum: 0
+                              nullable: true
+                              type: integer
+                            failurePercentageThreshold:
+                              description: The failure percentage to use when determining
+                                failure percentage-based outlier detection.
+                              maximum: 100
                               minimum: 0
                               nullable: true
                               type: integer
@@ -2764,6 +2955,11 @@ spec:
                           description: TLS related settings for connections to the
                             upstream service.
                           properties:
+                            caCertCredentialName:
+                              description: The name of the secret or the configmap
+                                that holds CA certificates used to verify the server's
+                                certificate.
+                              type: string
                             caCertificates:
                               description: 'OPTIONAL: The path to the file containing
                                 certificate authority certificates to use in verifying
@@ -2857,6 +3053,10 @@ spec:
                     description: TLS related settings for connections to the upstream
                       service.
                     properties:
+                      caCertCredentialName:
+                        description: The name of the secret or the configmap that
+                          holds CA certificates used to verify the server's certificate.
+                        type: string
                       caCertificates:
                         description: 'OPTIONAL: The path to the file containing certificate
                           authority certificates to use in verifying a presented server
@@ -3222,11 +3422,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -3453,6 +3691,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -3487,6 +3726,13 @@ spec:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
                               maximum: 4294967295
+                              minimum: 0
+                              nullable: true
+                              type: integer
+                            failurePercentageThreshold:
+                              description: The failure percentage to use when determining
+                                failure percentage-based outlier detection.
+                              maximum: 100
                               minimum: 0
                               nullable: true
                               type: integer
@@ -3670,11 +3916,49 @@ spec:
                                       - simple
                                     - required:
                                       - consistentHash
+                                    - required:
+                                      - backendUtilization
                                 - required:
                                   - simple
                                 - required:
                                   - consistentHash
+                                - required:
+                                  - backendUtilization
                                 properties:
+                                  backendUtilization:
+                                    description: Utilization-based load balancing
+                                      that uses backend-reported ORCA metrics to weight
+                                      endpoints by their current load.
+                                    properties:
+                                      errorUtilizationPenaltyPercent:
+                                        description: Additional penalty applied to
+                                          endpoints that return errors, expressed
+                                          as a percentage of the utilization.
+                                        maximum: 4294967295
+                                        minimum: 0
+                                        type: integer
+                                      metricNamesForComputingUtilization:
+                                        description: Custom ORCA metric names used
+                                          to compute utilization.
+                                        items:
+                                          type: string
+                                        type: array
+                                      weightExpirationPeriod:
+                                        description: If an endpoint stops reporting
+                                          utilization metrics for this long, its reported
+                                          weight is discarded and it reverts to the
+                                          default (equal) weight.
+                                        type: string
+                                      weightStabilizationPeriod:
+                                        description: Duration after an endpoint first
+                                          reports metrics before its weight is trusted.
+                                        type: string
+                                      weightUpdatePeriod:
+                                        description: How often the load balancer recomputes
+                                          endpoint weights from the latest reported
+                                          utilization data.
+                                        type: string
+                                    type: object
                                   consistentHash:
                                     allOf:
                                     - oneOf:
@@ -3907,6 +4191,7 @@ spec:
                                         description: Minimum number of hosts in the
                                           upstream cluster's local region required
                                           for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -3942,6 +4227,14 @@ spec:
                                     description: The number of consecutive locally
                                       originated failures before ejection occurs.
                                     maximum: 4294967295
+                                    minimum: 0
+                                    nullable: true
+                                    type: integer
+                                  failurePercentageThreshold:
+                                    description: The failure percentage to use when
+                                      determining failure percentage-based outlier
+                                      detection.
+                                    maximum: 100
                                     minimum: 0
                                     nullable: true
                                     type: integer
@@ -3993,6 +4286,11 @@ spec:
                                 description: TLS related settings for connections
                                   to the upstream service.
                                 properties:
+                                  caCertCredentialName:
+                                    description: The name of the secret or the configmap
+                                      that holds CA certificates used to verify the
+                                      server's certificate.
+                                    type: string
                                   caCertificates:
                                     description: 'OPTIONAL: The path to the file containing
                                       certificate authority certificates to use in
@@ -4088,6 +4386,11 @@ spec:
                           description: TLS related settings for connections to the
                             upstream service.
                           properties:
+                            caCertCredentialName:
+                              description: The name of the secret or the configmap
+                                that holds CA certificates used to verify the server's
+                                certificate.
+                              type: string
                             caCertificates:
                               description: 'OPTIONAL: The path to the file containing
                                 certificate authority certificates to use in verifying
@@ -4299,11 +4602,45 @@ spec:
                           - simple
                         - required:
                           - consistentHash
+                        - required:
+                          - backendUtilization
                     - required:
                       - simple
                     - required:
                       - consistentHash
+                    - required:
+                      - backendUtilization
                     properties:
+                      backendUtilization:
+                        description: Utilization-based load balancing that uses backend-reported
+                          ORCA metrics to weight endpoints by their current load.
+                        properties:
+                          errorUtilizationPenaltyPercent:
+                            description: Additional penalty applied to endpoints that
+                              return errors, expressed as a percentage of the utilization.
+                            maximum: 4294967295
+                            minimum: 0
+                            type: integer
+                          metricNamesForComputingUtilization:
+                            description: Custom ORCA metric names used to compute
+                              utilization.
+                            items:
+                              type: string
+                            type: array
+                          weightExpirationPeriod:
+                            description: If an endpoint stops reporting utilization
+                              metrics for this long, its reported weight is discarded
+                              and it reverts to the default (equal) weight.
+                            type: string
+                          weightStabilizationPeriod:
+                            description: Duration after an endpoint first reports
+                              metrics before its weight is trusted.
+                            type: string
+                          weightUpdatePeriod:
+                            description: How often the load balancer recomputes endpoint
+                              weights from the latest reported utilization data.
+                            type: string
+                        type: object
                       consistentHash:
                         allOf:
                         - oneOf:
@@ -4525,6 +4862,7 @@ spec:
                             description: Minimum number of hosts in the upstream cluster's
                               local region required for zone-aware load balancing
                               to be enabled.
+                            maximum: 4294967295
                             minimum: 1
                             nullable: true
                             type: integer
@@ -4559,6 +4897,13 @@ spec:
                         description: The number of consecutive locally originated
                           failures before ejection occurs.
                         maximum: 4294967295
+                        minimum: 0
+                        nullable: true
+                        type: integer
+                      failurePercentageThreshold:
+                        description: The failure percentage to use when determining
+                          failure percentage-based outlier detection.
+                        maximum: 100
                         minimum: 0
                         nullable: true
                         type: integer
@@ -4739,11 +5084,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -4970,6 +5353,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -5004,6 +5388,13 @@ spec:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
                               maximum: 4294967295
+                              minimum: 0
+                              nullable: true
+                              type: integer
+                            failurePercentageThreshold:
+                              description: The failure percentage to use when determining
+                                failure percentage-based outlier detection.
+                              maximum: 100
                               minimum: 0
                               nullable: true
                               type: integer
@@ -5050,6 +5441,11 @@ spec:
                           description: TLS related settings for connections to the
                             upstream service.
                           properties:
+                            caCertCredentialName:
+                              description: The name of the secret or the configmap
+                                that holds CA certificates used to verify the server's
+                                certificate.
+                              type: string
                             caCertificates:
                               description: 'OPTIONAL: The path to the file containing
                                 certificate authority certificates to use in verifying
@@ -5143,6 +5539,10 @@ spec:
                     description: TLS related settings for connections to the upstream
                       service.
                     properties:
+                      caCertCredentialName:
+                        description: The name of the secret or the configmap that
+                          holds CA certificates used to verify the server's certificate.
+                        type: string
                       caCertificates:
                         description: 'OPTIONAL: The path to the file containing certificate
                           authority certificates to use in verifying a presented server
@@ -5508,11 +5908,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -5739,6 +6177,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -5773,6 +6212,13 @@ spec:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
                               maximum: 4294967295
+                              minimum: 0
+                              nullable: true
+                              type: integer
+                            failurePercentageThreshold:
+                              description: The failure percentage to use when determining
+                                failure percentage-based outlier detection.
+                              maximum: 100
                               minimum: 0
                               nullable: true
                               type: integer
@@ -5956,11 +6402,49 @@ spec:
                                       - simple
                                     - required:
                                       - consistentHash
+                                    - required:
+                                      - backendUtilization
                                 - required:
                                   - simple
                                 - required:
                                   - consistentHash
+                                - required:
+                                  - backendUtilization
                                 properties:
+                                  backendUtilization:
+                                    description: Utilization-based load balancing
+                                      that uses backend-reported ORCA metrics to weight
+                                      endpoints by their current load.
+                                    properties:
+                                      errorUtilizationPenaltyPercent:
+                                        description: Additional penalty applied to
+                                          endpoints that return errors, expressed
+                                          as a percentage of the utilization.
+                                        maximum: 4294967295
+                                        minimum: 0
+                                        type: integer
+                                      metricNamesForComputingUtilization:
+                                        description: Custom ORCA metric names used
+                                          to compute utilization.
+                                        items:
+                                          type: string
+                                        type: array
+                                      weightExpirationPeriod:
+                                        description: If an endpoint stops reporting
+                                          utilization metrics for this long, its reported
+                                          weight is discarded and it reverts to the
+                                          default (equal) weight.
+                                        type: string
+                                      weightStabilizationPeriod:
+                                        description: Duration after an endpoint first
+                                          reports metrics before its weight is trusted.
+                                        type: string
+                                      weightUpdatePeriod:
+                                        description: How often the load balancer recomputes
+                                          endpoint weights from the latest reported
+                                          utilization data.
+                                        type: string
+                                    type: object
                                   consistentHash:
                                     allOf:
                                     - oneOf:
@@ -6193,6 +6677,7 @@ spec:
                                         description: Minimum number of hosts in the
                                           upstream cluster's local region required
                                           for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -6228,6 +6713,14 @@ spec:
                                     description: The number of consecutive locally
                                       originated failures before ejection occurs.
                                     maximum: 4294967295
+                                    minimum: 0
+                                    nullable: true
+                                    type: integer
+                                  failurePercentageThreshold:
+                                    description: The failure percentage to use when
+                                      determining failure percentage-based outlier
+                                      detection.
+                                    maximum: 100
                                     minimum: 0
                                     nullable: true
                                     type: integer
@@ -6279,6 +6772,11 @@ spec:
                                 description: TLS related settings for connections
                                   to the upstream service.
                                 properties:
+                                  caCertCredentialName:
+                                    description: The name of the secret or the configmap
+                                      that holds CA certificates used to verify the
+                                      server's certificate.
+                                    type: string
                                   caCertificates:
                                     description: 'OPTIONAL: The path to the file containing
                                       certificate authority certificates to use in
@@ -6374,6 +6872,11 @@ spec:
                           description: TLS related settings for connections to the
                             upstream service.
                           properties:
+                            caCertCredentialName:
+                              description: The name of the secret or the configmap
+                                that holds CA certificates used to verify the server's
+                                certificate.
+                              type: string
                             caCertificates:
                               description: 'OPTIONAL: The path to the file containing
                                 certificate authority certificates to use in verifying
@@ -6585,11 +7088,45 @@ spec:
                           - simple
                         - required:
                           - consistentHash
+                        - required:
+                          - backendUtilization
                     - required:
                       - simple
                     - required:
                       - consistentHash
+                    - required:
+                      - backendUtilization
                     properties:
+                      backendUtilization:
+                        description: Utilization-based load balancing that uses backend-reported
+                          ORCA metrics to weight endpoints by their current load.
+                        properties:
+                          errorUtilizationPenaltyPercent:
+                            description: Additional penalty applied to endpoints that
+                              return errors, expressed as a percentage of the utilization.
+                            maximum: 4294967295
+                            minimum: 0
+                            type: integer
+                          metricNamesForComputingUtilization:
+                            description: Custom ORCA metric names used to compute
+                              utilization.
+                            items:
+                              type: string
+                            type: array
+                          weightExpirationPeriod:
+                            description: If an endpoint stops reporting utilization
+                              metrics for this long, its reported weight is discarded
+                              and it reverts to the default (equal) weight.
+                            type: string
+                          weightStabilizationPeriod:
+                            description: Duration after an endpoint first reports
+                              metrics before its weight is trusted.
+                            type: string
+                          weightUpdatePeriod:
+                            description: How often the load balancer recomputes endpoint
+                              weights from the latest reported utilization data.
+                            type: string
+                        type: object
                       consistentHash:
                         allOf:
                         - oneOf:
@@ -6811,6 +7348,7 @@ spec:
                             description: Minimum number of hosts in the upstream cluster's
                               local region required for zone-aware load balancing
                               to be enabled.
+                            maximum: 4294967295
                             minimum: 1
                             nullable: true
                             type: integer
@@ -6845,6 +7383,13 @@ spec:
                         description: The number of consecutive locally originated
                           failures before ejection occurs.
                         maximum: 4294967295
+                        minimum: 0
+                        nullable: true
+                        type: integer
+                      failurePercentageThreshold:
+                        description: The failure percentage to use when determining
+                          failure percentage-based outlier detection.
+                        maximum: 100
                         minimum: 0
                         nullable: true
                         type: integer
@@ -7025,11 +7570,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -7256,6 +7839,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -7290,6 +7874,13 @@ spec:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
                               maximum: 4294967295
+                              minimum: 0
+                              nullable: true
+                              type: integer
+                            failurePercentageThreshold:
+                              description: The failure percentage to use when determining
+                                failure percentage-based outlier detection.
+                              maximum: 100
                               minimum: 0
                               nullable: true
                               type: integer
@@ -7336,6 +7927,11 @@ spec:
                           description: TLS related settings for connections to the
                             upstream service.
                           properties:
+                            caCertCredentialName:
+                              description: The name of the secret or the configmap
+                                that holds CA certificates used to verify the server's
+                                certificate.
+                              type: string
                             caCertificates:
                               description: 'OPTIONAL: The path to the file containing
                                 certificate authority certificates to use in verifying
@@ -7429,6 +8025,10 @@ spec:
                     description: TLS related settings for connections to the upstream
                       service.
                     properties:
+                      caCertCredentialName:
+                        description: The name of the secret or the configmap that
+                          holds CA certificates used to verify the server's certificate.
+                        type: string
                       caCertificates:
                         description: 'OPTIONAL: The path to the file containing certificate
                           authority certificates to use in verifying a presented server
@@ -7753,6 +8353,10 @@ spec:
                                   type: string
                                 transportProtocol:
                                   description: Applies only to `SIDECAR_INBOUND` context.
+                                  type: string
+                                transportSocket:
+                                  description: If non-empty, the name of the transport
+                                    socket the filter chain is configured with.
                                   type: string
                               type: object
                             listenerFilter:
@@ -8143,6 +8747,13 @@ spec:
                       description: Set of TLS related options that govern the server's
                         behavior.
                       properties:
+                        alpnProtocols:
+                          description: 'Optional: If specified, the ALPN protocols
+                            advertised by the proxy during the TLS handshake are overridden
+                            with this list.'
+                          items:
+                            type: string
+                          type: array
                         caCertCredentialName:
                           description: For mutual TLS, the name of the secret or the
                             configmap that holds CA certificates.
@@ -8172,6 +8783,12 @@ spec:
                             type: string
                           maxItems: 2
                           minItems: 1
+                          type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
                           type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
@@ -8424,6 +9041,13 @@ spec:
                       description: Set of TLS related options that govern the server's
                         behavior.
                       properties:
+                        alpnProtocols:
+                          description: 'Optional: If specified, the ALPN protocols
+                            advertised by the proxy during the TLS handshake are overridden
+                            with this list.'
+                          items:
+                            type: string
+                          type: array
                         caCertCredentialName:
                           description: For mutual TLS, the name of the secret or the
                             configmap that holds CA certificates.
@@ -8453,6 +9077,12 @@ spec:
                             type: string
                           maxItems: 2
                           minItems: 1
+                          type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
                           type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
@@ -8705,6 +9335,13 @@ spec:
                       description: Set of TLS related options that govern the server's
                         behavior.
                       properties:
+                        alpnProtocols:
+                          description: 'Optional: If specified, the ALPN protocols
+                            advertised by the proxy during the TLS handshake are overridden
+                            with this list.'
+                          items:
+                            type: string
+                          type: array
                         caCertCredentialName:
                           description: For mutual TLS, the name of the secret or the
                             configmap that holds CA certificates.
@@ -8734,6 +9371,12 @@ spec:
                             type: string
                           maxItems: 2
                           minItems: 1
+                          type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
                           type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
@@ -10376,6 +11019,13 @@ spec:
                         termination on the sidecar for requests originating from outside
                         the mesh.
                       properties:
+                        alpnProtocols:
+                          description: 'Optional: If specified, the ALPN protocols
+                            advertised by the proxy during the TLS handshake are overridden
+                            with this list.'
+                          items:
+                            type: string
+                          type: array
                         caCertCredentialName:
                           description: For mutual TLS, the name of the secret or the
                             configmap that holds CA certificates.
@@ -10405,6 +11055,12 @@ spec:
                             type: string
                           maxItems: 2
                           minItems: 1
+                          type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
                           type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
@@ -10997,6 +11653,13 @@ spec:
                         termination on the sidecar for requests originating from outside
                         the mesh.
                       properties:
+                        alpnProtocols:
+                          description: 'Optional: If specified, the ALPN protocols
+                            advertised by the proxy during the TLS handshake are overridden
+                            with this list.'
+                          items:
+                            type: string
+                          type: array
                         caCertCredentialName:
                           description: For mutual TLS, the name of the secret or the
                             configmap that holds CA certificates.
@@ -11026,6 +11689,12 @@ spec:
                             type: string
                           maxItems: 2
                           minItems: 1
+                          type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
                           type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
@@ -11618,6 +12287,13 @@ spec:
                         termination on the sidecar for requests originating from outside
                         the mesh.
                       properties:
+                        alpnProtocols:
+                          description: 'Optional: If specified, the ALPN protocols
+                            advertised by the proxy during the TLS handshake are overridden
+                            with this list.'
+                          items:
+                            type: string
+                          type: array
                         caCertCredentialName:
                           description: For mutual TLS, the name of the secret or the
                             configmap that holds CA certificates.
@@ -11647,6 +12323,12 @@ spec:
                             type: string
                           maxItems: 2
                           minItems: 1
+                          type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
                           type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
@@ -17805,6 +18487,15 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    presence:
+                      description: |-
+                        Configures whether the JWT token must be present in the request.
+
+                        Valid Options: OPTIONAL, REQUIRED
+                      enum:
+                      - OPTIONAL
+                      - REQUIRED
+                      type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated
                         as space-delimited strings.
@@ -18093,6 +18784,15 @@ spec:
                     outputPayloadToHeader:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
+                      type: string
+                    presence:
+                      description: |-
+                        Configures whether the JWT token must be present in the request.
+
+                        Valid Options: OPTIONAL, REQUIRED
+                      enum:
+                      - OPTIONAL
+                      - REQUIRED
                       type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated

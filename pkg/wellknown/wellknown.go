@@ -61,6 +61,8 @@ const (
 	EnvoyOverrideHostLbPolicy = "envoy.load_balancing_policies.override_host"
 	// ROUND_ROBIN envoy lb policy
 	EnvoyRoundRobinLbPolicy = "envoy.load_balancing_policies.round_robin"
+	// CLIENT_SIDE_WEIGHTED_ROUND_ROBIN envoy lb policy
+	EnvoyClientSideWeightedRoundRobinLbPolicy = "envoy.load_balancing_policies.client_side_weighted_round_robin"
 )
 
 // Network filter names

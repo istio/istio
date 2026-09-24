@@ -793,7 +793,10 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 							GrpcServices: []*core.GrpcService{
 								{
 									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "outbound|8080||sds-provider-service"},
+										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+											ClusterName: "outbound|8080||sds-provider-service",
+											Authority:   "sds-provider-service",
+										},
 									},
 								},
 							},

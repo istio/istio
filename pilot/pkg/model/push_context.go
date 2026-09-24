@@ -351,6 +351,13 @@ type XDSUpdater interface {
 
 	// RemoveShard removes all endpoints for the given shard key
 	RemoveShard(shardKey ShardKey)
+
+	// PruneShard removes the given shard key from every (hostname, namespace) pair not present
+	// in keep. Called after a registry completes a full resync (e.g. following a credential
+	// rotation) to clean up shard entries for services that no longer exist in the source -
+	// such a service never generates a delete event of its own, since a full resync only lists
+	// what currently exists.
+	PruneShard(shardKey ShardKey, keep map[string]sets.String)
 }
 
 // PushRequest defines a request to push to proxies

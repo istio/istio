@@ -186,3 +186,35 @@ func TestUpdateServiceEndpoints(t *testing.T) {
 		})
 	}
 }
+
+// Receiving endpoints for a service we have not seen before creates its shard, but creating the
+// shard alone must not require a full push: the endpoints are recorded either way, and a service
+// only becomes visible to config generation via its own update, which re-initializes the service
+// registry and picks them up.
+//
+// Note that the service account check applies independently and does force a full push whenever the
+// endpoints introduce a service account, which is the common case for real workloads.
+func TestUpdateServiceEndpointsNewShardPushType(t *testing.T) {
+	shardKey := ShardKey{Cluster: "c1"}
+
+	t.Run("without service accounts", func(t *testing.T) {
+		endpoints := NewEndpointIndex(DisabledCache{})
+		pushType := endpoints.UpdateServiceEndpoints(shardKey, "foo.com", "foo", []*IstioEndpoint{
+			{Addresses: []string{"10.172.0.1"}, Namespace: "foo", HostName: "foo.com"},
+		}, true)
+		assert.Equal(t, pushType, IncrementalPush)
+
+		// The endpoints are recorded regardless, so a later service update can pick them up.
+		eps, ok := endpoints.ShardsForService("foo.com", "foo")
+		assert.Equal(t, ok, true)
+		assert.Equal(t, len(eps.Shards[shardKey]), 1)
+	})
+
+	t.Run("new service account still requires a full push", func(t *testing.T) {
+		endpoints := NewEndpointIndex(DisabledCache{})
+		pushType := endpoints.UpdateServiceEndpoints(shardKey, "foo.com", "foo", []*IstioEndpoint{
+			{Addresses: []string{"10.172.0.1"}, Namespace: "foo", HostName: "foo.com", ServiceAccount: "sa"},
+		}, true)
+		assert.Equal(t, pushType, FullPush)
+	})
+}

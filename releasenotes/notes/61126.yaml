@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 61126
+
+releaseNotes:
+  - |
+    **Fixed** an incorrect status message for DENY AuthorizationPolicies with
+    only HTTP attributes in ambient mode. These policies are not enforced by
+    ztunnel (empty matches are skipped), so the status now reports that they
+    have no effect and recommends deploying a waypoint proxy with a targetRef.

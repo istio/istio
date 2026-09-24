@@ -906,6 +906,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	// mesh config
 	m := mesh.DefaultMeshConfig()
 	store := model.NewFakeStore()
+	go store.Run(test.NewStop(t))
 	for i := 0; i < pcResources; i++ {
 		store.Create(newProxyConfig(fmt.Sprintf("pc-%d", i), "istio-system", &v1beta12.ProxyConfig{
 			Concurrency: &wrapperspb.Int32Value{Value: int32(i % 5)},

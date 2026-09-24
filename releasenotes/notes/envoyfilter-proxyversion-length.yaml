@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** an `EnvoyFilter` validation gap where an uncapped `proxyVersion` match expression
+  could drive excessive istiod memory and CPU during regex compilation. The match expression
+  is now limited to 1024 characters.
+
+  **Credit**: This issue was reported by Artem Cherezov (https://github.com/cherez0ff).

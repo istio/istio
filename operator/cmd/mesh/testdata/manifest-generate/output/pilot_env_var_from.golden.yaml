@@ -89,11 +89,6 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        - name: GOMAXPROCS
-          valueFrom:
-            resourceFieldRef:
-              divisor: "1"
-              resource: limits.cpu
         - name: PLATFORM
           value: ""
         image: registry.istio.io/testing/pilot:latest
@@ -151,6 +146,7 @@ spec:
           name: istio-csr-ca-configmap
           readOnly: true
       serviceAccountName: istiod
+      terminationGracePeriodSeconds: 30
       tolerations:
       - key: cni.istio.io/not-ready
         operator: Exists

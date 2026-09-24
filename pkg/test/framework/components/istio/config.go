@@ -342,6 +342,10 @@ func newHelmValues(ctx resource.Context) (map[string]string, error) {
 	values[variantValuesKey] = s.Image.Variant
 	values[imagePullPolicyValuesKey] = s.Image.PullPolicy
 
+	if s.NativeNftables {
+		values["global.nativeNftables"] = "true"
+	}
+
 	// Copy the user values.
 	for k, v := range userValues {
 		values[k] = v

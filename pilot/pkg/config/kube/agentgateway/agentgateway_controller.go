@@ -539,8 +539,8 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		nodeLocality, // NodeLocality,
 		meshConfig,
 		// Authz/Authn are not use for agentgateway, ignore
-		krt.NewStaticCollection[model.WorkloadAuthorization](nil, nil),
-		krt.NewStaticCollection[*securityclient.PeerAuthentication](nil, nil),
+		krt.NewIndex(krt.NewStaticCollection[model.WorkloadAuthorization](nil, nil), "byNS", func(model.WorkloadAuthorization) []string { return nil }),
+		krt.NewNamespaceIndex(krt.NewStaticCollection[*securityclient.PeerAuthentication](nil, nil)),
 		waypoints,
 		services,
 		inputs.WorkloadEntries,
@@ -877,6 +877,9 @@ func (c *Controller) getProtocolAndTLSConfig(obj *GatewayListener) (api.Protocol
 		}
 		if len(obj.TLSInfo.CaCert) > 0 {
 			tlsConfig.Root = obj.TLSInfo.CaCert
+			if obj.TLSInfo.AllowInsecureFallback {
+				tlsConfig.MtlsMode = api.TLSConfig_ALLOW_INSECURE_FALLBACK
+			}
 		}
 	}
 

@@ -125,6 +125,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 		specifiedConfName string
 		delayedConfName   string
 		expectedConfName  string
+		expectedError     error
 		existingConfFiles []string
 	}{
 		{
@@ -142,6 +143,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 		{
 			name:             "unspecified CNI config file never created",
 			chainedCNIPlugin: true,
+			expectedError:    context.Canceled,
 		},
 		{
 			name:              "specified existing CNI config file",
@@ -175,6 +177,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			name:              "specified CNI config file never created",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "never-created.conf",
+			expectedError:     context.Canceled,
 			existingConfFiles: []string{"bridge.conf", "list.conflist"},
 		},
 		{
@@ -225,6 +228,15 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				return
 			}
 
+			if c.expectedError != nil {
+				ctx, cancel := context.WithCancel(t.Context())
+				cancel()
+				result, err := getCNIConfigFilepath(ctx, c.specifiedConfName, tempDir, c.chainedCNIPlugin)
+				assert.Equal(t, result, "")
+				assert.Equal(t, err, c.expectedError)
+				return
+			}
+
 			// Handle chained CNI plugin cases
 			// Call with goroutine to test fsnotify watcher
 			parent := t.Context()
@@ -243,11 +255,9 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				if len(c.delayedConfName) > 0 {
 					// Delayed case
 					t.Fatalf("did not expect to retrieve a CNI config file %s", result)
-				} else if result != expectedFilepath {
-					if len(expectedFilepath) > 0 {
-						t.Fatalf("expected %s, got %s", expectedFilepath, result)
-					}
-					t.Fatalf("did not expect to retrieve a CNI config file %s", result)
+				}
+				if result != expectedFilepath {
+					t.Fatalf("expected %s, got %s", expectedFilepath, result)
 				}
 				// Successful test for non-delayed cases
 				return
@@ -266,11 +276,8 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 						t.Fatal(err)
 					}
 					t.Logf("delayed write to %v", filepath.Join(tempDir, c.delayedConfName))
-				} else if len(c.expectedConfName) > 0 {
-					t.Fatalf("timed out waiting for expected %s", expectedFilepath)
 				} else {
-					// Successful test for test cases where CNI config file is never created
-					return
+					t.Fatalf("timed out waiting for expected %s", expectedFilepath)
 				}
 			}
 

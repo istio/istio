@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60033
+releaseNotes:
+  - |
+    **Fixed** a memory leak affecting Istiod ambient multi-cluster mode where rotating a remote cluster's
+    credentials leaked that cluster's entire cached state.

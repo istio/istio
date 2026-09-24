@@ -98,7 +98,8 @@ var (
 	// currently missing pods. This helps distinguish transient errors from permanent ones
 	endpointsWithNoPods = monitoring.NewSum(
 		"pilot_k8s_endpoints_with_no_pods",
-		"Endpoints that does not have any corresponding pods.")
+		"Endpoints that does not have any corresponding pods.",
+	)
 
 	endpointsPendingPodUpdate = monitoring.NewGauge(
 		"pilot_k8s_endpoints_pending_pod",
@@ -392,11 +393,15 @@ func (c *Controller) Network(endpointIP string, labels labels.Instance) network.
 	return ""
 }
 
-func (c *Controller) Cleanup() error {
+// Cleanup releases resources held by the controller. removeShard must be false if this
+// controller has already been superseded by a newer registry for the same cluster (e.g. a
+// credential-rotation swap) - the old and new registries share a ShardKey, so removing it here
+// would wipe out endpoints the new registry already populated (istio.io/istio#61043).
+func (c *Controller) Cleanup(removeShard bool) error {
 	if err := queue.WaitForClose(c.queue, 30*time.Second); err != nil {
 		log.Warnf("queue for removed kube registry %q may not be done processing: %v", c.Cluster(), err)
 	}
-	if c.opts.XDSUpdater != nil {
+	if removeShard && c.opts.XDSUpdater != nil {
 		c.opts.XDSUpdater.RemoveShard(model.ShardKeyFromRegistry(c))
 	}
 
@@ -650,7 +655,8 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 					return handler(ptr.Empty[T](), obj, model.EventDelete)
 				})
 			},
-		})
+		},
+	)
 }
 
 // HasSynced returns true after the initial state synchronization
@@ -987,11 +993,12 @@ func (c *Controller) workloadInstanceHandler(si *model.WorkloadInstance, event m
 
 	// this is from a workload entry. Store it in separate index so that
 	// the InstancesByPort can use these as well as the k8s pods.
+	var previous *model.WorkloadInstance
 	switch event {
 	case model.EventDelete:
-		c.workloadInstancesIndex.Delete(si)
+		previous = c.workloadInstancesIndex.Delete(si)
 	default: // add or update
-		c.workloadInstancesIndex.Insert(si)
+		previous = c.workloadInstancesIndex.Insert(si)
 	}
 
 	// find the workload entry's service by label selector
@@ -1009,6 +1016,13 @@ func (c *Controller) workloadInstanceHandler(si *model.WorkloadInstance, event m
 		return kube.ServiceHostname(e.Name, e.Namespace, c.opts.DomainSuffix)
 	})
 	c.endpoints.pushEDS(matchedHostnames, si.Namespace)
+
+	// we should trigger a proxy update if any service has selected this workload or
+	// if the labels have changed, as this may affect which services select this workload.
+	labelsChanged := previous != nil && !previous.Endpoint.Labels.Equals(si.Endpoint.Labels)
+	if c.opts.XDSUpdater != nil && (len(matchedServices) > 0 || labelsChanged) {
+		c.opts.XDSUpdater.ProxyUpdate(c.Cluster(), si.Endpoint.FirstAddressOrNil())
+	}
 }
 
 func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event) error {

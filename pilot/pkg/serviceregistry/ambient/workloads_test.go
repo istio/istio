@@ -826,6 +826,51 @@ func TestPodWorkloads(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "pod with invalid authz",
+			inputs: []any{
+				// no label selector
+				model.WorkloadAuthorization{
+					LabelSelector: model.NewSelector(nil),
+					Authorization: &security.Authorization{Name: "local-ns", Namespace: "ns"},
+				},
+				// no Authorization
+				model.WorkloadAuthorization{
+					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+					Authorization: nil,
+				},
+			},
+			pod: &v1.Pod{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						"app": "foo",
+					},
+				},
+				Spec: v1.PodSpec{},
+				Status: v1.PodStatus{
+					Phase:      v1.PodRunning,
+					Conditions: podReady,
+					PodIP:      "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:                   "cluster0//Pod/ns/name",
+				Name:                  "name",
+				Namespace:             "ns",
+				Addresses:             [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:               testNW,
+				CanonicalName:         "foo",
+				CanonicalRevision:     "latest",
+				WorkloadType:          workloadapi.WorkloadType_POD,
+				WorkloadName:          "name",
+				Status:                workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:             testC,
+				AuthorizationPolicies: []string{},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -837,8 +882,8 @@ func TestPodWorkloads(t *testing.T) {
 			EndpointSlicesAddressIndex := endpointSliceAddressIndex(EndpointSlices)
 			builder := a.podWorkloadBuilder(
 				GetMeshConfig(mock),
-				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
-				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
+				selectingWorkloadAuthzByNs(krttest.GetMockCollection[model.WorkloadAuthorization](mock)),
+				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
 				WorkloadServicesNamespaceIndex,
@@ -1445,8 +1490,8 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 			builder := a.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
-				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
-				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
+				selectingWorkloadAuthzByNs(krttest.GetMockCollection[model.WorkloadAuthorization](mock)),
+				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
 				WorkloadServicesNamespaceIndex,
@@ -1692,8 +1737,8 @@ func TestWorkloadEntryConditions(t *testing.T) {
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 			builder := a.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
-				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
-				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
+				selectingWorkloadAuthzByNs(krttest.GetMockCollection[model.WorkloadAuthorization](mock)),
+				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
 				WorkloadServicesNamespaceIndex,
@@ -1937,8 +1982,8 @@ func TestServiceEntryWorkloads(t *testing.T) {
 			a := newAmbientUnitTest(t)
 			builder := a.serviceEntryWorkloadBuilder(
 				GetMeshConfig(mock),
-				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
-				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
+				selectingWorkloadAuthzByNs(krttest.GetMockCollection[model.WorkloadAuthorization](mock)),
+				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
 				krttest.GetMockCollection[model.ServiceInfo](mock),

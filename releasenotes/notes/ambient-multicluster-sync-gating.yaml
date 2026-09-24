@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: []
+releaseNotes:
+  - |
+    **Fixed** a bug in Istiod ambient multi-cluster mode where the aggregated (local + remote)
+    collections could report themselves as synced before the remote clusters had been discovered
+    and synced. As a result, Istiod could begin serving with local-cluster-only data, temporarily
+    omitting workloads, services, and endpoints from remote clusters at startup. The aggregated
+    collections now wait for the multi-cluster controller and every remote cluster's collections to
+    sync before being marked ready.

@@ -912,6 +912,7 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 		AppProtocol: &tcp,
 	})
 	portNums := sets.New[int32]()
+	usedNames := sets.New("status-port")
 	allListeners := append(slices.Clone(gw.Spec.Listeners), listenerSets...)
 	for i, l := range allListeners {
 		if portNums.Contains(l.Port) {
@@ -923,6 +924,7 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 			// Should not happen since name is required, but in case an invalid resource gets in...
 			name = fmt.Sprintf("%s-%d", strings.ToLower(string(l.Protocol)), i)
 		}
+		name = uniquePortName(name, l.Port, usedNames)
 		appProtocol := strings.ToLower(string(l.Protocol))
 		svcPorts = append(svcPorts, corev1.ServicePort{
 			Name:        name,
@@ -932,7 +934,7 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 		})
 		if features.EnableQUICListeners && protocol.Parse(appProtocol) == protocol.HTTPS {
 			svcPorts = append(svcPorts, corev1.ServicePort{
-				Name:        name + "-quic",
+				Name:        uniquePortName(name+"-quic", l.Port, usedNames),
 				Port:        l.Port,
 				Protocol:    corev1.ProtocolUDP,
 				AppProtocol: &appProtocol,
@@ -940,6 +942,27 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 		}
 	}
 	return svcPorts
+}
+
+// uniquePortName returns name truncated to the 63-character Service port name limit, disambiguated
+// against already-used names. Distinct listener names can sanitize to the same port name (periods
+// map to dashes, and names may differ only past character 63); duplicate port names invalidate the
+// whole Service, blocking every unpublished port. The listener port number is the disambiguator
+// since each port appears once per Service.
+func uniquePortName(name string, port int32, used sets.Set[string]) string {
+	if len(name) > 63 {
+		name = name[:63]
+	}
+	candidate := name
+	for suffix := fmt.Sprintf("-%d", port); used.Contains(candidate); suffix += "x" {
+		trimmed := name
+		if len(trimmed)+len(suffix) > 63 {
+			trimmed = trimmed[:63-len(suffix)]
+		}
+		candidate = trimmed + suffix
+	}
+	used.Insert(candidate)
+	return candidate
 }
 
 // ListenerName allows periods and 253 chars.

@@ -9,6 +9,5 @@ releaseNotes:
     `MERGE`, except that repeated (list) fields present in the patch fully replace the
     corresponding list in the generated configuration instead of being appended to it. This
     applies to the `CLUSTER`, `LISTENER`, `FILTER_CHAIN`, `ROUTE_CONFIGURATION`, `VIRTUAL_HOST`,
-    and `HTTP_ROUTE` patch targets. Lists nested inside `Any`-typed filter configurations (HTTP,
-    network, and listener filters, and transport sockets) are not affected and continue to follow
-    `MERGE` semantics.
+    `HTTP_ROUTE`, `NETWORK_FILTER`, `HTTP_FILTER`, and `LISTENER_FILTER` patch targets, including
+    lists nested inside `Any`-typed configurations such as filter `typed_config`.

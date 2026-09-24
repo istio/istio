@@ -136,7 +136,7 @@ var dashboards = []struct {
 func TestDashboard(t *testing.T) {
 	c, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			p := promInst
 

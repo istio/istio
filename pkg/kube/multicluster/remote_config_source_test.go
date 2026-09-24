@@ -99,10 +99,10 @@ func TestFileConfigSourceDuplicateClusterID(t *testing.T) {
 
 func TestRegisterHandlerEnqueuesOldAndNewClusterID(t *testing.T) {
 	stop := test.NewStop(t)
-	collection := krt.NewStaticCollection[KubeconfigFile](nil, nil, krt.WithStop(stop))
+	collection := krt.NewMutableCollection[KubeconfigFile](nil, nil, krt.WithStop(stop))
 
 	tracker := assert.NewTracker[string](t)
-	registerHandler(collection, func(key types.NamespacedName, event controllers.EventType) {
+	registerHandler(collection.AsCollection(), func(key types.NamespacedName, event controllers.EventType) {
 		tracker.Record(fmt.Sprintf("%s/%s", event.String(), key.String()))
 	})
 

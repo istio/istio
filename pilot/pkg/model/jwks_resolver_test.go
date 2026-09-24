@@ -16,13 +16,16 @@ package model
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/monitoring/monitortest"
+	pkgtest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -834,4 +837,61 @@ func TestBuildLocalJwksFailsClosed(t *testing.T) {
 	if strings.Contains(jwksStr, `"d":`) || strings.Contains(jwksStr, `"p":`) || strings.Contains(jwksStr, `"q":`) {
 		t.Errorf("BuildLocalJwks() contains private key fields - security vulnerability! JWKS: %s", jwksStr)
 	}
+}
+
+func TestValidateJWKSFormat(t *testing.T) {
+	cases := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{"valid jwks", `{"keys":[{"kty":"RSA","e":"AQAB","n":"abc"}]}`, false},
+		{"valid empty keys", `{"keys":[]}`, false},
+		{"not json", `<html>not a jwks</html>`, true},
+		{"mesh config json (ssrf debug body)", `{"proxyListenPort":15001,"defaultConfig":{}}`, true},
+		{"missing keys field", `{"foo":"bar"}`, true},
+		{"keys not an array", `{"keys":"nope"}`, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateJWKSFormat([]byte(tc.body))
+			if (err != nil) != tc.wantErr {
+				t.Errorf("validateJWKSFormat(%q) err=%v, wantErr=%v", tc.body, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestJwksBlockedIP(t *testing.T) {
+	// default behavior: link-local and known cloud metadata are blocked; loopback, private, and
+	// public are allowed (private/loopback are opt-in via BLOCKED_CIDRS_IN_JWKS_URIS).
+	cases := []struct {
+		name    string
+		ip      string
+		blocked bool
+	}{
+		{"link-local metadata", "169.254.169.254", true},
+		{"link-local v6", "fe80::1", true},
+		{"alibaba metadata cgnat", "100.100.100.200", true},
+		{"aws imds v6", "fd00:ec2::254", true},
+		{"loopback allowed by default", "127.0.0.1", false},
+		{"private allowed by default", "10.0.0.1", false},
+		{"public allowed", "8.8.8.8", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := jwksBlockedIP(net.ParseIP(tc.ip)); (err != nil) != tc.blocked {
+				t.Errorf("jwksBlockedIP(%s) err=%v, blocked=%v", tc.ip, err, tc.blocked)
+			}
+		})
+	}
+
+	// operator-configured CIDR is additive to the always-on defaults.
+	t.Run("configured cidr", func(t *testing.T) {
+		_, cidr, _ := net.ParseCIDR("192.168.0.0/16")
+		pkgtest.SetForTest(t, &features.BlockedCIDRsInJWKURIs, []*net.IPNet{cidr})
+		if err := jwksBlockedIP(net.ParseIP("192.168.1.5")); err == nil {
+			t.Errorf("jwksBlockedIP(192.168.1.5) should be blocked by configured CIDR")
+		}
+	})
 }

@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 60033
+
+releaseNotes:
+  - |
+    **Fixed** a memory leak in ambient multi-cluster mode where collections were registered with the
+    krt debugger but never unregistered when a remote cluster was removed or its configuration changed,
+    causing debugger registrations to accumulate over time.

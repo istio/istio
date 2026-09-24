@@ -216,7 +216,7 @@ func NewFileCollection[F any, O any](w *FolderWatch[F], transform func(F) *O, op
 			return readSnapshot[F, O](w, transform)
 		},
 	}
-	sc := krt.NewStaticCollection[O](nil, res.read(), opts...)
+	sc := krt.NewMutableCollection[O](nil, res.read(), opts...)
 	w.subscribe(func() {
 		now := res.read()
 		sc.Reset(now)

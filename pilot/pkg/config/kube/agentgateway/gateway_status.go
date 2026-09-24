@@ -88,6 +88,7 @@ func reportGatewayStatus(
 	servers []*istio.Server,
 	listenerSetCount int,
 	gatewayErr *ConfigError,
+	backendTLSErr *ConfigError,
 	validListeners int,
 ) {
 	// TODO: we lose address if servers is empty due to an error
@@ -108,6 +109,15 @@ func reportGatewayStatus(
 			reason:  string(gatewayv1.GatewayReasonProgrammed),
 			message: "Resource programmed",
 		},
+		string(gatewayv1.GatewayConditionResolvedRefs): {
+			reason:  string(gatewayv1.GatewayReasonResolvedRefs),
+			message: "All references resolved",
+		},
+		string(gatewayv1.GatewayConditionInsecureFrontendValidationMode): {
+			status:  metav1.ConditionFalse,
+			reason:  "AllowInsecureFallbackNotConfigured",
+			message: "AllowInsecureFallback mode is disabled for frontend validation",
+		},
 	}
 	if gatewayErr != nil {
 		gatewayConditions[string(gatewayv1.GatewayConditionAccepted)].error = gatewayErr
@@ -124,6 +134,31 @@ func reportGatewayStatus(
 		} else {
 			accepted.reason = string(gatewayv1.GatewayReasonListenersNotValid)
 			accepted.message = "One or more of the Gateway's listeners are invalid"
+		}
+	}
+	// Surface backend client certificate (spec.tls.backend.clientCertificateRef) validation errors
+	// on the Gateway ResolvedRefs condition.
+	if backendTLSErr != nil {
+		gatewayConditions[string(gatewayv1.GatewayConditionResolvedRefs)].error = backendTLSErr
+	}
+
+	if obj.Spec.TLS != nil && obj.Spec.TLS.Frontend != nil {
+		frontend := obj.Spec.TLS.Frontend
+		hasInsecure := frontend.Default.Validation != nil && frontend.Default.Validation.Mode == gatewayv1.AllowInsecureFallback
+		if !hasInsecure {
+			for _, perPort := range frontend.PerPort {
+				if perPort.TLS.Validation != nil && perPort.TLS.Validation.Mode == gatewayv1.AllowInsecureFallback {
+					hasInsecure = true
+					break
+				}
+			}
+		}
+		if hasInsecure {
+			gatewayConditions[string(gatewayv1.GatewayConditionInsecureFrontendValidationMode)] = &Condition{
+				status:  metav1.ConditionTrue,
+				reason:  string(gatewayv1.GatewayReasonConfigurationChanged),
+				message: "Gateway is operating in AllowInsecureFallback mode for frontend validation",
+			}
 		}
 	}
 

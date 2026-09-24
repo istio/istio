@@ -28,7 +28,7 @@ import (
 
 func TestTranslation(t *testing.T) {
 	// Create a memory store
-	store := memory.NewController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
+	store := memory.NewController(collections.PilotGatewayAPI(), true)
 
 	// Create a WasmPlugin config
 	wasmPlugin := config.Config{
