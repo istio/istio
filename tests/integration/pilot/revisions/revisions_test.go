@@ -113,6 +113,25 @@ func TestMultiRevision(t *testing.T) {
 				ConditionallyTo(echotest.ReachableDestinations).
 				ToMatch(match.ServiceName(echo.NamespacedName{Name: "server", Namespace: canary})).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+					if from.Config().IsVM() {
+						t.Cleanup(func() {
+							if !t.Failed() {
+								return
+							}
+							workloads, err := from.Workloads()
+							if err != nil {
+								t.Logf("Unable to collect VM discovery diagnostics: %v", err)
+								return
+							}
+							for _, w := range workloads {
+								// VM agent logs are files inside the container, rather than its stdout.
+								stdout, stderr, err := w.Cluster().PodExec(w.PodName(), from.NamespaceName(), "istio-proxy",
+									"tail -n 100 /var/log/istio/istio.log /var/log/istio/istio.err.log")
+								t.Logf("VM discovery diagnostics for %s/%s in %s (error: %v):\n%s\n%s",
+									from.NamespaceName(), w.PodName(), w.Cluster().Name(), err, stdout, stderr)
+							}
+						})
+					}
 					retry.UntilSuccessOrFail(t, func() error {
 						result, err := from.Call(echo.CallOptions{
 							To: to,
