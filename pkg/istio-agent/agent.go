@@ -39,6 +39,7 @@ import (
 	dnsClient "istio.io/istio/pkg/dns/client"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
+	"istio.io/istio/pkg/envoy/admin"
 	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
@@ -365,6 +366,26 @@ func (a *Agent) SkipDrain() {
 
 // Run is a non-blocking call which returns either an error or a function to await for completion.
 func (a *Agent) Run(ctx context.Context) (func(), error) {
+	transport, transportErr := admin.FromEnvironment()
+	if transportErr != nil {
+		return nil, transportErr
+	}
+	if transport == admin.UDS {
+		if os.Getenv(admin.NativeEnv) != "true" {
+			return nil, fmt.Errorf("UDS administration requires a Kubernetes native sidecar")
+		}
+		if a.proxyConfig.CustomConfigFile != "" || a.proxyConfig.ProxyBootstrapTemplatePath != "" || os.Getenv("ISTIO_BOOTSTRAP_OVERRIDE") != "" || os.Getenv("ISTIO_BOOTSTRAP") != "" {
+			return nil, fmt.Errorf("UDS administration does not support custom bootstrap files, templates, or overrides; select TCP")
+		}
+		uid, gid := os.Getuid(), os.Getgid()
+		if uid == 0 && strings.HasSuffix(a.cfg.DNSAddr, ":53") {
+			uid, gid = 1337, 1337
+		}
+		if err := prepareAdminSocket(admin.SocketPath, uid, gid); err != nil {
+			return nil, fmt.Errorf("prepare private admin socket: %w", err)
+		}
+	}
+
 	var err error
 	if err = a.initLocalDNSServer(); err != nil {
 		return nil, fmt.Errorf("failed to start local DNS server: %v", err)

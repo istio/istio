@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
+	"istio.io/istio/pkg/envoy/admin"
 )
 
 // Probe for readiness.
@@ -103,12 +104,13 @@ func (p *Probe) checkEnvoyReadiness() error {
 	// does not use both of them, it is safe to cache this value. Since the
 	// actual readiness probe goes via Envoy, it ensures that Envoy is actively
 	// serving traffic and we can rely on that.
-	if p.atleastOnceReady {
+	// UDS readiness also checks continued access to the private admin socket.
+	if p.atleastOnceReady && !admin.Restricted() {
 		return nil
 	}
 
 	err := checkEnvoyStats(p.LocalHostAddr, p.AdminPort)
-	if err == nil {
+	if err == nil && !p.atleastOnceReady {
 		metrics.RecordStartupTime()
 		p.atleastOnceReady = true
 	}
