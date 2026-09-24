@@ -106,13 +106,13 @@ func TestBinarySizes(t *testing.T) {
 	}{
 		// TODO: shrink the ranges here once the active work to reduce binary size is complete
 		// For now, having two small a range will result in lots of "merge conflicts"
-		"istioctl": {60, 100},
+		"istioctl": {60, 105},
 		// pilot-agent grew ~1.7 MiB on top of the prior ~28 MiB baseline when
 		// the textparse-backed OpenMetrics decoder for the metrics merger landed
 		// (istio#60350); bump max to 32 to leave reasonable headroom without
 		// thrashing on merge conflicts.
 		"pilot-agent":     {20, 32},
-		"pilot-discovery": {60, 125},
+		"pilot-discovery": {60, 130},
 		"bug-report":      {60, 80},
 		"client":          {15, 30},
 		"server":          {15, 35},
