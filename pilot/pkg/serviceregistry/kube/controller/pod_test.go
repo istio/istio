@@ -17,11 +17,11 @@ package controller
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -362,7 +362,7 @@ func TestPodUpdates(t *testing.T) {
 			t.Error("Not found ", addr)
 			continue
 		}
-		if !reflect.DeepEqual(wantTag, labels.Instance(pod[0].Labels)) {
+		if !apiequality.Semantic.DeepEqual(wantTag, labels.Instance(pod[0].Labels)) {
 			t.Errorf("Expected %v got %v", wantTag, labels.Instance(pod[0].Labels))
 		}
 	}

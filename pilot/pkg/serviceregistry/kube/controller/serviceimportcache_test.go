@@ -17,11 +17,11 @@ package controller
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -419,7 +419,7 @@ func (ic *serviceImportCacheImpl) setServiceImportVIPs(t *testing.T, vips []stri
 			}
 
 			actualVIPs := svc.ClusterVIPs.GetAddressesFor(ic.Cluster())
-			if !reflect.DeepEqual(vips, actualVIPs) {
+			if !apiequality.Semantic.DeepEqual(vips, actualVIPs) {
 				return fmt.Errorf("expected ClusterSet VIPs %v, but found %v", vips, actualVIPs)
 			}
 			return nil
