@@ -448,6 +448,10 @@ var (
 		true,
 		"If enabled, pilot will start the credentials controller for remote clusters. Default is true.",
 	).Get()
+	
+	DisableSelfSignedCA = env.Register("PILOT_DISABLE_SELF_SIGNED_CA",
+		false,
+		"If true, disable the self-signed Istio CA and error if no external CA is configured.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
