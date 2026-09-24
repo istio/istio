@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/cbeuw/connutil"
-	"golang.org/x/net/http2"
 )
 
 func NewDoubleHBONEServer(tlsConfig *tls.Config) *http.Server {
@@ -43,9 +42,12 @@ func newServer(handleFunc func(http.ResponseWriter, *http.Request) bool) *http.S
 	h1 := &http.Transport{
 		ExpectContinueTimeout: 3 * time.Second,
 	}
-	h2, _ := http2.ConfigureTransports(h1)
-	h2.ReadIdleTimeout = 10 * time.Minute // TODO: much larger to support long-lived connections
-	h2.AllowHTTP = true
+	// For h2c
+	h1.Protocols = new(http.Protocols)
+	h1.Protocols.SetUnencryptedHTTP2(true)
+	h1.HTTP2 = &http.HTTP2Config{
+		SendPingTimeout: 10 * time.Minute, // TODO: much larger to support long-lived connections
+	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodConnect {
 			if handleFunc(w, r) {

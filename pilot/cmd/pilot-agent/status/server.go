@@ -1577,7 +1577,6 @@ func setTransportDefaults(t *http.Transport) *http.Transport {
 	protocols.SetHTTP2(true)
 	t.Protocols = protocols
 	t.HTTP2 = &http.HTTP2Config{
-		// SendPingTimeout is the http2.Transport.ReadIdleTimeout equivalent: send a health
 		// check ping once the connection has been idle this long.
 		SendPingTimeout: time.Duration(30) * time.Second,
 		PingTimeout:     time.Duration(15) * time.Second,
