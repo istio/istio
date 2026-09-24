@@ -525,6 +525,13 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							continue
 						}
 
+						// The set of VirtualServices selecting this service's hostname is identical for
+						// every pod endpoint below (only the per-pod CIDR differs); resolve it once here
+						// instead of once per pod inside buildSidecarOutboundListener, to avoid
+						// O(pods * virtualServices) host-matching for headless services with many
+						// endpoints on a TCP port.
+						listenerOpts.precomputedTCPConfigs = getConfigsForHost("", service.Hostname, virtualServices)
+
 						for _, instance := range instances {
 							// Make sure each endpoint address is a valid IP address
 							// as service entries could have NONE resolution with label selectors for workload
@@ -812,11 +819,16 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 	meshGateway := sets.New(constants.IstioMeshGateway)
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []*config.Config
-	if opts.service != nil {
+	switch {
+	case opts.precomputedTCPConfigs != nil:
+		// Caller already resolved the VirtualServices for this service+port (e.g. once for
+		// all pods of a headless service); avoid redoing the host-matching scan here.
+		svcConfigs = opts.precomputedTCPConfigs
+	case opts.service != nil:
 		// Do not filter namespace for now.
 		// TODO(https://github.com/istio/istio/issues/46146) we may need to, or something more sophisticated
 		svcConfigs = getConfigsForHost("", opts.service.Hostname, virtualServices)
-	} else {
+	default:
 		svcConfigs = virtualServices
 	}
 
@@ -1152,6 +1164,13 @@ type outboundListenerOpts struct {
 	// SNI-based discrimination is not needed and should be suppressed to avoid requiring
 	// callers to match on the service hostname.
 	headlessPodCIDR bool
+
+	// precomputedTCPConfigs, if non-nil, is the set of VirtualServices applicable to this
+	// service (as computed by getConfigsForHost) that callers have already resolved. It lets
+	// callers building many per-pod listeners for the same headless service+port (see
+	// buildSidecarOutboundListeners) skip repeating the O(len(virtualServices)) host-matching
+	// scan for every pod, since the result is identical for every pod of that service+port.
+	precomputedTCPConfigs []*config.Config
 }
 
 // buildGatewayListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.

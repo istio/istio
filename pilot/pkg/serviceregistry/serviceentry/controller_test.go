@@ -18,11 +18,12 @@ import (
 	"cmp"
 	"fmt"
 	"net"
-	"reflect"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
@@ -2257,7 +2258,7 @@ func TestServicesDiff(t *testing.T) {
 				{tt.updated, updated},
 				{tt.unchanged, unchanged},
 			} {
-				if !reflect.DeepEqual(servicesHostnames(item.services), item.hostnames) {
+				if !apiequality.Semantic.DeepEqual(servicesHostnames(item.services), item.hostnames) {
 					t.Errorf("ServicesChanged %d got %v, want %v", i, servicesHostnames(item.services), item.hostnames)
 				}
 			}

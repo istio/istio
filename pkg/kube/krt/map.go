@@ -30,6 +30,7 @@ type mapCollection[T any, U any] struct {
 	collection     internalCollection[T]
 	mapFunc        func(T) U
 	metadata       Metadata
+	discardEqual   bool
 }
 
 // nolint: unused // (not true, used in func declared to implement an interface)
@@ -105,9 +106,14 @@ func (m *mapCollection[T, U]) RegisterBatch(handler func([]Event[U]), runExistin
 			if o.New != nil {
 				e.New = ptr.Of(m.mapFunc(*o.New))
 			}
+			if m.discardEqual && e.Old != nil && e.New != nil && Equal(*e.Old, *e.New) {
+				continue
+			}
 			events = append(events, e)
 		}
-		handler(events)
+		if len(events) > 0 {
+			handler(events)
+		}
 	}, runExistingState)
 }
 
@@ -158,6 +164,7 @@ func (m *mapCollection[T, U]) WaitUntilSynced(stop <-chan struct{}) bool {
 }
 
 // MapCollection creates a new collection to map Collection[T] -> Collection[U]
+// All events are forwarded by default. WithMapDiscardEqual suppresses unchanged mapped updates.
 // Warning: It is not OK to use a mapFunc which changes how the Collection is keyed.
 func MapCollection[T, U any](
 	collection Collection[T],
@@ -179,6 +186,7 @@ func MapCollection[T, U any](
 		collection:     ic,
 		mapFunc:        mapFunc,
 		metadata:       metadata,
+		discardEqual:   o.mapDiscardEqual,
 	}
 	maybeRegisterCollectionForDebugging[U](m, o.debugger)
 	if o.debugger != nil && o.stopProvided {

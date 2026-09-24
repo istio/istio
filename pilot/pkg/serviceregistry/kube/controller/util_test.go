@@ -15,10 +15,10 @@
 package controller
 
 import (
-	"reflect"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -173,7 +173,7 @@ func TestGetNodeSelectorsForService(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			selector := getNodeSelectorsForService(tc.svc)
-			if !reflect.DeepEqual(selector, tc.expectedLabelSelector) {
+			if !apiequality.Semantic.DeepEqual(selector, tc.expectedLabelSelector) {
 				t.Errorf("expected selector %v != %v", tc.expectedLabelSelector, selector)
 			}
 		})
