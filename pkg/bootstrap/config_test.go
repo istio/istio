@@ -15,12 +15,15 @@
 package bootstrap
 
 import (
+	"math"
 	"os"
 	"reflect"
 	"regexp"
 	"testing"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	. "github.com/onsi/gomega"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/kubectl/pkg/util/fieldpath"
 
 	"istio.io/api/mesh/v1alpha1"
@@ -393,6 +396,114 @@ func TestZoneAwareRoutingTemplateParam(t *testing.T) {
 			got, _ := params["enable_self_discovery"].(bool)
 			if got != tc.want {
 				t.Errorf("enable_self_discovery = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestGlobalDownstreamConnectionLimitPrecedence(t *testing.T) {
+	tests := []struct {
+		name     string
+		node     *model.Node
+		expected int
+	}{
+		{
+			name: "connection_settings takes precedence over metadata",
+			node: &model.Node{
+				Metadata: &model.BootstrapNodeMetadata{
+					NodeMetadata: model.NodeMetadata{
+						ProxyConfig: &model.NodeMetaProxyConfig{
+							ConnectionSettings: &v1alpha1.ProxyConfig_ConnectionSettings{
+								GlobalDownstreamConnectionLimit: &wrappers.Int32Value{Value: 25000},
+							},
+							ProxyMetadata: map[string]string{
+								GlobalDownstreamMaxConnections: "10000",
+							},
+						},
+					},
+				},
+				Locality: &core.Locality{},
+			},
+			expected: 25000,
+		},
+		{
+			name: "connection_settings takes precedence over runtime",
+			node: &model.Node{
+				Metadata: &model.BootstrapNodeMetadata{
+					NodeMetadata: model.NodeMetadata{
+						ProxyConfig: &model.NodeMetaProxyConfig{
+							ConnectionSettings: &v1alpha1.ProxyConfig_ConnectionSettings{
+								GlobalDownstreamConnectionLimit: &wrappers.Int32Value{Value: 30000},
+							},
+							RuntimeValues: map[string]string{
+								"overload.global_downstream_max_connections": "5000",
+							},
+						},
+					},
+				},
+				Locality: &core.Locality{},
+			},
+			expected: 30000,
+		},
+		{
+			name: "metadata used when connection_settings not set",
+			node: &model.Node{
+				Metadata: &model.BootstrapNodeMetadata{
+					NodeMetadata: model.NodeMetadata{
+						ProxyConfig: &model.NodeMetaProxyConfig{
+							ProxyMetadata: map[string]string{
+								GlobalDownstreamMaxConnections: "10000",
+							},
+						},
+					},
+				},
+				Locality: &core.Locality{},
+			},
+			expected: 10000,
+		},
+		{
+			name: "runtime used when nothing else set",
+			node: &model.Node{
+				Metadata: &model.BootstrapNodeMetadata{
+					NodeMetadata: model.NodeMetadata{
+						ProxyConfig: &model.NodeMetaProxyConfig{
+							RuntimeValues: map[string]string{
+								"overload.global_downstream_max_connections": "5000",
+							},
+						},
+					},
+				},
+				Locality: &core.Locality{},
+			},
+			expected: 5000,
+		},
+		{
+			name: "default when nothing set",
+			node: &model.Node{
+				Metadata: &model.BootstrapNodeMetadata{
+					NodeMetadata: model.NodeMetadata{
+						ProxyConfig: &model.NodeMetaProxyConfig{},
+					},
+				},
+				Locality: &core.Locality{},
+			},
+			expected: math.MaxInt32,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := getNodeMetadataOptions(tt.node, "")
+			params, err := option.NewTemplateParams(opts...)
+			if err != nil {
+				t.Fatalf("NewTemplateParams failed: %v", err)
+			}
+			got, ok := params["global_downstream_max_connections"]
+			if !ok {
+				t.Fatal("global_downstream_max_connections not found in template params")
+			}
+			if got != tt.expected {
+				t.Errorf("global_downstream_max_connections = %v, want %v", got, tt.expected)
 			}
 		})
 	}
