@@ -39,7 +39,7 @@ type join[T any] struct {
 	// processedState tracks objects we've processed via handleSubCollectionEvents
 	// This ensures RegisterBatch only sends events for objects that have been fully processed,
 	// avoiding duplicates from in-flight sub-collection events
-	processedState map[string]*T
+	processedState shrinkingMap[string, *T]
 	eventHandlers  *handlerSet[T]
 
 	stop <-chan struct{}
@@ -139,7 +139,7 @@ func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Han
 	// by handleSubCollectionEvents yet (they're in sub-collection state but event is in-flight)
 	var initialEvents []Event[T]
 	if runExistingState {
-		for _, obj := range j.processedState {
+		for _, obj := range j.processedState.data {
 			initialEvents = append(initialEvents, Event[T]{
 				New:   obj,
 				Event: controllers.EventAdd,
@@ -182,10 +182,10 @@ func (j *join[T]) handleSubCollectionEvents(events []Event[T], sourceCollectionI
 	for _, ev := range refreshedEvents {
 		key := GetKey(ev.Latest())
 		if ev.Event == controllers.EventDelete {
-			delete(j.processedState, key)
+			j.processedState.delete(key)
 		} else {
 			// For Add and Update, store the new object pointer (no copy)
-			j.processedState[key] = ev.New
+			j.processedState.set(key, ev.New)
 		}
 	}
 
@@ -421,7 +421,6 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 
 	// Checked mode: set up centralized event handling with conflict resolution
 	j.eventHandlers = newHandlerSet[T]()
-	j.processedState = make(map[string]*T)
 
 	// Register handlers on sub-collections ONCE during construction
 	// These handlers will process events from sub-collections and distribute to registered handlers
