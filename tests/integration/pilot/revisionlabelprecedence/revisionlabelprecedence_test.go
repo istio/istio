@@ -36,11 +36,18 @@ import (
 // and namespace.
 func deployWithRevisionLabels(t framework.TestContext, nsPrefix, nsRevision, podRevision string) (podName, podNamespace string) {
 	t.Helper()
-	ns := namespace.NewOrFail(t, namespace.Config{
+	nsConfig := namespace.Config{
 		Prefix:   nsPrefix,
 		Inject:   true,
 		Revision: nsRevision,
-	})
+	}
+	if nsRevision == "default" {
+		// The namespace helper translates Revision: "default" into legacy
+		// injection. Set the literal tag label instead to exercise revision precedence.
+		nsConfig.Inject = false
+		nsConfig.Labels = map[string]string{label.IoIstioRev.Name: nsRevision}
+	}
+	ns := namespace.NewOrFail(t, nsConfig)
 
 	var podLabels map[string]string
 	if podRevision != "" {
@@ -88,21 +95,27 @@ func TestRevisionLabelPrecedencePodWins(t *testing.T) {
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Default()})
-
-			t.NewSubTest("PodOverride").Run(func(t framework.TestContext) {
-				// Namespace is labeled istio.io/rev=rev-a, but the pod explicitly
-				// requests rev-b. With revisionLabelPrecedence=pod on both revisions,
-				// the pod label wins.
-				podName, podNamespace := deployWithRevisionLabels(t, "rev-a-ns-rev-b-pod", "rev-a", "rev-b")
-				verifyRevision(t, istioCtl, podName, podNamespace, "rev-b")
+			// The installer creates the default tag for rev-a. Explicit tags must
+			// inherit the target revision's precedence as well.
+			istioCtl.InvokeOrFail(t, []string{"tag", "set", "prod", "--revision", "rev-b"})
+			t.Cleanup(func() {
+				istioCtl.InvokeOrFail(t, []string{"tag", "remove", "prod", "--skip-confirmation"})
 			})
-
-			t.NewSubTest("NamespaceFallback").Run(func(t framework.TestContext) {
-				// Pod has no explicit revision label, so injection falls back to the
-				// namespace's istio.io/rev=rev-a label, same as under the default
-				// (namespace) precedence mode.
-				podName, podNamespace := deployWithRevisionLabels(t, "rev-a-ns-no-pod-label", "rev-a", "")
-				verifyRevision(t, istioCtl, podName, podNamespace, "rev-a")
-			})
+			for _, tc := range []struct {
+				name, namespaceRevision, podRevision, want string
+			}{
+				{"PodOverride", "rev-a", "rev-b", "rev-b"},
+				{"NamespaceFallback", "rev-a", "", "rev-a"},
+				{"DefaultTagOverride", "default", "rev-b", "rev-b"},
+				{"DefaultTagFallback", "default", "", "rev-a"},
+				{"PodTagOverride", "rev-a", "prod", "rev-b"},
+				{"NamespaceTagOverride", "prod", "rev-a", "rev-a"},
+				{"NamespaceTagFallback", "prod", "", "rev-b"},
+			} {
+				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+					podName, podNamespace := deployWithRevisionLabels(t, "revision-precedence", tc.namespaceRevision, tc.podRevision)
+					verifyRevision(t, istioCtl, podName, podNamespace, tc.want)
+				})
+			}
 		})
 }

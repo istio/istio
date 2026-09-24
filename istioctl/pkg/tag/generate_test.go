@@ -23,11 +23,14 @@ import (
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"istio.io/api/label"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -312,6 +315,80 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 						t.Fatalf("expected CA bundle %q, got %q", tc.whCA, validationWhConf.CABundle)
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestGenerateMutatingWebhookRevisionLabelPrecedence(t *testing.T) {
+	for _, precedence := range []string{"namespace", "pod"} {
+		t.Run(precedence, func(t *testing.T) {
+			manifests, _, err := render.GenerateManifest(nil, []string{
+				"installPackagePath=" + filepath.Join(env.IstioSrc, "manifests"),
+				"revision=revision",
+				"values.sidecarInjectorWebhook.revisionLabelPrecedence=" + precedence,
+			}, false, nil, nil)
+			assert.NoError(t, err)
+			deserializer := serializer.NewCodecFactory(runtime.NewScheme()).UniversalDeserializer()
+			var canonical admitv1.MutatingWebhookConfiguration
+			for _, set := range manifests {
+				for _, manifest := range set.Manifests {
+					if manifest.GetKind() == "MutatingWebhookConfiguration" {
+						_, _, err = deserializer.Decode([]byte(manifest.Content), nil, &canonical)
+						assert.NoError(t, err)
+					}
+				}
+			}
+			// Configuration extraction must not depend on webhook ordering.
+			slices.Reverse(canonical.Webhooks)
+			for _, tagName := range []string{"default", "prod"} {
+				t.Run(tagName, func(t *testing.T) {
+					config, err := tagWebhookConfigFromCanonicalWebhook(canonical, tagName, "istio-system")
+					assert.NoError(t, err)
+					generated, err := generateMutatingWebhook(config, &GenerateOptions{
+						ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
+					})
+					assert.NoError(t, err)
+					var tagged admitv1.MutatingWebhookConfiguration
+					_, _, err = deserializer.Decode([]byte(generated), nil, &tagged)
+					assert.NoError(t, err)
+
+					for _, tc := range []struct {
+						name, namespaceRevision, podRevision, namespaceWant, podWant string
+					}{
+						{"pod revision overrides tag", tagName, "revision", "tag", "canonical"},
+						{"pod tag overrides revision", "revision", tagName, "canonical", "tag"},
+						{"namespace tag fallback", tagName, "", "tag", "tag"},
+						{"pod tag without namespace revision", "", tagName, "tag", "tag"},
+					} {
+						t.Run(tc.name, func(t *testing.T) {
+							nsLabels, podLabels := klabels.Set{}, klabels.Set{}
+							if tc.namespaceRevision != "" {
+								nsLabels[label.IoIstioRev.Name] = tc.namespaceRevision
+							}
+							if tc.podRevision != "" {
+								podLabels[label.IoIstioRev.Name] = tc.podRevision
+							}
+							var matches []string
+							for source, wh := range map[string]admitv1.MutatingWebhookConfiguration{"canonical": canonical, "tag": tagged} {
+								for _, w := range wh.Webhooks {
+									nsSelector, err := metav1.LabelSelectorAsSelector(w.NamespaceSelector)
+									assert.NoError(t, err)
+									podSelector, err := metav1.LabelSelectorAsSelector(w.ObjectSelector)
+									assert.NoError(t, err)
+									if nsSelector.Matches(nsLabels) && podSelector.Matches(podLabels) {
+										matches = append(matches, source)
+									}
+								}
+							}
+							want := tc.namespaceWant
+							if precedence == "pod" {
+								want = tc.podWant
+							}
+							assert.Equal(t, matches, []string{want})
+						})
+					}
+				})
 			}
 		})
 	}
