@@ -39,7 +39,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
-	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -328,16 +327,13 @@ func NewServer(config Options) (*Server, error) {
 			d.LocalAddr = s.upstreamLocalAddress
 			// nolint: gosec
 			// This is matching Kubernetes. It is a reasonable usage of this, as it is just a health check over localhost.
-			transport, err := setTransportDefaults(&http.Transport{
+			transport := setTransportDefaults(&http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 				DialContext:     d.DialContext,
 				// https://github.com/kubernetes/kubernetes/blob/0153febd9f0098d4b8d0d484927710eaf899ef40/pkg/probe/http/http.go#L55
 				// Match Kubernetes logic. This also ensures idle timeouts do not trigger probe failures
 				DisableKeepAlives: !ProbeKeepaliveConnections,
 			})
-			if err != nil {
-				return nil, err
-			}
 			// Construct a http client and cache it in order to reuse the connection.
 			s.appProbeClient[path] = &http.Client{
 				Timeout: time.Duration(prober.TimeoutSeconds) * time.Second,
@@ -1564,9 +1560,9 @@ var defaultTransport = http.DefaultTransport.(*http.Transport)
 
 // SetTransportDefaults mirrors Kubernetes probe settings
 // https://github.com/kubernetes/kubernetes/blob/0153febd9f0098d4b8d0d484927710eaf899ef40/pkg/probe/http/http.go#L52
-func setTransportDefaults(t *http.Transport) (*http.Transport, error) {
+func setTransportDefaults(t *http.Transport) *http.Transport {
 	if !EnableHTTP2Probing {
-		return t, nil
+		return t
 	}
 	if t.TLSHandshakeTimeout == 0 {
 		t.TLSHandshakeTimeout = defaultTransport.TLSHandshakeTimeout
@@ -1574,11 +1570,17 @@ func setTransportDefaults(t *http.Transport) (*http.Transport, error) {
 	if t.IdleConnTimeout == 0 {
 		t.IdleConnTimeout = defaultTransport.IdleConnTimeout
 	}
-	t2, err := http2.ConfigureTransports(t)
-	if err != nil {
-		return nil, err
+	// Enable HTTP/2 over TLS. This is not on by default for transports with a custom
+	// TLSClientConfig or DialContext, both of which we set.
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetHTTP2(true)
+	t.Protocols = protocols
+	t.HTTP2 = &http.HTTP2Config{
+		// SendPingTimeout is the http2.Transport.ReadIdleTimeout equivalent: send a health
+		// check ping once the connection has been idle this long.
+		SendPingTimeout: time.Duration(30) * time.Second,
+		PingTimeout:     time.Duration(15) * time.Second,
 	}
-	t2.ReadIdleTimeout = time.Duration(30) * time.Second
-	t2.PingTimeout = time.Duration(15) * time.Second
-	return t, nil
+	return t
 }
