@@ -55,6 +55,14 @@ var (
 
 const (
 	ambientControlPlaneValues = `
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      # The test registry-redirector is served over plaintext on a ClusterIP.
+      # go-containerregistry only defaults RFC1918 IPv4 registries to http, so on
+      # IPv6 clusters the fetch goes out over https and fails. The https->http
+      # fallback is gated on this allowlist since #61593.
+      WASM_INSECURE_REGISTRIES: "*"
 values:
   pilot:
     env:
