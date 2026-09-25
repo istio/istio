@@ -21,6 +21,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -49,30 +50,51 @@ type Dialer interface {
 
 // NewDialer creates a Dialer that proxies connections over HBONE to the configured proxy.
 func NewDialer(cfg Config) Dialer {
-	var transport *http.Transport
-
+	transport := &http.Transport{
+		// Note: this must be DialContext, not DialTLSContext. net/http only consults
+		// DialTLSContext for https:// URLs, so an h2c transport would silently ignore it.
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			d := net.Dialer{}
+			if cfg.Timeout != nil {
+				d.Timeout = *cfg.Timeout
+			}
+			return d.DialContext(ctx, network, addr)
+		},
+		Protocols: new(http.Protocols),
+	}
 	if cfg.TLS != nil {
-		transport = &http.Transport{
-			TLSClientConfig: cfg.TLS,
-		}
+		// Clone: net/http mutates TLSClientConfig.NextProtos when configuring HTTP/2.
+		transport.TLSClientConfig = cfg.TLS.Clone()
+		// HBONE is always HTTP/2. This must be set explicitly, as net/http disables HTTP/2 by
+		// default whenever a custom TLS config or dialer is set.
+		transport.Protocols.SetHTTP2(true)
 	} else {
-		transport = &http.Transport{
-			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				d := net.Dialer{}
-				if cfg.Timeout != nil {
-					d.Timeout = *cfg.Timeout
-				}
-				return d.Dial(network, addr)
-			},
-		}
 		// For h2c
-		transport.Protocols = new(http.Protocols)
 		transport.Protocols.SetUnencryptedHTTP2(true)
 	}
 	return &dialer{
 		cfg:       cfg,
 		transport: transport,
 	}
+}
+
+// H2ClientTLSConfig returns a copy of cfg suitable for an HTTP/2 client connection to addr.
+// net/http applies this fixup itself for connections it dials, but not for ones handed to it
+// by a DialTLSContext. Without it ALPN never selects "h2" and net/http silently falls back to
+// HTTP/1.1 framing, which HBONE peers do not accept.
+func H2ClientTLSConfig(cfg *tls.Config, addr string) *tls.Config {
+	out := cfg.Clone()
+	if !slices.Contains(out.NextProtos, "h2") {
+		out.NextProtos = append([]string{"h2"}, out.NextProtos...)
+	}
+	if out.ServerName == "" {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			host = addr
+		}
+		out.ServerName = host
+	}
+	return out
 }
 
 type dialer struct {
@@ -112,6 +134,11 @@ func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http.
 		return nil, nil, fmt.Errorf("new request: %v", err)
 	}
 	r.Host = address
+	for k, vs := range req.Headers {
+		for _, v := range vs {
+			r.Header.Add(k, v)
+		}
+	}
 	// Initiate CONNECT.
 	log.Infof("initiate CONNECT to %v via %v", r.Host, url)
 

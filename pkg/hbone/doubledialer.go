@@ -27,24 +27,24 @@ import (
 
 // NewDialer creates a Dialer that proxies connections over HBONE to the configured proxy.
 func NewDoubleDialer(outerCfg Config, innerCfg Config, innerTLSConfig *tls.Config) Dialer {
-	var outerTransport *http.Transport
-
+	outerTransport := &http.Transport{
+		// Must be DialContext, not DialTLSContext: net/http only uses the latter for https:// URLs.
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			d := net.Dialer{}
+			if outerCfg.Timeout != nil {
+				d.Timeout = *outerCfg.Timeout
+			}
+			return d.DialContext(ctx, network, addr)
+		},
+		Protocols: new(http.Protocols),
+	}
 	if outerCfg.TLS != nil {
-		outerTransport = &http.Transport{
-			TLSClientConfig: outerCfg.TLS,
-		}
+		// Clone: net/http mutates TLSClientConfig.NextProtos when configuring HTTP/2.
+		outerTransport.TLSClientConfig = outerCfg.TLS.Clone()
+		// Explicit opt-in is required; net/http disables HTTP/2 when a custom TLS config is set.
+		outerTransport.Protocols.SetHTTP2(true)
 	} else {
-		outerTransport = &http.Transport{
-			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				d := net.Dialer{}
-				if outerCfg.Timeout != nil {
-					d.Timeout = *outerCfg.Timeout
-				}
-				return d.Dial(network, addr)
-			},
-		}
 		// For h2c
-		outerTransport.Protocols = new(http.Protocols)
 		outerTransport.Protocols.SetUnencryptedHTTP2(true)
 	}
 
@@ -80,31 +80,30 @@ func (d *doubleDialer) DialContext(ctx context.Context, network, address string)
 		reader: resp.Body,
 	}
 
-	var innerTransport *http.Transport
+	innerTransport := &http.Transport{Protocols: new(http.Protocols)}
 	if d.innerTLSConfig != nil {
 		log.Infof("using TLS on inner connection")
-		innerTransport = &http.Transport{
-			TLSClientConfig: d.innerTLSConfig,
-			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// Upgrade the raw connection to a TLS connection.
-				cfg := d.innerTLSConfig.Clone()
-				c := tls.Client(pc, cfg)
-				err := c.HandshakeContext(ctx)
-				if err != nil {
-					pc.Close()
-					return nil, err
-				}
-				return c, nil
-			},
+		innerTransport.TLSClientConfig = d.innerTLSConfig.Clone()
+		innerTransport.Protocols.SetHTTP2(true)
+		// The inner CONNECT targets an https:// URL, so net/http does use DialTLSContext here.
+		innerTransport.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			// Upgrade the raw connection to a TLS connection. We must advertise "h2" and set SNI
+			// ourselves; net/http does not touch the config of a connection we hand it.
+			c := tls.Client(pc, H2ClientTLSConfig(d.innerTLSConfig, addr))
+			err := c.HandshakeContext(ctx)
+			if err != nil {
+				pc.Close()
+				return nil, err
+			}
+			return c, nil
 		}
 	} else {
-		innerTransport = &http.Transport{
-			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return pc, nil
-			},
+		// For h2c. The inner CONNECT targets an http:// URL, so this must be DialContext:
+		// net/http would never call DialTLSContext and would dial the proxy address directly,
+		// bypassing the outer tunnel entirely.
+		innerTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return pc, nil
 		}
-		// For h2c
-		innerTransport.Protocols = new(http.Protocols)
 		innerTransport.Protocols.SetUnencryptedHTTP2(true)
 	}
 	// Note: outerCfg is only used to generate the final URL and host header (which is the same for double hbone)
