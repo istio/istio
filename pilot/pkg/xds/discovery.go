@@ -195,7 +195,8 @@ func (s *DiscoveryServer) initJwksResolver() {
 	}
 	s.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval,
+	)
 
 	// Flush cached discovery responses when detecting jwt public key change.
 	s.JwtKeyResolver.PushFunc = func() {
@@ -409,7 +410,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceO
 			if len(r.Reason) == 0 {
 				r.Reason = model.NewReasonStats(model.UnknownTrigger)
 			}
-			if !opts.enableEDSDebounce && model.OnlyHasConfigsOfKind(r.ConfigsUpdated, kind.Endpoints) {
+			if !opts.enableEDSDebounce && !r.Forced && model.OnlyHasConfigsOfKind(r.ConfigsUpdated, kind.Endpoints) {
 				// trigger push now, just for EDS
 				go func(req *model.PushRequest) {
 					pushFn(req)
