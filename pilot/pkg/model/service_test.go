@@ -90,7 +90,7 @@ func TestNewAddressInfoStable(t *testing.T) {
 		assert.Equal(t, got.Version, first.Version)
 		a := WorkloadInfo{Workload: first.GetWorkload(), MarshaledAddress: first.Marshaled}
 		b := WorkloadInfo{Workload: got.GetWorkload(), MarshaledAddress: got.Marshaled}
-		assert.Equal(t, a.Equals(b), true)
+		assert.Equal(t, a.Equals(&b), true)
 	}
 }
 
