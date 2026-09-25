@@ -170,9 +170,8 @@ func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstruc
 		return nil
 	}
 	spec := un.Object["spec"].(map[string]any)
-	if _, ok := spec["ports"]; ok {
-		ports := spec["ports"].([]any)
-		for _, port := range ports {
+	if ports := spec["ports"]; ports != nil {
+		for _, port := range ports.([]any) {
 			p := port.(map[string]any)
 			if p["protocol"] != nil && strings.EqualFold(p["protocol"].(string), serviceProtocolUDP) {
 				continue
