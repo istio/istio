@@ -362,7 +362,10 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 }
 
 // The debounce helper function is implemented to enable mocking
-func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceOptions, pushFn func(req *model.PushRequest, initializePushContext bool), updateSent *atomic.Int64) {
+func debounce(
+	ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceOptions,
+	pushFn func(req *model.PushRequest, initializePushContext bool), updateSent *atomic.Int64,
+) {
 	var timeChan <-chan time.Time
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
