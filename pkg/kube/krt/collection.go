@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/slices"
@@ -439,9 +438,18 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 // handleChangedPrimaryInputEvents takes a list of I's that changed and reruns the handler over them.
 func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I]) {
 	var events []Event[O]
+	emit := func(key Key[O], event Event[O]) {
+		for _, index := range h.indexes {
+			index.update(event, key)
+		}
+		if h.log.DebugEnabled() {
+			h.log.WithLabels("res", key, "type", event.Event).Debugf("handled")
+		}
+		events = append(events, event)
+	}
 	recomputedResults := make([]map[Key[O]]O, len(items))
 
-	pendingDepStateUpdates := make(map[Key[I]]*collectionDependencyTracker[I, O], len(items))
+	pendingDepStateUpdates := make([]*collectionDependencyTracker[I, O], len(items))
 	for idx, a := range items {
 		if a.Event == controllers.EventDelete {
 			// handled below, with full lock...
@@ -454,7 +462,7 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 		results := slices.GroupUnique(h.transformation(ctx, i), getTypedKey[O])
 		recomputedResults[idx] = results
 		// Store new dependency state, to insert in the next loop under the lock
-		pendingDepStateUpdates[iKey] = ctx
+		pendingDepStateUpdates[idx] = ctx
 	}
 
 	// Now acquire the full lock.
@@ -487,7 +495,7 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 			delete(h.collectionState.inputs, iKey)
 			h.dependencyState.delete(iKey)
 		} else {
-			ctx := pendingDepStateUpdates[iKey]
+			ctx := pendingDepStateUpdates[idx]
 			results := recomputedResults[idx]
 			if ctx.discardUpdate {
 				// Called when the collection explicitly calls DiscardResult() on the context.
@@ -501,50 +509,40 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 				h.log.WithLabels("iKey", iKey).Debugf("would discard result, but it is the first so including it")
 			}
 			h.dependencyState.update(iKey, ctx.d)
-			newKeys := sets.New(maps.Keys(results)...)
 			oldKeys := h.collectionState.mappings[iKey]
+			newKeys := oldKeys
+			// Reuse stable memberships; rebuild after a substantial shrink to release capacity.
+			if newKeys == nil || len(results) < len(oldKeys)/2 {
+				newKeys = sets.NewWithLength[Key[O]](len(results))
+			}
+			for key := range oldKeys {
+				if _, found := results[key]; found {
+					continue
+				}
+				oldRes, found := h.collectionState.outputs[key]
+				if !found && EnableAssertions {
+					panic(fmt.Sprintf("missing output %v in %s(%T)", key, h.collectionName, h))
+				}
+				delete(newKeys, key)
+				delete(h.collectionState.outputs, key)
+				emit(key, Event[O]{Event: controllers.EventDelete, Old: ptr.Of(oldRes)})
+			}
+			for key, newRes := range results {
+				newKeys.Insert(key)
+				oldRes, oldExists := h.collectionState.outputs[key]
+				if oldExists && Equal(newRes, oldRes) {
+					continue
+				}
+				event := Event[O]{Event: controllers.EventAdd, New: ptr.Of(newRes)}
+				if oldExists {
+					event.Event = controllers.EventUpdate
+					event.Old = ptr.Of(oldRes)
+				}
+				h.collectionState.outputs[key] = newRes
+				emit(key, event)
+			}
 			h.collectionState.mappings[iKey] = newKeys
 			h.collectionState.inputs[iKey] = i
-			allKeys := newKeys.Copy().Merge(oldKeys)
-			// We have now built up a set of I -> []O
-			// and found the previous I -> []O mapping
-			for key := range allKeys {
-				// Find new O object
-				newRes, newExists := results[key]
-				// Find the old O object
-				oldRes, oldExists := h.collectionState.outputs[key]
-				e := Event[O]{}
-				if newExists && oldExists {
-					if Equal(newRes, oldRes) {
-						// NOP change, skip
-						continue
-					}
-					e.Event = controllers.EventUpdate
-					e.New = &newRes
-					e.Old = &oldRes
-					h.collectionState.outputs[key] = newRes
-				} else if newExists {
-					e.Event = controllers.EventAdd
-					e.New = &newRes
-					h.collectionState.outputs[key] = newRes
-				} else {
-					if !oldExists && EnableAssertions {
-						panic(fmt.Sprintf("!oldExists and !newExists in %s(%T), how did we get here? for output key %v input key %v", h.collectionName, h, key, iKey))
-					}
-					e.Event = controllers.EventDelete
-					e.Old = &oldRes
-					delete(h.collectionState.outputs, key)
-				}
-
-				for _, index := range h.indexes {
-					index.update(e, key)
-				}
-
-				if h.log.DebugEnabled() {
-					h.log.WithLabels("res", key, "type", e.Event).Debugf("handled")
-				}
-				events = append(events, e)
-			}
 		}
 	}
 	if EnableAssertions {
