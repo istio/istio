@@ -286,12 +286,10 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 }
 
 // Push is called to push changes on config updates using ADS. When
-// initializePushContext is false, an endpoint-only request reuses the current
-// push context instead of initializing a new one.
+// initializePushContext is false will reuse the current push context
+// instead of initializing a new one.
 func (s *DiscoveryServer) Push(req *model.PushRequest, initializePushContext bool) {
 	if !initializePushContext {
-		// Endpoint-only pushes do not change the push context. Reuse the current
-		// context instead of racing another push context initialization.
 		req.Push = s.globalPushContext()
 		s.dropCacheForRequest(req)
 		s.AdsPushAll(req)
