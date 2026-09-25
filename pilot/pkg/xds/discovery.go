@@ -195,7 +195,8 @@ func (s *DiscoveryServer) initJwksResolver() {
 	}
 	s.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval,
+	)
 
 	// Flush cached discovery responses when detecting jwt public key change.
 	s.JwtKeyResolver.PushFunc = func() {
@@ -284,8 +285,17 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 	}
 }
 
-// Push is called to push changes on config updates using ADS.
-func (s *DiscoveryServer) Push(req *model.PushRequest) {
+// Push is called to push changes on config updates using ADS. When
+// initializePushContext is false will reuse the current push context
+// instead of initializing a new one.
+func (s *DiscoveryServer) Push(req *model.PushRequest, initializePushContext bool) {
+	if !initializePushContext {
+		req.Push = s.globalPushContext()
+		s.dropCacheForRequest(req)
+		s.AdsPushAll(req)
+		return
+	}
+
 	// Reset the status during the push.
 	oldPushContext := s.globalPushContext()
 	if oldPushContext != nil {
@@ -352,7 +362,10 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 }
 
 // The debounce helper function is implemented to enable mocking
-func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceOptions, pushFn func(req *model.PushRequest), updateSent *atomic.Int64) {
+func debounce(
+	ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceOptions,
+	pushFn func(req *model.PushRequest, initializePushContext bool), updateSent *atomic.Int64,
+) {
 	var timeChan <-chan time.Time
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
@@ -367,7 +380,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceO
 	freeCh := make(chan struct{}, 1)
 
 	push := func(req *model.PushRequest, debouncedEvents int, startDebounce time.Time) {
-		pushFn(req)
+		pushFn(req, true)
 		updateSent.Add(int64(debouncedEvents))
 		debounceTime.Record(time.Since(startDebounce).Seconds())
 		freeCh <- struct{}{}
@@ -409,10 +422,10 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceO
 			if len(r.Reason) == 0 {
 				r.Reason = model.NewReasonStats(model.UnknownTrigger)
 			}
-			if !opts.enableEDSDebounce && model.OnlyHasConfigsOfKind(r.ConfigsUpdated, kind.Endpoints) {
+			if !opts.enableEDSDebounce && !r.Forced && model.OnlyHasConfigsOfKind(r.ConfigsUpdated, kind.Endpoints) {
 				// trigger push now, just for EDS
 				go func(req *model.PushRequest) {
-					pushFn(req)
+					pushFn(req, false)
 					updateSent.Inc()
 				}(r)
 				continue
