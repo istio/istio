@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"net/http"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -46,6 +47,9 @@ type clientFactory struct {
 	mapper   lazy.Lazy[meta.ResettableRESTMapper]
 
 	discoveryClient lazy.Lazy[discovery.CachedDiscoveryInterface]
+
+	// httpClient is shared by the clients built from this factory, so they use one connection pool.
+	httpClient lazy.Lazy[*http.Client]
 }
 
 // newClientFactory creates a new util.Factory from the given clientcmd.ClientConfig.
@@ -54,6 +58,13 @@ func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool) *clie
 		clientConfig: clientConfig,
 	}
 
+	out.httpClient = lazy.NewWithRetry(func() (*http.Client, error) {
+		restConfig, err := out.ToRESTConfig()
+		if err != nil {
+			return nil, err
+		}
+		return rest.HTTPClientFor(restConfig)
+	})
 	out.discoveryClient = lazy.NewWithRetry(func() (discovery.CachedDiscoveryInterface, error) {
 		restConfig, err := out.ToRESTConfig()
 		if err != nil {
@@ -70,7 +81,11 @@ func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool) *clie
 
 			return diskcached.NewCachedDiscoveryClientForConfig(restConfig, discoveryCacheDir, httpCacheDir, 6*time.Hour)
 		}
-		d, err := discovery.NewDiscoveryClientForConfig(restConfig)
+		httpClient, err := out.HTTPClient()
+		if err != nil {
+			return nil, err
+		}
+		d, err := discovery.NewDiscoveryClientForConfigAndClient(restConfig, httpClient)
 		if err != nil {
 			return nil, err
 		}
@@ -105,6 +120,11 @@ func (c *clientFactory) ToRESTConfig() (*rest.Config, error) {
 	return SetRestDefaults(restConfig), nil
 }
 
+// HTTPClient returns the HTTP client shared by the clients built from this factory.
+func (c *clientFactory) HTTPClient() (*http.Client, error) {
+	return c.httpClient.Get()
+}
+
 func (c *clientFactory) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
 	return c.discoveryClient.Get()
 }
@@ -134,8 +154,11 @@ func (c *clientFactory) DynamicClient() (dynamic.Interface, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return dynamic.NewForConfig(restConfig)
+	httpClient, err := c.HTTPClient()
+	if err != nil {
+		return nil, err
+	}
+	return dynamic.NewForConfigAndClient(restConfig, httpClient)
 }
 
 func (c *clientFactory) KubernetesClientSet() (*kubernetes.Clientset, error) {
@@ -143,7 +166,11 @@ func (c *clientFactory) KubernetesClientSet() (*kubernetes.Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kubernetes.NewForConfig(restConfig)
+	httpClient, err := c.HTTPClient()
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfigAndClient(restConfig, httpClient)
 }
 
 func (c *clientFactory) RESTClient() (*rest.RESTClient, error) {
@@ -151,7 +178,11 @@ func (c *clientFactory) RESTClient() (*rest.RESTClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return rest.RESTClientFor(clientConfig)
+	httpClient, err := c.HTTPClient()
+	if err != nil {
+		return nil, err
+	}
+	return rest.RESTClientForConfigAndClient(clientConfig, httpClient)
 }
 
 type rESTClientGetter interface {
