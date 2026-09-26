@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/workloadapi"
 	"istio.io/istio/tests/util/leak"
 )
@@ -47,6 +49,7 @@ type ambientclients struct {
 	pc    clienttest.TestClient[*corev1.Pod]
 	sc    clienttest.TestClient[*corev1.Service]
 	sec   clienttest.TestWriter[*corev1.Secret]
+	cm    clienttest.TestWriter[*corev1.ConfigMap]
 	ns    clienttest.TestWriter[*corev1.Namespace]
 	grc   clienttest.TestWriter[*k8sv1.Gateway]
 	gwcls clienttest.TestWriter[*k8sv1.GatewayClass]
@@ -450,6 +453,7 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
 				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
 				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
+				cm:    clienttest.NewWriter[*corev1.ConfigMap](t, cl),
 			},
 		})
 	})
@@ -474,6 +478,7 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 			pa:    s.pa,
 			authz: s.authz,
 			sec:   s.sec,
+			cm:    s.cm,
 		},
 	}
 	remoteClient.ns.Create(&corev1.Namespace{
@@ -565,7 +570,9 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	s := newAmbientTestServer(t, testC, testNW, "")
 	// Test that we're propagating the trust domain correctly
-	s.meshConfig.Mesh().TrustDomain = s.DomainSuffix
+	meshCfg := protomarshal.Clone(s.meshConfig.Mesh())
+	meshCfg.TrustDomain = s.DomainSuffix
+	s.meshConfig.(meshwatcher.TestWatcher).Set(meshCfg)
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
 	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 		cl := c.Client
@@ -582,6 +589,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
 				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
 				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
+				cm:    clienttest.NewWriter[*corev1.ConfigMap](t, cl),
 			},
 		})
 	})
@@ -606,6 +614,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			pa:    s.pa,
 			authz: s.authz,
 			sec:   s.sec,
+			cm:    s.cm,
 		},
 	}
 	remoteClient.ns.Create(&corev1.Namespace{
@@ -736,6 +745,44 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		}
 		if shwl.Workload.Capacity.GetValue() != 2 {
 			return fmt.Errorf("expected split horizon workload to have capacity 2, got %d", shwl.Workload.Capacity.GetValue())
+		}
+		return nil
+	})
+
+	// A cluster that has its own mesh config issues identities in its own trust domain, not ours.
+	remoteClient.cm.Create(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "istio",
+			Namespace: systemNS,
+		},
+		Data: map[string]string{"mesh": "trustDomain: remote.example.com"},
+	})
+	retry.UntilSuccessOrFail(t, func() error {
+		gwwl := s.workloads.GetKey("NetworkGateway/remote-network/172.0.1.2/0")
+		if gwwl == nil {
+			return fmt.Errorf("expected network gateway workload to exist, but it does not")
+		}
+		if gwwl.Workload.TrustDomain != "remote.example.com" {
+			return fmt.Errorf("expected network gateway workload to have trust domain remote.example.com, got %s",
+				gwwl.Workload.TrustDomain,
+			)
+		}
+		shwl := s.workloads.GetKey(splitHorizonName)
+		if shwl == nil {
+			return fmt.Errorf("expected split horizon workload to exist, but it does not")
+		}
+		if shwl.Workload.TrustDomain != "remote.example.com" {
+			return fmt.Errorf("expected split horizon workload to have trust domain remote.example.com, got %s",
+				shwl.Workload.TrustDomain,
+			)
+		}
+		svc := s.lookupService("ns1/svc2.ns1.svc.company.com")
+		if svc == nil {
+			return fmt.Errorf("service not found")
+		}
+		want := []string{"spiffe://remote.example.com/ns/ns1/sa/sa1"}
+		if !reflect.DeepEqual(svc.Service.SubjectAltNames, want) {
+			return fmt.Errorf("expected service subject alt names %v, got %v", want, svc.Service.SubjectAltNames)
 		}
 		return nil
 	})

@@ -403,6 +403,18 @@ func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
 		}
 	}
 
+	// ztunnel is not given the mesh config, but needs to know which trust domains to accept on inbound
+	// connections - the same set Envoy validates against.
+	for _, f := range []string{"trustDomainAliases", "caCertificates"} {
+		v, ok := base.GetPath("spec.meshConfig." + f)
+		if !ok {
+			continue
+		}
+		if err := base.SetPath("spec.values.ztunnel.meshConfig."+f, v); err != nil {
+			return nil, err
+		}
+	}
+
 	// Propagate component enablement to values. This is used for cross-chart dependencies.
 	if err := base.SetPath("spec.values.pilot.enabled", base.GetPathBool("spec.components.pilot.enabled")); err != nil {
 		return nil, err

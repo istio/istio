@@ -88,8 +88,8 @@ _internal_defaults_do_not_set:
     clusterName: ""
 
   # meshConfig defines runtime configuration of components.
-  # For ztunnel, only defaultConfig is used, but this is nested under `meshConfig` for consistency with other
-  # components.
+  # For ztunnel, only the accepted trust domains and defaultConfig are used, but this is nested under
+  # `meshConfig` for consistency with other components.
   # TODO: https://github.com/istio/istio/issues/43248
   meshConfig:
     defaultConfig:
