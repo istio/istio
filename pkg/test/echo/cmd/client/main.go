@@ -241,7 +241,7 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 				return nil, fmt.Errorf("invalid header format: %q (want name:value)", header)
 			}
 
-			request.DoubleHbone.Headers = append(request.Hbone.Headers, &proto.Header{
+			request.DoubleHbone.Headers = append(request.DoubleHbone.Headers, &proto.Header{
 				Key:   parts[0],
 				Value: strings.Trim(parts[1], " "),
 			})

@@ -17,7 +17,6 @@ package forwarder
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -30,7 +29,6 @@ import (
 
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
-	"golang.org/x/net/http2"
 
 	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
@@ -104,28 +102,34 @@ func newHTTP3TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 }
 
 func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
-	newConn := func() *http2.Transport {
+	newConn := func() *http.Transport {
+		transport := &http.Transport{Protocols: new(http.Protocols)}
 		if cfg.scheme == scheme.HTTPS {
-			return &http2.Transport{
-				TLSClientConfig: cfg.tlsConfig,
-				DialTLS: func(network, addr string, tlsConfig *tls.Config) (net.Conn, error) {
-					return hbone.TLSDialWithDialer(newDialer(cfg), network, addr, tlsConfig)
-				},
+			// Clone: net/http mutates TLSClientConfig.NextProtos when configuring HTTP/2, which
+			// would clobber an ALPN explicitly requested by the test.
+			transport.TLSClientConfig = cfg.tlsConfig.Clone()
+			transport.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// We negotiate ALPN ourselves here, so we must ask for "h2" explicitly.
+				return hbone.TLSDialWithDialer(newDialer(cfg), network, addr, hbone.H2ClientTLSConfig(cfg.tlsConfig, addr))
 			}
+			// net/http disables HTTP/2 by default when a custom TLS config or dialer is set.
+			transport.Protocols.SetHTTP2(true)
+			return transport
 		}
 
-		return &http2.Transport{
-			// Golang doesn't have first class support for h2c, so we provide some workarounds
-			// See https://www.mailgun.com/blog/http-2-cleartext-h2c-client-example-go/
-			// So http2.Transport doesn't complain the URL scheme isn't 'https'
-			AllowHTTP: true,
-			// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
-			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-				return newDialer(cfg).Dial(network, addr)
-			},
+		// Golang doesn't have first class support for h2c, so we provide some workarounds
+		// See https://www.mailgun.com/blog/http-2-cleartext-h2c-client-example-go/
+		// Note: this must be DialContext. net/http only calls DialTLSContext for https:// URLs,
+		// so using it here would silently bypass the configured dialer (HBONE, socks5, ...).
+		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return newDialer(cfg).DialContext(ctx, network, addr)
 		}
+		transport.Protocols.SetUnencryptedHTTP2(true)
+
+		return transport
 	}
-	closeFn := func(conn *http2.Transport) func() {
+
+	closeFn := func(conn *http.Transport) func() {
 		return conn.CloseIdleConnections
 	}
 	noCloseFn := func() {}

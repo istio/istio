@@ -15,9 +15,15 @@
 package hbone
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"net"
+	"net/http"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 func newTCPServer(t testing.TB, data string) string {
@@ -101,16 +107,163 @@ func TestDialer(t *testing.T) {
 }
 
 func newHBONEServer(t *testing.T) string {
+	return startHBONEServer(t, nil).addr
+}
+
+// testServer is an HBONE server that records what it saw on the last CONNECT it handled.
+type testServer struct {
+	addr   string
+	proto  atomic.Value // string, e.g. "HTTP/2.0"
+	header atomic.Value // http.Header
+}
+
+// startHBONEServer starts an HBONE server, over TLS if tlsConfig is non-nil.
+func startHBONEServer(t *testing.T, tlsConfig *tls.Config) *testServer {
+	t.Helper()
 	s := NewServer()
-	l, err := net.Listen("tcp", "0.0.0.0:0")
+	ts := &testServer{}
+	inner := s.Handler
+	s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ts.proto.Store(r.Proto)
+		ts.header.Store(r.Header.Clone())
+		inner.ServeHTTP(w, r)
+	})
+	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+	ts.addr = l.Addr().String()
+	serve := s.Serve
+	if tlsConfig != nil {
+		s.TLSConfig = tlsConfig
+		serve = func(l net.Listener) error { return s.ServeTLS(l, "", "") }
+	}
 	go func() {
-		_ = s.Serve(l)
+		_ = serve(l)
 	}()
 	t.Cleanup(func() {
 		_ = l.Close()
 	})
-	return l.Addr().String()
+	return ts
+}
+
+// newTestCerts returns a server TLS config and the pool needed to verify it. The certificate is
+// valid for "localhost" and 127.0.0.1.
+func newTestCerts(t *testing.T) (*tls.Config, *x509.CertPool) {
+	t.Helper()
+	certPem, keyPem, err := util.GenCertKeyFromOptions(util.CertOptions{
+		Host:         "localhost,127.0.0.1",
+		TTL:          time.Hour,
+		IsSelfSigned: true,
+		IsServer:     true,
+		Org:          "istio.io",
+		ECSigAlg:     util.EcdsaSigAlg,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := tls.X509KeyPair(certPem, keyPem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(certPem) {
+		t.Fatal("failed to build cert pool")
+	}
+	return &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}, pool
+}
+
+// alpnRecorder returns a VerifyConnection hook storing the ALPN protocol the client negotiated.
+func alpnRecorder(got *atomic.Value) func(tls.ConnectionState) error {
+	return func(cs tls.ConnectionState) error {
+		got.Store(cs.NegotiatedProtocol)
+		return nil
+	}
+}
+
+// checkTunnel verifies that a connection dialed through HBONE reaches the echo server.
+func checkTunnel(t *testing.T, c net.Conn) {
+	t.Helper()
+	buf := make([]byte, 8)
+	n, err := c.Read(buf)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if got := string(buf[:n]); got != "hello" {
+		t.Fatalf("got unexpected buffer: %q", got)
+	}
+}
+
+// HBONE requires HTTP/2 CONNECT. net/http silently downgrades to HTTP/1.1 unless the transport
+// opts in explicitly, so assert the protocol actually used on the wire.
+func TestDialerUsesHTTP2(t *testing.T) {
+	testAddr := newTCPServer(t, "hello")
+
+	t.Run("h2c", func(t *testing.T) {
+		proxy := startHBONEServer(t, nil)
+		d := NewDialer(Config{ProxyAddress: proxy.addr})
+		c, err := d.Dial("tcp", testAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer c.Close()
+		checkTunnel(t, c)
+		if got := proxy.proto.Load(); got != "HTTP/2.0" {
+			t.Fatalf("server saw %v, want HTTP/2.0", got)
+		}
+	})
+
+	t.Run("tls", func(t *testing.T) {
+		serverTLS, pool := newTestCerts(t)
+		proxy := startHBONEServer(t, serverTLS)
+		alpn := atomic.Value{}
+		d := NewDialer(Config{
+			ProxyAddress: proxy.addr,
+			TLS: &tls.Config{
+				RootCAs:          pool,
+				MinVersion:       tls.VersionTLS12,
+				VerifyConnection: alpnRecorder(&alpn),
+			},
+		})
+		c, err := d.Dial("tcp", testAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer c.Close()
+		checkTunnel(t, c)
+		if got := proxy.proto.Load(); got != "HTTP/2.0" {
+			t.Fatalf("server saw %v, want HTTP/2.0", got)
+		}
+		if got := alpn.Load(); got != "h2" {
+			t.Fatalf("client negotiated ALPN %v, want h2", got)
+		}
+	})
+}
+
+// The caller's tls.Config must not be mutated by the transport's HTTP/2 setup.
+func TestDialerDoesNotMutateTLSConfig(t *testing.T) {
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	NewDialer(Config{ProxyAddress: "127.0.0.1:15008", TLS: cfg})
+	if cfg.NextProtos != nil {
+		t.Fatalf("caller tls.Config was mutated: NextProtos=%v", cfg.NextProtos)
+	}
+}
+
+func TestDialerHeaders(t *testing.T) {
+	testAddr := newTCPServer(t, "hello")
+	proxy := startHBONEServer(t, nil)
+	d := NewDialer(Config{
+		ProxyAddress: proxy.addr,
+		Headers:      map[string][]string{"some-addition-metadata": {"test-value"}},
+	})
+	c, err := d.Dial("tcp", testAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	checkTunnel(t, c)
+	hdr, _ := proxy.header.Load().(http.Header)
+	if got := hdr.Get("some-addition-metadata"); got != "test-value" {
+		t.Fatalf("got header %q, want test-value (headers: %v)", got, hdr)
+	}
 }
