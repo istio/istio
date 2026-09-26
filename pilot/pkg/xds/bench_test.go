@@ -283,6 +283,7 @@ var wdsCases = []ConfigInput{
 		Services:         100,
 		Instances:        1000,
 		KubernetesClient: true,
+		ProxyType:        model.Ztunnel,
 		PushRequest: &model.PushRequest{
 			Reason: model.NewReasonStats(model.ProxyRequest),
 			Forced: true,
