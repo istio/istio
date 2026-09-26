@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** support for physical AWS zone IDs in Kubernetes workload locality for sidecar and
+  ambient modes. Istio prefers nonempty canonical `topology.k8s.aws/zone-id` node labels when
+  present. `PILOT_ENABLE_AWS_ZONE_ID` defaults to `true`.
+upgradeNotes:
+- title: Use AWS zone IDs for locality
+  content: |
+    Select `compatibilityVersion=1.31` or an earlier available profile to keep zone names. You can
+    also set `PILOT_ENABLE_AWS_ZONE_ID=false` on Istiod. For Helm overrides, use
+    `pilot.env.PILOT_ENABLE_AWS_ZONE_ID`.
+
+    Check node label coverage before using zone IDs. EKS supplies `topology.k8s.aws/zone-id` from
+    version 1.30.
