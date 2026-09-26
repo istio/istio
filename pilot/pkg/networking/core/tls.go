@@ -18,6 +18,8 @@ import (
 	"sort"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/tunnelingconfig"
@@ -229,7 +231,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			sniHosts:         sniHosts,
 			destinationCIDRs: destinationCIDRs,
 			networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply, false, service),
+				listenPort, destinationRule, tunnelingconfig.Apply, false, service, types.NamespacedName{}),
 		})
 	}
 
@@ -339,7 +341,7 @@ TcpLoop:
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: destinationCIDRs,
 			networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply, false, service),
+				listenPort, destinationRule, tunnelingconfig.Apply, false, service, types.NamespacedName{}),
 		})
 	}
 
