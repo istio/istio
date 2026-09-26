@@ -16,6 +16,7 @@ package util
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -24,7 +25,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/http"
+	"istio.io/istio/pkg/envoy/admin"
 )
 
 const (
@@ -76,7 +77,7 @@ func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, bool, e
 
 	hostPort := net.JoinHostPort(localHostAddr, strconv.Itoa(int(adminPort)))
 	readinessURL := fmt.Sprintf("http://%s/stats?usedonly&filter=%s", hostPort, readyStatsRegex)
-	stats, err := http.DoHTTPGetWithTimeout(readinessURL, readinessTimeout)
+	stats, err := admin.Do(context.Background(), "GET", readinessURL, "", readinessTimeout)
 	if err != nil {
 		return nil, false, err
 	}
@@ -108,7 +109,7 @@ func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error
 	}
 
 	hostPort := net.JoinHostPort(localHostAddr, strconv.Itoa(int(adminPort)))
-	stats, err := http.DoHTTPGet(fmt.Sprintf("http://%s/stats?usedonly&filter=%s", hostPort, updateStatsRegex))
+	stats, err := admin.Do(context.Background(), "GET", fmt.Sprintf("http://%s/stats?usedonly&filter=%s", hostPort, updateStatsRegex), "", time.Second)
 	if err != nil {
 		return nil, err
 	}

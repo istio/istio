@@ -16,12 +16,12 @@ package app
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pilot/pkg/request"
+	"istio.io/istio/pkg/envoy/admin"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -50,17 +50,28 @@ var (
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			transport, err := admin.FromEnvironment()
+			if err != nil {
+				return err
+			}
+			if debugRequestPort != 15000 {
+				transport = admin.TCP
+			}
+			client, err := admin.NewClient(transport, admin.SocketPath, 60*time.Second)
+			if err != nil {
+				return err
+			}
+			defer client.CloseIdleConnections()
 			command := &request.Command{
-				Address: fmt.Sprintf("localhost:%d", debugRequestPort),
-				Client: &http.Client{
-					Timeout: 60 * time.Second,
-				},
+				Address:      fmt.Sprintf("localhost:%d", debugRequestPort),
+				Client:       client,
+				StrictStatus: transport == admin.UDS,
 			}
 			body := ""
 			if len(args) >= 3 {
 				body = args[2]
 			}
-			return command.Do(args[0], args[1], body)
+			return command.DoContext(c.Context(), args[0], args[1], body)
 		},
 	}
 )
