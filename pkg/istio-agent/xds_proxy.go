@@ -37,6 +37,8 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/config/constants"
+	dnsutil "istio.io/istio/pkg/dns"
+	dnsClient "istio.io/istio/pkg/dns/client"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
@@ -68,6 +70,12 @@ var connectionNumber = atomic.NewUint32(0)
 // resource.
 type ResponseHandler func(resp *anypb.Any) error
 
+// DeltaResponseHandler handles internal delta xDS responses and stream restarts.
+type DeltaResponseHandler interface {
+	OnStreamStart()
+	Handle(resources []*discovery.Resource, removed []string) error
+}
+
 // XdsProxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
 // The goal here is to consolidate all xds related connections to istiod/envoy into a
@@ -84,6 +92,7 @@ type XdsProxy struct {
 	optsMutex            sync.RWMutex
 	dialOptions          []grpc.DialOption
 	handlers             map[string]ResponseHandler
+	deltaHandlers        map[string]DeltaResponseHandler
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
@@ -138,6 +147,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		istiodSAN:             ia.cfg.IstiodSAN,
 		clusterID:             ia.secOpts.ClusterID,
 		handlers:              map[string]ResponseHandler{},
+		deltaHandlers:         map[string]DeltaResponseHandler{},
 		stopChan:              make(chan struct{}),
 		healthChecker:         health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
 		xdsHeaders:            ia.cfg.XDSHeaders,
@@ -149,16 +159,9 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	if ia.localDNSServer != nil {
-		proxy.handlers[model.NameTableType] = func(resp *anypb.Any) error {
-			var nt dnsProto.NameTable
-			if err := resp.UnmarshalTo(&nt); err != nil {
-				log.Errorf("failed to unmarshal name table: %v", err)
-				return err
-			}
-			ia.localDNSServer.UpdateLookupTable(&nt)
-			return nil
-		}
+		proxy.handlers[model.NameTableType] = ia.handleNDSResponse
 	}
+	registerDeltaNDSHandler(proxy, ia)
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
 		proxy.handlers[model.ProxyConfigType] = func(resp *anypb.Any) error {
 			pc := &meshconfig.ProxyConfig{}
@@ -213,6 +216,19 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}, proxy.stopChan)
 
 	return proxy, nil
+}
+
+func (a *Agent) handleNDSResponse(resp *anypb.Any) error {
+	var nt dnsProto.NameTable
+	if err := resp.UnmarshalTo(&nt); err != nil {
+		log.Errorf("failed to unmarshal name table: %v", err)
+		return err
+	}
+	if nt.GetNameInfo() != nil {
+		return fmt.Errorf("legacy NDS handler received a named resource")
+	}
+	a.localDNSServer.UpdateLookupTable(&nt)
+	return nil
 }
 
 // sendHealthCheckRequest sends a request to the currently connected proxy. Additionally, on any reconnection
@@ -588,6 +604,93 @@ func (p *XdsProxy) close() {
 	if p.downstreamListener != nil {
 		_ = p.downstreamListener.Close()
 	}
+}
+
+func registerDeltaNDSHandler(p *XdsProxy, ia *Agent) {
+	if ia.localDNSServer != nil && ia.cfg.DeltaNDS {
+		p.deltaHandlers[model.NameTableType] = &ndsDeltaHandler{dnsServer: ia.localDNSServer}
+	}
+}
+
+// ndsDeltaHandler accepts both the legacy full table and named incremental resources.
+type ndsDeltaHandler struct {
+	dnsServer    *dnsClient.LocalDNSServer
+	needsRebuild bool
+	mu           sync.Mutex
+}
+
+func (h *ndsDeltaHandler) OnStreamStart() {
+	h.mu.Lock()
+	h.needsRebuild = true
+	h.mu.Unlock()
+}
+
+func (h *ndsDeltaHandler) Handle(resources []*discovery.Resource, removed []string) (retErr error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	defer func() {
+		if retErr != nil && h.needsRebuild {
+			// Match delta EDS NACK handling by retaining accepted state and applying later responses as deltas.
+			h.needsRebuild = false
+		}
+	}()
+
+	if len(resources) > 0 && resources[0] != nil && resources[0].Name == "" {
+		if len(resources) != 1 {
+			return fmt.Errorf("legacy NDS response contained %d unnamed resources", len(resources))
+		}
+		if resources[0] == nil || resources[0].Resource == nil {
+			return fmt.Errorf("legacy NDS response contained an empty resource")
+		}
+		var table dnsProto.NameTable
+		if err := resources[0].Resource.UnmarshalTo(&table); err != nil {
+			return err
+		}
+		h.dnsServer.UpdateLookupTable(&table)
+		h.needsRebuild = false
+		return nil
+	}
+
+	added := make(map[string]*dnsProto.NameTable_NameInfo, len(resources))
+	fullSnapshot := false
+	for _, resource := range resources {
+		if resource == nil || resource.Resource == nil {
+			return fmt.Errorf("named NDS response contained an empty resource")
+		}
+		if resource.Name == dnsutil.FullSnapshotResourceName {
+			if fullSnapshot {
+				return fmt.Errorf("named NDS response contained duplicate full-snapshot markers")
+			}
+			var marker dnsProto.NameTable
+			if err := resource.Resource.UnmarshalTo(&marker); err != nil {
+				return err
+			}
+			if marker.GetNameInfo() != nil || len(marker.GetTable()) != 0 {
+				return fmt.Errorf("named NDS full-snapshot marker contained DNS entries")
+			}
+			fullSnapshot = true
+			continue
+		}
+		if resource.Name == "" {
+			return fmt.Errorf("named NDS response contained an unnamed resource")
+		}
+		var table dnsProto.NameTable
+		if err := resource.Resource.UnmarshalTo(&table); err != nil {
+			return err
+		}
+		if table.GetNameInfo() == nil {
+			return fmt.Errorf("NDS resource %q has no name_info", resource.Name)
+		}
+		added[resource.Name] = table.GetNameInfo()
+	}
+
+	if fullSnapshot || h.needsRebuild {
+		h.dnsServer.RebuildExact(added)
+		h.needsRebuild = false
+	} else {
+		h.dnsServer.ApplyDelta(added, removed)
+	}
+	return nil
 }
 
 func (p *XdsProxy) initDownstreamServer() error {

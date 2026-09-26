@@ -49,7 +49,11 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	dnsutil "istio.io/istio/pkg/dns"
+	dnsClient "istio.io/istio/pkg/dns/client"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
+	pkgmodel "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -256,6 +260,78 @@ func setupXdsProxyWithDownstreamOptions(t *testing.T, opts []grpc.ServerOption) 
 	ia.xdsProxy = proxy
 
 	return proxy
+}
+
+func TestNDSDeltaHandlerRegistrationIsGated(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("enabled=%v", enabled), func(t *testing.T) {
+			proxy := &XdsProxy{
+				handlers:      map[string]ResponseHandler{},
+				deltaHandlers: map[string]DeltaResponseHandler{},
+			}
+			agent := &Agent{
+				cfg:            &AgentOptions{DeltaNDS: enabled},
+				localDNSServer: &dnsClient.LocalDNSServer{},
+			}
+			registerDeltaNDSHandler(proxy, agent)
+			_, found := proxy.deltaHandlers[pkgmodel.NameTableType]
+			if found != enabled {
+				t.Fatalf("delta NDS handler registration = %v, want %v", found, enabled)
+			}
+		})
+	}
+}
+
+func TestLegacyNDSHandlerRejectsNamedResource(t *testing.T) {
+	dnsServer := &dnsClient.LocalDNSServer{}
+	agent := &Agent{localDNSServer: dnsServer}
+	legacy := &dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{
+		"svc.default.svc.cluster.local": {Ips: []string{"10.0.0.1"}},
+	}}
+	if err := agent.handleNDSResponse(protoconv.MessageToAny(legacy)); err != nil {
+		t.Fatal(err)
+	}
+
+	named := &dnsProto.NameTable{NameInfo: &dnsProto.NameTable_NameInfo{Ips: []string{"10.0.0.2"}}}
+	if err := agent.handleNDSResponse(protoconv.MessageToAny(named)); err == nil {
+		t.Fatal("legacy handler accepted a named NDS resource")
+	}
+	if dnsServer.NameTable().GetTable()["svc.default.svc.cluster.local"] == nil {
+		t.Fatal("rejected named resource replaced the legacy table")
+	}
+}
+
+func TestGetDNSTableDoesNotReexpandExactNames(t *testing.T) {
+	dnsServer := &dnsClient.LocalDNSServer{}
+	dnsServer.RebuildExact(map[string]*dnsProto.NameTable_NameInfo{
+		"reviews.default.svc.cluster.local": {
+			Ips:       []string{"10.0.0.1"},
+			Registry:  "Kubernetes",
+			Shortname: "reviews",
+			Namespace: "default",
+		},
+		"reviews": {Ips: []string{"192.0.2.1"}},
+	})
+
+	table := (&Agent{localDNSServer: dnsServer}).GetDNSTable().GetTable()
+	if got := table["reviews"].GetIps(); len(got) != 1 || got[0] != "192.0.2.1" {
+		t.Fatalf("reviews = %v, want the exact ServiceEntry", got)
+	}
+	if _, found := table["reviews."]; found {
+		t.Fatal("exact debug table contains a re-expanded dotted alias")
+	}
+}
+
+func TestGetDNSTableExpandsLegacyNames(t *testing.T) {
+	dnsServer := &dnsClient.LocalDNSServer{}
+	dnsServer.UpdateLookupTable(&dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{
+		"example.com": {Ips: []string{"192.0.2.1"}},
+	}})
+
+	table := (&Agent{localDNSServer: dnsServer}).GetDNSTable().GetTable()
+	if _, found := table["example.com."]; !found {
+		t.Fatal("legacy debug table does not contain the expanded dotted name")
+	}
 }
 
 func setDialOptions(p *XdsProxy, l *bufconn.Listener) {
@@ -611,4 +687,199 @@ func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 
 func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
 	return setupDownstreamConnectionUDS(t, proxy.xdsUdsPath)
+}
+
+func TestNDSDeltaHandler(t *testing.T) {
+	named := func(name, ip string) *discovery.Resource {
+		return &discovery.Resource{
+			Name: name,
+			Resource: protoconv.MessageToAny(&dnsProto.NameTable{NameInfo: &dnsProto.NameTable_NameInfo{
+				Ips: []string{ip}, Registry: "Kubernetes",
+			}}),
+		}
+	}
+	fullSnapshot := func() *discovery.Resource {
+		return &discovery.Resource{
+			Name:     dnsutil.FullSnapshotResourceName,
+			Resource: protoconv.MessageToAny(&dnsProto.NameTable{}),
+		}
+	}
+	legacy := func(table map[string]*dnsProto.NameTable_NameInfo) *discovery.Resource {
+		return &discovery.Resource{Resource: protoconv.MessageToAny(&dnsProto.NameTable{Table: table})}
+	}
+	newHandler := func() (*ndsDeltaHandler, *dnsClient.LocalDNSServer) {
+		dnsServer := &dnsClient.LocalDNSServer{}
+		return &ndsDeltaHandler{dnsServer: dnsServer}, dnsServer
+	}
+
+	t.Run("initial response replaces and later responses apply deltas", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		h.OnStreamStart()
+		if err := h.Handle([]*discovery.Resource{named("svc-a.default.svc.cluster.local", "10.0.0.1")}, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := h.Handle([]*discovery.Resource{named("svc-b.default.svc.cluster.local", "10.0.0.2")}, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := h.Handle(nil, []string{"svc-a.default.svc.cluster.local"}); err != nil {
+			t.Fatal(err)
+		}
+		got := dnsServer.NameTable().GetTable()
+		if got["svc-a.default.svc.cluster.local"] != nil || got["svc-b.default.svc.cluster.local"] == nil {
+			t.Fatalf("unexpected accumulated delta state: %v", got)
+		}
+	})
+
+	t.Run("reconnect response purges stale names", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		h.OnStreamStart()
+		if err := h.Handle([]*discovery.Resource{
+			named("svc-a.default.svc.cluster.local", "10.0.0.1"),
+			named("svc-b.default.svc.cluster.local", "10.0.0.2"),
+		}, nil); err != nil {
+			t.Fatal(err)
+		}
+		h.OnStreamStart()
+		if err := h.Handle([]*discovery.Resource{named("svc-a.default.svc.cluster.local", "10.0.0.1")}, nil); err != nil {
+			t.Fatal(err)
+		}
+		got := dnsServer.NameTable().GetTable()
+		if got["svc-a.default.svc.cluster.local"] == nil || got["svc-b.default.svc.cluster.local"] != nil {
+			t.Fatalf("reconnect did not replace the previous snapshot: %v", got)
+		}
+	})
+
+	t.Run("rejected reconnect snapshot retains accepted state", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		h.OnStreamStart()
+		if err := h.Handle([]*discovery.Resource{
+			named("svc-a.default.svc.cluster.local", "10.0.0.1"),
+			named("svc-b.default.svc.cluster.local", "10.0.0.2"),
+		}, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		h.OnStreamStart()
+		if err := h.Handle([]*discovery.Resource{{
+			Name:     "broken.default.svc.cluster.local",
+			Resource: protoconv.MessageToAny(&dnsProto.NameTable{}),
+		}}, nil); err == nil {
+			t.Fatal("expected malformed snapshot to be rejected")
+		}
+		if h.needsRebuild {
+			t.Fatal("rejected snapshot left the next delta marked as a replacement")
+		}
+		if err := h.Handle([]*discovery.Resource{
+			named("svc-c.default.svc.cluster.local", "10.0.0.3"),
+		}, nil); err != nil {
+			t.Fatal(err)
+		}
+		got := dnsServer.NameTable().GetTable()
+		if len(got) != 3 || got["svc-a.default.svc.cluster.local"] == nil ||
+			got["svc-b.default.svc.cluster.local"] == nil || got["svc-c.default.svc.cluster.local"] == nil {
+			t.Fatalf("delta did not preserve the accepted table: %v", got)
+		}
+	})
+
+	t.Run("full snapshot removes names retained after rejected reconnect", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		h.OnStreamStart()
+		if err := h.Handle([]*discovery.Resource{
+			named("svc-a.default.svc.cluster.local", "10.0.0.1"),
+			named("svc-b.default.svc.cluster.local", "10.0.0.2"),
+		}, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		h.OnStreamStart()
+		if err := h.Handle([]*discovery.Resource{{
+			Name:     "broken.default.svc.cluster.local",
+			Resource: protoconv.MessageToAny(&dnsProto.NameTable{}),
+		}}, nil); err == nil {
+			t.Fatal("expected malformed snapshot to be rejected")
+		}
+		if err := h.Handle([]*discovery.Resource{
+			named("svc-a.default.svc.cluster.local", "10.0.0.1"),
+			fullSnapshot(),
+		}, nil); err != nil {
+			t.Fatal(err)
+		}
+		got := dnsServer.NameTable().GetTable()
+		if len(got) != 1 || got["svc-a.default.svc.cluster.local"] == nil {
+			t.Fatalf("full snapshot retained stale DNS names: %v", got)
+		}
+	})
+
+	t.Run("retired stream cannot publish after reconnect", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		oldConnection := &ProxyConnection{}
+		newConnection := &ProxyConnection{}
+		proxy := &XdsProxy{
+			connected:     oldConnection,
+			deltaHandlers: map[string]DeltaResponseHandler{pkgmodel.NameTableType: h},
+		}
+		if !proxy.startDeltaResponseHandlers(oldConnection) {
+			t.Fatal("old connection was not initially active")
+		}
+		oldResponse := &discovery.DeltaDiscoveryResponse{
+			TypeUrl: pkgmodel.NameTableType,
+			Resources: []*discovery.Resource{
+				named("old.default.svc.cluster.local", "10.0.0.1"),
+			},
+		}
+		if active, err := proxy.applyDeltaResponse(oldConnection, h, oldResponse); err != nil || !active {
+			t.Fatalf("initial response failed: active=%v err=%v", active, err)
+		}
+
+		proxy.connected = newConnection
+		if !proxy.startDeltaResponseHandlers(newConnection) {
+			t.Fatal("new connection was not active")
+		}
+		newResponse := &discovery.DeltaDiscoveryResponse{
+			TypeUrl: pkgmodel.NameTableType,
+			Resources: []*discovery.Resource{
+				named("new.default.svc.cluster.local", "10.0.0.2"),
+			},
+		}
+		if active, err := proxy.applyDeltaResponse(newConnection, h, newResponse); err != nil || !active {
+			t.Fatalf("new response failed: active=%v err=%v", active, err)
+		}
+		if active, err := proxy.applyDeltaResponse(oldConnection, h, oldResponse); err != nil || active {
+			t.Fatalf("retired response was not discarded: active=%v err=%v", active, err)
+		}
+
+		got := dnsServer.NameTable().GetTable()
+		if got["old.default.svc.cluster.local"] != nil || got["new.default.svc.cluster.local"] == nil {
+			t.Fatalf("retired stream changed DNS state: %v", got)
+		}
+	})
+
+	t.Run("legacy unnamed response remains a full replacement", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		h.OnStreamStart()
+		if err := h.Handle([]*discovery.Resource{named("svc-a.default.svc.cluster.local", "10.0.0.1")}, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := h.Handle([]*discovery.Resource{legacy(map[string]*dnsProto.NameTable_NameInfo{
+			"svc-b.default.svc.cluster.local": {Ips: []string{"10.0.0.2"}, Registry: "Kubernetes"},
+		})}, nil); err != nil {
+			t.Fatal(err)
+		}
+		got := dnsServer.NameTable().GetTable()
+		if got["svc-a.default.svc.cluster.local"] != nil || got["svc-b.default.svc.cluster.local"] == nil {
+			t.Fatalf("legacy response did not replace the previous snapshot: %v", got)
+		}
+	})
+
+	t.Run("named resource requires name info", func(t *testing.T) {
+		h, _ := newHandler()
+		h.OnStreamStart()
+		err := h.Handle([]*discovery.Resource{{
+			Name:     "broken.default.svc.cluster.local",
+			Resource: protoconv.MessageToAny(&dnsProto.NameTable{}),
+		}}, nil)
+		if err == nil {
+			t.Fatal("expected malformed named resource to be rejected")
+		}
+	})
 }
