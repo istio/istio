@@ -491,6 +491,44 @@ func TestMeshDataplaneRemovePodIPFromHostNSIPSetsIgnoresEntriesWithMismatchedUID
 	fakeIPSetDeps.AssertExpectations(t)
 }
 
+func TestMeshDataplaneRemovePodIPFromHostNSIPSetsFallsBackToUID(t *testing.T) {
+	pod := buildConvincingPod(false)
+	pod.Status.PodIP = ""
+	pod.Status.PodIPs = nil
+
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	ipsetInstance := ipset.IPSet{V4Name: "foo-v4", V6Name: "foo-v6", Prefix: "foo", Deps: fakeIPSetDeps}
+	setWrapper := set.NewIPSetWrapper(ipsetInstance)
+	fakeIPSetDeps.On("clearEntriesWithComment", "foo-v4", string(pod.UID)).Return(nil)
+	fakeIPSetDeps.On("clearEntriesWithComment", "foo-v6", string(pod.UID)).Return(nil)
+
+	dp := &meshDataplane{hostAddrSet: setWrapper}
+	err := dp.removePodFromHostAddrSet(pod)
+	assert.NoError(t, err)
+	fakeIPSetDeps.AssertExpectations(t)
+}
+
+func TestForgetBranchENIRoutesForPod(t *testing.T) {
+	podIP1 := netip.MustParseAddr("10.0.0.1")
+	podIP2 := netip.MustParseAddr("10.0.0.2")
+	podIP3 := netip.MustParseAddr("10.0.0.3")
+	dp := &meshDataplane{
+		branchENIRules: map[netip.Addr]branchENIRouteEntry{
+			podIP1: {podUID: "pod-1", route: &branchENIRoute{table: 1}},
+			podIP2: {podUID: "pod-1", route: &branchENIRoute{table: 2}},
+			podIP3: {podUID: "pod-2", route: &branchENIRoute{table: 3}},
+		},
+	}
+
+	forgotten := dp.forgetBranchENIRoutesForPod("pod-1")
+	assert.Equal(t, len(forgotten), 2)
+	assert.Equal(t, forgotten[podIP1].table, 1)
+	assert.Equal(t, forgotten[podIP2].table, 2)
+	assert.Equal(t, len(dp.branchENIRules), 1)
+	assert.Equal(t, dp.branchENIRules[podIP3].podUID, "pod-2")
+	assert.Equal(t, dp.branchENIRules[podIP3].route.table, 3)
+}
+
 func TestMeshDataplaneSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 	pod := buildConvincingPod(false)
 
@@ -731,6 +769,10 @@ func expectPodAddedToIPSet(ipsetDeps *ipset.MockedIpsetDeps, podIP netip.Addr, p
 }
 
 func expectPodRemovedFromIPSet(ipsetDeps *ipset.MockedIpsetDeps, podUID string, podIPs []corev1.PodIP) {
+	if len(podIPs) == 0 {
+		ipsetDeps.On("clearEntriesWithComment", "foo-v4", podUID).Return(nil)
+		return
+	}
 	for _, ip := range podIPs {
 		ipsetDeps.On("clearEntriesWithIPAndComment",
 			"foo-v4",
