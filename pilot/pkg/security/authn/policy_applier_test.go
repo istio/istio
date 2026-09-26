@@ -955,10 +955,10 @@ func TestJwtFilter(t *testing.T) {
 
 	defer push.JwtKeyResolver.Close()
 
-	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
-	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
+	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string][]*model.Service{}
+	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = []*model.Service{{
 		Hostname: "jwt-token-issuer.mesh.svc.cluster.local",
-	}
+	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			istiotest.SetForTest(t, &features.JwksFetchMode, c.jwksFetchMode)
