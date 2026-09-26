@@ -15,19 +15,24 @@
 package bootstrap
 
 import (
+	"context"
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/security/pkg/pki/ca"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
 
 const testNamespace = "istio-system"
@@ -85,6 +90,179 @@ func TestCheckCABundleCompleteness(t *testing.T) {
 	g.Expect(err).Should(BeNil())
 	g.Expect(signingCABundleComplete).Should(Equal(true))
 	g.Expect(bundleExists).Should(Equal(true))
+}
+
+func TestCreateIstioCADisableSelfSignedCA(t *testing.T) {
+	pluggedCerts := []string{"ca-cert.pem", "ca-key.pem", "cert-chain.pem", "root-cert.pem"}
+	cases := []struct {
+		name                string
+		disableSelfSigned   bool
+		useCacertsForSelfCA bool
+		cacertsFiles        []string
+		istioGenerated      bool
+		expectErr           string
+	}{
+		{
+			name:              "self-signed allowed, no cacerts",
+			disableSelfSigned: false,
+		},
+		{
+			name:              "self-signed disabled, no cacerts",
+			disableSelfSigned: true,
+			expectErr:         "self-signed Istio CA is disabled",
+		},
+		{
+			name:              "self-signed disabled, plugged cacerts",
+			disableSelfSigned: true,
+			cacertsFiles:      pluggedCerts,
+		},
+		{
+			name:                "self-signed disabled, istio-generated cacerts with USE_CACERTS_FOR_SELF_SIGNED_CA",
+			disableSelfSigned:   true,
+			useCacertsForSelfCA: true,
+			cacertsFiles:        pluggedCerts,
+			istioGenerated:      true,
+			expectErr:           "self-signed Istio CA is disabled",
+		},
+		{
+			name:              "self-signed disabled, istio-generated cacerts without USE_CACERTS_FOR_SELF_SIGNED_CA",
+			disableSelfSigned: true,
+			cacertsFiles:      pluggedCerts,
+			istioGenerated:    true,
+		},
+		{
+			name:              "self-signed disabled, incomplete cacerts",
+			disableSelfSigned: true,
+			cacertsFiles:      []string{"ca-cert.pem", "cert-chain.pem", "root-cert.pem"},
+			expectErr:         "incomplete signing CA bundle",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			dir := t.TempDir()
+			test.SetEnvForTest(t, "ROOT_CA_DIR", dir)
+			test.SetForTest(t, &features.DisableSelfSignedCA, tt.disableSelfSigned)
+			test.SetForTest(t, &features.UseCacertsForSelfSignedCA, tt.useCacertsForSelfCA)
+
+			for _, f := range tt.cacertsFiles {
+				b, err := readSampleCertFromFile(f)
+				g.Expect(err).Should(BeNil())
+				g.Expect(os.WriteFile(path.Join(dir, f), b, 0o600)).Should(Succeed())
+			}
+			if tt.istioGenerated {
+				g.Expect(os.WriteFile(path.Join(dir, ca.IstioGenerated), []byte{}, 0o600)).Should(Succeed())
+			}
+
+			s := &Server{
+				internalStop:            make(chan struct{}),
+				istiodCertBundleWatcher: keycertbundle.NewWatcher(),
+			}
+			t.Cleanup(func() {
+				close(s.internalStop)
+				if s.cacertsWatcher != nil {
+					_ = s.cacertsWatcher.Close()
+				}
+			})
+
+			istioCA, err := s.createIstioCA(&caOptions{Namespace: testNamespace, TrustDomain: "cluster.local"})
+			if tt.expectErr != "" {
+				g.Expect(err).Should(MatchError(ContainSubstring(tt.expectErr)))
+				g.Expect(istioCA).Should(BeNil())
+				return
+			}
+			g.Expect(err).Should(BeNil())
+			g.Expect(istioCA).ShouldNot(BeNil())
+			g.Expect(istioCA.GetCAKeyCertBundle().GetRootCertPem()).ShouldNot(BeEmpty())
+		})
+	}
+}
+
+func TestCreateIstioCADisableSelfSignedCAWithKubeSecret(t *testing.T) {
+	cases := []struct {
+		name              string
+		disableSelfSigned bool
+		existingSecret    bool
+		expectErr         bool
+	}{
+		{
+			name:              "self-signed allowed, generates istio-ca-secret",
+			disableSelfSigned: false,
+		},
+		{
+			name:              "self-signed allowed, reuses istio-ca-secret",
+			disableSelfSigned: false,
+			existingSecret:    true,
+		},
+		{
+			name:              "self-signed disabled, does not generate istio-ca-secret",
+			disableSelfSigned: true,
+			expectErr:         true,
+		},
+		{
+			name:              "self-signed disabled, does not reuse istio-ca-secret",
+			disableSelfSigned: true,
+			existingSecret:    true,
+			expectErr:         true,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			test.SetEnvForTest(t, "ROOT_CA_DIR", t.TempDir())
+			test.SetForTest(t, &features.DisableSelfSignedCA, tt.disableSelfSigned)
+
+			client := kube.NewFakeClient()
+			client.RunAndWait(test.NewStop(t))
+			secrets := client.Kube().CoreV1().Secrets(testNamespace)
+			var existingCert []byte
+			if tt.existingSecret {
+				cert, key, err := pkiutil.GenCertKeyFromOptions(pkiutil.CertOptions{
+					TTL:          time.Hour,
+					Org:          "cluster.local",
+					IsCA:         true,
+					IsSelfSigned: true,
+					RSAKeySize:   2048,
+				})
+				g.Expect(err).Should(BeNil())
+				existingCert = cert
+				_, err = secrets.Create(context.Background(), &v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: ca.CASecret, Namespace: testNamespace},
+					Data: map[string][]byte{
+						ca.CACertFile:       cert,
+						ca.CAPrivateKeyFile: key,
+					},
+				}, metav1.CreateOptions{})
+				g.Expect(err).Should(BeNil())
+			}
+
+			s := &Server{
+				kubeClient:              client,
+				internalStop:            make(chan struct{}),
+				istiodCertBundleWatcher: keycertbundle.NewWatcher(),
+			}
+			t.Cleanup(func() { close(s.internalStop) })
+
+			istioCA, err := s.createIstioCA(&caOptions{Namespace: testNamespace, TrustDomain: "cluster.local"})
+			secret, _ := secrets.Get(context.Background(), ca.CASecret, metav1.GetOptions{})
+			if tt.expectErr {
+				g.Expect(err).Should(MatchError(ContainSubstring("self-signed Istio CA is disabled")))
+				g.Expect(istioCA).Should(BeNil())
+				if !tt.existingSecret {
+					g.Expect(secret.GetName()).Should(BeEmpty(), "istio-ca-secret should not be created")
+				}
+				return
+			}
+			g.Expect(err).Should(BeNil())
+			g.Expect(secret).ShouldNot(BeNil())
+			root := istioCA.GetCAKeyCertBundle().GetRootCertPem()
+			if tt.existingSecret {
+				g.Expect(root).Should(Equal(existingCert))
+			} else {
+				g.Expect(root).Should(Equal(secret.Data[ca.CACertFile]))
+			}
+		})
+	}
 }
 
 func TestRemoteCerts(t *testing.T) {
