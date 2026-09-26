@@ -146,7 +146,7 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			}
 
 			// Test RDS
-			gotRDS := rdsNeedsPush(req, proxy)
+			_, gotRDS := rdsNeedsPush(req, proxy)
 			if gotRDS != tt.expectRDS {
 				t.Errorf("rdsNeedsPush() = %v, want %v", gotRDS, tt.expectRDS)
 			}

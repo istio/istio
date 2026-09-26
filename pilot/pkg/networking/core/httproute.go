@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -108,6 +109,126 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 		return routeConfigurations, model.DefaultXdsLogDetails
 	}
 	return routeConfigurations, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", hit, hit+miss)}
+}
+
+// rdsDeltaConfigTypes are the config kinds delta RDS knows how to map to the specific watched
+// route names they can affect. Any update containing a kind outside this set falls back to a
+// full rebuild of every watched route, since we cannot precisely bound the impact.
+var rdsDeltaConfigTypes = sets.New(kind.ServiceEntry, kind.VirtualService, kind.DestinationRule)
+
+// shouldUseDeltaRoutes decides whether BuildDeltaHTTPRoutes can compute a precise delta for this
+// push, or must fall back to rebuilding every route the proxy currently watches.
+func shouldUseDeltaRoutes(node *model.Proxy, updates *model.PushRequest) bool {
+	if !features.EnableDeltaRDS {
+		return false
+	}
+	if updates == nil || updates.Forced {
+		return false
+	}
+	// Gateway RDS output is keyed and built off Gateway/VirtualService attachment rather than
+	// SidecarScope egress listeners, so the affected-route-name logic below does not apply.
+	if node.Type != model.SidecarProxy && node.Type != model.Waypoint {
+		return false
+	}
+	for key := range updates.ConfigsUpdated {
+		if !rdsDeltaConfigTypes.Contains(key.Kind) {
+			return false
+		}
+	}
+	return true
+}
+
+// BuildDeltaHTTPRoutes returns only the route configurations whose content can be affected by
+// updates.ConfigsUpdated, computed against the set of route names the proxy currently watches.
+// If a precise delta cannot be determined, it falls back to rebuilding every watched route
+// (matching BuildHTTPRoutes), with usedDelta=false.
+func (configgen *ConfigGeneratorImpl) BuildDeltaHTTPRoutes(node *model.Proxy, req *model.PushRequest,
+	watched *model.WatchedResource,
+) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
+	if !shouldUseDeltaRoutes(node, req) {
+		routes, log := configgen.BuildHTTPRoutes(node, req, watched.ResourceNames.UnsortedList())
+		return routes, nil, log, false
+	}
+
+	affected := affectedRouteNames(node, req.ConfigsUpdated, watched.ResourceNames)
+	if affected.IsEmpty() {
+		return nil, nil, model.DefaultXdsLogDetails, true
+	}
+	routes, log := configgen.BuildHTTPRoutes(node, req, sets.SortedList(affected))
+	return routes, nil, log, true
+}
+
+// affectedRouteNames returns the subset of watched route names whose built content can change
+// because of the given config updates.
+func affectedRouteNames(node *model.Proxy, cfgs sets.Set[model.ConfigKey], watched sets.String) sets.String {
+	affected := sets.New[string]()
+	for routeName := range watched {
+		for key := range cfgs {
+			if routeAffectedByConfig(node, routeName, key) {
+				affected.Insert(routeName)
+				break
+			}
+		}
+	}
+	return affected
+}
+
+// routeAffectedByConfig reports whether the route config identified by routeName can be affected
+// by the given config update. When the egress listener backing routeName cannot be resolved, it
+// conservatively reports the route as affected.
+func routeAffectedByConfig(node *model.Proxy, routeName string, key model.ConfigKey) bool {
+	listenerPort, _, _ := extractListenerPort(routeName)
+	egressListener := node.SidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
+	if egressListener == nil {
+		return true
+	}
+	switch key.Kind {
+	case kind.VirtualService:
+		for _, vs := range egressListener.VirtualServices() {
+			if vs.Name == key.Name && vs.Namespace == key.Namespace {
+				return true
+			}
+		}
+		return false
+	case kind.ServiceEntry:
+		return egressListenerHasHost(egressListener, host.Name(key.Name))
+	case kind.DestinationRule:
+		for _, h := range destinationRuleHosts(node, key) {
+			if egressListenerHasHost(egressListener, h) {
+				return true
+			}
+		}
+		return false
+	default:
+		return true
+	}
+}
+
+func egressListenerHasHost(egressListener *model.IstioEgressListenerWrapper, hostname host.Name) bool {
+	for _, svc := range egressListener.Services() {
+		if svc.Hostname == hostname {
+			return true
+		}
+	}
+	return false
+}
+
+// destinationRuleHosts returns the hostnames a DestinationRule config update can affect: its
+// current host, plus its previous host if the DestinationRule was added, removed, or renamed.
+func destinationRuleHosts(node *model.Proxy, key model.ConfigKey) []host.Name {
+	var hosts []host.Name
+	cfg := node.SidecarScope.DestinationRuleByName(key.Name, key.Namespace)
+	prevCfg := node.PrevSidecarScope.DestinationRuleByName(key.Name, key.Namespace)
+	if cfg != nil {
+		hosts = append(hosts, host.Name(cfg.Spec.(*networking.DestinationRule).Host))
+	}
+	if prevCfg != nil {
+		prevHost := host.Name(prevCfg.Spec.(*networking.DestinationRule).Host)
+		if cfg == nil || prevHost != host.Name(cfg.Spec.(*networking.DestinationRule).Host) {
+			hosts = append(hosts, prevHost)
+		}
+	}
+	return hosts
 }
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path

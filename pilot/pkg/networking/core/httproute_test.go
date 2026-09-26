@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -2291,4 +2292,132 @@ func TestWaypointInboundRouteHashPolicyNilService(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestBuildDeltaHTTPRoutes(t *testing.T) {
+	services := []*model.Service{
+		buildHTTPService("svc-a.default.svc.cluster.local", visibility.Public, wildcardIPv4, "default", 8080),
+		buildHTTPService("svc-b.default.svc.cluster.local", visibility.Public, wildcardIPv4, "default", 9090),
+	}
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
+			Name:             "sc",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Sidecar,
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port:  &networking.SidecarPort{Number: 8080, Protocol: "HTTP", Name: "a"},
+					Hosts: []string{"default/svc-a.default.svc.cluster.local"},
+				},
+				{
+					Port:  &networking.SidecarPort{Number: 9090, Protocol: "HTTP", Name: "b"},
+					Hosts: []string{"default/svc-b.default.svc.cluster.local"},
+				},
+			},
+		},
+	}
+	virtualServiceA := &config.Config{
+		Meta: config.Meta{
+			Name:             "vs-a",
+			Namespace:        "default",
+			GroupVersionKind: gvk.VirtualService,
+		},
+		Spec: &networking.VirtualService{
+			Hosts: []string{"svc-a.default.svc.cluster.local"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "svc-a.default.svc.cluster.local"},
+				}},
+			}},
+		},
+	}
+	destinationRuleA := &config.Config{
+		Meta: config.Meta{
+			Name:             "dr-a",
+			Namespace:        "default",
+			GroupVersionKind: gvk.DestinationRule,
+		},
+		Spec: &networking.DestinationRule{
+			Host: "svc-a.default.svc.cluster.local",
+		},
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Services:       services,
+		ConfigPointers: []*config.Config{sidecarConfig, virtualServiceA, destinationRuleA},
+	})
+	proxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
+	watched := &model.WatchedResource{ResourceNames: sets.New("8080", "9090")}
+
+	cases := []struct {
+		name       string
+		cfgs       sets.Set[model.ConfigKey]
+		wantDelta  bool
+		wantRoutes sets.String
+	}{
+		{
+			name:       "service entry affects only its own port",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "svc-a.default.svc.cluster.local", Namespace: "default"}),
+			wantDelta:  true,
+			wantRoutes: sets.New("8080"),
+		},
+		{
+			name:       "virtual service affects only the port it's bound to",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "vs-a", Namespace: "default"}),
+			wantDelta:  true,
+			wantRoutes: sets.New("8080"),
+		},
+		{
+			name:       "destination rule affects only the port for its host",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "dr-a", Namespace: "default"}),
+			wantDelta:  true,
+			wantRoutes: sets.New("8080"),
+		},
+		{
+			name:       "unmappable kind falls back to a full rebuild",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.Sidecar, Name: "sc", Namespace: "default"}),
+			wantDelta:  false,
+			wantRoutes: sets.New("8080", "9090"),
+		},
+	}
+
+	test.SetForTest(t, &features.EnableDeltaRDS, true)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			req := &model.PushRequest{Push: cg.PushContext(), ConfigsUpdated: c.cfgs}
+			routes, removed, _, usedDelta := cg.ConfigGen.BuildDeltaHTTPRoutes(proxy, req, watched)
+			if usedDelta != c.wantDelta {
+				t.Fatalf("usedDelta = %v, want %v", usedDelta, c.wantDelta)
+			}
+			if len(removed) != 0 {
+				t.Fatalf("unexpected removed routes: %v", removed)
+			}
+			got := sets.New[string]()
+			for _, r := range routes {
+				got.Insert(r.Name)
+			}
+			if !got.Equals(c.wantRoutes) {
+				t.Fatalf("got routes %v, want %v", got, c.wantRoutes)
+			}
+		})
+	}
+
+	t.Run("feature flag off falls back to a full rebuild", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableDeltaRDS, false)
+		req := &model.PushRequest{
+			Push: cg.PushContext(),
+			ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind: kind.ServiceEntry, Name: "svc-a.default.svc.cluster.local", Namespace: "default",
+			}),
+		}
+		routes, _, _, usedDelta := cg.ConfigGen.BuildDeltaHTTPRoutes(proxy, req, watched)
+		if usedDelta {
+			t.Fatalf("expected usedDelta=false when feature flag is disabled")
+		}
+		if len(routes) != 2 {
+			t.Fatalf("expected all watched routes rebuilt, got %d", len(routes))
+		}
+	})
 }
