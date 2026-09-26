@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Removed** support for configuring the DLB connection balancer through `EnvoyFilter`, as the extension is no longer supported by Envoy.
