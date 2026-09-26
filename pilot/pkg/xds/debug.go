@@ -1031,7 +1031,7 @@ func cloneProxy(proxy *model.Proxy) *model.Proxy {
 
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 	for _, con := range s.Clients() {
-		if strings.Contains(con.ID(), proxyID) {
+		if con.ID() == proxyID || strings.HasPrefix(con.ID(), proxyID+"-") {
 			out := *con
 			out.proxy = cloneProxy(con.proxy)
 			return &out
