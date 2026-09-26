@@ -37,6 +37,8 @@ type RegistrationAuthority interface {
 	SetCACertificatesFromMeshConfig([]*meshconfig.MeshConfig_CertificateData)
 	// GetRootCertFromMeshConfig returns the root cert for the specific signer in mesh config
 	GetRootCertFromMeshConfig(signerName string) ([]byte, error)
+	// SetCertSignerNamespaceMap sets the per-namespace authorized signer map
+	SetCertSignerNamespaceMap(map[string]string)
 }
 
 // CaExternalType : Type of External CA integration
