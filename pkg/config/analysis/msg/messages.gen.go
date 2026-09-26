@@ -279,6 +279,10 @@ var (
 	// ConflictingServiceEntryProtocol defines a diag.MessageType for message "ConflictingServiceEntryProtocol".
 	// Description: Multiple ServiceEntries define the same host and port with conflicting protocols.
 	ConflictingServiceEntryProtocol = diag.NewMessageType(diag.Warning, "IST0177", "Multiple ServiceEntries (%s) define the same host %q and port %d with conflicting protocols (%s).")
+
+	// EnvoyFilterMayClearRouteCache defines a diag.MessageType for message "EnvoyFilterMayClearRouteCache".
+	// Description: Using EnvoyFilters with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run.
+	EnvoyFilterMayClearRouteCache = diag.NewMessageType(diag.Warning, "IST0178", "Using an EnvoyFilter with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run. This can cause a request to be routed differently than it was when the route-dependent filter was evaluated. See https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_filters.html#security-considerations.")
 )
 
 // All returns a list of all known message types.
@@ -352,6 +356,7 @@ func All() []*diag.MessageType {
 		JwksUriFetchUnrestricted,
 		GatewayAPICRDVersionBelowMinimum,
 		ConflictingServiceEntryProtocol,
+		EnvoyFilterMayClearRouteCache,
 	}
 }
 
@@ -1024,5 +1029,13 @@ func NewConflictingServiceEntryProtocol(r *resource.Instance, serviceEntryNames 
 		host,
 		port,
 		protocols,
+	)
+}
+
+// NewEnvoyFilterMayClearRouteCache returns a new diag.Message based on EnvoyFilterMayClearRouteCache.
+func NewEnvoyFilterMayClearRouteCache(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		EnvoyFilterMayClearRouteCache,
+		r,
 	)
 }
