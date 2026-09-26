@@ -126,9 +126,10 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		respCertChain, signErr = s.ca.SignWithCertChain([]byte(request.Csr), certOpts)
 	}
 	if signErr != nil {
-		serverCaLog.Errorf("CSR signing error: %v", signErr.Error())
-		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
-		return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
+		caErr := signErr.(*caerror.Error)
+		serverCaLog.Errorf("CSR signing error: %v", caErr)
+		s.monitoring.GetCertSignError(caErr.ErrorType()).Increment()
+		return nil, status.Error(caErr.HTTPErrorCode(), "CSR signing error")
 	}
 	if certSigner == "" {
 		respCertChain = []string{string(cert)}

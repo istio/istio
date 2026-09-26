@@ -96,6 +96,13 @@ var (
 		cmd.DefaultMaxWorkloadCertTTL,
 		"The max TTL of issued workload certificates.")
 
+	maxRAWorkloadCertTTL = env.Register("MAX_RA_WORKLOAD_CERT_TTL",
+		48*time.Hour,
+		"Upper bound on the TTL a workload may request when Istiod uses the Kubernetes CSR API "+
+			"as its registration authority (EXTERNAL_CA=ISTIOD_RA_KUBERNETES_API). "+
+			"Certificates issued via this path are not revocable, so a tighter cap limits "+
+			"the blast radius of a stolen istio-token. Defaults to 48h.")
+
 	SelfSignedCACertTTL = env.Register("CITADEL_SELF_SIGNED_CA_CERT_TTL",
 		cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate.")
@@ -639,6 +646,7 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 		ExternalCAType:   opts.ExternalCAType,
 		DefaultCertTTL:   workloadCertTTL.Get(),
 		MaxCertTTL:       maxWorkloadCertTTL.Get(),
+		MaxClientCertTTL: maxRAWorkloadCertTTL.Get(),
 		CaSigner:         opts.ExternalCASigner,
 		CaCertFile:       caCertFile,
 		VerifyAppendCA:   true,
