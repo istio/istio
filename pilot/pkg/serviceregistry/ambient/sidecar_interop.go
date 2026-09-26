@@ -123,7 +123,7 @@ func RegisterEdsShim(
 			}
 			// Track every waypoint whose endpoints can appear in the gateway CLA.
 			var workloads []model.WorkloadInfo
-			for _, wp := range serviceOwningWaypoints(svc) {
+			for _, wp := range ServiceOwningWaypoints(svc) {
 				var waypointServiceKey string
 				switch addr := wp.Destination.(type) {
 				case *workloadapi.GatewayAddress_Hostname:
