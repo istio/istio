@@ -573,6 +573,15 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 	// So lookup the cname table first
 	for _, cn := range table.cname[hostname] {
 		// this was a cname match
+		target := cn.(*dns.CNAME).Target
+		if host.Name(target).IsWildCarded() {
+			// The target is itself a wildcard host (e.g. "*.example.com."), which is not a legal
+			// DNS name to place in a CNAME record (RFC 1035 3.3.1). Skip emitting the CNAME and
+			// fall through to answering directly under the queried name instead, same as the
+			// no-search-domain-suffix wildcard path below.
+			hostname = target
+			continue
+		}
 		copied := dns.Copy(cn).(*dns.CNAME)
 		copied.Header().Name = question
 		cnAnswers = append(cnAnswers, copied)
