@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** a Gateway API issue where a cross-namespace
+  `spec.tls.backend.clientCertificateRef` Secret was resolved and its contents
+  validated before the `ReferenceGrant` authorization check, so a Gateway's
+  `ResolvedRefs` status could distinguish whether the referenced Secret existed
+  (and whether it held a valid certificate) even when no grant permitted the
+  reference. Authorization now runs first, returning `RefNotPermitted` for any
+  ungranted cross-namespace reference.
