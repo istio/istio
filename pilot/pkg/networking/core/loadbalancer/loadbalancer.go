@@ -70,22 +70,13 @@ type LBSettings interface {
 	// LB is configured without proxy self-discovery.
 	ApplyToCluster(
 		c *cluster.Cluster,
-		wrappedLocalityLbEndpoints *WrappedLocalityLbEndpoints,
+		wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
 		locality *core.Locality,
 		proxyLabels map[string]string,
 		isWaypoint bool,
 		proxyID string,
 		enableSelfDiscovery bool,
 	)
-}
-
-// wrapEndpoints adapts a single WrappedLocalityLbEndpoints to the slice form expected by the
-// package-level Apply* helpers, preserving the nil case.
-func wrapEndpoints(w *WrappedLocalityLbEndpoints) []*WrappedLocalityLbEndpoints {
-	if w == nil {
-		return nil
-	}
-	return []*WrappedLocalityLbEndpoints{w}
 }
 
 // LocalityLBSettings is the effective locality load balancer setting.
@@ -123,7 +114,7 @@ func (l LocalityLBSettings) ApplyToLoadAssignment(
 
 func (l LocalityLBSettings) ApplyToCluster(
 	c *cluster.Cluster,
-	wrappedLocalityLbEndpoints *WrappedLocalityLbEndpoints,
+	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
 	locality *core.Locality,
 	proxyLabels map[string]string,
 	_ bool,
@@ -144,7 +135,7 @@ func (l LocalityLBSettings) ApplyToCluster(
 		}
 	}
 	if c.LoadAssignment != nil {
-		l.ApplyToLoadAssignment(c.LoadAssignment, wrapEndpoints(wrappedLocalityLbEndpoints), locality, proxyLabels, c.OutlierDetection != nil)
+		l.ApplyToLoadAssignment(c.LoadAssignment, wrappedLocalityLbEndpoints, locality, proxyLabels, c.OutlierDetection != nil)
 	}
 }
 
@@ -194,7 +185,7 @@ func (z ZoneAwareLBSettings) ApplyToLoadAssignment(
 
 func (z ZoneAwareLBSettings) ApplyToCluster(
 	c *cluster.Cluster,
-	wrappedLocalityLbEndpoints *WrappedLocalityLbEndpoints,
+	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
 	locality *core.Locality,
 	proxyLabels map[string]string,
 	isWaypoint bool,
@@ -228,7 +219,7 @@ func (z ZoneAwareLBSettings) ApplyToCluster(
 		},
 	}
 	if c.LoadAssignment != nil {
-		z.ApplyToLoadAssignment(c.LoadAssignment, wrapEndpoints(wrappedLocalityLbEndpoints), locality, proxyLabels, false)
+		z.ApplyToLoadAssignment(c.LoadAssignment, wrappedLocalityLbEndpoints, locality, proxyLabels, false)
 	}
 }
 
