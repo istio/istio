@@ -739,3 +739,14 @@ messages:
       type: int
     - name: protocols
       type: string
+
+  - name: "UnsupportedDestinationRuleWorkloadSelector"
+    code: IST0178
+    level: Warning
+    description: "DestinationRule workload selectors are unsupported for sidecar traffic routed through a waypoint."
+    template: "DestinationRule %q uses a workload selector and targets service %q which uses a waypoint. When sidecar waypoint routing is enabled, this rule is ignored for traffic routed through the waypoint. Use a selectorless DestinationRule for waypoint-owned backend policy, or disable waypoint routing for this service."
+    args:
+    - name: destinationRule
+      type: string
+    - name: service
+      type: string

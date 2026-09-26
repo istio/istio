@@ -859,6 +859,13 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 	listenerPortProtocol := listenerOpts.port.Protocol
 	listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(listenerOpts.port.Protocol)
 
+	// Treat waypoint-bound traffic as opaque TCP so L7 policy is enforced only by the waypoint.
+	if listenerProtocol != istionetworking.ListenerProtocolTCP &&
+		len(listenerOpts.push.SidecarServiceWaypoints(listenerOpts.proxy, listenerOpts.service)) > 0 {
+		listenerPortProtocol = protocol.TCP
+		listenerProtocol = istionetworking.ListenerProtocolTCP
+	}
+
 	var listenerMapKey listenerKey
 	switch listenerProtocol {
 	case istionetworking.ListenerProtocolTCP, istionetworking.ListenerProtocolAuto:

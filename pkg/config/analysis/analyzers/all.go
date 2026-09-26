@@ -51,6 +51,7 @@ func All() []analysis.Analyzer {
 		&deployment.ApplicationUIDAnalyzer{},
 		&destinationrule.CaCertificateAnalyzer{},
 		&destinationrule.PodNotSelectedAnalyzer{},
+		&destinationrule.WaypointWorkloadSelectorAnalyzer{},
 		&deprecation.FieldAnalyzer{},
 		&envoyfilter.EnvoyPatchAnalyzer{},
 		&externalcontrolplane.ExternalControlPlaneAnalyzer{},
