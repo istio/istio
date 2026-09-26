@@ -393,7 +393,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 			}.HashCode())
 			v := vs.Spec.(*networking.VirtualService)
 			for h, ports := range virtualServiceDestinationsFilteredBySourceNamespace(v, configNamespace) {
-				byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
+				byNamespace := ps.ServicesByHostname(host.Name(h))
 				// Default to this hostname in our config namespace
 				if s, ok := byNamespace[configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
@@ -495,8 +495,8 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	hostsByNamespace := make(map[string]hostClassification)
+	includesAllMesh := false
 
-	allExactHosts := true
 	for _, h := range istioListener.Hosts {
 		if strings.Count(h, "/") != 1 {
 			log.Errorf("Illegal host in sidecar resource: %s, host must be of form namespace/dnsName", h)
@@ -530,11 +530,10 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		// exact hosts are saved separately for map lookup
 		if !hName.IsWildCarded() {
 			hc.exactHosts.Insert(hName)
-		} else {
-			allExactHosts = false
 		}
-		if ns == wildcardNamespace {
-			allExactHosts = false
+
+		if ns == wildcardNamespace && hName == wildcardService {
+			includesAllMesh = true
 		}
 
 		// allHosts contains the exact hosts and wildcard hosts,
@@ -544,45 +543,116 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, hostsByNamespace)
-	var svces []*Service
-	if allExactHosts {
-		svces = ps.servicesForExactHosts(configNamespace, hostsByNamespace)
-	} else {
-		svces = ps.servicesExportedToNamespace(configNamespace)
-	}
+	svces := ps.servicesImportedToNamespace(configNamespace, hostsByNamespace, includesAllMesh)
 	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
 	out.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(out.virtualServices, out.services)
 
 	return out
 }
 
-// servicesForExactHosts resolves the candidate services for an egress listener whose hosts are all exact
-// (non-wildcard) and explicitly namespaced, via direct lookups in ps.ServiceIndex.HostnameAndNamespace instead
-// of scanning every service visible to configNamespace. It is a fast-path replacement for
-// servicesExportedToNamespace; the returned list is fed to selectServices, exactly like the scan-based path.
-func (ps *PushContext) servicesForExactHosts(configNamespace string,
-	hostsByNamespace map[string]hostClassification,
-) []*Service {
-	var candidates []*Service
-	for ns, hc := range hostsByNamespace {
-		for hName := range hc.exactHosts {
-			byNamespace, ok := ps.ServiceIndex.HostnameAndNamespace[hName]
-			if !ok {
-				continue
-			}
-			svc, ok := byNamespace[ns]
-			if !ok {
-				continue
-			}
-			// HostnameAndNamespace contains all services regardless of exportTo, so visibility is reapplied.
-			if !ps.IsServiceVisible(svc, configNamespace) {
-				continue
-			}
-			candidates = append(candidates, svc)
+// dedupEgressHosts drops egress hosts whose trie fanout another host in the same namespace group already covers,
+// so each subtree is walked at most once. Within a namespace the visibility filter is identical, so coverage is
+// pure suffix nesting: "*" subsumes everything, and "*.b.c" subsumes the narrower "*.a.b.c". Trie subtrees never
+// partially overlap, so the survivors are disjoint and collect() stays O(mesh) regardless of the host count. This
+// only prunes redundant traversal — the caller's seen-set still dedups services — and runs in O(hosts). Exact
+// hosts are kept as-is: each is an O(1) byHostname lookup, not worth pruning.
+func dedupEgressHosts(allHosts []host.Name) []host.Name {
+	matchAll := false
+	wildcardSuffixes := sets.New[string]()
+	for _, h := range allHosts {
+		if h == wildcardService {
+			matchAll = true
+			break
+		}
+		if h.IsWildCarded() {
+			wildcardSuffixes.Insert(wildcardSuffix(h))
 		}
 	}
-	// Sort for deterministic output, matching servicesExportedToNamespace (built from creation-ordered services).
-	return SortServicesByCreationTime(candidates)
+	// "*" collects the whole (namespace-filtered) trie, so on its own it covers every other listed host.
+	if matchAll {
+		return []host.Name{wildcardService}
+	}
+	if wildcardSuffixes.Len() == 0 {
+		return allHosts // no wildcards: nothing can subsume anything, so there is nothing to drop.
+	}
+	out := make([]host.Name, 0, len(allHosts))
+	for _, h := range allHosts {
+		// Drop a wildcard whose suffix sits under a broader wildcard's suffix; that broader wildcard's collect()
+		// already visits this one's entire subtree.
+		if h.IsWildCarded() && coveredByBroaderWildcard(wildcardSuffix(h), wildcardSuffixes) {
+			continue
+		}
+		out = append(out, h)
+	}
+	return out
+}
+
+// wildcardSuffix strips the leading "*." from a leading-label wildcard host, e.g. "*.foo.com" -> "foo.com".
+func wildcardSuffix(h host.Name) string {
+	return strings.TrimPrefix(strings.TrimPrefix(string(h), "*"), ".")
+}
+
+// coveredByBroaderWildcard reports whether a strict suffix of s is itself a selected wildcard suffix, i.e. some
+// "*.<shorter-suffix>" already covers "*.s".
+func coveredByBroaderWildcard(s string, suffixes sets.Set[string]) bool {
+	for i := strings.IndexByte(s, '.'); i >= 0; i = strings.IndexByte(s, '.') {
+		s = s[i+1:]
+		if suffixes.Contains(s) {
+			return true
+		}
+	}
+	return false
+}
+
+// servicesImportedToNamespace resolves the candidate services for an egress listener's hosts without
+// scanning every service visible to configNamespace. Each host ("namespace/dnsName", exact or wildcard) is
+// resolved through the hostname-first hostTrie: an exact host hits an O(1) byHostname lookup, a wildcard host
+// walks the reversed-label subtree, and the namespace is applied at the leaf. The result is fed to
+// selectServices exactly like the legacy scan, which reapplies visibility, exclusions and the
+// single-namespace-per-hostname dedup. Falls back to the full scan when the trie is unavailable.
+func (ps *PushContext) servicesImportedToNamespace(configNamespace string,
+	hostsByNamespace map[string]hostClassification, includesAllMesh bool,
+) []*Service {
+	trie := ps.ServiceIndex.hostTrie
+	if trie == nil {
+		return ps.servicesExportedToNamespace(configNamespace)
+	}
+	// The default "*/*" host imports the entire visible mesh, which is exactly servicesExportedToNamespace, and it
+	// dominates any other listed host. Walking the whole trie for it only adds overhead over the flat scan (see
+	// BenchmarkSelectServicesMatchAll), so short-circuit to the scan.
+	if includesAllMesh {
+		return ps.servicesExportedToNamespace(configNamespace)
+	}
+	return ps.servicesImportedViaTrie(configNamespace, hostsByNamespace, trie)
+}
+
+// servicesImportedViaTrie resolves the listener's hosts through the hostTrie: each host is an O(1) byHostname
+// lookup (exact) or a reversed-label subtree walk (wildcard) via servicesFor, visibility is reapplied (the trie
+// holds all services regardless of exportTo), and the result is restored to the trie's build order (creation-time
+// sorted) so it matches servicesExportedToNamespace deterministically — a map-based dedup and the trie's collect()
+// walk both scramble order.
+func (ps *PushContext) servicesImportedViaTrie(configNamespace string,
+	hostsByNamespace map[string]hostClassification, trie *hostTrie,
+) []*Service {
+	seen := sets.New[*Service]()
+	var candidates []*Service
+	add := func(svc *Service) {
+		if svc == nil || seen.InsertContains(svc) {
+			return
+		}
+		if !ps.IsServiceVisible(svc, configNamespace) {
+			return
+		}
+		candidates = append(candidates, svc)
+	}
+	for ns, hc := range hostsByNamespace {
+		for _, hName := range dedupEgressHosts(hc.allHosts) {
+			for _, svc := range trie.servicesFor(ns, hName) {
+				add(svc)
+			}
+		}
+	}
+	return slices.SortBy(candidates, func(s *Service) int { return trie.order[s] })
 }
 
 // GetEgressListenerForRDS returns the egress listener corresponding to
