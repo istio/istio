@@ -479,16 +479,27 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy, svc *Service) computed
 	}
 
 	matcher := PolicyMatcherForProxy(proxy).WithService(svc).WithRootNamespace(t.RootNamespace)
-	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
-		spec := telemetry.Spec
-		// Namespace wide policy; already handled above
-		if len(spec.GetSelector().GetMatchLabels()) == 0 && len(GetTargetRefs(spec)) == 0 {
-			continue
-		}
-		if matcher.ShouldAttachPolicy(gvk.Telemetry, telemetry.NamespacedName(), spec) {
-			ct = appendApplicableTelemetries(ct, telemetry, spec)
-		} else {
-			log.Debug("There isn't a match between the workload and the policy. Policy is ignored.")
+	// Selector/targetRef policies live in the proxy's own namespace (for example a
+	// Telemetry with targetRefs: Gateway/<waypoint>). When a waypoint serves a service
+	// in another namespace, `namespace` was rewritten to the service's namespace above,
+	// so scan both. The service namespace is scanned last so its policies take
+	// precedence, matching the ordering of the namespace-wide lookups.
+	policyNamespaces := []string{proxy.ConfigNamespace}
+	if namespace != proxy.ConfigNamespace {
+		policyNamespaces = append(policyNamespaces, namespace)
+	}
+	for _, ns := range policyNamespaces {
+		for _, telemetry := range t.NamespaceToTelemetries[ns] {
+			spec := telemetry.Spec
+			// Namespace wide policy; already handled above
+			if len(spec.GetSelector().GetMatchLabels()) == 0 && len(GetTargetRefs(spec)) == 0 {
+				continue
+			}
+			if matcher.ShouldAttachPolicy(gvk.Telemetry, telemetry.NamespacedName(), spec) {
+				ct = appendApplicableTelemetries(ct, telemetry, spec)
+			} else {
+				log.Debug("There isn't a match between the workload and the policy. Policy is ignored.")
+			}
 		}
 	}
 
