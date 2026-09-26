@@ -392,6 +392,49 @@ func TestShutdown(t *testing.T) {
 	removeTracker.Empty()
 }
 
+// TestDelayedShutdownHandler ensures removing one handler from a delayed client removes only that handler,
+// whether it was added before or after the real informer existed.
+func TestDelayedShutdownHandler(t *testing.T) {
+	for _, crdReadyFirst := range []bool{true, false} {
+		t.Run(fmt.Sprintf("crdReadyBeforeHandlers=%v", crdReadyFirst), func(t *testing.T) {
+			c := kube.NewFakeClient()
+			if crdReadyFirst {
+				clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+				c.RunAndWait(test.NewStop(t))
+			}
+			wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+			keep := assert.NewTracker[string](t)
+			remove := assert.NewTracker[string](t)
+			wasm.AddEventHandler(clienttest.TrackerHandler(keep))
+			removeReg := wasm.AddEventHandler(clienttest.TrackerHandler(remove))
+			c.RunAndWait(test.NewStop(t))
+			if !crdReadyFirst {
+				clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+			}
+			wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+			wt.Create(&istioclient.WasmPlugin{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "default"}})
+			keep.WaitOrdered("add/a")
+			remove.WaitOrdered("add/a")
+
+			// Shutdown one, the other should still get events
+			wasm.ShutdownHandler(removeReg)
+			wt.Create(&istioclient.WasmPlugin{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "default"}})
+			keep.WaitOrdered("add/b")
+			remove.Empty()
+
+			// Late handler should still sync and get events
+			late := assert.NewTracker[string](t)
+			lateReg := wasm.AddEventHandler(clienttest.TrackerHandler(late))
+			assert.EventuallyEqual(t, lateReg.HasSynced, true)
+			late.WaitUnordered("add/a", "add/b")
+			wt.Create(&istioclient.WasmPlugin{ObjectMeta: metav1.ObjectMeta{Name: "c", Namespace: "default"}})
+			keep.WaitOrdered("add/c")
+			late.WaitOrdered("add/c")
+			remove.Empty()
+		})
+	}
+}
+
 func TestErrorHandler(t *testing.T) {
 	mt := monitortest.New(t)
 	c := kube.NewFakeClient()

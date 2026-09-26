@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61827
+releaseNotes:
+  - |
+    **Fixed** removing a single event handler from a CRD-backed informer removing every handler on
+    that informer. In ambient multi-cluster mode this fired on every remote cluster credential
+    rotation, leaving istiod waiting forever for the new cluster's collections to sync, so remote
+    network gateways went missing and the workload index could stop updating until restart.
