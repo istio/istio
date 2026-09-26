@@ -15,6 +15,8 @@
 package features
 
 import (
+	"math"
+	"strconv"
 	"strings"
 
 	"istio.io/istio/pkg/env"
@@ -24,6 +26,14 @@ import (
 
 // Define telemetry related features here.
 var (
+	ProxyConvergenceTimeBuckets = parseProxyConvergenceTimeBuckets(env.Register(
+		"PILOT_PROXY_CONVERGENCE_TIME_BUCKETS_SECONDS",
+		"0.1,0.5,1,3,5,10,20,30",
+		"Comma-separated histogram bucket boundaries in seconds for pilot_proxy_convergence_time. "+
+			"Values must be finite, nonnegative, and strictly increasing. Empty or invalid values use the default boundaries. "+
+			"Changes require an istiod restart.",
+	).Get())
+
 	traceSamplingVar = env.Register(
 		"PILOT_TRACE_SAMPLING",
 		1.0,
@@ -73,3 +83,23 @@ var (
 	AgentMergeEnvoyStats = env.Register("PILOT_AGENT_MERGE_ENVOY_STATS", true,
 		"If false, pilot agent will not merge Envoy stats in the agent stats endpoint.").Get()
 )
+
+func parseProxyConvergenceTimeBuckets(value string) []float64 {
+	defaults := []float64{.1, .5, 1, 3, 5, 10, 20, 30}
+	if strings.TrimSpace(value) == "" {
+		return defaults
+	}
+	entries := strings.Split(value, ",")
+	bounds := make([]float64, 0, len(entries))
+	for _, entry := range entries {
+		bound, err := strconv.ParseFloat(strings.TrimSpace(entry), 64)
+		if err != nil || math.IsNaN(bound) || math.IsInf(bound, 0) || bound < 0 ||
+			(len(bounds) > 0 && bound <= bounds[len(bounds)-1]) {
+			log.Warnf("Invalid PILOT_PROXY_CONVERGENCE_TIME_BUCKETS_SECONDS %q: expected finite, nonnegative, strictly increasing boundaries; using defaults %v",
+				value, defaults)
+			return defaults
+		}
+		bounds = append(bounds, bound)
+	}
+	return bounds
+}
