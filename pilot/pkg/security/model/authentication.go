@@ -234,11 +234,22 @@ func constructSdsSecretConfig(maybeFileName string, fallbackName string, customF
 	return pm.ConstructSdsSecretConfig(model.GetOrDefault(maybeFileName, fallbackName))
 }
 
+func normalizeCaCertCredentialName(name string) string {
+	if name == "" ||
+		strings.HasSuffix(name, SdsCaSuffix) ||
+		strings.HasPrefix(name, credentials.KubernetesConfigMapTypeURI) ||
+		strings.HasPrefix(name, security.SDSExternalCredentialPrefix) ||
+		strings.HasPrefix(name, credentials.InvalidSecretTypeURI) {
+		return name
+	}
+	return name + SdsCaSuffix
+}
+
 // ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext
 func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 	tlsOpts *networking.ClientTLSSettings, credentialSocketExist bool,
 ) {
-	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL {
+	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL && tlsOpts.CredentialName != "" {
 		// create SDS config for gateway to fetch key/cert from agent.
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, nil),
@@ -250,16 +261,30 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 		return
 	}
 
+	caCert := tlsOpts.CaCertCredentialName
+	if caCert == "" {
+		caCert = tlsOpts.CredentialName + SdsCaSuffix
+	} else {
+		caCert = normalizeCaCertCredentialName(caCert)
+	}
+
 	// create SDS config for gateway to fetch certificate validation context
 	// at gateway agent.
 	defaultValidationContext := &tls.CertificateValidationContext{
 		MatchSubjectAltNames: util.StringToExactMatch(tlsOpts.SubjectAltNames),
 	}
+	if tlsOpts.GetCaCrl() != "" {
+		defaultValidationContext.Crl = &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: tlsOpts.GetCaCrl(),
+			},
+		}
+	}
 	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 			DefaultValidationContext: defaultValidationContext,
 			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(
-				tlsOpts.CredentialName+SdsCaSuffix, credentialSocketExist, nil),
+				caCert, credentialSocketExist, nil),
 		},
 	}
 }

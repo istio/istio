@@ -29,6 +29,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/security"
@@ -847,6 +848,95 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ConstructSdsSecretConfigForCredential(c.name, c.credentialSocketExists, c.push); !cmp.Equal(got, c.expected, protocmp.Transform()) {
 				t.Errorf("ConstructSdsSecretConfigForCredential() = %v, want %v", got, c.expected)
+			}
+		})
+	}
+}
+
+func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
+	tests := []struct {
+		name             string
+		tlsOpts          *networking.ClientTLSSettings
+		wantCertificate  string
+		wantValidationCA string
+	}{
+		{
+			name: "mutual TLS derives CA from client credential",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:           networking.ClientTLSSettings_MUTUAL,
+				CredentialName: "client-cert",
+			},
+			wantCertificate:  "kubernetes://client-cert",
+			wantValidationCA: "kubernetes://client-cert-cacert",
+		},
+		{
+			name: "mutual TLS uses independent CA credential",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_MUTUAL,
+				CredentialName:       "client-cert",
+				CaCertCredentialName: "configmap://backend/backend-ca",
+			},
+			wantCertificate:  "kubernetes://client-cert",
+			wantValidationCA: "configmap://backend/backend-ca",
+		},
+		{
+			name: "mutual TLS marks an independent Secret credential as CA-only",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_MUTUAL,
+				CredentialName:       "client-cert",
+				CaCertCredentialName: "kubernetes://backend/backend-ca",
+			},
+			wantCertificate:  "kubernetes://client-cert",
+			wantValidationCA: "kubernetes://backend/backend-ca-cacert",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tlsContext := &auth.CommonTlsContext{}
+			ApplyCustomSDSToClientCommonTLSContext(tlsContext, tt.tlsOpts, false)
+
+			if tt.wantCertificate == "" {
+				if len(tlsContext.TlsCertificateSdsSecretConfigs) != 0 {
+					t.Fatalf("expected no client certificate SDS config, got %v", tlsContext.TlsCertificateSdsSecretConfigs)
+				}
+			} else {
+				if len(tlsContext.TlsCertificateSdsSecretConfigs) != 1 {
+					t.Fatalf("expected one client certificate SDS config, got %d", len(tlsContext.TlsCertificateSdsSecretConfigs))
+				}
+				if got := tlsContext.TlsCertificateSdsSecretConfigs[0].Name; got != tt.wantCertificate {
+					t.Errorf("client certificate SDS config = %q, want %q", got, tt.wantCertificate)
+				}
+			}
+
+			combined := tlsContext.GetCombinedValidationContext()
+			if combined == nil {
+				t.Fatal("expected combined validation context")
+			}
+			if got := combined.ValidationContextSdsSecretConfig.GetName(); got != tt.wantValidationCA {
+				t.Errorf("validation SDS config = %q, want %q", got, tt.wantValidationCA)
+			}
+		})
+	}
+}
+
+func TestNormalizeCaCertCredentialName(t *testing.T) {
+	tests := map[string]string{
+		"":                                "",
+		"backend-ca":                      "backend-ca-cacert",
+		"backend-ca-cacert":               "backend-ca-cacert",
+		"kubernetes://backend/backend-ca": "kubernetes://backend/backend-ca-cacert",
+		"kubernetes-gateway://backend/backend-ca":             "kubernetes-gateway://backend/backend-ca-cacert",
+		"configmap://backend/backend-ca":                      "configmap://backend/backend-ca",
+		"sds://backend-ca":                                    "sds://backend-ca",
+		credentials.InvalidSecretTypeURI:                      credentials.InvalidSecretTypeURI,
+		credentials.BuiltinGatewaySecretTypeURI:               credentials.BuiltinGatewaySecretTypeURI + SdsCaSuffix,
+		credentials.BuiltinGatewaySecretTypeURI + SdsCaSuffix: credentials.BuiltinGatewaySecretTypeURI + SdsCaSuffix,
+	}
+	for input, want := range tests {
+		t.Run(input, func(t *testing.T) {
+			if got := normalizeCaCertCredentialName(input); got != want {
+				t.Errorf("normalizeCaCertCredentialName(%q) = %q, want %q", input, got, want)
 			}
 		})
 	}
