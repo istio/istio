@@ -66,23 +66,17 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	// the service hostname/port/subset (a static string), so it does not change when only
 	// endpoints change. However, if ServiceUpdate is also present, the service definition changed
 	// (ports, labels, etc.) and we need to push RDS.
-	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
-	sawServiceEntry := false
+	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) &&
+		!req.Reason.Has(model.ServiceUpdate) &&
+		model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.ServiceEntry)
+	if headlessOnly {
+		return req, false
+	}
 
 	relevantUpdates := make(sets.Set[model.ConfigKey])
 	filtered := false
 	needsPush := false
 	for config := range req.ConfigsUpdated {
-		if headlessOnly {
-			if config.Kind == kind.ServiceEntry {
-				// Defer the decision on ServiceEntry until we know whether all updates are ServiceEntry.
-				sawServiceEntry = true
-				continue
-			}
-			// Not exclusively the headless endpoint marker; fall through to the normal check below.
-			headlessOnly = false
-		}
-
 		if config.Kind == kind.Gateway {
 			if proxy.Type == model.Router || proxy.IsAmbientEastWestGateway() {
 				relevantUpdates.Insert(config)
@@ -101,18 +95,13 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 		}
 	}
 
-	if headlessOnly {
-		return req, false
-	}
-
 	if filtered {
 		newPushRequest := *req
 		newPushRequest.ConfigsUpdated = relevantUpdates
 		req = &newPushRequest
 	}
 
-	// ServiceEntry updates only trigger a push here if they weren't exclusively headless endpoint markers.
-	return req, needsPush || sawServiceEntry
+	return req, needsPush
 }
 
 func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

@@ -153,3 +153,23 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 		})
 	}
 }
+
+func TestRdsNeedsPushCoalescedHeadlessUpdate(t *testing.T) {
+	req := &model.PushRequest{
+		Reason: model.NewReasonStats(model.HeadlessEndpointUpdate),
+		ConfigsUpdated: sets.New(
+			model.ConfigKey{Kind: kind.ServiceEntry, Name: "svc", Namespace: "default"},
+			model.ConfigKey{Kind: kind.Endpoints, Name: "svc", Namespace: "default"},
+		),
+	}
+	updated, needsPush := rdsNeedsPush(req, &model.Proxy{Type: model.SidecarProxy})
+	if !needsPush {
+		t.Fatal("expected a coalesced ServiceEntry update to push RDS")
+	}
+	if !updated.ConfigsUpdated.Contains(model.ConfigKey{Kind: kind.ServiceEntry, Name: "svc", Namespace: "default"}) {
+		t.Fatalf("ServiceEntry update was dropped: %v", updated.ConfigsUpdated)
+	}
+	if updated.ConfigsUpdated.Contains(model.ConfigKey{Kind: kind.Endpoints, Name: "svc", Namespace: "default"}) {
+		t.Fatalf("endpoint-only update was not filtered: %v", updated.ConfigsUpdated)
+	}
+}
