@@ -807,6 +807,17 @@ func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Se
 	return virtualServiceDestinationsFilteredBySourceNamespace(v, "")
 }
 
+// VirtualServiceDestinationHosts returns the set of destination hostnames referenced by v's HTTP,
+// TCP and TLS routes (including mirrors), after virtual service short host names have been
+// resolved to FQDN.
+func VirtualServiceDestinationHosts(v *networking.VirtualService) sets.String {
+	hosts := sets.New[string]()
+	for h := range virtualServiceDestinations(v) {
+		hosts.Insert(h)
+	}
+	return hosts
+}
+
 // It is called after virtual service short host name is resolved to FQDN
 // It filters destinations present in VirtualService by using configNamespace, when the value is empty string, then filtering is disabled
 func virtualServiceDestinationsFilteredBySourceNamespace(v *networking.VirtualService, configNamespace string) map[string]sets.Set[int] {
