@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/activenotifier"
@@ -1786,7 +1787,7 @@ func TestRBACConvert(t *testing.T) {
 					var o *security.Authorization
 					switch pol[0].GroupVersionKind {
 					case gvk.AuthorizationPolicy:
-						o, _ = convertAuthorizationPolicy(systemNS, &clientsecurityv1beta1.AuthorizationPolicy{
+						o, _ = convertAuthorizationPolicy(systemNS, trustdomain.NewBundle(constants.DefaultClusterLocalDomain, nil), &clientsecurityv1beta1.AuthorizationPolicy{
 							TypeMeta: metav1.TypeMeta{},
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      pol[0].Name,
