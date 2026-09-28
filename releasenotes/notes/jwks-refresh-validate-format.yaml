@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue: []
+releaseNotes:
+  - |
+    **Fixed** the JWKS resolver's periodic background refresh caching a fetched response without
+    validating that it looks like a JWKS. The synchronous fetch path already rejected a response
+    that isn't shaped like a JWKS (`{"keys": [...]}`), closing off a `RequestAuthentication`
+    `jwksUri` pointed at an unintended internal endpoint from having its response cached and
+    served back as if it were a JWKS; the background refresh path now applies the same check.
+
+    **Credit**: This vulnerability was discovered and reported by Anthropic and Ada Logics.
