@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	cdeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -178,6 +179,12 @@ var inMesh = match.Matcher(func(instance echo.Instance) bool {
 	return instance.Config().HasProxyCapabilities()
 })
 
+func skipIfGatewayAPIUnsupported(t framework.TestContext) {
+	if !crd.SupportsGatewayAPI(t) {
+		t.Skip("requires gateway API (k8s 1.31+)")
+	}
+}
+
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
 	var err error
 	apps.Namespace, err = namespace.New(t, namespace.Config{
@@ -208,76 +215,81 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		headlessPorts[i] = p
 	}
 	builder := deployment.New(t).
-		WithClusters(t.Clusters()...).
-		WithConfig(echo.Config{
-			Service:               WorkloadAddressedWaypoint,
-			Namespace:             apps.Namespace,
-			Ports:                 ports.All(),
-			ServiceAccount:        true,
-			WorkloadWaypointProxy: "waypoint-workload",
-			Subsets: []echo.SubsetConfig{
-				{
-					Replicas: 1,
-					Version:  "v1",
-					Labels: map[string]string{
-						"app":                         WorkloadAddressedWaypoint,
-						"version":                     "v1",
-						label.IoIstioUseWaypoint.Name: "waypoint-workload",
+		WithClusters(t.Clusters()...)
+
+	if crd.SupportsGatewayAPI(t) {
+		builder = builder.
+			WithConfig(echo.Config{
+				Service:               WorkloadAddressedWaypoint,
+				Namespace:             apps.Namespace,
+				Ports:                 ports.All(),
+				ServiceAccount:        true,
+				WorkloadWaypointProxy: "waypoint-workload",
+				Subsets: []echo.SubsetConfig{
+					{
+						Replicas: 1,
+						Version:  "v1",
+						Labels: map[string]string{
+							"app":                         WorkloadAddressedWaypoint,
+							"version":                     "v1",
+							label.IoIstioUseWaypoint.Name: "waypoint-workload",
+						},
+					},
+					{
+						Replicas: 1,
+						Version:  "v2",
+						Labels: map[string]string{
+							"app":                         WorkloadAddressedWaypoint,
+							"version":                     "v2",
+							label.IoIstioUseWaypoint.Name: "waypoint-workload",
+						},
 					},
 				},
-				{
-					Replicas: 1,
-					Version:  "v2",
-					Labels: map[string]string{
-						"app":                         WorkloadAddressedWaypoint,
-						"version":                     "v2",
-						label.IoIstioUseWaypoint.Name: "waypoint-workload",
+			}).
+			WithConfig(echo.Config{
+				Service:              ServiceAddressedWaypoint,
+				Namespace:            apps.Namespace,
+				Ports:                ports.All(),
+				ServiceLabels:        map[string]string{label.IoIstioUseWaypoint.Name: "waypoint-service"},
+				ServiceAccount:       true,
+				ServiceWaypointProxy: "waypoint-service",
+				Subsets: []echo.SubsetConfig{
+					{
+						Replicas: 1,
+						Version:  "v1",
+						Labels: map[string]string{
+							"app":     ServiceAddressedWaypoint,
+							"version": "v1",
+						},
+					},
+					{
+						Replicas: 1,
+						Version:  "v2",
+						Labels: map[string]string{
+							"app":     ServiceAddressedWaypoint,
+							"version": "v2",
+						},
 					},
 				},
+			})
+	}
+
+	builder = builder.WithConfig(echo.Config{
+		Service:        Captured,
+		Namespace:      apps.Namespace,
+		Ports:          ports.All(),
+		ServiceAccount: true,
+		Subsets: []echo.SubsetConfig{
+			{
+				Replicas: 1,
+				Version:  "v1",
 			},
-		}).
-		WithConfig(echo.Config{
-			Service:              ServiceAddressedWaypoint,
-			Namespace:            apps.Namespace,
-			Ports:                ports.All(),
-			ServiceLabels:        map[string]string{label.IoIstioUseWaypoint.Name: "waypoint-service"},
-			ServiceAccount:       true,
-			ServiceWaypointProxy: "waypoint-service",
-			Subsets: []echo.SubsetConfig{
-				{
-					Replicas: 1,
-					Version:  "v1",
-					Labels: map[string]string{
-						"app":     ServiceAddressedWaypoint,
-						"version": "v1",
-					},
-				},
-				{
-					Replicas: 1,
-					Version:  "v2",
-					Labels: map[string]string{
-						"app":     ServiceAddressedWaypoint,
-						"version": "v2",
-					},
-				},
+			{
+				Replicas: 1,
+				Version:  "v2",
 			},
-		}).
-		WithConfig(echo.Config{
-			Service:        Captured,
-			Namespace:      apps.Namespace,
-			Ports:          ports.All(),
-			ServiceAccount: true,
-			Subsets: []echo.SubsetConfig{
-				{
-					Replicas: 1,
-					Version:  "v1",
-				},
-				{
-					Replicas: 1,
-					Version:  "v2",
-				},
-			},
-		}).
+		},
+	}).
 		WithConfig(echo.Config{
 			Service:        Uncaptured,
 			Namespace:      apps.Namespace,
@@ -361,6 +373,10 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	if err := cdeployment.DeployExternalServiceEntry(t.ConfigIstio(), apps.Namespace, apps.ExternalNamespace, false).
 		Apply(apply.CleanupConditionally); err != nil {
 		return err
+	}
+
+	if !crd.SupportsGatewayAPI(t) {
+		return nil
 	}
 
 	if apps.WaypointProxies == nil {
