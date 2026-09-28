@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
@@ -576,48 +577,6 @@ func TestCleanup(t *testing.T) {
 }
 
 func TestRemoveStaleIstioOwnedConfig(t *testing.T) {
-	t.Run("not istio-owned removes leftover default file", func(t *testing.T) {
-		dir := t.TempDir()
-		leftover := filepath.Join(dir, constants.DefaultIstioOwnedCNIConfigFilename)
-		if err := os.WriteFile(leftover, []byte("{}"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		cfg := &config.InstallConfig{MountedCNINetDir: dir, ChainedCNIPlugin: true}
-		if err := removeStaleIstioOwnedConfig(cfg); err != nil {
-			t.Fatal(err)
-		}
-		if file.Exists(leftover) {
-			t.Errorf("expected leftover file to be removed")
-		}
-	})
-
-	t.Run("istio-owned mode is a no-op", func(t *testing.T) {
-		dir := t.TempDir()
-		owned := filepath.Join(dir, constants.DefaultIstioOwnedCNIConfigFilename)
-		if err := os.WriteFile(owned, []byte("{}"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		cfg := &config.InstallConfig{
-			MountedCNINetDir:    dir,
-			ChainedCNIPlugin:    true,
-			AmbientEnabled:      true,
-			IstioOwnedCNIConfig: true,
-		}
-		if err := removeStaleIstioOwnedConfig(cfg); err != nil {
-			t.Fatal(err)
-		}
-		if !file.Exists(owned) {
-			t.Errorf("istio-owned mode must not remove the owned config")
-		}
-	})
-
-	t.Run("absent file is a no-op", func(t *testing.T) {
-		cfg := &config.InstallConfig{MountedCNINetDir: t.TempDir(), ChainedCNIPlugin: true}
-		if err := removeStaleIstioOwnedConfig(cfg); err != nil {
-			t.Fatal(err)
-		}
-	})
-
 	t.Run("records the owned config name in the marker", func(t *testing.T) {
 		netDir := t.TempDir()
 		runDir := t.TempDir()
@@ -637,61 +596,187 @@ func TestRemoveStaleIstioOwnedConfig(t *testing.T) {
 		}
 	})
 
-	t.Run("removes previously-owned file when the configured name changes", func(t *testing.T) {
-		netDir := t.TempDir()
-		runDir := t.TempDir()
-		oldName := "01-istio-cni.conflist"
-		newName := "03-istio-cni.conflist"
-		oldFile := filepath.Join(netDir, oldName)
-		if err := os.WriteFile(oldFile, []byte("{}"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		writePreviousIstioOwnedMarker(&config.InstallConfig{CNIAgentRunDir: runDir}, oldName)
+	customOwnedFilename := "01-custom.conflist"
+	custom2OwnedFilename := "03-custom.conflist"
+	for _, tt := range []struct {
+		name                   string
+		previousConfigs        []string
+		marker                 bool
+		toOwned                bool
+		toOwnedFilename        string
+		expectedMarkerContents string
+		expectedConfig         string
+	}{
+		// pre marker, may have multiple istio configs
+		{
+			name:            "owned to not owned, no marker",
+			previousConfigs: []string{constants.DefaultIstioOwnedCNIConfigFilename},
+			toOwned:         false,
+		},
+		{
+			name:            "custom owned to not owned, no marker",
+			previousConfigs: []string{customOwnedFilename},
+			toOwned:         false,
+			toOwnedFilename: customOwnedFilename,
+		},
+		{
+			name:            "owned to custom owned to not owned, no marker",
+			previousConfigs: []string{constants.DefaultIstioOwnedCNIConfigFilename, customOwnedFilename},
+			toOwned:         false,
+			toOwnedFilename: customOwnedFilename,
+		},
+		{
+			name:                   "not owned to owned, no marker",
+			toOwned:                true,
+			expectedMarkerContents: constants.DefaultIstioOwnedCNIConfigFilename,
+		},
+		{
+			name:                   "owned to owned, no marker",
+			previousConfigs:        []string{constants.DefaultIstioOwnedCNIConfigFilename},
+			toOwned:                true,
+			expectedMarkerContents: constants.DefaultIstioOwnedCNIConfigFilename,
+			expectedConfig:         constants.DefaultIstioOwnedCNIConfigFilename,
+		},
+		{
+			name:                   "custom owned to custom owned, no marker",
+			previousConfigs:        []string{customOwnedFilename},
+			toOwned:                true,
+			toOwnedFilename:        customOwnedFilename,
+			expectedMarkerContents: customOwnedFilename,
+			expectedConfig:         customOwnedFilename,
+		},
+		// markers present
+		{
+			name:            "owned to not owned, with marker",
+			previousConfigs: []string{constants.DefaultIstioOwnedCNIConfigFilename},
+			marker:          true,
+			toOwned:         false,
+		},
+		{
+			name:            "custom owned to not owned, with marker",
+			previousConfigs: []string{customOwnedFilename},
+			marker:          true,
+			toOwned:         false,
+			toOwnedFilename: customOwnedFilename,
+		},
+		{
+			name:                   "owned to owned, marker",
+			previousConfigs:        []string{constants.DefaultIstioOwnedCNIConfigFilename},
+			marker:                 true,
+			toOwned:                true,
+			expectedMarkerContents: constants.DefaultIstioOwnedCNIConfigFilename,
+			expectedConfig:         constants.DefaultIstioOwnedCNIConfigFilename,
+		},
+		{
+			name:                   "custom owned to custom owned, marker",
+			previousConfigs:        []string{customOwnedFilename},
+			marker:                 true,
+			toOwned:                true,
+			toOwnedFilename:        customOwnedFilename,
+			expectedMarkerContents: customOwnedFilename,
+			expectedConfig:         customOwnedFilename,
+		},
+		{
+			name:                   "custom owned to another custom owned, marker",
+			previousConfigs:        []string{customOwnedFilename},
+			marker:                 true,
+			toOwned:                true,
+			toOwnedFilename:        custom2OwnedFilename,
+			expectedMarkerContents: custom2OwnedFilename,
+		},
+		// mixed sequence
+		{
+			name:            "owned to custom owned to not owned, with marker",
+			previousConfigs: []string{constants.DefaultIstioOwnedCNIConfigFilename, customOwnedFilename},
+			marker:          true,
+			toOwned:         false,
+			toOwnedFilename: customOwnedFilename,
+		},
+		{
+			name:                   "owned to custom owned to custom owned, no marker",
+			previousConfigs:        []string{constants.DefaultIstioOwnedCNIConfigFilename, customOwnedFilename},
+			toOwned:                true,
+			toOwnedFilename:        customOwnedFilename,
+			expectedMarkerContents: customOwnedFilename,
+			expectedConfig:         customOwnedFilename,
+		},
+		{
+			name:                   "owned to custom owned to custom owned, marker",
+			previousConfigs:        []string{constants.DefaultIstioOwnedCNIConfigFilename, customOwnedFilename},
+			marker:                 true,
+			toOwned:                true,
+			toOwnedFilename:        customOwnedFilename,
+			expectedMarkerContents: customOwnedFilename,
+			expectedConfig:         customOwnedFilename,
+		},
+		{
+			name:                   "custom owned to owned to custom owned, marker custom",
+			previousConfigs:        []string{customOwnedFilename, constants.DefaultIstioOwnedCNIConfigFilename},
+			marker:                 true,
+			toOwned:                true,
+			toOwnedFilename:        customOwnedFilename,
+			expectedMarkerContents: customOwnedFilename,
+			expectedConfig:         customOwnedFilename,
+		},
+		// cannot handle
+		{
+			name:                   "custom to owned, no marker",
+			previousConfigs:        []string{customOwnedFilename},
+			toOwned:                true,
+			expectedMarkerContents: constants.DefaultIstioOwnedCNIConfigFilename,
+			expectedConfig:         customOwnedFilename,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			netDir := t.TempDir()
+			runDir := t.TempDir()
 
-		cfg := &config.InstallConfig{
-			MountedCNINetDir:            netDir,
-			CNIAgentRunDir:              runDir,
-			ChainedCNIPlugin:            true,
-			AmbientEnabled:              true,
-			IstioOwnedCNIConfig:         true,
-			IstioOwnedCNIConfigFilename: newName,
-		}
-		if err := removeStaleIstioOwnedConfig(cfg); err != nil {
-			t.Fatal(err)
-		}
-		if file.Exists(oldFile) {
-			t.Errorf("expected previously-owned file %s to be removed", oldName)
-		}
-		if got := readPreviousIstioOwnedMarker(cfg); got != newName {
-			t.Errorf("expected marker to record %q, got %q", newName, got)
-		}
-	})
+			cfg := &config.InstallConfig{
+				MountedCNINetDir:            netDir,
+				CNIAgentRunDir:              runDir,
+				ChainedCNIPlugin:            true,
+				AmbientEnabled:              true,
+				IstioOwnedCNIConfig:         tt.toOwned,
+				IstioOwnedCNIConfigFilename: tt.toOwnedFilename,
+			}
 
-	t.Run("removes previously-owned file when leaving istio-owned mode", func(t *testing.T) {
-		netDir := t.TempDir()
-		runDir := t.TempDir()
-		// Use a non-default name so removal must be driven by the marker, not the
-		// legacy default-name fallback.
-		oldName := "01-istio-cni.conflist"
-		oldFile := filepath.Join(netDir, oldName)
-		if err := os.WriteFile(oldFile, []byte("{}"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		writePreviousIstioOwnedMarker(&config.InstallConfig{CNIAgentRunDir: runDir}, oldName)
+			if len(tt.previousConfigs) > 0 {
+				for _, c := range tt.previousConfigs {
+					cpath := filepath.Join(netDir, c)
+					if err := os.WriteFile(cpath, []byte("{}"), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if tt.marker {
+					if err := writePreviousIstioOwnedMarker(cfg, tt.previousConfigs[0]); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
 
-		cfg := &config.InstallConfig{
-			MountedCNINetDir: netDir,
-			CNIAgentRunDir:   runDir,
-			ChainedCNIPlugin: true,
-		}
-		if err := removeStaleIstioOwnedConfig(cfg); err != nil {
-			t.Fatal(err)
-		}
-		if file.Exists(oldFile) {
-			t.Errorf("expected previously-owned file %s to be removed when leaving owned mode", oldName)
-		}
-		if got := readPreviousIstioOwnedMarker(cfg); got != "" {
-			t.Errorf("expected marker to be cleared, got %q", got)
-		}
-	})
+			if err := removeStaleIstioOwnedConfig(cfg); err != nil {
+				t.Fatal(err)
+			}
+
+			// check files in netDir
+			entries, err := os.ReadDir(netDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			actualFiles := slices.Map(entries, os.DirEntry.Name)
+			expectedFiles := []string{}
+			if tt.expectedConfig != "" {
+				expectedFiles = []string{tt.expectedConfig}
+			}
+
+			if a, e := actualFiles, expectedFiles; !slices.Equal(a, e) {
+				t.Errorf("expected configs %v, got %v", e, a)
+			}
+
+			// check marker + contents
+			if a, e := readPreviousIstioOwnedMarker(cfg), tt.expectedMarkerContents; a != e {
+				t.Errorf("expected marker to record %q, got %q", e, a)
+			}
+		})
+	}
 }
