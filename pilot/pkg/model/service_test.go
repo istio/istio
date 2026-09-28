@@ -55,7 +55,7 @@ func TestNewAddressInfo(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := NewAddressInfo(tt.address)
-			wantAddress := protoconv.MessageToAny(tt.address)
+			wantAddress := protoconv.MessageToAnyDeterministic(tt.address)
 			assert.Equal(t, got.Marshaled, wantAddress)
 			assert.Equal(t, got.Version, strconv.FormatUint(xxhash.Sum64(wantAddress.Value), 16))
 
@@ -63,8 +63,34 @@ func TestNewAddressInfo(t *testing.T) {
 				assert.Equal(t, got.MarshaledWorkload, nil)
 				return
 			}
-			assert.Equal(t, got.MarshaledWorkload, protoconv.MessageToAny(tt.wantMarshaledWorkload))
+			assert.Equal(t, got.MarshaledWorkload, protoconv.MessageToAnyDeterministic(tt.wantMarshaledWorkload))
 		})
+	}
+}
+
+// The pre-marshaled bytes back Equals and Version, so two builds of the same workload must
+// produce identical bytes. Workload.services is a map, which only holds if map keys are sorted.
+func TestNewAddressInfoStable(t *testing.T) {
+	mk := func() *workloadapi.Address {
+		svcs := make(map[string]*workloadapi.PortList, 6)
+		for i := range 6 {
+			svcs["ns/svc-"+strconv.Itoa(i)+".ns.svc.cluster.local"] = &workloadapi.PortList{
+				Ports: []*workloadapi.Port{{ServicePort: 80, TargetPort: 8080}},
+			}
+		}
+		return &workloadapi.Address{Type: &workloadapi.Address_Workload{Workload: &workloadapi.Workload{
+			Uid: "cluster/ns/wl", Name: "wl", Namespace: "ns", Services: svcs,
+		}}}
+	}
+	first := NewAddressInfo(mk())
+	for range 200 {
+		got := NewAddressInfo(mk())
+		assert.Equal(t, got.Marshaled.Value, first.Marshaled.Value)
+		assert.Equal(t, got.MarshaledWorkload.Value, first.MarshaledWorkload.Value)
+		assert.Equal(t, got.Version, first.Version)
+		a := WorkloadInfo{Workload: first.GetWorkload(), MarshaledAddress: first.Marshaled}
+		b := WorkloadInfo{Workload: got.GetWorkload(), MarshaledAddress: got.Marshaled}
+		assert.Equal(t, a.Equals(b), true)
 	}
 }
 
