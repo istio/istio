@@ -946,3 +946,131 @@ spec:
 	t.Cleanup(grpcServer.Stop)
 	return net.JoinHostPort("localhost", fmt.Sprint(l.Addr().(*net.TCPAddr).Port))
 }
+
+// serveHealthySocket starts a gRPC server on a unix socket at path, so that it passes
+// the agent's SDS socket health check.
+func serveHealthySocket(t *testing.T, path string) {
+	t.Helper()
+	l, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := grpc.NewServer()
+	go func() {
+		_ = s.Serve(l)
+	}()
+	t.Cleanup(s.Stop)
+}
+
+func TestWaitForSocket(t *testing.T) {
+	t.Run("no timeout, no socket", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "socket")
+
+		found, err := waitForSocket(context.Background(), path, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if found {
+			t.Fatal("expected no socket to be found")
+		}
+	})
+
+	t.Run("no timeout, healthy socket", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "socket")
+		serveHealthySocket(t, path)
+
+		found, err := waitForSocket(context.Background(), path, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !found {
+			t.Fatal("expected socket to be found")
+		}
+	})
+
+	t.Run("socket appears during wait", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "socket")
+		// Bind the socket only after the wait has started, emulating an external SDS
+		// provider that is slower to start than the agent.
+		time.AfterFunc(500*time.Millisecond, func() {
+			serveHealthySocket(t, path)
+		})
+
+		found, err := waitForSocket(context.Background(), path, 10*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !found {
+			t.Fatal("expected socket to be found after waiting")
+		}
+	})
+
+	t.Run("timeout expires", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "socket")
+
+		start := time.Now()
+		found, err := waitForSocket(context.Background(), path, 750*time.Millisecond)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if found {
+			t.Fatal("expected no socket to be found")
+		}
+		// We should have actually waited, rather than returning immediately.
+		if elapsed := time.Since(start); elapsed < 750*time.Millisecond {
+			t.Fatalf("returned after %v, expected to wait at least 750ms", elapsed)
+		}
+	})
+
+	t.Run("unhealthy socket is only removed once the timeout expires", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "socket")
+		// An unresponsive listener, as an external provider may create the socket before it
+		// starts serving on it.
+		l, err := net.Listen("unix", path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = l.Close() }()
+
+		type result struct {
+			found bool
+			err   error
+		}
+		done := make(chan result, 1)
+		go func() {
+			found, err := waitForSocket(context.Background(), path, 3*time.Second)
+			done <- result{found, err}
+		}()
+
+		// Partway through the wait the socket must still be in place, so that the provider is
+		// given the chance to start serving on the socket it already created.
+		time.Sleep(time.Second)
+		if !socketFileExists(path) {
+			t.Fatal("expected unhealthy socket to be left in place while waiting")
+		}
+
+		res := <-done
+		if res.err != nil {
+			t.Fatal(res.err)
+		}
+		if res.found {
+			t.Fatal("expected unhealthy socket to not be found")
+		}
+		if socketFileExists(path) {
+			t.Fatal("expected unhealthy socket to be removed by the final check")
+		}
+	})
+
+	t.Run("context cancelled during wait", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "socket")
+		ctx, cancel := context.WithCancelCause(context.Background())
+		time.AfterFunc(200*time.Millisecond, func() {
+			cancel(fmt.Errorf("application shutdown"))
+		})
+
+		_, err := waitForSocket(ctx, path, 30*time.Second)
+		if err == nil {
+			t.Fatal("expected an error when the agent is shut down while waiting")
+		}
+	})
+}

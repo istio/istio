@@ -91,8 +91,8 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
@@ -321,7 +321,7 @@ func NewErroringFakeClient(objects ...runtime.Object) CLIClient {
 	}
 
 	c.informerFactory = informerfactory.NewSharedInformerFactory()
-	s := FakeIstioScheme
+	s := FakeIstioScheme.MustGet()
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
@@ -390,7 +390,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	}
 
 	c.informerFactory = informerfactory.NewSharedInformerFactory()
-	s := FakeIstioScheme
+	s := FakeIstioScheme.MustGet()
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
@@ -554,6 +554,9 @@ type client struct {
 
 	// http is a client for HTTP requests
 	http *http.Client
+
+	// restHTTPClient is the HTTP client the Kubernetes clientsets share.
+	restHTTPClient *http.Client
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -572,7 +575,16 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 		opt(&c)
 	}
 
-	c.restClient, err = clientFactory.RESTClient()
+	// Share the factory's connection pool. The copy keeps a timeout set by a ClientOption.
+	sharedHTTPClient, err := clientFactory.HTTPClient()
+	if err != nil {
+		return nil, err
+	}
+	httpClient := *sharedHTTPClient
+	httpClient.Timeout = c.config.Timeout
+	c.restHTTPClient = &httpClient
+
+	c.restClient, err = rest.RESTClientForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
@@ -588,37 +600,37 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 
 	c.informerFactory = informerfactory.NewSharedInformerFactory()
 
-	c.kube, err = kubernetes.NewForConfig(c.config)
+	c.kube, err = kubernetes.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.metadata, err = metadata.NewForConfig(c.config)
+	c.metadata, err = metadata.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.dynamic, err = dynamic.NewForConfig(c.config)
+	c.dynamic, err = dynamic.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.istio, err = istioclient.NewForConfig(c.config)
+	c.istio, err = istioclient.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.gatewayapi, err = gatewayapiclient.NewForConfig(c.config)
+	c.gatewayapi, err = gatewayapiclient.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.gatewayapiinference, err = gatewayapiinferenceclient.NewForConfig(c.config)
+	c.gatewayapiinference, err = gatewayapiinferenceclient.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.extSet, err = kubeExtClient.NewForConfig(c.config)
+	c.extSet, err = kubeExtClient.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
@@ -638,7 +650,9 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 			restConfig.Timeout = time.Second * 5
 		}
 
-		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		versionHTTPClient := httpClient
+		versionHTTPClient.Timeout = restConfig.Timeout
+		kubeClient, err := kubernetes.NewForConfigAndClient(restConfig, &versionHTTPClient)
 		if err == nil {
 			clientWithTimeout = kubeClient
 		}
@@ -1133,7 +1147,8 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		monitoringPort := FindIstiodMonitoringPort(&pod)
 		result, err := c.portForwardRequest(ctx, pod.Name, pod.Namespace, http.MethodGet, "/version", monitoringPort)
 		if err != nil {
-			errs = multierror.Append(errs,
+			errs = multierror.Append(
+				errs,
 				fmt.Errorf("error port-forwarding into %s.%s: %v", pod.Namespace, pod.Name, err),
 				err,
 			)
@@ -1462,11 +1477,8 @@ func (c *client) DynamicClientFor(g schema.GroupVersionKind, obj *unstructured.U
 }
 
 func (c *client) bestEffortToGVR(g schema.GroupVersionKind, obj *unstructured.Unstructured, namespace string) (schema.GroupVersionResource, bool) {
-	if s, f := collections.All.FindByGroupVersionAliasesKind(config.FromKubernetesGVK(g)); f {
-		gvr := s.GroupVersionResource()
-		// Might have been an alias, assign back the correct version
-		gvr.Version = g.Version
-		return gvr, !s.IsClusterScoped()
+	if r, f := gvk.ToGVR(config.FromKubernetesGVK(g)); f {
+		return r, !gvr.IsClusterScoped(r)
 	}
 	if c.mapper != nil {
 		// Fallback to dynamic lookup
@@ -1488,12 +1500,12 @@ var (
 )
 
 // FakeIstioScheme is an IstioScheme that has List type registered.
-var FakeIstioScheme = func() *runtime.Scheme {
+var FakeIstioScheme = lazy.New(func() (*runtime.Scheme, error) {
 	s := istioScheme()
 	// Workaround https://github.com/kubernetes/kubernetes/issues/107823
 	s.AddKnownTypeWithName(schema.GroupVersionKind{Group: "fake-metadata-client-group", Version: "v1", Kind: "List"}, &metav1.List{})
-	return s
-}()
+	return s, nil
+})
 
 func istioScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()

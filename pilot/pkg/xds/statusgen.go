@@ -151,7 +151,7 @@ func (sg *StatusGen) debugSyncz(callerNamespace string) model.Resources {
 		// Skip "nodes" without metadata (they are probably istioctl queries!)
 		if (isProxy(con) || isZtunnel(con)) && (callerNamespace == "" || con.proxy.ConfigNamespace == callerNamespace) {
 			xdsConfigs := make([]*status.ClientConfig_GenericXdsConfig, 0)
-			wrs := con.proxy.DeepCloneWatchedResources()
+			wrs := con.proxy.DeepCloneWatchedResourcesLocked()
 			for _, wr := range wrs {
 				pxc := &status.ClientConfig_GenericXdsConfig{}
 				pxc.ConfigStatus = debugSyncStatus(wr)

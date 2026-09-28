@@ -233,6 +233,20 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
+			base: "stats_interval_minutes",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval":    "1m",
+				"sidecar.istio.io/statsEvictionInterval": "5m",
+			},
+		},
+		{
+			base: "stats_interval_subsecond",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval":    "500ms",
+				"sidecar.istio.io/statsEvictionInterval": "2500ms",
+			},
+		},
+		{
 			base: "global_downstream_max_connections_meta",
 			envVars: map[string]string{
 				GlobalDownstreamMaxConnections: "10000",

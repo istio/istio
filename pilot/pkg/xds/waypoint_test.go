@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -413,6 +414,41 @@ spec:
 	notApp := xdstest.ExtractHTTPConnectionManager(t,
 		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l))
 	assert.Equal(t, sets.New(slices.Map(notApp.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), false)
+}
+
+func TestWaypointRequestAuthRemoteJWKSCluster(t *testing.T) {
+	test.SetForTest(t, &features.JwksFetchMode, jwt.Envoy)
+	requestAuthn := `apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: jwt-on-waypoint
+  namespace: default
+spec:
+  targetRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: app
+  jwtRules:
+  - issuer: example.ietf.org
+    jwksUri: http://jwks.example.com/jwks`
+	jwksServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: jwks
+  namespace: default
+spec:
+  hosts: [jwks.example.com]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS`
+	d, proxy := setupWaypointTest(t,
+		waypointGateway, waypointSvc, waypointInstance,
+		appServiceEntry, jwksServiceEntry, requestAuthn)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(proxy))
+	assert.Equal(t, clusters["outbound|80||jwks.example.com"] != nil, true)
 }
 
 func TestCrossNamespaceWaypointRequestAuth(t *testing.T) {

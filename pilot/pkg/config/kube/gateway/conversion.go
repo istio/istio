@@ -101,7 +101,7 @@ func sortedConfigByCreationTime(configs []config.Config) []config.Config {
 
 func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 	obj *k8s.HTTPRoute, pos int, enforceRefGrant bool,
-) (*istio.HTTPRoute, *inferencePoolConfig, *ConfigError) {
+) (*istio.HTTPRoute, inferencePoolConfigs, *ConfigError) {
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
 		vs.Name = string(*r.Name)
@@ -982,7 +982,7 @@ func buildHTTPDestination(
 	forwardTo []k8s.HTTPBackendRef,
 	ns string,
 	enforceRefGrant bool,
-) ([]*istio.HTTPRouteDestination, *inferencePoolConfig, *ConfigError, *ConfigError) {
+) ([]*istio.HTTPRouteDestination, inferencePoolConfigs, *ConfigError, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil, nil, nil
 	}
@@ -1001,11 +1001,19 @@ func buildHTTPDestination(
 	}
 
 	var invalidBackendErr *ConfigError
-	var ipCfg *inferencePoolConfig
+	var ipCfg inferencePoolConfigs
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
 		dst, ipconfig, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.HTTPRoute)
-		ipCfg = ipconfig
+		// Keyed by destination host so the xDS layer can match each weighted cluster back to the
+		// pool it came from. Collapsing these into one config per rule would hand a single pool's
+		// endpoint picker every request the rule serves.
+		if ipconfig != nil && ipconfig.enableExtProc {
+			if ipCfg == nil {
+				ipCfg = inferencePoolConfigs{}
+			}
+			ipCfg[dst.GetHost()] = ipconfig
+		}
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1127,6 +1135,10 @@ func buildGRPCDestination(
 	return res, invalidBackendErr, nil
 }
 
+// inferencePoolConfigs collects the InferencePool backendRefs of one route rule, keyed by the
+// hostname of the Service Istio synthesizes for each pool.
+type inferencePoolConfigs map[string]*inferencePoolConfig
+
 type inferencePoolConfig struct {
 	enableExtProc             bool
 	endpointPickerDst         string
@@ -1155,7 +1167,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 	var hostname string
 	switch ref {
 	case gvk.XBackend:
-		if !features.EnableAlphaGatewayAPI {
+		if !ctx.Flags.EnableAlphaGatewayAPI {
 			return &istio.Destination{}, nil, &ConfigError{
 				Reason:  InvalidDestinationKind,
 				Message: "The Alpha Gateway API is not enabled, XBackend is invalid. To enable, set PILOT_ENABLE_ALPHA_GATEWAY_API to true in istiod.",
@@ -1223,7 +1235,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case gvk.InferencePool:
-		if !features.EnableGatewayAPIInferenceExtension {
+		if !ctx.Flags.EnableGatewayAPIInferenceExtension {
 			return &istio.Destination{}, nil, &ConfigError{
 				Reason:  InvalidDestinationKind,
 				Message: "InferencePool is not enabled. To enable, set ENABLE_GATEWAY_API_INFERENCE_EXTENSION to true in istiod",

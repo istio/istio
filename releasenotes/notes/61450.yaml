@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61450
+releaseNotes:
+- |
+  **Fixed** a panic when `outlierDetection` is applied to a DNS-proxying (DFP) wildcard cluster.
+  `CommonLbConfig` was nil on the clusters built by `buildDFPCluster`, so setting
+  `HealthyPanicThreshold` dereferenced a nil pointer. It is now initialized for both the DFP and
+  allow-any DFP clusters, with a nil guard before the assignment.

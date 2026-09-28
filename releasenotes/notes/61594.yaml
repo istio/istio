@@ -1,0 +1,22 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61594
+releaseNotes:
+  - |
+    **Fixed** an `HTTPRoute` rule with several `InferencePool` backendRefs configuring only one
+    endpoint picker. The picker of the last backendRef listed scored every request on the rule,
+    so the other pools' pickers were never invoked, and a pool with no ready endpoints failed
+    the whole rule rather than its own weighted share. Each pool now gets its own picker,
+    attached to its own weighted cluster.
+  - |
+    **Fixed** two `HTTPRoute`s sharing a `rules[].name` on the same gateway overwriting each
+    other's endpoint picker. Rule names only have to be unique within one `HTTPRoute`, but the
+    pickers were keyed by name across all of them, so a route could be served by another
+    route's picker. Pickers are now resolved per backendRef, so a shared name no longer moves
+    one route's picker onto another.
+  - |
+    **Fixed** a route rule losing its `InferencePool` endpoint picker when it also carried a
+    CORS filter. Both are written into the same per-filter configuration, and the CORS path
+    replaced the map rather than adding to it.

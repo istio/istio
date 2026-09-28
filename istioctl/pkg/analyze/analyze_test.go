@@ -15,6 +15,8 @@
 package analyze
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -82,6 +84,32 @@ func TestSkipPodsInFiles(t *testing.T) {
 	}
 	analyze := Analyze(cli.NewFakeContext(nil))
 	testutil.VerifyOutput(t, analyze, c)
+}
+
+func TestAnalyzeReturnsMeshConfigFileError(t *testing.T) {
+	meshConfigPath := filepath.Join(t.TempDir(), "mesh-config.yaml")
+	invalidMeshConfig := `extensionProviders:
+- name: ext-authz
+  envoyExtAuthzGrpc:
+    service: ext-authz.example.svc.cluster.local
+    port: 9000
+    statusOnError: 503
+`
+	if err := os.WriteFile(meshConfigPath, []byte(invalidMeshConfig), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	analyze := Analyze(cli.NewFakeContext(nil))
+	analyze.SetArgs([]string{"--use-kube=false", "--meshConfigFile", meshConfigPath})
+	analyze.SilenceUsage = true
+
+	err := analyze.Execute()
+	if err == nil {
+		t.Fatal("expected invalid mesh config file to return an error")
+	}
+	if !strings.Contains(err.Error(), "failed to load mesh config file") {
+		t.Fatalf("expected mesh config file error, got %v", err)
+	}
 }
 
 func TestGetClientsRejectsUnsafeMultiClusterSecret(t *testing.T) {

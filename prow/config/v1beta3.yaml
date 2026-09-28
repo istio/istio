@@ -1,8 +1,7 @@
 # This configs KinD to spin up a k8s cluster with testing optimized config
-# This should be used to create K8s clusters with versions >= 1.28
+# This should be used to create K8s clusters with versions <= 1.35
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-featureGates: {}
 kubeadmConfigPatches:
 - |
   apiVersion: kubeadm.k8s.io/v1beta3
@@ -26,5 +25,5 @@ kubeadmConfigPatches:
       "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
 containerdConfigPatches:
 - |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5000"]
-    endpoint = ["http://kind-registry:5000"]
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"

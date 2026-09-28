@@ -1001,10 +1001,9 @@ func (node *Proxy) ShallowCloneWatchedResources() map[string]*WatchedResource {
 	return maps.Clone(node.WatchedResources)
 }
 
-// DeepCloneWatchedResources clones the watched resources
-func (node *Proxy) DeepCloneWatchedResources() map[string]WatchedResource {
-	node.RLock()
-	defer node.RUnlock()
+// DeepCloneWatchedResourcesLocked clones the watched resources.
+// The caller must hold the proxy read or write lock.
+func (node *Proxy) DeepCloneWatchedResourcesLocked() map[string]WatchedResource {
 	m := make(map[string]WatchedResource, len(node.WatchedResources))
 	for k, v := range node.WatchedResources {
 		m[k] = *v

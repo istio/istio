@@ -75,7 +75,7 @@ func TestIncrementalPush(t *testing.T) {
 	})
 	ads := s.Connect(nil, nil, watchAll)
 	t.Run("Full Push", func(t *testing.T) {
-		s.Discovery.Push(&model.PushRequest{Forced: true})
+		s.Discovery.Push(&model.PushRequest{Forced: true}, true)
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
@@ -84,7 +84,7 @@ func TestIncrementalPush(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "destall.default.svc.cluster.local", Namespace: "testns"}),
-		})
+		}, true)
 		if err := ads.WaitSingle(time.Second*5, v3.EndpointType, v3.ClusterType); err != nil {
 			t.Fatal(err)
 		}
@@ -94,7 +94,7 @@ func TestIncrementalPush(t *testing.T) {
 
 		s.Discovery.Push(&model.PushRequest{
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "weighted.static.svc.cluster.local", Namespace: "default"}),
-		})
+		}, true)
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
@@ -107,7 +107,7 @@ func TestIncrementalPush(t *testing.T) {
 
 		s.Discovery.Push(&model.PushRequest{
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "weighted.static.svc.cluster.local", Namespace: "otherns"}),
-		})
+		}, true)
 		upd, _ := ads.Wait(time.Millisecond*100, watchAll...)
 		if slices.Contains(upd, v3.EndpointType) {
 			t.Fatalf("Expected no EDS push, got %v", upd)
@@ -120,7 +120,7 @@ func TestIncrementalPush(t *testing.T) {
 				model.ConfigKey{Kind: kind.ServiceEntry, Name: "weighted.static.svc.cluster.local", Namespace: "default"},
 				model.ConfigKey{Kind: kind.VirtualService, Name: "vs", Namespace: "testns"},
 			),
-		})
+		}, true)
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
@@ -134,7 +134,7 @@ func TestIncrementalPush(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{
 			ConfigsUpdated: sets.New(
 				model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "testns"}),
-		})
+		}, true)
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
@@ -148,7 +148,7 @@ func TestIncrementalPush(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{
 			ConfigsUpdated: sets.New(
 				model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "otherns"}),
-		})
+		}, true)
 		upd, _ := ads.Wait(time.Millisecond*100, watchAll...)
 		if slices.Contains(upd, v3.EndpointType) {
 			t.Fatalf("Expected no EDS push, got %v", upd)
@@ -161,7 +161,7 @@ func TestIncrementalPush(t *testing.T) {
 			ConfigsUpdated: sets.New(
 				model.ConfigKey{Kind: kind.ServiceEntry, Name: "destall.default.svc.cluster.local", Namespace: "testns"},
 				model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "testns"}),
-		})
+		}, true)
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
@@ -176,7 +176,7 @@ func TestIncrementalPush(t *testing.T) {
 				model.ConfigKey{Kind: kind.ServiceEntry, Name: "destall.default.svc.cluster.local", Namespace: "default"},
 				model.ConfigKey{Kind: kind.VirtualService, Name: "vs", Namespace: "testns"},
 				model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "testns"}),
-		})
+		}, true)
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
@@ -188,7 +188,7 @@ func TestIncrementalPush(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "testns"}),
-		})
+		}, true)
 		if _, err := ads.Wait(time.Second*5, v3.ClusterType, v3.EndpointType); err != nil {
 			t.Fatal(err)
 		}
@@ -200,7 +200,7 @@ func TestIncrementalPush(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "default", Namespace: "testns"}),
-		})
+		}, true)
 		if _, err := ads.Wait(time.Second*5, v3.ClusterType, v3.EndpointType); err != nil {
 			t.Fatal(err)
 		}
@@ -212,7 +212,7 @@ func TestIncrementalPush(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "default", Namespace: "otherns"}),
-		})
+		}, true)
 		upd, _ := ads.Wait(time.Second*5, watchAll...)
 		if slices.Contains(upd, v3.EndpointType) {
 			t.Fatalf("Expected no EDS push, got %v", upd)
@@ -845,7 +845,7 @@ func TestDeleteService(t *testing.T) {
 }
 
 func fullPush(s *xdsfake.FakeDiscoveryServer) {
-	s.Discovery.Push(&model.PushRequest{Forced: true})
+	s.Discovery.Push(&model.PushRequest{Forced: true}, true)
 }
 
 func addTestClientEndpoints(m *memory.ServiceDiscovery) {
@@ -941,7 +941,7 @@ func testOverlappingPorts(s *xdsfake.FakeDiscoveryServer, adsc *adsc.ADSC, t *te
 			Kind: kind.ServiceEntry,
 			Name: "overlapping.cluster.local",
 		}),
-	})
+	}, true)
 	_, _ = adsc.Wait(5 * time.Second)
 
 	// After the incremental push, we should still see the endpoint
@@ -1576,7 +1576,7 @@ func TestEdsLocalCluster(t *testing.T) {
 	t.Run("DR change does not recompute local_cluster", func(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "any", Namespace: svcNS}),
-		})
+		}, true)
 		// A partial push that doesn't touch local_cluster should not produce a non-empty
 		// response for this proxy (it's only watching local_cluster).
 		ads.ExpectNoResponse(t)
@@ -1621,7 +1621,7 @@ func TestEdsLocalCluster(t *testing.T) {
 				Name:      "other.default.svc.cluster.local",
 				Namespace: svcNS,
 			}),
-		})
+		}, true)
 		ads.ExpectNoResponse(t)
 	})
 
@@ -1694,6 +1694,89 @@ func TestEdsLocalCluster(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestEdsLocalClusterOutOfEgressScope verifies that the self-discovery local_cluster
+// resolves the proxy's own service from the global service index even when a Sidecar
+// CR excludes that service from the proxy's egress scope.
+func TestEdsLocalClusterOutOfEgressScope(t *testing.T) {
+	const (
+		proxyIP  = "1.1.1.1"
+		svcNS    = "default"
+		svcName  = "local"
+		svcHost  = "local.default.svc.cluster.local"
+		nodeID   = "sidecar~1.1.1.1~test.default~default.svc.cluster.local"
+		portName = "http"
+	)
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+		// Egress scope only allows an unrelated service; the proxy's own service
+		// (local.default.svc.cluster.local) is intentionally NOT included.
+		ConfigString: `
+apiVersion: networking.istio.io/v1beta1
+kind: Sidecar
+metadata:
+  name: default
+  namespace: default
+spec:
+  egress:
+  - hosts:
+    - "default/other.default.svc.cluster.local"
+`,
+	})
+	svc := &model.Service{
+		Hostname: host.Name(svcHost),
+		Ports: model.PortList{{
+			Name:     portName,
+			Port:     80,
+			Protocol: protocol.HTTP,
+		}},
+		Attributes: model.ServiceAttributes{Namespace: svcNS, Name: svcName},
+	}
+	s.MemRegistry.AddService(svc)
+	s.MemRegistry.AddInstance(&model.ServiceInstance{
+		Service:     svc,
+		ServicePort: svc.Ports[0],
+		Endpoint: &model.IstioEndpoint{
+			Addresses:       []string{proxyIP},
+			ServicePortName: portName,
+			EndpointPort:    80,
+			Locality:        model.Locality{Label: "region1/zone1/subzone1"},
+			TLSMode:         model.IstioMutualTLSModeLabel,
+			HealthStatus:    model.Healthy,
+		},
+	})
+	s.EnsureSynced(t)
+
+	ads := s.ConnectADS().
+		WithID(nodeID).
+		WithType(v3.EndpointType).
+		WithMetadata(model.NodeMetadata{
+			Namespace: svcNS,
+			Labels: map[string]string{
+				"topology.kubernetes.io/region": "region1",
+				"topology.kubernetes.io/zone":   "zone1",
+			},
+		})
+	resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{util.SelfDiscoveryCluster},
+	})
+
+	if len(resp.Resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resp.Resources))
+	}
+	cla := &endpoint.ClusterLoadAssignment{}
+	if err := resp.Resources[0].UnmarshalTo(cla); err != nil {
+		t.Fatal(err)
+	}
+	hosts := 0
+	for _, lle := range cla.Endpoints {
+		hosts += len(lle.LbEndpoints)
+	}
+	if hosts != 1 {
+		t.Fatalf("expected 1 endpoint in local_cluster despite being out of egress scope, got %d", hosts)
+	}
 }
 
 // TestEdsLocalClusterHashFilter verifies that filterIstioEndpoint restricts the
@@ -1921,7 +2004,7 @@ func TestEdsLocalClusterSteadyStateNoService(t *testing.T) {
 			Name:      "other.default.svc.cluster.local",
 			Namespace: "default",
 		}),
-	})
+	}, true)
 	ads.ExpectNoResponse(t)
 }
 

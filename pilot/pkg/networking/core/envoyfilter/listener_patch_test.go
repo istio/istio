@@ -30,6 +30,7 @@ import (
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -2657,6 +2658,126 @@ func TestMergeAndReplaceListListenerFilter(t *testing.T) {
 				t.Errorf("%s mismatch (-want +got):\n%s", tt.name, diff)
 			}
 		})
+	}
+}
+
+// TestMergeListenerFilterDoesNotMutateSharedFilter ensures a LISTENER_FILTER merge patches a
+// clone rather than the filter already on the listener. Listeners are built by appending the
+// package-level singletons in pilot/pkg/xds/filters by pointer (see xdsfilters.TLSInspector in
+// buildListener below), so merging in place would leak one EnvoyFilter's config into every
+// other proxy in the mesh for the life of the istiod process.
+func TestMergeListenerFilterDoesNotMutateSharedFilter(t *testing.T) {
+	tlsInspectorPatch := func(op networking.EnvoyFilter_Patch_Operation) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+		return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+			{
+				ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+				Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_GATEWAY,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+						Listener: &networking.EnvoyFilter_ListenerMatch{
+							PortNumber:     80,
+							ListenerFilter: wellknown.TLSInspector,
+						},
+					},
+				},
+				Patch: &networking.EnvoyFilter_Patch{
+					Operation: op,
+					Value: buildPatchStruct(`
+						{"typed_config":{
+							"@type":"type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector",
+							"initial_read_buffer_size":4096}}`),
+				},
+			},
+		}
+	}
+
+	for _, op := range []networking.EnvoyFilter_Patch_Operation{
+		networking.EnvoyFilter_Patch_MERGE,
+		networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+	} {
+		t.Run(op.String(), func(t *testing.T) {
+			// Snapshot the shared singleton before it is handed to the patcher.
+			want := proto.Clone(xdsfilters.TLSInspector).(*listener.ListenerFilter)
+
+			lis := buildHTTPListener(&hcm.HttpConnectionManager{StatPrefix: "http"})
+			// Appended by pointer, exactly as the listener builders do.
+			lis.ListenerFilters = []*listener.ListenerFilter{xdsfilters.TLSInspector}
+
+			got := applyGatewayListenerPatches(t, tlsInspectorPatch(op), lis)
+
+			if diff := cmp.Diff(want, xdsfilters.TLSInspector, protocmp.Transform()); diff != "" {
+				t.Errorf("shared xdsfilters.TLSInspector was mutated (-want +got):\n%s", diff)
+			}
+
+			// The patch must still have taken effect on the listener itself.
+			gotCfg := &tlsinspector.TlsInspector{}
+			if err := got[0].ListenerFilters[0].GetTypedConfig().UnmarshalTo(gotCfg); err != nil {
+				t.Fatalf("failed to unmarshal patched tls_inspector config: %v", err)
+			}
+			if gotCfg.GetInitialReadBufferSize().GetValue() != 4096 {
+				t.Errorf("patch was not applied to the listener: got initial_read_buffer_size %v, want 4096",
+					gotCfg.GetInitialReadBufferSize().GetValue())
+			}
+		})
+	}
+}
+
+// TestMergeListenerFilterOnlyPatchesMatchingFilter ensures a LISTENER_FILTER merge is applied
+// only to the filters selected by match.listener.listenerFilter. Without the per-filter check
+// the patch is merged into every listener filter, which for filters of a different type fails
+// the Any merge with a "descriptor mismatch" panic; that panic is recovered in
+// ApplyListenerPatches and silently drops every listener patch for the proxy.
+func TestMergeListenerFilterOnlyPatchesMatchingFilter(t *testing.T) {
+	tlsInspectorPatch := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber:     80,
+						ListenerFilter: wellknown.TLSInspector,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+					{"typed_config":{
+						"@type":"type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector",
+						"initial_read_buffer_size":4096}}`),
+			},
+		},
+	}
+
+	buildListener := func(tlsReadBufferSize uint32) *listener.Listener {
+		lis := buildHTTPListener(&hcm.HttpConnectionManager{StatPrefix: "http"})
+		lis.ListenerFilters = []*listener.ListenerFilter{
+			{
+				Name: wellknown.TLSInspector,
+				ConfigType: &listener.ListenerFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&tlsinspector.TlsInspector{
+						InitialReadBufferSize: &wrapperspb.UInt32Value{Value: tlsReadBufferSize},
+					}),
+				},
+			},
+			{
+				// A different type, not selected by the patch. Merging the tls_inspector
+				// patch into it would panic on a descriptor mismatch.
+				Name: wellknown.ProxyProtocol,
+				ConfigType: &listener.ListenerFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocol{
+						DisallowedVersions: []core.ProxyProtocolConfig_Version{core.ProxyProtocolConfig_V1},
+					}),
+				},
+			},
+		}
+		return lis
+	}
+
+	got := applyGatewayListenerPatches(t, tlsInspectorPatch, buildListener(512))
+	if diff := cmp.Diff([]*listener.Listener{buildListener(4096)}, got, protocmp.Transform()); diff != "" {
+		t.Errorf("listener filter merge mismatch (-want +got):\n%s", diff)
 	}
 }
 

@@ -704,6 +704,58 @@ func TestProxyNeedsPushServiceTargets(t *testing.T) {
 	}
 }
 
+func TestCanSendPartialFullPushesIgnoresSkippedConfigs(t *testing.T) {
+	endpoint := model.ConfigKey{Kind: kind.Endpoints, Name: "service.example"}
+	for skippedKind := range skippedEdsConfigs {
+		if skippedKind == kind.Address {
+			continue
+		}
+		t.Run(skippedKind.String(), func(t *testing.T) {
+			assert.Equal(t, canSendPartialFullPushes(&model.PushRequest{
+				ConfigsUpdated: sets.New(
+					endpoint,
+					model.ConfigKey{Kind: skippedKind, Name: "unrelated"},
+				),
+			}), true)
+		})
+	}
+}
+
+func TestCanSendPartialFullPushesConservativeFallbacks(t *testing.T) {
+	endpoint := model.ConfigKey{Kind: kind.Endpoints, Name: "service.example"}
+	tests := []struct {
+		name string
+		req  *model.PushRequest
+	}{
+		{
+			name: "Address",
+			req: &model.PushRequest{ConfigsUpdated: sets.New(
+				endpoint,
+				model.ConfigKey{Kind: kind.Address, Name: "address"},
+			)},
+		},
+		{
+			name: "unclassified kind",
+			req: &model.PushRequest{ConfigsUpdated: sets.New(
+				endpoint,
+				model.ConfigKey{Kind: kind.Kind(255), Name: "unknown"},
+			)},
+		},
+		{
+			name: "root PeerAuthentication",
+			req: &model.PushRequest{
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "default", Namespace: "istio-system"}),
+				Push:           &model.PushContext{Mesh: &mesh.MeshConfig{RootNamespace: "istio-system"}},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, canSendPartialFullPushes(tt.req), false)
+		})
+	}
+}
+
 func TestCheckConnectionIdentity(t *testing.T) {
 	cases := []struct {
 		name      string

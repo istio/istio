@@ -182,6 +182,7 @@ func newJwksResolverWithCABundlePaths(
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
 				DialContext:       blockedCIDRDialContext,
+				ForceAttemptHTTP2: true,
 			},
 		},
 	}
@@ -208,6 +209,7 @@ func newJwksResolverWithCABundlePaths(
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
 				DialContext:       blockedCIDRDialContext,
+				ForceAttemptHTTP2: true,
 				TLSClientConfig: &tls.Config{
 					// nolint: gosec // user explicitly opted into insecure
 					InsecureSkipVerify: features.JwksResolverInsecureSkipVerify,

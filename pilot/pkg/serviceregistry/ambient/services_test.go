@@ -102,6 +102,29 @@ func TestServiceEntryServices(t *testing.T) {
 		},
 	}
 
+	// A second waypoint in the ServiceEntry's own namespace, used as a canary target.
+	canaryAddr := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{
+				Namespace: "ns",
+				Hostname:  "canary.example",
+			},
+		},
+		HboneMtlsPort: 15008,
+	}
+	canaryWaypoint := Waypoint{
+		Named: krt.Named{
+			Name:      "canary",
+			Namespace: "ns",
+		},
+		TrafficType: constants.AllTraffic,
+		Address:     canaryAddr,
+		AllowedRoutes: WaypointSelector{
+			FromNamespaces: gatewayv1.NamespacesFromSelector,
+			Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+		},
+	}
+
 	cases := []struct {
 		name   string
 		inputs []any
@@ -1360,6 +1383,166 @@ func TestServiceEntryServices(t *testing.T) {
 				},
 			},
 		},
+		{
+			// The canary path must apply the same NAMESPACE-visibility guard as the primary:
+			// the primary binds in-namespace, but the cross-namespace canary is refused and no
+			// weighted waypoints are emitted.
+			name: "NAMESPACE visibility refuses cross-namespace canary waypoint",
+			inputs: []any{
+				ns,
+				waypoint,
+				crossNsWaypoint,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ns-crossns-canary",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:                "waypoint",
+						label.IoIstioUseWaypointCanary.Name:          "waypoint",
+						label.IoIstioUseWaypointCanaryNamespace.Name: "other",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "20",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "ns-crossns-canary",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Waypoint: waypointAddr,
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+					// WeightedWaypoints intentionally absent: the cross-namespace canary is refused.
+				},
+			},
+			waypointErr: ReportWaypointCrossNamespaceForbidden("other/waypoint"),
+		},
+		{
+			name: "NAMESPACE visibility keeps same-namespace canary waypoint",
+			inputs: []any{
+				ns,
+				waypoint,
+				canaryWaypoint,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ns-samens-canary",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:       "waypoint",
+						label.IoIstioUseWaypointCanary.Name: "canary",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "20",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "ns-samens-canary",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Waypoint: waypointAddr,
+					WeightedWaypoints: []*workloadapi.WeightedWaypoint{
+						{Destination: waypointAddr, Weight: 80},
+						{Destination: canaryAddr, Weight: 20},
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
+		{
+			name: "PUBLIC visibility keeps cross-namespace canary waypoint",
+			inputs: []any{
+				ns,
+				waypoint,
+				crossNsWaypoint,
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "public-crossns-canary",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:                "waypoint",
+						label.IoIstioUseWaypointCanary.Name:          "waypoint",
+						label.IoIstioUseWaypointCanaryNamespace.Name: "other",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "20",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "public-crossns-canary",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Waypoint: waypointAddr,
+					WeightedWaypoints: []*workloadapi.WeightedWaypoint{
+						{Destination: waypointAddr, Weight: 80},
+						{Destination: crossNsWaypointAddr, Weight: 20},
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					// Visibility PUBLIC (zero value): cross-namespace canary is allowed.
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1378,7 +1561,7 @@ func TestServiceEntryServices(t *testing.T) {
 				krt.NewStatic(matcher, true),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.se)
-			res := slices.Map(wrapper, func(e TypedServiceInfo) *workloadapi.Service {
+			res := slices.Map(wrapper, func(e *TypedServiceInfo) *workloadapi.Service {
 				return e.Service
 			})
 			assert.Equal(t, res, tt.result)
@@ -1395,8 +1578,8 @@ func TestSelectWorkloadServices(t *testing.T) {
 	older := time.Unix(100, 0)
 	newer := time.Unix(200, 0)
 
-	si := func(ns, name string, k kind.Kind, vis workloadapi.Service_Visibility, created time.Time) TypedServiceInfo {
-		return TypedServiceInfo{ServiceInfo: model.ServiceInfo{
+	si := func(ns, name string, k kind.Kind, vis workloadapi.Service_Visibility, created time.Time) *TypedServiceInfo {
+		return &TypedServiceInfo{ServiceInfo: &model.ServiceInfo{
 			Service: &workloadapi.Service{
 				Name:       name,
 				Namespace:  ns,
@@ -1410,7 +1593,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 
 	// run returns the winning service name per namespace and the name of the single canonical
 	// service ("" if none).
-	run := func(t *testing.T, inputs []TypedServiceInfo) (map[string]string, string) {
+	run := func(t *testing.T, inputs []*TypedServiceInfo) (map[string]string, string) {
 		winners := map[string]string{}
 		canonical := ""
 		for _, s := range selectWorkloadServices(inputs) {
@@ -1427,7 +1610,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 
 	cases := []struct {
 		name          string
-		inputs        []TypedServiceInfo
+		inputs        []*TypedServiceInfo
 		wantWinners   map[string]string
 		wantCanonical string
 	}{
@@ -1435,7 +1618,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 			// Same namespace, same hostname: the older SE owns the slot. Because the owner is
 			// NAMESPACE-scoped, nothing is canonical (out-of-namespace clients see no service).
 			name: "same namespace: older NAMESPACE beats newer PUBLIC, nothing canonical",
-			inputs: []TypedServiceInfo{
+			inputs: []*TypedServiceInfo{
 				si("ns", "pub", kind.ServiceEntry, workloadapi.Service_PUBLIC, newer),
 				si("ns", "nslocal", kind.ServiceEntry, workloadapi.Service_NAMESPACE, older),
 			},
@@ -1446,7 +1629,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 			// A Kubernetes Service must be canonical over an older ServiceEntry that camps its
 			// hostname -- age must not let the SE capture it.
 			name: "kube Service is canonical over an older camping PUBLIC ServiceEntry",
-			inputs: []TypedServiceInfo{
+			inputs: []*TypedServiceInfo{
 				si("team-a", "svc", kind.Service, workloadapi.Service_PUBLIC, newer),
 				si("team-b", "camp", kind.ServiceEntry, workloadapi.Service_PUBLIC, older),
 			},
@@ -1456,7 +1639,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 		{
 			// Cross namespace: the PUBLIC SE is canonical; the NAMESPACE SE owns only its namespace.
 			name: "cross namespace: PUBLIC is canonical, NAMESPACE is not",
-			inputs: []TypedServiceInfo{
+			inputs: []*TypedServiceInfo{
 				si("team-a", "nslocal", kind.ServiceEntry, workloadapi.Service_NAMESPACE, older),
 				si("team-b", "pub", kind.ServiceEntry, workloadapi.Service_PUBLIC, newer),
 			},
@@ -1470,7 +1653,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 			// Order-independence: same result for the inputs and their reverse.
 			reverse := slices.Clone(tc.inputs)
 			slices.Reverse(reverse)
-			for _, order := range [][]TypedServiceInfo{tc.inputs, reverse} {
+			for _, order := range [][]*TypedServiceInfo{tc.inputs, reverse} {
 				winners, canonical := run(t, order)
 				assert.Equal(t, winners, tc.wantWinners)
 				assert.Equal(t, canonical, tc.wantCanonical)
@@ -1479,17 +1662,12 @@ func TestSelectWorkloadServices(t *testing.T) {
 	}
 }
 
-// Test_setCanonical asserts setCanonical propagates every ServiceInfo field to the canonical
-// copy. The reflection check keeps the fixture fully populated as fields are added; without it a
-// new field would default to zero and the equality below would pass without covering it. The
-// input is a fixed point of setCanonical: Canonical is already true and the marshaled address is
-// precomputed, so output must equal input exactly.
+// Test_setCanonical asserts setCanonical creates a canonical copy without modifying its input.
 func Test_setCanonical(t *testing.T) {
 	svc := &workloadapi.Service{
 		Name:      "name",
 		Namespace: "ns",
 		Hostname:  "host.example.com",
-		Canonical: true,
 	}
 	ai := model.NewAddressInfo(serviceToAddress(svc))
 	se := model.ServiceInfo{
@@ -1512,8 +1690,17 @@ func Test_setCanonical(t *testing.T) {
 			t.Errorf("field %q must be non-zero so this test covers it", rt.Field(i).Name)
 		}
 	}
-	seCopy := setCanonical(se)
-	assert.Equal(t, &se, &seCopy)
+	seCopy := setCanonical(&se)
+	assert.Equal(t, se.Service.Canonical, false)
+	assert.Equal(t, seCopy.Service.Canonical, true)
+	if seCopy == &se || seCopy.Service == se.Service {
+		t.Fatal("setCanonical must create a new ServiceInfo and Service")
+	}
+
+	alreadyCanonical := setCanonical(seCopy)
+	if alreadyCanonical != seCopy {
+		t.Fatal("setCanonical must retain an already canonical ServiceInfo")
+	}
 }
 
 func TestServiceServices(t *testing.T) {

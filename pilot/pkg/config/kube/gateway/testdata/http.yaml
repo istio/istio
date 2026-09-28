@@ -422,6 +422,27 @@ spec:
           group: inference.networking.k8s.io
           kind: InferencePool
           port: 80
+    # A single rule weighting traffic across both pools. Each pool has its own endpoint
+    # picker, so the rule compiles to two weighted clusters carrying one picker each.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /infpool
+          headers:
+          - name: my-header
+            value: weighted
+            type: Exact
+      backendRefs:
+        - name: infpool-gen
+          group: inference.networking.k8s.io
+          kind: InferencePool
+          port: 80
+          weight: 90
+        - name: infpool-gen2
+          group: inference.networking.k8s.io
+          kind: InferencePool
+          port: 80
+          weight: 10
 ---
 apiVersion: inference.networking.k8s.io/v1
 kind: InferencePool

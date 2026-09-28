@@ -57,6 +57,7 @@ var _ PortForwarder = &forwarder{}
 type forwarder struct {
 	stopCh       chan struct{}
 	restConfig   *rest.Config
+	httpClient   *http.Client
 	podName      string
 	ns           string
 	localAddress string
@@ -144,6 +145,7 @@ func newPortForwarder(c *client, podName, ns, localAddress string, localPort, po
 	f := &forwarder{
 		stopCh:       make(chan struct{}),
 		restConfig:   c.config,
+		httpClient:   c.restHTTPClient,
 		podName:      podName,
 		ns:           ns,
 		localAddress: localAddress,
@@ -155,7 +157,7 @@ func newPortForwarder(c *client, podName, ns, localAddress string, localPort, po
 }
 
 func (f *forwarder) buildK8sPortForwarder(readyCh chan struct{}) (*portforward.PortForwarder, error) {
-	restClient, err := rest.RESTClientFor(f.restConfig)
+	restClient, err := rest.RESTClientForConfigAndClient(f.restConfig, f.httpClient)
 	if err != nil {
 		return nil, err
 	}

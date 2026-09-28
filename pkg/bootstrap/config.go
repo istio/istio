@@ -328,7 +328,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		d, err := time.ParseDuration(v)
 		if err == nil {
 			statsFlushInterval = d
-			options = append(options, option.EnvoyStatsFlushInterval(statsFlushInterval))
+			options = append(options, option.EnvoyStatsFlushInterval(durationpb.New(statsFlushInterval)))
 		} else {
 			log.Warnf("Failed to parse stats flush interval %v: %v", v, err)
 		}
@@ -341,8 +341,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		} else if statsEvictionInterval%statsFlushInterval != 0 {
 			log.Warnf("StatsEvictionInterval must be a multiple of the StatsFlushInterval")
 		} else {
-			duration := &durationpb.Duration{Seconds: int64(statsEvictionInterval.Seconds())}
-			options = append(options, option.EnvoyStatsEvictionInterval(duration))
+			options = append(options, option.EnvoyStatsEvictionInterval(durationpb.New(statsEvictionInterval)))
 		}
 	}
 

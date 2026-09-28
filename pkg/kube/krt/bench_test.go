@@ -17,10 +17,10 @@ package krt_test
 import (
 	"fmt"
 	"net"
-	"reflect"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -117,7 +117,7 @@ func (l *legacy) Reconcile(key types.NamespacedName) error {
 		ServiceNames: slices.Map(services, func(e *v1.Service) string { return e.Name }),
 	}
 	old := l.workloads[key]
-	if reflect.DeepEqual(old, wl) {
+	if apiequality.Semantic.DeepEqual(old, wl) {
 		// No changes, NOP
 		return nil
 	}

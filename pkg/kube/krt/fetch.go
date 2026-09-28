@@ -101,6 +101,7 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 	// Compute the matching objects. General scans push filtering into the collection implementation so selective queries
 	// don't allocate a full-size intermediate list. Key and index filters use their more specific lookup paths below.
 	var list []T
+	needsMatching := d.filter.needsMatching(true)
 	matches := func(i T) bool {
 		o := c.augment(i)
 		return d.filter.Matches(o, true)
@@ -120,12 +121,17 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 		prefiltered = true
 	} else {
 		// Otherwise get everything
-		list = c.ListFiltered(matches)
+		if needsMatching {
+			list = c.ListFiltered(matches)
+		} else {
+			list = c.ListFiltered(nil)
+		}
 		prefiltered = true
 	}
-	if !prefiltered {
+	if !prefiltered && needsMatching {
 		list = slices.FilterInPlace(list, matches)
 	}
+	// Removed redundant filtering as it is already handled above.
 	if log.DebugEnabled() {
 		log.WithLabels(
 			"parent", parent,

@@ -202,7 +202,7 @@ parent feature is disabled.
 ## Manifest creation
 
 Manifest rendering is a multi-step process, shown in the figure below. ![rendering
-process](images/operator_render_flow.svg) The example in the figure shows the rendering being triggered by a CLI `mesh`
+process](../../operator/images/operator_render_flow.svg) The example in the figure shows the rendering being triggered by a CLI `mesh`
 command with a `IstioOperatorSpec` CR passed to it from a file; however, the same rendering steps would occur when an
 in-cluster CR is updated and the controller acts upon it to generate a new manifest to apply to the cluster. Note that
 both the charts and configuration profiles can come from three different sources: compiled-in, local filesystem.
