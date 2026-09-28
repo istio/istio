@@ -89,14 +89,6 @@ func removePreviousIstioOwnedMarker(cfg *config.InstallConfig) error {
 // removeStaleIstioOwnedConfig removes an istio-owned CNI config file that is no longer
 // the one istio should own, so it isn't mistaken for the primary CNI config (a leftover
 // file sorts to a high priority). It must run before config discovery.
-//
-// The previously-written istio-owned name is persisted in a marker file, so cleanup works
-// across restarts and regardless of mode: when the configured name changes, or when
-// istio-owned mode is disabled (currentName == ""), the old file is removed. The marker is
-// then updated to the current name, or deleted when no longer istio-owned.
-//
-// When no marker exists yet (e.g. a pod upgraded from a pre-marker istio-owned run), it
-// falls back to removing the default/configured-named file on the transition out of owned mode.
 func removeStaleIstioOwnedConfig(cfg *config.InstallConfig) error {
 	previousNames := sets.New(constants.DefaultIstioOwnedCNIConfigFilename)
 
@@ -124,7 +116,9 @@ func removeStaleIstioOwnedConfig(cfg *config.InstallConfig) error {
 
 	// Keep the marker in sync with what istio owns now.
 	if currentName != "" {
-		return writePreviousIstioOwnedMarker(cfg, currentName)
+		// best effort write
+		_ = writePreviousIstioOwnedMarker(cfg, currentName)
+		return nil
 	}
 	return removePreviousIstioOwnedMarker(cfg)
 }
