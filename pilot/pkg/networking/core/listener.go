@@ -525,13 +525,6 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							continue
 						}
 
-						// The set of VirtualServices selecting this service's hostname is identical for
-						// every pod endpoint below (only the per-pod CIDR differs); resolve it once here
-						// instead of once per pod inside buildSidecarOutboundListener, to avoid
-						// O(pods * virtualServices) host-matching for headless services with many
-						// endpoints on a TCP port.
-						listenerOpts.precomputedTCPConfigs = getConfigsForHost("", service.Hostname, virtualServices)
-
 						for _, instance := range instances {
 							// Make sure each endpoint address is a valid IP address
 							// as service entries could have NONE resolution with label selectors for workload
@@ -552,6 +545,16 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							if instance.FirstAddressOrNil() == node.IPAddresses[0] {
 								continue
 							}
+
+							// The applicable VirtualServices are identical for every pod endpoint (only the
+							// per-pod CIDR differs), so resolve them once and reuse the result to avoid
+							// O(pods * virtualServices) host-matching. Compute lazily here, after the guards,
+							// so services with no usable endpoints do no work. getConfigsForHost never returns
+							// nil, so a nil field means "not yet computed".
+							if listenerOpts.precomputedTCPConfigs == nil {
+								listenerOpts.precomputedTCPConfigs = getConfigsForHost("", service.Hostname, virtualServices)
+							}
+
 							if features.EnableHeadlessFilterChainListener && servicePort.Protocol.IsTCP() {
 								// Build a single wildcard listener with per-pod /32 CIDR filter chain matches
 								// instead of a separate per-pod-IP listener. This reduces the total listener
