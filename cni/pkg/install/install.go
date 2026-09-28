@@ -98,33 +98,27 @@ func removePreviousIstioOwnedMarker(cfg *config.InstallConfig) error {
 // When no marker exists yet (e.g. a pod upgraded from a pre-marker istio-owned run), it
 // falls back to removing the default/configured-named file on the transition out of owned mode.
 func removeStaleIstioOwnedConfig(cfg *config.InstallConfig) error {
+	previousNames := sets.New(constants.DefaultIstioOwnedCNIConfigFilename)
+
 	currentName := ""
 	if useIstioOwnedCNIConfig(cfg) {
 		currentName = cfg.IstioOwnedCNIConfigFilename
-		if len(currentName) == 0 {
+		if currentName == "" {
 			currentName = constants.DefaultIstioOwnedCNIConfigFilename
 		}
+	} else if cfg.IstioOwnedCNIConfigFilename != "" {
+		previousNames.Insert(cfg.IstioOwnedCNIConfigFilename)
 	}
 
-	previousName := readPreviousIstioOwnedMarker(cfg)
-
-	// Marker-driven cleanup: remove the previously-owned file whenever it differs from what
-	// istio should own now (a rename, or leaving owned mode entirely).
-	if previousName != "" && previousName != currentName {
-		if err := removeIstioOwnedFile(cfg, previousName); err != nil {
-			return err
-		}
+	if previousName := readPreviousIstioOwnedMarker(cfg); previousName != "" {
+		previousNames.Insert(previousName)
 	}
 
-	// Backward-compat fallback: no marker recorded yet, so clean up the default/configured
-	// file when transitioning out of owned mode.
-	if previousName == "" && currentName == "" {
-		leftoverName := cfg.IstioOwnedCNIConfigFilename
-		if len(leftoverName) == 0 {
-			leftoverName = constants.DefaultIstioOwnedCNIConfigFilename
-		}
-		if err := removeIstioOwnedFile(cfg, leftoverName); err != nil {
-			return err
+	for p := range previousNames {
+		if p != currentName {
+			if err := removeIstioOwnedFile(cfg, p); err != nil {
+				return err
+			}
 		}
 	}
 
