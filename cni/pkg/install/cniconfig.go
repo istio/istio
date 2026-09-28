@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/cni/pkg/plugin"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/maps"
 )
 
 // buildIstioCNIPlugin returns the marshaled istio-cni plugin JSON for the current config.
@@ -85,6 +86,8 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 		return "", err
 	}
 
+	var cleanup func() error
+
 	if cfg.ChainedCNIPlugin {
 		// If useIstioOwnedCNIConfig is true then we are copying the configuration from the primary CNI config file
 		// otherwise, we are overwriting the existing primary cni config
@@ -103,13 +106,16 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 			// later reconciliation and validation read the correct file.
 			cfg.CNIConfName = filepath.Base(cniConfigFilepath)
 
-			// The istio-cni plugin belongs only in the istio-owned CNI config. Remove it
-			// from the primary CNI config if a previous non-istio-owned run left it chained
-			// there, otherwise the primary and istio-owned configs would both run istio-cni.
-			// This mutates existingMap so the istio-owned config below is built from the
-			// cleaned primary.
-			if err := removeIstioCNIFromPrimary(cniConfigFilepath, existingMap, cfg); err != nil {
-				return "", err
+			// The istio-cni plugin belongs only in the istio-owned CNI config.
+			// Remove the istio-cni plugin from the primary after we have written the new
+			// istio-cni config.
+			primaryCNIConfig := cniConfigFilepath
+			cleanup = func() error {
+				if err := removeIstioCNIFromPrimary(primaryCNIConfig, cfg.CNIConfFileMode()); err != nil {
+					installLog.Errorf("Failed to remove the istio-cni plugin from the primary CNI config file %v: %v", primaryCNIConfig, err)
+					return err
+				}
+				return nil
 			}
 		}
 
@@ -153,6 +159,13 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 	}
 
 	installLog.Infof("Wrote CNI config to %s", cniConfigFilepath)
+
+	if cleanup != nil {
+		if err := cleanup(); err != nil {
+			return "", err
+		}
+	}
+
 	return cniConfigFilepath, nil
 }
 
@@ -282,12 +295,13 @@ func findIstioCNIPlugin(plugins []any) (int, map[string]any, error) {
 }
 
 // removeIstioCNIFromPrimary rewrites the primary CNI config at cniConfigFilepath to
-// drop any istio-cni plugin from its plugin list. It is a no-op when the primary is
-// not a plugin list (a standalone .conf cannot chain istio-cni) or already contains
-// no istio-cni plugin. existingMap is the already-parsed primary config and is mutated
-// in place when an istio-cni plugin is removed.
-func removeIstioCNIFromPrimary(cniConfigFilepath string, existingMap map[string]any, cfg *config.InstallConfig) error {
-	plugins, err := util.GetPlugins(existingMap)
+// drop any istio-cni plugin from its plugin list.
+func removeIstioCNIFromPrimary(cniConfigFilepath string, fileMode os.FileMode) error {
+	primaryCfg, err := util.ReadCNIConfigMap(cniConfigFilepath)
+	if err != nil {
+		return err
+	}
+	plugins, err := util.GetPlugins(primaryCfg)
 	if err != nil {
 		// A standalone .conf primary has no plugin list and cannot chain istio-cni.
 		return nil
@@ -301,14 +315,13 @@ func removeIstioCNIFromPrimary(cniConfigFilepath string, existingMap map[string]
 		return nil
 	}
 
-	existingMap["plugins"] = append(plugins[:idx], plugins[idx+1:]...)
-	updatedConfig, err := util.MarshalCNIConfig(existingMap)
+	primaryCfg["plugins"] = append(plugins[:idx], plugins[idx+1:]...)
+	updatedConfig, err := util.MarshalCNIConfig(primaryCfg)
 	if err != nil {
 		return err
 	}
 
 	// Preserve the existing file permissions when rewriting the primary CNI config.
-	fileMode := cfg.CNIConfFileMode()
 	if info, statErr := os.Stat(cniConfigFilepath); statErr == nil {
 		fileMode = info.Mode()
 	}
@@ -333,6 +346,7 @@ func insertCNIConfigMap(istioPlugin []byte, existingMap map[string]any) (map[str
 	delete(istioMap, "cniVersion")
 
 	if _, ok := existingMap["type"]; ok {
+		existingMap = maps.Clone(existingMap)
 		// Assume it is a regular network conf file
 		delete(existingMap, "cniVersion")
 
@@ -361,6 +375,7 @@ func insertCNIConfigMap(istioPlugin []byte, existingMap map[string]any) (map[str
 		plugins = append(plugins[:idx], plugins[idx+1:]...)
 	}
 
-	existingMap["plugins"] = append(plugins, istioMap)
-	return existingMap, nil
+	cniConfig := maps.Clone(existingMap)
+	cniConfig["plugins"] = append(plugins, istioMap)
+	return cniConfig, nil
 }
