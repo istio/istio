@@ -103,20 +103,9 @@ func (s *meshDataplane) rememberBranchENIRoute(podIP netip.Addr, podUID string, 
 	s.branchENIRules[podIP] = branchENIRouteEntry{podUID: podUID, route: info}
 }
 
-// forgetBranchENIRoute removes a cached branch ENI entry and returns it.
-func (s *meshDataplane) forgetBranchENIRoute(podIP netip.Addr) *branchENIRoute {
-	s.branchENIMu.Lock()
-	defer s.branchENIMu.Unlock()
-	entry, ok := s.branchENIRules[podIP]
-	if !ok {
-		return nil
-	}
-	delete(s.branchENIRules, podIP)
-	return entry.route
-}
-
 // forgetBranchENIRoutesForPod removes all cached branch ENI entries for a pod.
-// This is used when Kubernetes has already cleared the pod IPs from status.
+// Match the UID so an old pod's deletion cannot remove a new pod's cached route
+// after the IP has been reused.
 func (s *meshDataplane) forgetBranchENIRoutesForPod(podUID string) map[netip.Addr]*branchENIRoute {
 	s.branchENIMu.Lock()
 	defer s.branchENIMu.Unlock()
@@ -373,44 +362,23 @@ func (s *meshDataplane) addPodToHostAddrSet(pod *corev1.Pod, podIPs []netip.Addr
 	return addedIps, errors.Join(ipsetAddrErrs...)
 }
 
-// removePodFromHostAddrSet will remove (v4, v6) pod IPs from the host IP set(s).
-// Note that unlike when we add the IP to the set, on removal we will simply
-// skip removing the IP if the IP matches, but the UID comment does not match our pod.
+// removePodFromHostAddrSet removes all host address-set entries owned by the pod.
+// Match the UID rather than status IPs, which may be missing or incomplete.
 func (s *meshDataplane) removePodFromHostAddrSet(pod *corev1.Pod) error {
 	podUID := string(pod.ObjectMeta.UID)
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name, "podUID", podUID, "ipset", s.hostAddrSet.GetPrefix())
 
-	podIPs := util.GetPodIPsIfPresent(pod)
 	return util.RunAsHost(func() error {
-		if len(podIPs) == 0 {
-			if err := s.hostAddrSet.ClearEntriesWithComment(podUID); err != nil {
-				return err
-			}
-			log.Debug("removed pod from host addressSet by UID")
-
-			if EnableAWSBranchENIProbe {
-				for podIP, info := range s.forgetBranchENIRoutesForPod(podUID) {
-					delBranchENIRules(podIP, info)
-				}
-			}
-			return nil
+		if err := s.hostAddrSet.ClearEntriesWithComment(podUID); err != nil {
+			return err
 		}
+		log.Debug("removed pod from host addressSet by UID")
 
-		for _, pip := range podIPs {
-			if uidMismatch, err := s.hostAddrSet.ClearEntriesWithIPAndComment(pip, podUID); err != nil {
-				return err
-			} else if uidMismatch != "" {
-				log.Warnf("pod ip %s could not be removed from addressSet, found entry with pod UID %s instead", pip, uidMismatch)
-			}
-			log.Debugf("removed pod from host addressSet by ip %s", pip)
-
-			// Clean up branch ENI rules if we added any. Use the cached info from
-			// the add path instead of re-detecting, since aws-vpc-cni may have
-			// already torn down its iif rules.
-			if EnableAWSBranchENIProbe {
-				if info := s.forgetBranchENIRoute(pip); info != nil {
-					delBranchENIRules(pip, info)
-				}
+		// Use the cached IPs and UID even if status no longer contains the IPs
+		// or aws-vpc-cni has already torn down its iif rules.
+		if EnableAWSBranchENIProbe {
+			for podIP, info := range s.forgetBranchENIRoutesForPod(podUID) {
+				delBranchENIRules(podIP, info)
 			}
 		}
 		return nil

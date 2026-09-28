@@ -182,7 +182,7 @@ func TestMeshDataplaneRemovePodRemovesAnnotation(t *testing.T) {
 	setWrapper := set.NewIPSetWrapper(ipsetInstance)
 
 	m := getFakeDPWithAddressSet(server, fakeClientSet, setWrapper)
-	expectPodRemovedFromIPSet(fakeIPSetDeps, string(pod.ObjectMeta.UID), pod.Status.PodIPs)
+	expectPodRemovedFromIPSet(fakeIPSetDeps, string(pod.ObjectMeta.UID))
 
 	err := m.RemovePodFromMesh(fakeCtx, pod, false)
 	assert.NoError(t, err)
@@ -213,7 +213,7 @@ func TestMeshDataplaneRemovePodErrorDoesntRemoveAnnotation(t *testing.T) {
 	setWrapper := set.NewIPSetWrapper(ipsetInstance)
 
 	m := getFakeDPWithAddressSet(server, fakeClientSet, setWrapper)
-	expectPodRemovedFromIPSet(fakeIPSetDeps, string(pod.ObjectMeta.UID), pod.Status.PodIPs)
+	expectPodRemovedFromIPSet(fakeIPSetDeps, string(pod.ObjectMeta.UID))
 
 	err := m.RemovePodFromMesh(fakeCtx, pod, false)
 	assert.Error(t, err)
@@ -244,7 +244,7 @@ func TestMeshDataplaneDelPod(t *testing.T) {
 	ipsetInstance := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
 	setWrapper := set.NewIPSetWrapper(ipsetInstance)
 	m := getFakeDPWithAddressSet(server, fakeClientSet, setWrapper)
-	expectPodRemovedFromIPSet(fakeIPSetDeps, string(pod.ObjectMeta.UID), pod.Status.PodIPs)
+	expectPodRemovedFromIPSet(fakeIPSetDeps, string(pod.ObjectMeta.UID))
 
 	// pod is not in fake client, so if this will try to remove annotation, it will fail.
 	err := m.RemovePodFromMesh(fakeCtx, pod, true)
@@ -274,7 +274,7 @@ func TestMeshDataplaneDelPodErrorDoesntPatchPod(t *testing.T) {
 	setWrapper := set.NewIPSetWrapper(ipsetInstance)
 
 	m := getFakeDPWithAddressSet(server, fakeClientSet, setWrapper)
-	expectPodRemovedFromIPSet(fakeIPSetDeps, string(pod.ObjectMeta.UID), pod.Status.PodIPs)
+	expectPodRemovedFromIPSet(fakeIPSetDeps, string(pod.ObjectMeta.UID))
 
 	// pod is not in fake client, so if this will try to remove annotation, it will fail.
 	err := m.RemovePodFromMesh(fakeCtx, pod, true)
@@ -441,71 +441,59 @@ func TestMeshDataplaneAddPodIPToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T)
 	fakeIPSetDeps.AssertExpectations(t)
 }
 
-func TestMeshDataplaneRemovePodIPFromHostNSIPSets(t *testing.T) {
-	pod := buildConvincingPod(false)
-
-	fakeIPSetDeps := ipset.FakeNLDeps()
-	ipsetInstance := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
-	setWrapper := set.NewIPSetWrapper(ipsetInstance)
-
-	fakeIPSetDeps.On("clearEntriesWithIPAndComment",
-		"foo-v4",
-		netip.MustParseAddr("3.3.3.3"),
-		string(pod.ObjectMeta.UID),
-	).Return("", nil)
-
-	fakeIPSetDeps.On("clearEntriesWithIPAndComment",
-		"foo-v4",
-		netip.MustParseAddr("2.2.2.2"),
-		string(pod.ObjectMeta.UID),
-	).Return("", nil)
-
-	dp := &meshDataplane{hostAddrSet: setWrapper}
-	err := dp.removePodFromHostAddrSet(pod)
-	assert.NoError(t, err)
-	fakeIPSetDeps.AssertExpectations(t)
+func TestMeshDataplaneRemovePodIPFromHostNSIPSetsByUID(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		status corev1.PodStatus
+	}{
+		{name: "no IPs"},
+		{name: "legacy IP", status: corev1.PodStatus{PodIP: "2.2.2.2"}},
+		{name: "dual stack", status: corev1.PodStatus{PodIPs: []corev1.PodIP{{IP: "2.2.2.2"}, {IP: "2001:db8::1"}}}},
+		{name: "incomplete IPs", status: corev1.PodStatus{PodIPs: []corev1.PodIP{{IP: "2.2.2.2"}}}},
+		{name: "invalid IP", status: corev1.PodStatus{PodIP: "not-an-ip"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pod := buildConvincingPod(false)
+			pod.Status = tt.status
+			deps := ipset.FakeNLDeps()
+			deps.Test(t)
+			deps.On("clearEntriesWithComment", "foo-v4", string(pod.UID)).Return(nil).Once()
+			deps.On("clearEntriesWithComment", "foo-v6", string(pod.UID)).Return(nil).Once()
+			dp := &meshDataplane{hostAddrSet: set.NewIPSetWrapper(ipset.IPSet{
+				V4Name: "foo-v4", V6Name: "foo-v6", Prefix: "foo", Deps: deps,
+			})}
+			assert.NoError(t, dp.removePodFromHostAddrSet(pod))
+			deps.AssertNumberOfCalls(t, "clearEntriesWithIPAndComment", 0)
+			deps.AssertExpectations(t)
+		})
+	}
 }
 
-func TestMeshDataplaneRemovePodIPFromHostNSIPSetsIgnoresEntriesWithMismatchedUIDs(t *testing.T) {
-	pod := buildConvincingPod(false)
-
-	fakeIPSetDeps := ipset.FakeNLDeps()
-	ipsetInstance := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
-	setWrapper := set.NewIPSetWrapper(ipsetInstance)
-
-	fakeIPSetDeps.On("clearEntriesWithIPAndComment",
-		"foo-v4",
-		netip.MustParseAddr("3.3.3.3"),
-		string(pod.ObjectMeta.UID),
-	).Return("mismatched-uid", nil)
-
-	fakeIPSetDeps.On("clearEntriesWithIPAndComment",
-		"foo-v4",
-		netip.MustParseAddr("2.2.2.2"),
-		string(pod.ObjectMeta.UID),
-	).Return("mismatched-uid", nil)
-
-	dp := &meshDataplane{hostAddrSet: setWrapper}
-	err := dp.removePodFromHostAddrSet(pod)
-	assert.NoError(t, err)
-	fakeIPSetDeps.AssertExpectations(t)
-}
-
-func TestMeshDataplaneRemovePodIPFromHostNSIPSetsFallsBackToUID(t *testing.T) {
-	pod := buildConvincingPod(false)
-	pod.Status.PodIP = ""
-	pod.Status.PodIPs = nil
-
-	fakeIPSetDeps := ipset.FakeNLDeps()
-	ipsetInstance := ipset.IPSet{V4Name: "foo-v4", V6Name: "foo-v6", Prefix: "foo", Deps: fakeIPSetDeps}
-	setWrapper := set.NewIPSetWrapper(ipsetInstance)
-	fakeIPSetDeps.On("clearEntriesWithComment", "foo-v4", string(pod.UID)).Return(nil)
-	fakeIPSetDeps.On("clearEntriesWithComment", "foo-v6", string(pod.UID)).Return(nil)
-
-	dp := &meshDataplane{hostAddrSet: setWrapper}
-	err := dp.removePodFromHostAddrSet(pod)
-	assert.NoError(t, err)
-	fakeIPSetDeps.AssertExpectations(t)
+func TestMeshDataplaneRemovePodIPFromHostNSIPSetsReturnsError(t *testing.T) {
+	for _, failingSet := range []string{"foo-v4", "foo-v6"} {
+		t.Run(failingSet, func(t *testing.T) {
+			pod := buildConvincingPod(false)
+			deps := ipset.FakeNLDeps()
+			deps.Test(t)
+			clearErr := errors.New("failed to clear address set")
+			for _, name := range []string{"foo-v4", "foo-v6"} {
+				var err error
+				if name == failingSet {
+					err = clearErr
+				}
+				deps.On("clearEntriesWithComment", name, string(pod.UID)).Return(err).Once()
+			}
+			podIP := netip.MustParseAddr(pod.Status.PodIP)
+			dp := &meshDataplane{hostAddrSet: set.NewIPSetWrapper(ipset.IPSet{
+				V4Name: "foo-v4", V6Name: "foo-v6", Prefix: "foo", Deps: deps,
+			})}
+			dp.rememberBranchENIRoute(podIP, string(pod.UID), &branchENIRoute{table: 1})
+			assert.Equal(t, errors.Is(dp.removePodFromHostAddrSet(pod), clearErr), true)
+			// Keep the cached route available for a later cleanup retry.
+			assert.Equal(t, dp.branchENIRules[podIP].podUID, string(pod.UID))
+			deps.AssertExpectations(t)
+		})
+	}
 }
 
 func TestForgetBranchENIRoutesForPod(t *testing.T) {
@@ -527,6 +515,18 @@ func TestForgetBranchENIRoutesForPod(t *testing.T) {
 	assert.Equal(t, len(dp.branchENIRules), 1)
 	assert.Equal(t, dp.branchENIRules[podIP3].podUID, "pod-2")
 	assert.Equal(t, dp.branchENIRules[podIP3].route.table, 3)
+	assert.Equal(t, len(dp.forgetBranchENIRoutesForPod("pod-1")), 0)
+}
+
+func TestForgetBranchENIRoutesForPodPreservesReusedIP(t *testing.T) {
+	podIP := netip.MustParseAddr("10.0.0.1")
+	dp := &meshDataplane{}
+	dp.rememberBranchENIRoute(podIP, "old-pod", &branchENIRoute{table: 1})
+	dp.rememberBranchENIRoute(podIP, "new-pod", &branchENIRoute{table: 2})
+
+	assert.Equal(t, len(dp.forgetBranchENIRoutesForPod("old-pod")), 0)
+	assert.Equal(t, dp.branchENIRules[podIP].podUID, "new-pod")
+	assert.Equal(t, dp.branchENIRules[podIP].route.table, 2)
 }
 
 func TestMeshDataplaneSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
@@ -768,18 +768,8 @@ func expectPodAddedToIPSet(ipsetDeps *ipset.MockedIpsetDeps, podIP netip.Addr, p
 	).Return(nil)
 }
 
-func expectPodRemovedFromIPSet(ipsetDeps *ipset.MockedIpsetDeps, podUID string, podIPs []corev1.PodIP) {
-	if len(podIPs) == 0 {
-		ipsetDeps.On("clearEntriesWithComment", "foo-v4", podUID).Return(nil)
-		return
-	}
-	for _, ip := range podIPs {
-		ipsetDeps.On("clearEntriesWithIPAndComment",
-			"foo-v4",
-			netip.MustParseAddr(ip.IP),
-			podUID,
-		).Return("", nil)
-	}
+func expectPodRemovedFromIPSet(ipsetDeps *ipset.MockedIpsetDeps, podUID string) {
+	ipsetDeps.On("clearEntriesWithComment", "foo-v4", podUID).Return(nil).Once()
 }
 
 func getFakeDPWithAddressSet(fs *fakeServer, fakeClient kubernetes.Interface, fakeSet set.AddressSetManager) *meshDataplane {
@@ -801,7 +791,7 @@ func getFakeDP(fs *fakeServer, fakeClient kubernetes.Interface) *meshDataplane {
 		mock.Anything,
 	).Return(nil).Maybe()
 
-	fakeIPSetDeps.On("clearEntriesWithIPAndComment", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+	fakeIPSetDeps.On("clearEntriesWithComment", mock.Anything, mock.Anything).Return(nil).Maybe()
 	ipsetInstance := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
 	setWrapper := set.NewIPSetWrapper(ipsetInstance)
 
