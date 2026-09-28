@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 61829
+releaseNotes:
+- |
+  **Fixed** an istiod panic when the Kubernetes CSR watch returned an error event or was closed while waiting
+  for the certificate to be issued. This affected istiod when signing through the Kubernetes CSR API, either with
+  `EXTERNAL_CA=ISTIOD_RA_KUBERNETES_API` or with a `k8s.io/` prefixed `PILOT_CERT_PROVIDER`.
