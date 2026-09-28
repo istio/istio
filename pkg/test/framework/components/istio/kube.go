@@ -433,7 +433,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		}
 
 		// remote clusters only need east-west gateway for multi-network purposes
-		if ctx.Environment().IsMultiNetwork() {
+		if ctx.Environment().IsMultiNetwork() && c.NetworkName() != c.Primary().NetworkName() {
 			spec := i.remoteIOP.spec
 			if c.IsConfig() {
 				spec = i.configIOP.spec
