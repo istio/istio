@@ -105,11 +105,8 @@ func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 	newConn := func() *http.Transport {
 		transport := &http.Transport{Protocols: new(http.Protocols)}
 		if cfg.scheme == scheme.HTTPS {
-			// Clone: net/http mutates TLSClientConfig.NextProtos when configuring HTTP/2, which
-			// would clobber an ALPN explicitly requested by the test.
-			transport.TLSClientConfig = cfg.tlsConfig.Clone()
 			transport.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// We negotiate ALPN ourselves here, so we must ask for "h2" explicitly.
+				// net/http hands us no tls.Config here, unlike x/net's DialTLS, so we prepare it.
 				return hbone.TLSDialWithDialer(newDialer(cfg), network, addr, hbone.H2ClientTLSConfig(cfg.tlsConfig, addr))
 			}
 			// net/http disables HTTP/2 by default when a custom TLS config or dialer is set.
@@ -117,10 +114,9 @@ func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 			return transport
 		}
 
-		// Golang doesn't have first class support for h2c, so we provide some workarounds
-		// See https://www.mailgun.com/blog/http-2-cleartext-h2c-client-example-go/
-		// Note: this must be DialContext. net/http only calls DialTLSContext for https:// URLs,
-		// so using it here would silently bypass the configured dialer (HBONE, socks5, ...).
+		// Must be DialContext, not DialTLSContext: net/http only consults the latter for
+		// https:// URLs, so the h2c transport would silently bypass the configured dialer
+		// (HBONE, socks5, ...).
 		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return newDialer(cfg).DialContext(ctx, network, addr)
 		}

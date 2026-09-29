@@ -21,7 +21,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -93,20 +92,26 @@ func newTransport(cfg Config) *http.Transport {
 // H2ClientTLSConfig returns a copy of cfg suitable for an HTTP/2 client connection to addr.
 // net/http applies this fixup itself for connections it dials, but not for ones handed to it
 // by a DialTLSContext. Without it ALPN never selects "h2" and net/http silently falls back to
-// HTTP/1.1 framing, which HBONE peers do not accept.
+// HTTP/1.1 framing.
 func H2ClientTLSConfig(cfg *tls.Config, addr string) *tls.Config {
 	out := cfg.Clone()
 	if !slices.Contains(out.NextProtos, "h2") {
 		out.NextProtos = append([]string{"h2"}, out.NextProtos...)
 	}
 	if out.ServerName == "" {
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			host = addr
-		}
-		out.ServerName = host
+		out.ServerName = hostFromAddr(addr)
 	}
 	return out
+}
+
+// hostFromAddr strips the port from a host:port address. IPv6 hosts are returned unbracketed,
+// as that is the form tls.Config.ServerName is matched against.
+func hostFromAddr(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	return host
 }
 
 type dialer struct {
@@ -210,12 +215,6 @@ func tlsDial(ctx context.Context, netDialer Dialer, network, addr string, config
 		return nil, err
 	}
 
-	colonPos := strings.LastIndex(addr, ":")
-	if colonPos == -1 {
-		colonPos = len(addr)
-	}
-	hostname := addr[:colonPos]
-
 	if config == nil {
 		config = &tls.Config{MinVersion: tls.VersionTLS12}
 	}
@@ -224,7 +223,7 @@ func tlsDial(ctx context.Context, netDialer Dialer, network, addr string, config
 	if config.ServerName == "" {
 		// Make a copy to avoid polluting argument or default.
 		c := config.Clone()
-		c.ServerName = hostname
+		c.ServerName = hostFromAddr(addr)
 		config = c
 	}
 
