@@ -266,7 +266,7 @@ func TestDeltaEDSIgnoresSkippedConfigs(t *testing.T) {
 			model.ConfigKey{Kind: kind.Endpoints, Name: "eds-1.default.svc.cluster.local", Namespace: "default"},
 			model.ConfigKey{Kind: kind.VirtualService, Name: "unrelated", Namespace: "default"},
 		),
-	})
+	}, true)
 
 	resp := ads.ExpectResponse()
 	assert.Equal(t, slices.Map(resp.Resources, func(r *discovery.Resource) string { return r.Name }), clusters[:1])
