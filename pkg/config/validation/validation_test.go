@@ -1244,8 +1244,10 @@ func TestValidateHTTPStatus(t *testing.T) {
 	}{
 		{-100, false},
 		{0, false},
+		{199, false},
 		{200, true},
-		{600, true},
+		{599, true},
+		{600, false},
 		{601, false},
 	}
 

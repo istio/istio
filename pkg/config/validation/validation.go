@@ -2623,7 +2623,7 @@ func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort)
 }
 
 func validateHTTPStatus(status int32) error {
-	if status < 200 || status > 600 {
+	if status < 200 || status > 599 {
 		return fmt.Errorf("HTTP status %d is not in range 200-599", status)
 	}
 	return nil

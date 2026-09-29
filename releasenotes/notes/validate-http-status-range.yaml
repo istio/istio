@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** `VirtualService` validation accepting HTTP status `600` in `fault.abort.httpStatus` and `directResponse.status`.
+  Envoy only allows status codes in the range 200-599 for these fields, so such values are now rejected by validation.
