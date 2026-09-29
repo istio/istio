@@ -1558,8 +1558,6 @@ func notifyExit() {
 
 var defaultTransport = http.DefaultTransport.(*http.Transport)
 
-// SetTransportDefaults mirrors Kubernetes probe settings
-// https://github.com/kubernetes/kubernetes/blob/0153febd9f0098d4b8d0d484927710eaf899ef40/pkg/probe/http/http.go#L52
 func setTransportDefaults(t *http.Transport) *http.Transport {
 	if !EnableHTTP2Probing {
 		return t
@@ -1570,16 +1568,20 @@ func setTransportDefaults(t *http.Transport) *http.Transport {
 	if t.IdleConnTimeout == 0 {
 		t.IdleConnTimeout = defaultTransport.IdleConnTimeout
 	}
-	// Enable HTTP/2 over TLS. This is not on by default for transports with a custom
-	// TLSClientConfig or DialContext, both of which we set.
+	// Advertise h2 and http/1.1 in ALPN. h2c is deliberately left out, so cleartext probes stay HTTP/1.1.
+	//
+	// Both have to be listed explicitly: net/http does not auto-enable HTTP/2 for transports
+	// with a custom TLSClientConfig or DialContext, both of which we set, and assigning Protocols
+	// replaces the default protocol set rather than adding to it.
 	protocols := new(http.Protocols)
 	protocols.SetHTTP1(true)
 	protocols.SetHTTP2(true)
 	t.Protocols = protocols
 	t.HTTP2 = &http.HTTP2Config{
-		// check ping once the connection has been idle this long.
+		// Send a health check ping once the connection has been idle this long,
 		SendPingTimeout: time.Duration(30) * time.Second,
-		PingTimeout:     time.Duration(15) * time.Second,
+		// and close the connection if that ping is not answered within this long.
+		PingTimeout: time.Duration(15) * time.Second,
 	}
 	return t
 }
