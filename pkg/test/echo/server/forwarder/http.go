@@ -106,7 +106,6 @@ func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 		transport := &http.Transport{Protocols: new(http.Protocols)}
 		if cfg.scheme == scheme.HTTPS {
 			transport.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// net/http hands us no tls.Config here, unlike x/net's DialTLS, so we prepare it.
 				return hbone.TLSDialWithDialer(newDialer(cfg), network, addr, hbone.H2ClientTLSConfig(cfg.tlsConfig, addr))
 			}
 			// net/http disables HTTP/2 by default when a custom TLS config or dialer is set.
