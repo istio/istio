@@ -25,34 +25,14 @@ import (
 	"time"
 )
 
-// NewDialer creates a Dialer that proxies connections over HBONE to the configured proxy.
+// NewDoubleDialer creates a Dialer that proxies connections over two nested HBONE tunnels:
+// an outer CONNECT to outerCfg.ProxyAddress, and an inner CONNECT tunneled through it.
 func NewDoubleDialer(outerCfg Config, innerCfg Config, innerTLSConfig *tls.Config) Dialer {
-	outerTransport := &http.Transport{
-		// Must be DialContext, not DialTLSContext: net/http only uses the latter for https:// URLs.
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			d := net.Dialer{}
-			if outerCfg.Timeout != nil {
-				d.Timeout = *outerCfg.Timeout
-			}
-			return d.DialContext(ctx, network, addr)
-		},
-		Protocols: new(http.Protocols),
-	}
-	if outerCfg.TLS != nil {
-		// Clone: net/http mutates TLSClientConfig.NextProtos when configuring HTTP/2.
-		outerTransport.TLSClientConfig = outerCfg.TLS.Clone()
-		// Explicit opt-in is required; net/http disables HTTP/2 when a custom TLS config is set.
-		outerTransport.Protocols.SetHTTP2(true)
-	} else {
-		// For h2c
-		outerTransport.Protocols.SetUnencryptedHTTP2(true)
-	}
-
 	return &doubleDialer{
 		outerCfg:       outerCfg,
 		innerCfg:       innerCfg,
 		innerTLSConfig: innerTLSConfig,
-		outerTransport: outerTransport,
+		outerTransport: newTransport(outerCfg),
 	}
 }
 

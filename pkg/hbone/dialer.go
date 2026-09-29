@@ -50,6 +50,15 @@ type Dialer interface {
 
 // NewDialer creates a Dialer that proxies connections over HBONE to the configured proxy.
 func NewDialer(cfg Config) Dialer {
+	return &dialer{
+		cfg:       cfg,
+		transport: newTransport(cfg),
+	}
+}
+
+// newTransport builds the transport used to send CONNECT to an HBONE proxy reached over TCP.
+// It is shared by the single dialer and the outer leg of the double dialer.
+func newTransport(cfg Config) *http.Transport {
 	// HBONE is always HTTP/2: h2 over TLS, or h2c with prior knowledge when TLS is not
 	// configured. http/1.1 is never advertised, as HBONE peers cannot speak it.
 	//
@@ -66,7 +75,7 @@ func NewDialer(cfg Config) Dialer {
 	} else {
 		protocols.SetUnencryptedHTTP2(true)
 	}
-	transport := &http.Transport{
+	return &http.Transport{
 		Protocols:       protocols,
 		TLSClientConfig: tlsConfig,
 		// Must be DialContext, not DialTLSContext: net/http only consults the latter for
@@ -78,10 +87,6 @@ func NewDialer(cfg Config) Dialer {
 			}
 			return d.DialContext(ctx, network, addr)
 		},
-	}
-	return &dialer{
-		cfg:       cfg,
-		transport: transport,
 	}
 }
 
