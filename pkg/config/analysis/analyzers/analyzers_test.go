@@ -1112,6 +1112,44 @@ var testGrid = []testCase{
 		analyzer:       &serviceentry.ProtocolAddressesAnalyzer{},
 		expected:       []message{},
 	},
+	{
+		name:       "DestinationRule workload selector with waypoint",
+		inputFiles: []string{"testdata/destinationrule-waypoint-workload-selector.yaml"},
+		analyzer:   &destinationrule.WaypointWorkloadSelectorAnalyzer{},
+		expected: []message{
+			{msg.UnsupportedDestinationRuleWorkloadSelector, "DestinationRule default/server"},
+		},
+	},
+	{
+		name:       "DestinationRule workload selector with namespace waypoint",
+		inputFiles: []string{"testdata/destinationrule-ns-waypoint-workload-selector.yaml"},
+		analyzer:   &destinationrule.WaypointWorkloadSelectorAnalyzer{},
+		expected: []message{
+			{msg.UnsupportedDestinationRuleWorkloadSelector, "DestinationRule default/server"},
+		},
+	},
+	{
+		name:       "DestinationRule workload selector with namespace waypoint opt-out",
+		inputFiles: []string{"testdata/destinationrule-ns-waypoint-opt-out.yaml"},
+		analyzer:   &destinationrule.WaypointWorkloadSelectorAnalyzer{},
+		expected:   []message{},
+	},
+	{
+		name:       "DestinationRule workload selector with ServiceEntry waypoint",
+		inputFiles: []string{"testdata/destinationrule-serviceentry-waypoint-workload-selector.yaml"},
+		analyzer:   &destinationrule.WaypointWorkloadSelectorAnalyzer{},
+		expected: []message{
+			{msg.UnsupportedDestinationRuleWorkloadSelector, "DestinationRule default/external"},
+		},
+	},
+	{
+		name:       "DestinationRule workload selector with wildcard host and waypoint",
+		inputFiles: []string{"testdata/destinationrule-waypoint-workload-selector-wildcard.yaml"},
+		analyzer:   &destinationrule.WaypointWorkloadSelectorAnalyzer{},
+		expected: []message{
+			{msg.UnsupportedDestinationRuleWorkloadSelector, "DestinationRule default/wildcard"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing

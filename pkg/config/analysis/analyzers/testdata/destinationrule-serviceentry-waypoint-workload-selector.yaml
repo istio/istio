@@ -1,0 +1,25 @@
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: external
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts:
+  - external.example.com
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: external
+  namespace: default
+spec:
+  host: external.example.com
+  workloadSelector:
+    matchLabels:
+      app: client

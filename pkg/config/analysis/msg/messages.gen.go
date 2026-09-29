@@ -279,6 +279,10 @@ var (
 	// ConflictingServiceEntryProtocol defines a diag.MessageType for message "ConflictingServiceEntryProtocol".
 	// Description: Multiple ServiceEntries define the same host and port with conflicting protocols.
 	ConflictingServiceEntryProtocol = diag.NewMessageType(diag.Warning, "IST0177", "Multiple ServiceEntries (%s) define the same host %q and port %d with conflicting protocols (%s).")
+
+	// UnsupportedDestinationRuleWorkloadSelector defines a diag.MessageType for message "UnsupportedDestinationRuleWorkloadSelector".
+	// Description: DestinationRule workload selectors are unsupported for sidecar traffic routed through a waypoint.
+	UnsupportedDestinationRuleWorkloadSelector = diag.NewMessageType(diag.Warning, "IST0178", "DestinationRule %q uses a workload selector and targets service %q which uses a waypoint. When sidecar waypoint routing is enabled, this rule is ignored for traffic routed through the waypoint. Use a selectorless DestinationRule for waypoint-owned backend policy, or disable waypoint routing for this service.")
 )
 
 // All returns a list of all known message types.
@@ -352,6 +356,7 @@ func All() []*diag.MessageType {
 		JwksUriFetchUnrestricted,
 		GatewayAPICRDVersionBelowMinimum,
 		ConflictingServiceEntryProtocol,
+		UnsupportedDestinationRuleWorkloadSelector,
 	}
 }
 
@@ -1024,5 +1029,15 @@ func NewConflictingServiceEntryProtocol(r *resource.Instance, serviceEntryNames 
 		host,
 		port,
 		protocols,
+	)
+}
+
+// NewUnsupportedDestinationRuleWorkloadSelector returns a new diag.Message based on UnsupportedDestinationRuleWorkloadSelector.
+func NewUnsupportedDestinationRuleWorkloadSelector(r *resource.Instance, destinationRule string, service string) diag.Message {
+	return diag.NewMessage(
+		UnsupportedDestinationRuleWorkloadSelector,
+		r,
+		destinationRule,
+		service,
 	)
 }

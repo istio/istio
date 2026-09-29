@@ -223,13 +223,22 @@ func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (needsPush, defini
 	return false, false
 }
 
-// waypointNeedsPush checks if a push is needed for a waypoint proxy on incremental kind.Address changes.
-// Waypoint listeners, clusters, and routes are built from the services and workloads attached to the
-// waypoint (e.g. the main_internal listener matches attached service VIPs and attached workload IPs),
-// and attachment is only surfaced through kind.Address updates (use-waypoint changes, VIP or pod IP
-// changes of attached resources).
+// waypointNeedsPush checks if a push is needed for waypoint routing on incremental kind.Address
+// changes. Waypoint listeners, clusters, and routes are built from the services and workloads
+// attached to the waypoint (e.g. the main_internal listener matches attached service VIPs and
+// attached workload IPs). Sidecar listeners and endpoints also depend on service waypoint
+// attachment. Attachment is only surfaced through kind.Address updates (use-waypoint changes, VIP
+// or pod IP changes of attached resources).
 func waypointNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if !model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
+		return false
+	}
+	if proxy.Type == model.SidecarProxy {
+		// Sidecars may route to any service waypoint, so any waypoint attachment change requires a
+		// push.
+		return features.EnableSidecarWaypointRouting && len(req.WaypointsUpdated) > 0
+	}
+	if proxy.Type != model.Waypoint {
 		return false
 	}
 	if proxy.IsAmbientEastWestGateway() {
