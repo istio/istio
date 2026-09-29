@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 )
 
-// echoPayload is what newTCPServer sends to every client that connects to it.
 const echoPayload = "hello"
 
 func newTCPServer(t testing.TB) string {
