@@ -381,6 +381,17 @@ func (e *LocalityEndpoints) append(ep *model.IstioEndpoint, le *endpoint.LbEndpo
 	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
 }
 
+// IstioEndpoints returns the IstioEndpoints backing this locality group, in the same order as
+// LbEndpoints().LbEndpoints, so callers can safely correlate the two by index.
+func (e *LocalityEndpoints) IstioEndpoints() []*model.IstioEndpoint {
+	return e.istioEndpoints
+}
+
+// LbEndpoints returns the envoy LocalityLbEndpoints for this locality group.
+func (e *LocalityEndpoints) LbEndpoints() *endpoint.LocalityLbEndpoints {
+	return &e.llbEndpoints
+}
+
 func (e *LocalityEndpoints) refreshWeight() {
 	var weight *wrapperspb.UInt32Value
 	if len(e.llbEndpoints.LbEndpoints) == 0 {
@@ -412,12 +423,19 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
 }
 
-// IstioEndpoints returns IstioEndpoints from the PushContext's snapshotted ServiceIndex.
-func (b *EndpointBuilder) IstioEndpoints() []*model.IstioEndpoint {
+// FromServiceEndpointsByLocality builds the same locality groups as FromServiceEndpoints, but
+// keeps each group's IstioEndpoints paired with its LocalityLbEndpoints (same order and length)
+// instead of discarding them. Used for CDS DNS clusters, whose endpoints may span more than one
+// locality, so per-locality failover priority can be computed without misaligning indices across
+// locality groups.
+func (b *EndpointBuilder) FromServiceEndpointsByLocality() []*LocalityEndpoints {
 	if b == nil {
 		return nil
 	}
-	return b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+	// don't use the pre-computed endpoints for CDS to preserve previous behavior
+	// CDS is always toServiceWaypoint=false. We do not yet support calling waypoints for CDS (DNS type)
+	return b.generate(svcEps, false)
 }
 
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
