@@ -26,7 +26,7 @@ type RdsGenerator struct {
 	ConfigGenerator core.ConfigGenerator
 }
 
-var _ model.XdsResourceGenerator = &RdsGenerator{}
+var _ model.XdsDeltaResourceGenerator = &RdsGenerator{}
 
 // Map of all configs that do not impact RDS
 var skippedRdsConfigs = func() sets.Set[kind.Kind] {
@@ -52,49 +52,77 @@ var skippedRdsConfigs = func() sets.Set[kind.Kind] {
 	return s
 }()
 
-func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+// rdsNeedsPush may return a new PushRequest with ConfigsUpdated filtered to only include configs that impact RDS,
+// this is done because route generation checks if only some specific types of configs are present to enable delta generation.
+func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushRequest, bool) {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
-		return res
+		return req, res
 	}
 	if proxy.Type == model.Waypoint && waypointNeedsPush(req, proxy) {
-		return true
+		return req, true
 	}
 
 	// Optimization: Skip RDS for headless endpoint updates. A route's cluster name is built from
 	// the service hostname/port/subset (a static string), so it does not change when only
 	// endpoints change. However, if ServiceUpdate is also present, the service definition changed
 	// (ports, labels, etc.) and we need to push RDS.
-	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
-	sawServiceEntry := false
+	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) &&
+		!req.Reason.Has(model.ServiceUpdate) &&
+		model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.ServiceEntry)
+	if headlessOnly {
+		return req, false
+	}
 
+	relevantUpdates := make(sets.Set[model.ConfigKey])
+	filtered := false
+	needsPush := false
 	for config := range req.ConfigsUpdated {
-		if headlessOnly {
-			if config.Kind == kind.ServiceEntry {
-				// Defer the decision on ServiceEntry until we know whether all updates are ServiceEntry.
-				sawServiceEntry = true
-				continue
+		if config.Kind == kind.Gateway {
+			if proxy.Type == model.Router || proxy.IsAmbientEastWestGateway() {
+				relevantUpdates.Insert(config)
+				needsPush = true
+			} else {
+				filtered = true
 			}
-			// Not exclusively the headless endpoint marker; fall through to the normal check below.
-			headlessOnly = false
+			continue
 		}
+
 		if !skippedRdsConfigs.Contains(config.Kind) {
-			if config.Kind == kind.Gateway {
-				if proxy.Type == model.Router || proxy.IsAmbientEastWestGateway() {
-					return true
-				}
-				continue
-			}
-			return true
+			relevantUpdates.Insert(config)
+			needsPush = true
+		} else {
+			filtered = true
 		}
 	}
-	// ServiceEntry updates only trigger a push here if they weren't exclusively headless endpoint markers.
-	return sawServiceEntry && !headlessOnly
+
+	if filtered {
+		newPushRequest := *req
+		newPushRequest.ConfigsUpdated = relevantUpdates
+		req = &newPushRequest
+	}
+
+	return req, needsPush
 }
 
 func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !rdsNeedsPush(req, proxy) {
+	req, needsPush := rdsNeedsPush(req, proxy)
+	if !needsPush {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	resources, logDetails := c.ConfigGenerator.BuildHTTPRoutes(proxy, req, w.ResourceNames.UnsortedList())
 	return resources, logDetails, nil
+}
+
+// GenerateDeltas for RDS builds a true delta (only the route configurations affected by the
+// current push's ConfigsUpdated) when features.EnableDeltaRDS is set and the update is
+// precisely mappable; otherwise it falls back to rebuilding every watched route.
+func (c RdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	req, needsPush := rdsNeedsPush(req, proxy)
+	if !needsPush {
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
+	}
+	updatedRoutes, removedRoutes, logs, usedDelta := c.ConfigGenerator.BuildDeltaHTTPRoutes(proxy, req, w)
+	return updatedRoutes, removedRoutes, logs, usedDelta, nil
 }
