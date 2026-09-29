@@ -50,9 +50,27 @@ type Dialer interface {
 
 // NewDialer creates a Dialer that proxies connections over HBONE to the configured proxy.
 func NewDialer(cfg Config) Dialer {
+	// HBONE is always HTTP/2: h2 over TLS, or h2c with prior knowledge when TLS is not
+	// configured. http/1.1 is never advertised, as HBONE peers cannot speak it.
+	//
+	// The protocol has to be selected explicitly: net/http does not auto-enable HTTP/2 for
+	// transports with a custom TLSClientConfig or DialContext, and we set both.
+	protocols := new(http.Protocols)
+	var tlsConfig *tls.Config
+	if cfg.TLS != nil {
+		protocols.SetHTTP2(true)
+		// Clone, as net/http writes the adjusted ALPN list back into TLSClientConfig.
+		// x/net/http2 cloned before doing so, and callers may share the config with other
+		// transports.
+		tlsConfig = cfg.TLS.Clone()
+	} else {
+		protocols.SetUnencryptedHTTP2(true)
+	}
 	transport := &http.Transport{
-		// Note: this must be DialContext, not DialTLSContext. net/http only consults
-		// DialTLSContext for https:// URLs, so an h2c transport would silently ignore it.
+		Protocols:       protocols,
+		TLSClientConfig: tlsConfig,
+		// Must be DialContext, not DialTLSContext: net/http only consults the latter for
+		// https:// URLs, so the h2c transport would silently use the default dialer instead.
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			d := net.Dialer{}
 			if cfg.Timeout != nil {
@@ -60,17 +78,6 @@ func NewDialer(cfg Config) Dialer {
 			}
 			return d.DialContext(ctx, network, addr)
 		},
-		Protocols: new(http.Protocols),
-	}
-	if cfg.TLS != nil {
-		// Clone: net/http mutates TLSClientConfig.NextProtos when configuring HTTP/2.
-		transport.TLSClientConfig = cfg.TLS.Clone()
-		// HBONE is always HTTP/2. This must be set explicitly, as net/http disables HTTP/2 by
-		// default whenever a custom TLS config or dialer is set.
-		transport.Protocols.SetHTTP2(true)
-	} else {
-		// For h2c
-		transport.Protocols.SetUnencryptedHTTP2(true)
 	}
 	return &dialer{
 		cfg:       cfg,
