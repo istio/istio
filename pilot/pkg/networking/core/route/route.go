@@ -98,11 +98,17 @@ type VirtualHostWrapper struct {
 	Routes []*route.Route
 }
 
-// BuildSidecarVirtualHostWrapper creates virtual hosts from the given set of virtual Services
-// and a list of Services from the service registry. Services are indexed by FQDN hostnames.
-// The list of Services is also passed to allow maintaining consistent ordering.
-func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
-	virtualServices []*config.Config, listenPort int, mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
+// BuildSidecarVirtualHostWrapper creates virtual hosts from the services on the listener port.
+// Destination services are kept separately because a route may target a different port.
+func BuildSidecarVirtualHostWrapper(
+	routeCache *Cache,
+	node *model.Proxy,
+	push *model.PushContext,
+	listenerServiceRegistry map[host.Name]*model.Service,
+	destinationServiceRegistry map[host.Name]*model.Service,
+	virtualServices []*config.Config,
+	listenPort int,
+	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
@@ -115,7 +121,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 		hashByDestination, destinationRules := hashForVirtualService(push, node, *virtualService)
 		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
 		wrappers := buildSidecarVirtualHostsForVirtualService(
-			node, virtualService, serviceRegistry, hashByDestination, listenPort, push, mostSpecificWildcardVsIndex,
+			node, virtualService, listenerServiceRegistry, destinationServiceRegistry, hashByDestination, listenPort, push, mostSpecificWildcardVsIndex,
 		)
 		out = append(out, wrappers...)
 	}
@@ -123,11 +129,11 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	// Now exclude the services that have virtual services.
 	for _, wrapper := range out {
 		for _, service := range wrapper.Services {
-			delete(serviceRegistry, service.Hostname)
+			delete(listenerServiceRegistry, service.Hostname)
 		}
 	}
 
-	for _, svc := range serviceRegistry {
+	for _, svc := range listenerServiceRegistry {
 		// Filter any aliases out. While we want to be able to use them as the backend to a route, we don't want
 		// to have them build standalone route matches; this is already handled.
 		// Each alias will get a mapping of 'Alias -> Concrete' service when the concrete service is built
@@ -241,7 +247,8 @@ func separateVSHostsAndServices(virtualService config.Config,
 func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	virtualService *config.Config,
-	serviceRegistry map[host.Name]*model.Service,
+	listenerServiceRegistry map[host.Name]*model.Service,
+	destinationServiceRegistry map[host.Name]*model.Service,
 	hashByDestination DestinationHashMap,
 	listenPort int,
 	push *model.PushContext,
@@ -259,7 +266,7 @@ func buildSidecarVirtualHostsForVirtualService(
 		Mesh:                      push.Mesh,
 		Push:                      push,
 		LookupService: func(name host.Name) *model.Service {
-			return serviceRegistry[name]
+			return destinationServiceRegistry[name]
 		},
 		LookupDestinationCluster: GetDestinationCluster,
 		LookupHash: func(destination *networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB {
@@ -274,7 +281,11 @@ func buildSidecarVirtualHostsForVirtualService(
 		return nil
 	}
 
-	hosts, matchingRegistryServices := separateVSHostsAndServices(*virtualService, serviceRegistry, mostSpecificWildcardVsIndex)
+	hosts, matchingRegistryServices := separateVSHostsAndServices(
+		*virtualService,
+		listenerServiceRegistry,
+		mostSpecificWildcardVsIndex,
+	)
 
 	// Gateway allows only routes from the namespace of the proxy, or namespace of the destination.
 	if model.UseGatewaySemantics(*virtualService) {

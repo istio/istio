@@ -2964,6 +2964,16 @@ spec:
 		children: calls("b-ext-se"),
 	})
 
+	routedCalls := calls("c", check.MTLSForHTTP())
+	for i := range routedCalls {
+		if routedCalls[i].name == ports.HTTP.Name || routedCalls[i].name == ports.AutoHTTP.Name {
+			routedCalls[i].opts.Check = check.And(
+				routedCalls[i].opts.Check,
+				check.ResponseHeader("x-istio-test-route", "externalname"),
+			)
+		}
+	}
+
 	t.RunTraffic(TrafficTestCase{
 		name: "routed",
 		skip: skip{
@@ -2981,7 +2991,11 @@ spec:
   hosts:
   - c
   http:
-  - route:
+  - headers:
+      response:
+        add:
+          x-istio-test-route: externalname
+    route:
     - destination:
         host: b-ext-route.%s.svc.cluster.local
         port:
@@ -2999,7 +3013,7 @@ spec:
     port: 80
     protocol: TCP
     targetPort: 80`, t.Apps.Namespace.Name(), t.Apps.Namespace.Name()),
-		children: calls("c", check.MTLSForHTTP()),
+		children: routedCalls,
 	})
 
 	gatewayListenPort := 80
