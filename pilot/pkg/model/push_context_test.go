@@ -2368,6 +2368,43 @@ func TestInitPushContext(t *testing.T) {
 	}
 }
 
+func TestGatewayAndWaypointSidecarScopes(t *testing.T) {
+	meshVirtualService := &config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "mesh-route", Namespace: "default"},
+		Spec: &networking.VirtualService{Hosts: []string{"example.com"}},
+	}
+	for _, order := range [][]NodeType{
+		{Router, Waypoint, SidecarProxy},
+		{Waypoint, Router, SidecarProxy},
+		{SidecarProxy, Router, Waypoint},
+		{SidecarProxy, Waypoint, Router},
+		{Router, SidecarProxy, Waypoint},
+		{Waypoint, SidecarProxy, Router},
+	} {
+		t.Run(fmt.Sprint(order), func(t *testing.T) {
+			ps := NewPushContext()
+			ps.Mesh = mesh.DefaultMeshConfig()
+			ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = []*config.Config{meshVirtualService}
+			scopes := make(map[NodeType]*SidecarScope)
+			for _, nodeType := range order {
+				proxy := &Proxy{Type: nodeType, ConfigNamespace: "default"}
+				scope := ps.getSidecarScope(proxy, nil)
+				scopes[nodeType] = scope
+				if nodeType == Router {
+					assert.Equal(t, len(scope.EgressListeners), 0)
+				} else if nodeType == Waypoint {
+					assert.Equal(t, len(scope.EgressListeners), 1)
+					assert.Equal(t, scope.EgressListeners[0].VirtualServices(), []*config.Config{meshVirtualService})
+				}
+				assert.Equal(t, ps.getSidecarScope(proxy, nil) == scope, true)
+			}
+			assert.Equal(t, scopes[Router] == scopes[Waypoint], false)
+			assert.Equal(t, scopes[Router] == scopes[SidecarProxy], false)
+			assert.Equal(t, scopes[Waypoint] == scopes[SidecarProxy], false)
+		})
+	}
+}
+
 func TestSidecarScope(t *testing.T) {
 	test.SetForTest(t, &features.ConvertSidecarScopeConcurrency, 10)
 	ps := NewPushContext()
