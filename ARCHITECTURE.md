@@ -2,7 +2,7 @@
 
 This document describes the high-level architecture of [Istio](https://istio.io), an open-source service mesh that provides traffic management, security (mTLS), and observability for microservices running on Kubernetes.
 
-See also [.github/copilot-instructions.md](.github/copilot-instructions.md) for development workflow, coding conventions, and contribution guidelines. Additional domain knowledge on specific subsystems is available in [.github/.copilot/domain_knowledge/](.github/.copilot/domain_knowledge/).
+See [AGENTS.md](AGENTS.md) for the development workflow: build and test commands, coding conventions, and contribution requirements. Additional domain knowledge on specific subsystems is available in [.github/.copilot/domain_knowledge/](.github/.copilot/domain_knowledge/).
 
 ## High-Level System Diagram
 
@@ -235,40 +235,13 @@ Configuration changes in Kubernetes trigger an xDS push. Istiod debounces rapid 
 
 - **Prow** — Primary CI system. Job configs in `prow/`. Integration tests run on KinD and GKE.
 
-## Development & Testing
-
-### Build
-
-```bash
-make build                   # Compile Go binaries
-make docker                  # Build container images
-make docker.push             # Push to registry (set HUB= and TAG=)
-BUILD_WITH_CONTAINER=0 make  # Build with the local toolchain instead of the build container
-```
-
-Builds run inside the build container by default (`BUILD_WITH_CONTAINER=1`, set in
-`Makefile.overrides.mk`), so only `make` and a container runtime are required. Set
-`BUILD_WITH_CONTAINER=0` to build with a local toolchain instead.
-
-Key environment variables: `HUB` (image registry), `TAG` (image tag).
-
-### Test Categories
-
-| Category       | Command                            | Location                   |
-|----------------|------------------------------------|----------------------------|
-| Unit tests     | `make test`                        | `*_test.go` alongside code |
-| Race detection | `make racetest`                    | Same as unit tests         |
-| Integration    | `make test.integration.kube`       | `tests/integration/`       |
-| Helm tests     | `make test.integration.helm.kube`  | `tests/integration/helm/`  |
-| Linting        | `make lint`                        | Project-wide               |
-| Pre-commit     | `make precommit`                   | Format + lint              |
-| Code gen       | `make gen`                         | Proto, CRDs, golden files  |
-
-### Test Framework
+## Testing Architecture
 
 Integration tests use a custom framework in `pkg/test/framework/` that manages Kubernetes cluster setup, component deployment, and assertions. The `echo` test service (`pkg/test/echo/`) provides a configurable workload for end-to-end traffic testing.
 
 Tests are tagged with `//go:build integ` and organized by component: `tests/integration/pilot/`, `tests/integration/security/`, `tests/integration/telemetry/`, `tests/integration/ambient/`.
+
+For build and test commands, coding conventions, and contribution requirements, see [AGENTS.md](AGENTS.md).
 
 ## Further Reading
 
