@@ -262,6 +262,66 @@ func TestConvertEnvoyFilterTypedConfig(t *testing.T) {
 	}
 }
 
+func TestConvertEnvoyFilterWithoutTypedConfig(t *testing.T) {
+	cases := []struct {
+		name    string
+		applyTo networking.EnvoyFilter_ApplyTo
+		value   string
+	}{
+		{name: "cluster/no transport socket", applyTo: networking.EnvoyFilter_CLUSTER, value: `{}`},
+		{name: "cluster/no typed config", applyTo: networking.EnvoyFilter_CLUSTER, value: `{"transport_socket":{"name":"tls"}}`},
+		{name: "filter chain/no transport socket", applyTo: networking.EnvoyFilter_FILTER_CHAIN, value: `{}`},
+		{name: "filter chain/no typed config", applyTo: networking.EnvoyFilter_FILTER_CHAIN, value: `{"transport_socket":{"name":"tls"}}`},
+		{name: "network filter/no typed config", applyTo: networking.EnvoyFilter_NETWORK_FILTER, value: `{"name":"filter"}`},
+		{name: "http filter/no typed config", applyTo: networking.EnvoyFilter_HTTP_FILTER, value: `{"name":"filter"}`},
+		{name: "listener filter/no typed config", applyTo: networking.EnvoyFilter_LISTENER_FILTER, value: `{"name":"filter"}`},
+	}
+	for _, applyTo := range []networking.EnvoyFilter_ApplyTo{
+		networking.EnvoyFilter_CLUSTER,
+		networking.EnvoyFilter_FILTER_CHAIN,
+		networking.EnvoyFilter_NETWORK_FILTER,
+		networking.EnvoyFilter_HTTP_FILTER,
+		networking.EnvoyFilter_LISTENER_FILTER,
+	} {
+		cases = append(cases, struct {
+			name    string
+			applyTo networking.EnvoyFilter_ApplyTo
+			value   string
+		}{name: applyTo.String() + "/nil value", applyTo: applyTo})
+	}
+	for _, operation := range []networking.EnvoyFilter_Patch_Operation{
+		networking.EnvoyFilter_Patch_MERGE,
+		networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+	} {
+		for _, tc := range cases {
+			t.Run(operation.String()+"/"+tc.name, func(t *testing.T) {
+				var value *structpb.Struct
+				if tc.value != "" {
+					value = &structpb.Struct{}
+					if err := protomarshal.UnmarshalString(tc.value, value); err != nil {
+						t.Fatal(err)
+					}
+				}
+				wrapper := convertToEnvoyFilterWrapper(&config.Config{
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
+							ApplyTo: tc.applyTo,
+							Patch:   &networking.EnvoyFilter_Patch{Operation: operation, Value: value},
+						}},
+					},
+				})
+				patches := wrapper.Patches[tc.applyTo]
+				if len(patches) != 1 {
+					t.Fatalf("expected patch to be retained, got %v", patches)
+				}
+				if patches[0].TypedConfig != nil || patches[0].TransportSocketTypedConfig != nil {
+					t.Fatalf("unexpected cached config: %v, %v", patches[0].TypedConfig, patches[0].TransportSocketTypedConfig)
+				}
+			})
+		}
+	}
+}
+
 func TestKeysApplyingTo(t *testing.T) {
 	e := &MergedEnvoyFilterWrapper{
 		Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{

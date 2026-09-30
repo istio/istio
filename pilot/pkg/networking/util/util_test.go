@@ -2146,30 +2146,45 @@ func TestMergeAnyWithMessageListSemantics(t *testing.T) {
 }
 
 func TestMergeAnyWithMessage(t *testing.T) {
-	src := &hcm.HttpConnectionManager{
-		HttpFilters: []*hcm.HttpFilter{{Name: "patch"}},
-	}
-	original := proto.Clone(src).(*hcm.HttpConnectionManager)
-	for _, name := range []string{"first", "second"} {
-		dst := &hcm.HttpConnectionManager{
-			StatPrefix:  name,
-			HttpFilters: []*hcm.HttpFilter{{Name: name}},
-		}
-		merged, err := MergeAnyWithMessage(protoconv.MessageToAny(dst), src)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got := &hcm.HttpConnectionManager{}
-		if err := merged.UnmarshalTo(got); err != nil {
-			t.Fatal(err)
-		}
-		assert.Equal(t, got, &hcm.HttpConnectionManager{
-			StatPrefix:  name,
-			HttpFilters: []*hcm.HttpFilter{{Name: name}, {Name: "patch"}},
+	for _, tc := range []struct {
+		name        string
+		merge       func(dst *anypb.Any, src proto.Message) (*anypb.Any, error)
+		replaceList bool
+	}{
+		{name: "MERGE", merge: MergeAnyWithMessage},
+		{name: "MERGE_AND_REPLACE_LIST", merge: MergeAnyWithMessageReplaceList, replaceList: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := &hcm.HttpConnectionManager{
+				HttpFilters: []*hcm.HttpFilter{{Name: "patch"}},
+			}
+			original := proto.Clone(src).(*hcm.HttpConnectionManager)
+			for _, name := range []string{"first", "second"} {
+				dst := &hcm.HttpConnectionManager{
+					StatPrefix:  name,
+					HttpFilters: []*hcm.HttpFilter{{Name: name}},
+				}
+				merged, err := tc.merge(protoconv.MessageToAny(dst), src)
+				if err != nil {
+					t.Fatal(err)
+				}
+				got := &hcm.HttpConnectionManager{}
+				if err := merged.UnmarshalTo(got); err != nil {
+					t.Fatal(err)
+				}
+				wantFilters := []*hcm.HttpFilter{{Name: name}, {Name: "patch"}}
+				if tc.replaceList {
+					wantFilters = []*hcm.HttpFilter{{Name: "patch"}}
+				}
+				assert.Equal(t, got, &hcm.HttpConnectionManager{
+					StatPrefix:  name,
+					HttpFilters: wantFilters,
+				})
+				assert.Equal(t, src, original)
+			}
+			if _, err := tc.merge(protoconv.MessageToAny(original), nil); err == nil {
+				t.Fatal("expected an error for an undecoded source")
+			}
 		})
-		assert.Equal(t, src, original)
-	}
-	if _, err := MergeAnyWithMessage(protoconv.MessageToAny(original), nil); err == nil {
-		t.Fatal("expected an error for an undecoded source")
 	}
 }
