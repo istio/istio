@@ -243,8 +243,12 @@ Configuration changes in Kubernetes trigger an xDS push. Istiod debounces rapid 
 make build                   # Compile Go binaries
 make docker                  # Build container images
 make docker.push             # Push to registry (set HUB= and TAG=)
-BUILD_WITH_CONTAINER=1 make  # Build inside a container (no local Go required)
+BUILD_WITH_CONTAINER=0 make  # Build with the local toolchain instead of the build container
 ```
+
+Builds run inside the build container by default (`BUILD_WITH_CONTAINER=1`, set in
+`Makefile.overrides.mk`), so only `make` and a container runtime are required. Set
+`BUILD_WITH_CONTAINER=0` to build with a local toolchain instead.
 
 Key environment variables: `HUB` (image registry), `TAG` (image tag).
 
