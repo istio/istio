@@ -1204,6 +1204,7 @@ func (ps *PushContext) doGetSidecarScope(proxy *Proxy, workloadLabels labels.Ins
 		// We need to compute this namespace
 		computed := DefaultSidecarScopeForWaypoint(ps, proxy.ConfigNamespace)
 		ps.sidecarIndex.sidecarsForWaypointByNamespace[proxy.ConfigNamespace] = computed
+		return computed
 	case Router:
 		ps.sidecarIndex.derivedSidecarMutex.Lock()
 		defer ps.sidecarIndex.derivedSidecarMutex.Unlock()
