@@ -259,7 +259,7 @@ Key environment variables: `HUB` (image registry), `TAG` (image tag).
 | Unit tests     | `make test`                        | `*_test.go` alongside code |
 | Race detection | `make racetest`                    | Same as unit tests         |
 | Integration    | `make test.integration.kube`       | `tests/integration/`       |
-| Helm tests     | `make test.integration.kube.helm`  | `tests/integration/helm/`  |
+| Helm tests     | `make test.integration.helm.kube`  | `tests/integration/helm/`  |
 | Linting        | `make lint`                        | Project-wide               |
 | Pre-commit     | `make precommit`                   | Format + lint              |
 | Code gen       | `make gen`                         | Proto, CRDs, golden files  |
