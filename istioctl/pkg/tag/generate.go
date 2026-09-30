@@ -205,8 +205,8 @@ func checkControlPlaneExistenceOrDuplicate(
 	if err != nil {
 		return nil, err
 	}
-	if len(revWebhooks) == 0 && len(revServices) == 0 {
-		return nil, fmt.Errorf("cannot modify tag: cannot find MutatingWebhookConfiguration or Service with revision %q", opts.Revision)
+	if len(revWebhooks) == 0 {
+		return nil, fmt.Errorf("cannot modify tag: cannot find MutatingWebhookConfiguration with revision %q", opts.Revision)
 	}
 	if len(revWebhooks) > 1 || len(revServices) > 1 {
 		return nil, fmt.Errorf("cannot modify tag: found multiple canonical webhooks or services with revision %q", opts.Revision)
