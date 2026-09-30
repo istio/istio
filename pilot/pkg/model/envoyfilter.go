@@ -35,6 +35,14 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+// IsMergeOperation reports whether the operation merges the patch value into the
+// existing config. Both MERGE and MERGE_AND_REPLACE_LIST are merge operations; they
+// differ only in how repeated (list) fields are handled.
+func IsMergeOperation(operation networking.EnvoyFilter_Patch_Operation) bool {
+	return operation == networking.EnvoyFilter_Patch_MERGE ||
+		operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST
+}
+
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
 	Name                         string
@@ -190,8 +198,7 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 			log.Errorf("envoyfilter %s/%s failed to build envoy filter value: %+v", local.Namespace, local.Name, err)
 			continue
 		}
-		if cpw.Operation == networking.EnvoyFilter_Patch_MERGE ||
-			cpw.Operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST {
+		if IsMergeOperation(cpw.Operation) {
 			var typedConfig *anypb.Any
 			decodedConfig := &cpw.TypedConfig
 			switch value := cpw.Value.(type) {

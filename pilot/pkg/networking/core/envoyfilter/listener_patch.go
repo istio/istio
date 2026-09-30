@@ -111,7 +111,7 @@ func patchListener(patchContext networking.EnvoyFilter_PatchContext,
 			// empty name means this listener will be removed, we can return directly.
 			lis.Name = ""
 			return
-		} else if isMergeOperation(lp.Operation) {
+		} else if model.IsMergeOperation(lp.Operation) {
 			mergePatchValue(lp.Operation, lis, lp.Value)
 		}
 	}
@@ -265,7 +265,7 @@ func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 			// nil means this filter chain will be removed, we can return directly.
 			fc.Filters = nil
 			return
-		} else if isMergeOperation(lp.Operation) {
+		} else if model.IsMergeOperation(lp.Operation) {
 			merged, err := mergeTransportSocketListener(fc, lp)
 			if err != nil {
 				log.Debugf("merge of transport socket failed for listener: %v", err)
@@ -404,7 +404,7 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 			IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, false)
 			continue
 		}
-		if isMergeOperation(lp.Operation) {
+		if model.IsMergeOperation(lp.Operation) {
 			// proto merge doesn't work well when merging two filters with ANY typed configs
 			// especially when the incoming cp.Value is a struct that could contain the json config
 			// of an ANY typed filter. So convert our filter's typed config to Struct (retaining the any
@@ -545,7 +545,7 @@ func mergeHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 			IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 			continue
 		}
-		if isMergeOperation(lp.Operation) {
+		if model.IsMergeOperation(lp.Operation) {
 			// proto merge doesn't work well when merging two filters with ANY typed configs
 			// especially when the incoming cp.Value is a struct that could contain the json config
 			// of an ANY typed filter. So convert our filter's typed config to Struct (retaining the any
