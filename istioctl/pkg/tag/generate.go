@@ -64,6 +64,8 @@ type tagWebhookConfig struct {
 	FailurePolicy map[string]*admitv1.FailurePolicyType
 	// ReinvocationPolicy records the reinvocation policy to use for the webhook.
 	ReinvocationPolicy string
+	// RevisionLabelPrecedence preserves the canonical revision's injection selectors.
+	RevisionLabelPrecedence string
 }
 
 // GenerateOptions is the group of options needed to generate a tag webhook.
@@ -418,6 +420,9 @@ func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (s
 	if len(config.ReinvocationPolicy) > 0 {
 		flags = append(flags, "values.sidecarInjectorWebhook.reinvocationPolicy="+config.ReinvocationPolicy)
 	}
+	if config.RevisionLabelPrecedence != "" {
+		flags = append(flags, "values.sidecarInjectorWebhook.revisionLabelPrecedence="+config.RevisionLabelPrecedence)
+	}
 	mfs, _, err := render.GenerateManifest(nil, flags, false, nil, nil)
 	if err != nil {
 		return "", err
@@ -520,16 +525,33 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 	}
 
 	return &tagWebhookConfig{
-		WebHookService:     service,
-		Tag:                tagName,
-		Revision:           rev,
-		URL:                injectionURL,
-		CABundle:           caBundle,
-		IstioNamespace:     istioNS,
-		Path:               path,
-		Labels:             filteredLabels,
-		Annotations:        wh.Annotations,
-		FailurePolicy:      map[string]*admitv1.FailurePolicyType{},
-		ReinvocationPolicy: reinvocationPolicy,
+		WebHookService:          service,
+		Tag:                     tagName,
+		Revision:                rev,
+		URL:                     injectionURL,
+		CABundle:                caBundle,
+		IstioNamespace:          istioNS,
+		Path:                    path,
+		Labels:                  filteredLabels,
+		Annotations:             wh.Annotations,
+		FailurePolicy:           map[string]*admitv1.FailurePolicyType{},
+		ReinvocationPolicy:      reinvocationPolicy,
+		RevisionLabelPrecedence: revisionLabelPrecedence(wh),
 	}, nil
+}
+
+// revisionLabelPrecedence derives precedence from the canonical webhook rather than
+// chart defaults, which may differ from the values used to install the revision.
+func revisionLabelPrecedence(wh admitv1.MutatingWebhookConfiguration) string {
+	for _, w := range wh.Webhooks {
+		if w.Name != "rev.namespace."+istioInjectionWebhookSuffix || w.ObjectSelector == nil {
+			continue
+		}
+		for _, requirement := range w.ObjectSelector.MatchExpressions {
+			if requirement.Key == label.IoIstioRev.Name && requirement.Operator == metav1.LabelSelectorOpDoesNotExist {
+				return "pod"
+			}
+		}
+	}
+	return "namespace"
 }
