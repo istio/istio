@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -439,6 +440,29 @@ func TestMergeGateways(t *testing.T) {
 					tt.name, expected, mgw.VerifiedCertificateReferences)
 			}
 		})
+	}
+}
+
+func TestMergedGatewayNames(t *testing.T) {
+	// Multiple servers from one gateway contribute only one name, and config order
+	// must not affect the ordering of the names used for scope and CDS comparisons.
+	a := makeConfig("z", "a", "*", "http", "HTTP", 80, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, nil, "")
+	z := makeConfig("a", "z", "*", "http", "HTTP", 80, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, nil, "")
+	a.Spec.(*networking.Gateway).Servers = append(a.Spec.(*networking.Gateway).Servers, &networking.Server{
+		Hosts: []string{"*"}, Port: &networking.Port{Number: 81, Name: "http-81", Protocol: "HTTP"},
+	})
+	invalid := config.Config{
+		Meta: config.Meta{Name: "invalid", Namespace: "a"},
+		Spec: &networking.Gateway{Servers: []*networking.Server{{Hosts: []string{"*"}}}},
+	}
+	for _, configs := range [][]config.Config{{z, a, invalid}, {invalid, a, z}} {
+		instances := make([]gatewayWithInstances, 0, len(configs))
+		for _, cfg := range configs {
+			instances = append(instances, gatewayWithInstances{cfg, true, nil})
+		}
+		merged := mergeGateways(instances, &Proxy{}, makePushContext())
+		assert.Equal(t, merged.GatewayNames, []string{"a/z", "z/a"})
+		assert.Equal(t, len(merged.GatewayNameForServer), 3)
 	}
 }
 

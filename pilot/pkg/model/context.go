@@ -484,6 +484,7 @@ var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
 //
 // Listener generation code will still use the SidecarScope object directly
 // as it needs the set of services for each listener port.
+// For routers, SetGatewaysForProxy must be called first to select gateway VirtualServices.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	sidecarScope := node.SidecarScope
 
@@ -602,7 +603,7 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	node.PrevMergedGateway = &PrevMergedGateway{
 		ContainsAutoPassthroughGateways: prevMergedGateway.ContainsAutoPassthroughGateways,
 		AutoPassthroughSNIHosts:         prevMergedGateway.GetAutoPassthroughGatewaySNIHosts(),
-		GatewayNameForServer:            prevMergedGateway.GatewayNameForServer,
+		GatewayNames:                    prevMergedGateway.GatewayNames,
 	}
 }
 

@@ -119,10 +119,25 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 			}
 			return true
 		}
-		// Gateway scopes do not track the VirtualServices bound to the proxy's gateways.
-		// Keep these updates until gateway-specific dependencies are available.
 		if config.Kind == kind.VirtualService {
-			return true
+			if !features.EnableGatewayScopedVirtualServices {
+				return true
+			}
+			var gateways []string
+			if proxy.MergedGateway != nil {
+				gateways = proxy.MergedGateway.GatewayNames
+			}
+			if proxy.SidecarScope.GatewaysDependOnConfig(config, gateways) {
+				return true
+			}
+			if proxy.PrevSidecarScope == nil {
+				return false
+			}
+			// Scope and gateway snapshots are updated independently. VirtualService updates leave
+			// the previous scope associated with the current gateway set, while gateway reselection
+			// leaves it associated with the previous gateway set. Check both to retain removed dependencies.
+			return proxy.PrevSidecarScope.GatewaysDependOnConfig(config, gateways) ||
+				(proxy.PrevMergedGateway != nil && proxy.PrevSidecarScope.GatewaysDependOnConfig(config, proxy.PrevMergedGateway.GatewayNames))
 		}
 
 		// we can rely on sidecar scope for other configs DestinationRules, EnvoyFilters, etc.

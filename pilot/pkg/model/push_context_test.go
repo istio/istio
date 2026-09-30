@@ -2406,6 +2406,96 @@ func TestGatewayAndWaypointSidecarScopes(t *testing.T) {
 	}
 }
 
+func TestGatewaySpecificSidecarScopes(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		t.Run(fmt.Sprint(enabled), func(t *testing.T) {
+			test.SetForTest(t, &features.EnableGatewayScopedVirtualServices, enabled)
+			ps := NewPushContext()
+			ps.Mesh = mesh.DefaultMeshConfig()
+			service := &Service{Hostname: "backend.example.com", Attributes: ServiceAttributes{Namespace: "backend"}}
+			ps.ServiceIndex.public = []*Service{service}
+			a := &config.Config{Meta: config.Meta{Name: "a", Namespace: "routes"}, Spec: &networking.VirtualService{}}
+			b := &config.Config{Meta: config.Meta{Name: "b", Namespace: "routes"}, Spec: &networking.VirtualService{}}
+			private := &config.Config{Meta: config.Meta{Name: "private", Namespace: "proxy"}, Spec: &networking.VirtualService{}}
+			ps.virtualServiceIndex.publicByGateway["gateways/a"] = []*config.Config{a}
+			ps.virtualServiceIndex.publicByGateway["gateways/b"] = []*config.Config{b}
+			ps.virtualServiceIndex.privateByNamespaceAndGateway[types.NamespacedName{Namespace: "proxy", Name: "gateways/a"}] = []*config.Config{private}
+			proxy := func(namespace string, gateways ...string) *Proxy {
+				p := &Proxy{Type: Router, ConfigNamespace: namespace, MergedGateway: &MergedGateway{
+					GatewayNames: sets.SortedList(sets.New(gateways...)),
+				}}
+				p.SetSidecarScope(ps)
+				return p
+			}
+			pa := proxy("proxy", "gateways/a")
+			pb := proxy("proxy", "gateways/b")
+			pab := proxy("proxy", "gateways/a", "gateways/b")
+			assert.Equal(t, pab.SidecarScope == proxy("proxy", "gateways/b", "gateways/a", "gateways/a").SidecarScope, true)
+			assert.Equal(t, pa.SidecarScope == pb.SidecarScope, !enabled)
+			assert.Equal(t, ps.VirtualServicesForGatewayProxy(pa, "gateways/a"), []*config.Config{private, a})
+			assert.Equal(t, ps.VirtualServicesForGatewayProxy(pab, "gateways/b"), []*config.Config{b})
+			otherNamespace := proxy("other", "gateways/a")
+			assert.Equal(t, ps.VirtualServicesForGatewayProxy(otherNamespace, "gateways/a"), []*config.Config{a})
+			assert.Equal(t, otherNamespace.SidecarScope == pa.SidecarScope, false)
+			for _, p := range []*Proxy{pa, pb, pab} {
+				assert.Equal(t, p.SidecarScope.GetService(service.Hostname), service)
+				assert.Equal(t, p.SidecarScope.DependsOnConfig(ConfigKey{
+					Kind: kind.ServiceEntry, Name: string(service.Hostname), Namespace: "backend",
+				}, ps.Mesh.RootNamespace), true)
+			}
+			keyA := ConfigKey{Kind: kind.VirtualService, Name: "a", Namespace: "routes"}
+			assert.Equal(t, pab.SidecarScope.DependsOnConfig(ConfigKey{
+				Kind: kind.ServiceEntry, Name: string(service.Hostname), Namespace: "backend",
+			}, ps.Mesh.RootNamespace), true)
+			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(ConfigKey{
+				Kind: kind.ServiceEntry, Name: string(service.Hostname), Namespace: "backend",
+			}, []string{"gateways/a", "gateways/b"}), false)
+			assert.Equal(t, pa.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), false)
+			assert.Equal(t, pa.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), enabled)
+			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), enabled)
+			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b"}), false)
+			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, nil), false)
+			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/unknown"}), false)
+			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b", "gateways/a"}), enabled)
+			assert.Equal(t, pb.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b"}), false)
+			base := proxy("proxy")
+			assert.Equal(t, base.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), false)
+			assert.Equal(t, len(ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways) > 0, enabled)
+		})
+	}
+}
+
+func TestGatewaySpecificSidecarScopeInvalidation(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayScopedVirtualServices, true)
+	for _, changedKind := range []kind.Kind{kind.Gateway, kind.Secret} {
+		t.Run(changedKind.String(), func(t *testing.T) {
+			old := NewPushContext()
+			old.Mesh = mesh.DefaultMeshConfig()
+			p := &Proxy{Type: Router, ConfigNamespace: "proxy", MergedGateway: &MergedGateway{
+				GatewayNames: []string{"gateways/a"},
+			}}
+			oldScope := old.getSidecarScope(p, nil)
+			base := old.sidecarIndex.sidecarsForGatewayByNamespace["proxy"]
+			current := NewPushContext()
+			current.Mesh = old.Mesh
+			store := NewFakeStore()
+			go store.Run(test.NewStop(t))
+			current.updateContext(&Environment{ConfigStore: store}, old, &PushRequest{
+				ConfigsUpdated: sets.New(ConfigKey{Kind: changedKind, Name: "a", Namespace: "gateways"}),
+			})
+			assert.Equal(t, current.sidecarIndex.sidecarsForGatewayByNamespace["proxy"] == base, true)
+			wantCached := 1
+			if changedKind == kind.Gateway {
+				wantCached = 0
+			}
+			assert.Equal(t, len(current.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), wantCached)
+			assert.Equal(t, current.getSidecarScope(p, nil) == oldScope, changedKind != kind.Gateway)
+			assert.Equal(t, old.getSidecarScope(p, nil) == oldScope, true)
+			assert.Equal(t, len(old.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), 1)
+		})
+	}
+}
+
 func TestSidecarScope(t *testing.T) {
 	test.SetForTest(t, &features.ConvertSidecarScopeConcurrency, 10)
 	ps := NewPushContext()
@@ -4340,8 +4430,8 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	ps.initEnvoyFilters(env, nil, nil)
 	ps.initServiceRegistry(env, nil)
 	proxy := &Proxy{Type: Router}
-	proxy.SetSidecarScope(ps)
 	proxy.SetGatewaysForProxy(ps)
+	proxy.SetSidecarScope(ps)
 	patches := ps.EnvoyFilters(proxy)
 	got := sets.New(slices.Map(ps.GatewayServices(proxy, patches), func(e *Service) string {
 		return e.Hostname.String()

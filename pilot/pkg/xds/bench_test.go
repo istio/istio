@@ -649,9 +649,9 @@ func setupAndInitializeTest(t testing.TB, config ConfigInput) (*xds.FakeDiscover
 func initPushContext(env *model.Environment, proxy *model.Proxy) {
 	pushContext := env.PushContext()
 	pushContext.InitContext(env, nil, nil)
-	proxy.SetSidecarScope(pushContext)
-	proxy.SetGatewaysForProxy(pushContext)
 	proxy.SetServiceTargets(env.ServiceDiscovery)
+	proxy.SetGatewaysForProxy(pushContext)
+	proxy.SetSidecarScope(pushContext)
 }
 
 var debugGeneration = env.Register("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")

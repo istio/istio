@@ -41,6 +41,12 @@ var (
 			"Gateways with same selectors in different namespaces will not be applicable.",
 	).Get()
 
+	EnableGatewayScopedVirtualServices = env.Register(
+		"PILOT_GATEWAY_SPECIFIC_SIDECAR_SCOPE",
+		true,
+		"Cache VirtualServices in gateway-specific SidecarScopes and limit gateway pushes to their dependencies.",
+	).Get()
+
 	JwksFetchMode = func() jwt.JwksFetchMode {
 		v := env.Register(
 			"PILOT_JWT_ENABLE_REMOTE_JWKS",

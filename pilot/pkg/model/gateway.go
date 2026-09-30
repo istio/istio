@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -77,6 +76,9 @@ type MergedGateway struct {
 	// Used for select the set of virtual services that apply to a port.
 	GatewayNameForServer map[*networking.Server]string
 
+	// GatewayNames contains the sorted, deduplicated namespace/name gateway names in GatewayNameForServer.
+	GatewayNames []string
+
 	// ServersByRouteName maps from port names to virtual hosts
 	// Used for RDS. No two port names share same port except for HTTPS
 	// The typical length of the value is always 1, except for HTTP (not HTTPS),
@@ -110,20 +112,13 @@ func (g *MergedGateway) HasAutoPassthroughGateways() bool {
 	return false
 }
 
-func (g *MergedGateway) GetGatewayNames() []string {
-	if g != nil {
-		return maps.Values(g.GatewayNameForServer)
-	}
-	return nil
-}
-
 // PrevMergedGateway describes previous state of the gateway.
 // Currently, it only contains information relevant for auto passthrough gateways
 // and gateway names used by CDS.
 type PrevMergedGateway struct {
 	ContainsAutoPassthroughGateways bool
 	AutoPassthroughSNIHosts         sets.Set[string]
-	GatewayNameForServer            map[*networking.Server]string
+	GatewayNames                    []string
 }
 
 func (g *PrevMergedGateway) HasAutoPassthroughGateway() bool {
@@ -138,13 +133,6 @@ func (g *PrevMergedGateway) GetAutoPassthroughSNIHosts() sets.Set[string] {
 		return g.AutoPassthroughSNIHosts
 	}
 	return sets.Set[string]{}
-}
-
-func (g *PrevMergedGateway) GetGatewayNames() []string {
-	if g != nil {
-		return maps.Values(g.GatewayNameForServer)
-	}
-	return nil
 }
 
 var (
@@ -187,6 +175,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
+	gatewayNames := sets.New[string]()
 	verifiedCertificateReferences := sets.New[string]()
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
@@ -214,6 +203,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 			s := sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
+			gatewayNames.Insert(gatewayName)
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
 			expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
@@ -470,6 +460,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		MergedQUICTransportServers:      mergedQUICServers,
 		ServerPorts:                     serverPorts,
 		GatewayNameForServer:            gatewayNameForServer,
+		GatewayNames:                    sets.SortedList(gatewayNames),
 		TLSServerInfo:                   tlsServerInfo,
 		ServersByRouteName:              serversByRouteName,
 		HTTP3AdvertisingRoutes:          http3AdvertisingRoutes,

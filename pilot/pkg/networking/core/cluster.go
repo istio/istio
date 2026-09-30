@@ -441,7 +441,7 @@ func appendGatewayReferencedServices(push *model.PushContext, proxy *model.Proxy
 
 	// Collect all destination hostnames referenced by TLS/TCP routes on this gateway's VirtualServices.
 	gwHosts := sets.New[string]()
-	for _, gwName := range proxy.MergedGateway.GatewayNameForServer {
+	for _, gwName := range proxy.MergedGateway.GatewayNames {
 		for _, vs := range push.VirtualServicesForGateway(proxy.ConfigNamespace, gwName) {
 			rule := vs.Spec.(*networking.VirtualService)
 			for _, tls := range rule.Tls {

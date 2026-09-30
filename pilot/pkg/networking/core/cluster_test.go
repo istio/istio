@@ -5145,8 +5145,8 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 				pc := model.NewPushContext()
 				pc.InitContext(cg.env, nil, nil)
 				cg.env.SetPushContext(pc)
-				proxy.SetSidecarScope(cg.env.PushContext())
 				proxy.SetGatewaysForProxy(cg.env.PushContext())
+				proxy.SetSidecarScope(cg.env.PushContext())
 			}
 			clusters, removed, delta := cg.DeltaClusters(proxy, tc.configUpdated,
 				&model.WatchedResource{ResourceNames: sets.New(tc.watchedResourceNames...)})
