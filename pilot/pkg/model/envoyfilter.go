@@ -19,7 +19,11 @@ import (
 	"strings"
 	"time"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -83,10 +87,16 @@ const maxProxyVersionLen = 1024
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
 // fields are ordered such that this struct is aligned
 type EnvoyFilterConfigPatchWrapper struct {
-	Value     proto.Message
-	Match     *networking.EnvoyFilter_EnvoyConfigObjectMatch
-	ApplyTo   networking.EnvoyFilter_ApplyTo
-	Operation networking.EnvoyFilter_Patch_Operation
+	Value proto.Message
+	// TypedConfig is the decoded filter config for merge patches. It is shared across
+	// proxies and must not be mutated. It is nil when absent or decoding failed.
+	TypedConfig proto.Message
+	// TransportSocketTypedConfig is the decoded transport socket config for cluster and
+	// filter-chain merge patches, with the same sharing and nil semantics as TypedConfig.
+	TransportSocketTypedConfig proto.Message
+	Match                      *networking.EnvoyFilter_EnvoyConfigObjectMatch
+	ApplyTo                    networking.EnvoyFilter_ApplyTo
+	Operation                  networking.EnvoyFilter_Patch_Operation
 	// Pre-compile the regex from proxy version match in the match
 	ProxyVersionRegex *regexp.Regexp
 	// ProxyPrefixMatch provides a prefix match for the proxy version. The current API only allows
@@ -179,6 +189,32 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		if err != nil {
 			log.Errorf("envoyfilter %s/%s failed to build envoy filter value: %+v", local.Namespace, local.Name, err)
 			continue
+		}
+		if cpw.Operation == networking.EnvoyFilter_Patch_MERGE ||
+			cpw.Operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST {
+			var typedConfig *anypb.Any
+			decodedConfig := &cpw.TypedConfig
+			switch value := cpw.Value.(type) {
+			case *cluster.Cluster:
+				typedConfig = value.GetTransportSocket().GetTypedConfig()
+				decodedConfig = &cpw.TransportSocketTypedConfig
+			case *listener.FilterChain:
+				typedConfig = value.GetTransportSocket().GetTypedConfig()
+				decodedConfig = &cpw.TransportSocketTypedConfig
+			case *listener.Filter:
+				typedConfig = value.GetTypedConfig()
+			case *hcm.HttpFilter:
+				typedConfig = value.GetTypedConfig()
+			case *listener.ListenerFilter:
+				typedConfig = value.GetTypedConfig()
+			}
+			if typedConfig != nil {
+				*decodedConfig, err = typedConfig.UnmarshalNew()
+				if err != nil {
+					*decodedConfig = nil
+					log.Debugf("envoyfilter %s/%s failed to decode merge typed config: %v", local.Namespace, local.Name, err)
+				}
+			}
 		}
 		if cp.Match == nil {
 			// create a match all object

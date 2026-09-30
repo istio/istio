@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -198,6 +199,66 @@ func TestConvertEnvoyFilter(t *testing.T) {
 	}
 	if patches := cfilter.Patches[networking.EnvoyFilter_HTTP_ROUTE]; len(patches) != 1 { // check num of invalid http route patches
 		t.Fatalf("unexpected patches of %v: %v", networking.EnvoyFilter_HTTP_ROUTE, cfilter.Patches)
+	}
+}
+
+func TestConvertEnvoyFilterTypedConfig(t *testing.T) {
+	for _, applyTo := range []networking.EnvoyFilter_ApplyTo{
+		networking.EnvoyFilter_CLUSTER,
+		networking.EnvoyFilter_FILTER_CHAIN,
+		networking.EnvoyFilter_NETWORK_FILTER,
+		networking.EnvoyFilter_HTTP_FILTER,
+		networking.EnvoyFilter_LISTENER_FILTER,
+	} {
+		for _, operation := range []networking.EnvoyFilter_Patch_Operation{
+			networking.EnvoyFilter_Patch_MERGE,
+			networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+			networking.EnvoyFilter_Patch_ADD,
+		} {
+			t.Run(applyTo.String()+"/"+operation.String(), func(t *testing.T) {
+				value := &structpb.Struct{}
+				configJSON := `{"name":"test","typed_config":{"@type":"type.googleapis.com/google.protobuf.Struct","value":{"field":"patch"}}}`
+				if applyTo == networking.EnvoyFilter_CLUSTER || applyTo == networking.EnvoyFilter_FILTER_CHAIN {
+					configJSON = `{"transport_socket":` + configJSON + `}`
+				}
+				if err := protomarshal.UnmarshalString(configJSON, value); err != nil {
+					t.Fatal(err)
+				}
+				wrapper := convertToEnvoyFilterWrapper(&config.Config{
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
+							ApplyTo: applyTo,
+							Patch:   &networking.EnvoyFilter_Patch{Operation: operation, Value: value},
+						}},
+					},
+				})
+				patches := wrapper.Patches[applyTo]
+				if len(patches) != 1 {
+					t.Fatalf("expected one patch, got %v", patches)
+				}
+				if operation == networking.EnvoyFilter_Patch_ADD {
+					if patches[0].TypedConfig != nil || patches[0].TransportSocketTypedConfig != nil {
+						t.Fatal("unexpected decoded config for ADD patch")
+					}
+					return
+				}
+				want, err := structpb.NewStruct(map[string]any{"field": "patch"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				got := patches[0].TypedConfig
+				other := patches[0].TransportSocketTypedConfig
+				if applyTo == networking.EnvoyFilter_CLUSTER || applyTo == networking.EnvoyFilter_FILTER_CHAIN {
+					got, other = other, got
+				}
+				if !proto.Equal(got, want) {
+					t.Fatalf("unexpected decoded config: got %v, want %v", got, want)
+				}
+				if other != nil {
+					t.Fatalf("unexpected decoded config in the other field: %v", other)
+				}
+			})
+		}
 	}
 }
 

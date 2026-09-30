@@ -308,7 +308,7 @@ func mergeTransportSocketListener(fc *listener.FilterChain, lp *model.EnvoyFilte
 
 		if dstListener != nil && srcPatch != nil {
 
-			retVal, errMerge := mergeAnyPatchValue(lp.Operation, dstListener, srcPatch)
+			retVal, errMerge := mergeAnyPatchValue(lp.Operation, dstListener, lp.TransportSocketTypedConfig)
 			if errMerge != nil {
 				return false, fmt.Errorf("function mergeAnyPatchValue failed for doFilterChainOperation: %v", errMerge)
 			}
@@ -426,7 +426,7 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 			var retVal *anypb.Any
 			if userFilter.GetTypedConfig() != nil {
 				IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, true)
-				if retVal, err = mergeAnyPatchValue(lp.Operation, filter.GetTypedConfig(), userFilter.GetTypedConfig()); err != nil {
+				if retVal, err = mergeAnyPatchValue(lp.Operation, filter.GetTypedConfig(), lp.TypedConfig); err != nil {
 					retVal = filter.GetTypedConfig()
 				}
 			}
@@ -566,7 +566,7 @@ func mergeHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 			}
 			var retVal *anypb.Any
 			if userHTTPFilter.GetTypedConfig() != nil {
-				if retVal, err = mergeAnyPatchValue(lp.Operation, httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {
+				if retVal, err = mergeAnyPatchValue(lp.Operation, httpFilter.GetTypedConfig(), lp.TypedConfig); err != nil {
 					retVal = httpFilter.GetTypedConfig()
 				}
 			}
@@ -596,7 +596,7 @@ func mergeListenerFilter(lp *model.EnvoyFilterConfigPatchWrapper, lisFilter *lis
 		retVal *anypb.Any
 	)
 	if userListenerFilter.GetTypedConfig() != nil {
-		if retVal, err = mergeAnyPatchValue(lp.Operation, lisFilter.GetTypedConfig(), userListenerFilter.GetTypedConfig()); err != nil {
+		if retVal, err = mergeAnyPatchValue(lp.Operation, lisFilter.GetTypedConfig(), lp.TypedConfig); err != nil {
 			retVal = lisFilter.GetTypedConfig()
 		}
 	}
