@@ -446,7 +446,12 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	if overwriteControllerVersion {
 		log.Debugf("write controller version, existing=%v", existingControllerVersion)
 		if err := d.setGatewayControllerVersion(gw); err != nil {
-			return fmt.Errorf("update gateway annotation: %v", err)
+			// The version annotation is best-effort: metadata written through the
+			// status subresource is dropped by the apiserver for CRs, and some
+			// versions reject the write outright. Never block rendering the
+			// gateway resources because of it.
+			// See https://github.com/istio/istio/issues/61940.
+			log.Warnf("failed to update gateway controller version annotation: %v", err)
 		}
 	} else {
 		log.Debugf("controller version existing=%v, no action needed", existingControllerVersion)
@@ -770,8 +775,11 @@ func fetchParameters(gw *gateway.Gateway) (*types.NamespacedName, error) {
 }
 
 func (d *DeploymentController) setGatewayControllerVersion(gws gateway.Gateway) error {
-	patch := fmt.Sprintf(`{"apiVersion":"gateway.networking.k8s.io/v1","kind":"Gateway","metadata":{"annotations":{"%s":"%d"}}}`,
-		ControllerVersionAnnotation, ControllerVersion)
+	// The apply body must carry the object identity: without metadata.name and
+	// metadata.namespace the apiserver cannot determine the object and rejects
+	// the write (Kubernetes 1.36 fails with "name must be provided").
+	patch := fmt.Sprintf(`{"apiVersion":"gateway.networking.k8s.io/v1","kind":"Gateway","metadata":{"name":%q,"namespace":%q,"annotations":{"%s":"%d"}}}`,
+		gws.GetName(), gws.GetNamespace(), ControllerVersionAnnotation, ControllerVersion)
 
 	log.Debugf("applying %v", patch)
 	// Use status RBAC so we do not require full Gateway write.

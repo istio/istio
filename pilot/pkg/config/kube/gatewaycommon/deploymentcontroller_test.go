@@ -1382,6 +1382,8 @@ kind: Gateway
 metadata:
   annotations:
     gateway.istio.io/controller-version: "%d"
+  name: gw
+  namespace: default
 `, ControllerVersion)
 }
 
@@ -1390,6 +1392,90 @@ func newTestEnv() *model.Environment {
 	env.Watcher = meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())
 
 	return env
+}
+
+// TestSetGatewayControllerVersionPatchIncludesIdentity is a regression test for
+// https://github.com/istio/istio/issues/61940: the server-side apply patch must
+// carry metadata.name and metadata.namespace, otherwise the apiserver cannot
+// determine the object and rejects the write (Kubernetes 1.36 fails with
+// "name must be provided"), which wedged the whole gateway reconcile.
+func TestSetGatewayControllerVersionPatchIncludesIdentity(t *testing.T) {
+	var gotPatch []byte
+	var gotSubresources []string
+	d := &DeploymentController{
+		patcher: func(g schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+			gotPatch, gotSubresources = data, subresources
+			return nil
+		},
+	}
+	gw := k8s.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-gateway", Namespace: "istio-system"},
+	}
+	if err := d.setGatewayControllerVersion(gw); err != nil {
+		t.Fatalf("setGatewayControllerVersion failed: %v", err)
+	}
+	assert.Equal(t, []string{"status"}, gotSubresources)
+	var patch map[string]any
+	if err := yaml.Unmarshal(gotPatch, &patch); err != nil {
+		t.Fatalf("patch is not valid JSON/YAML: %v", err)
+	}
+	metadata, ok := patch["metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("patch has no metadata: %s", gotPatch)
+	}
+	assert.Equal(t, "shared-gateway", metadata["name"])
+	assert.Equal(t, "istio-system", metadata["namespace"])
+	annotations, ok := metadata["annotations"].(map[string]any)
+	if !ok {
+		t.Fatalf("patch has no metadata.annotations: %s", gotPatch)
+	}
+	versionAnnotation, ok := annotations[ControllerVersionAnnotation].(string)
+	if !ok {
+		t.Fatalf("patch has no %s annotation: %s", ControllerVersionAnnotation, gotPatch)
+	}
+	assert.Equal(t, fmt.Sprint(ControllerVersion), versionAnnotation)
+}
+
+// TestGatewayReconcileContinuesWhenVersionWriteFails is a regression test for
+// https://github.com/istio/istio/issues/61940: a failing controller-version
+// annotation write must not block rendering of the gateway Deployment and
+// Service.
+func TestGatewayReconcileContinuesWhenVersionWriteFails(t *testing.T) {
+	c := kube.NewFakeClient(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+	})
+	tw := revisions.NewTagWatcher(c, "default", "istio-system")
+	env := newTestEnv()
+	d := NewDeploymentController(c, "", env, testInjectionConfig(t, ""), func(fn func()) {}, tw, "", "")
+	deploymentsApplied := atomic.NewInt32(0)
+	d.patcher = func(g schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+		if g == gvr.KubernetesGateway {
+			// Simulate the apiserver rejecting the annotation write, as
+			// Kubernetes 1.36 does when the apply body lacks object identity.
+			return fmt.Errorf("name must be provided")
+		}
+		if g == gvr.Deployment {
+			deploymentsApplied.Inc()
+		}
+		return nil
+	}
+	stop := test.NewStop(t)
+	gws := clienttest.Wrap(t, d.gateways)
+	env.PushContext().InitDone.Store(true)
+	go tw.Run(stop)
+	go d.Run(stop)
+	c.RunAndWait(stop)
+	kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
+	gws.Create(&k8s.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "default"},
+		Spec: k8s.GatewaySpec{
+			GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+		},
+	})
+	// Even though the version annotation write fails, the gateway Deployment
+	// must still be rendered and applied.
+	assert.EventuallyEqual(t, deploymentsApplied.Load, int32(1), retry.Timeout(time.Second*10),
+		retry.Message("gateway Deployment was not applied after version annotation write failed"))
 }
 
 func TestApplySafeguards(t *testing.T) {

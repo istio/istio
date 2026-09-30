@@ -3,4 +3,6 @@ kind: Gateway
 metadata:
   annotations:
     gateway.istio.io/controller-version: "5"
+  name: namespace
+  namespace: default
 ---

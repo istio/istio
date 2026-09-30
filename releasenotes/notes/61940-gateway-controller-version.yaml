@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 61940
+
+releaseNotes:
+  - |
+    **Fixed** the managed gateway deployment controller stalling on Kubernetes 1.36:
+    the controller-version annotation is now applied with the Gateway's name and
+    namespace included, and a failed annotation write no longer blocks rendering
+    of the gateway Deployment and Service.

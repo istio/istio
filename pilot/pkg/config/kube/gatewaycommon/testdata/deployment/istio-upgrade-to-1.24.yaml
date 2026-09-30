@@ -3,6 +3,8 @@ kind: Gateway
 metadata:
   annotations:
     gateway.istio.io/controller-version: "5"
+  name: test-upgrade
+  namespace: default
 ---
 apiVersion: v1
 kind: ServiceAccount
