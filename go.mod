@@ -44,13 +44,13 @@ require (
 	github.com/hashicorp/go-version v1.9.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/howardjohn/unshare-go v0.5.0
-	github.com/klauspost/compress v1.20.0
+	github.com/klauspost/compress v1.20.1
 	github.com/lestrrat-go/jwx v1.2.31
 	github.com/mattn/go-isatty v0.0.24
 	github.com/miekg/dns v1.1.73
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/moby/buildkit v0.31.2
-	github.com/onsi/gomega v1.43.1
+	github.com/onsi/gomega v1.44.0
 	github.com/openshift/api v0.0.0-20260320151444-324a1bcb9f55
 	github.com/pires/go-proxyproto v0.15.0
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240409071808-615f978279ca
