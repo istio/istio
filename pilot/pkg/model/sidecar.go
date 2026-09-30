@@ -253,7 +253,7 @@ type IstioEgressListenerWrapper struct {
 
 const defaultSidecar = "default-sidecar"
 
-// DefaultSidecarScopeForGateway builds a SidecarScope contains services and destinationRules for a given gateway/waypoint.
+// DefaultSidecarScopeForGateway builds a SidecarScope containing services and destination rules for a gateway.
 func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *SidecarScope {
 	services := ps.servicesExportedToNamespace(configNamespace)
 	out := &SidecarScope{
@@ -273,13 +273,36 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 
 	out.selectAuthnPolicies(ps, configNamespace)
 
-	// waypoint need to get vses from the egress listener
-	defaultEgressListener := &IstioEgressListenerWrapper{
-		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
-	}
-	out.EgressListeners = []*IstioEgressListenerWrapper{defaultEgressListener}
 	out.initFunc = func() {}
 
+	return out
+}
+
+// DefaultSidecarScopeForWaypoint extends the gateway scope with mesh VirtualServices for waypoint routing.
+func DefaultSidecarScopeForWaypoint(ps *PushContext, configNamespace string) *SidecarScope {
+	services := ps.servicesExportedToNamespace(configNamespace)
+	out := &SidecarScope{
+		Name:                    defaultSidecar,
+		Namespace:               configNamespace,
+		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
+		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
+		servicesByHostname:      make(map[host.Name]*Service, len(services)),
+		Version:                 ps.PushVersion,
+	}
+
+	servicesAdded := make(map[host.Name]sidecarServiceIndex)
+	for _, s := range services {
+		out.appendSidecarServices(servicesAdded, s)
+	}
+	out.selectDestinationRules(ps, configNamespace)
+
+	out.selectAuthnPolicies(ps, configNamespace)
+
+	out.EgressListeners = []*IstioEgressListenerWrapper{{
+		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
+	}}
+
+	out.initFunc = func() {}
 	return out
 }
 
