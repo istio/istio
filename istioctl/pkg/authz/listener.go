@@ -89,15 +89,21 @@ func parse(listeners []*listener.Listener) []*parsedListener {
 				case wellknown.HTTPConnectionManager, "envoy.http_connection_manager":
 					if cm := getHTTPConnectionManager(filter); cm != nil {
 						for _, httpFilter := range cm.GetHttpFilters() {
-							switch httpFilter.GetName() {
-							case wellknown.HTTPRoleBasedAccessControl:
-								rbacHTTP := &rbachttp.RBAC{}
-								if err := getHTTPFilterConfig(httpFilter, rbacHTTP); err != nil {
-									log.Errorf("found RBAC HTTP filter but failed to parse: %s", err)
-								} else {
-									parsedFC.rbacHTTP = append(parsedFC.rbacHTTP, rbacHTTP)
-								}
+							// Select on the typed config, not the filter name: RBAC filters are
+							// emitted under more than one instance name.
+							if !httpFilter.GetTypedConfig().MessageIs((*rbachttp.RBAC)(nil)) {
+								continue
 							}
+							rbacHTTP := &rbachttp.RBAC{}
+							if err := getHTTPFilterConfig(httpFilter, rbacHTTP); err != nil {
+								log.Errorf("found RBAC HTTP filter but failed to parse: %s", err)
+								continue
+							}
+							if rbacHTTP.GetRules() == nil && rbacHTTP.GetShadowRules() == nil {
+								// Placeholder filter, enforces nothing by itself.
+								continue
+							}
+							parsedFC.rbacHTTP = append(parsedFC.rbacHTTP, rbacHTTP)
 						}
 					}
 				case wellknown.RoleBasedAccessControl:

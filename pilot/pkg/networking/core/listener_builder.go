@@ -488,7 +488,8 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
-		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
+		authzFilters, routeScopedAuthzFilters := authz.PartitionRouteScopedFilters(lb.authzBuilder.BuildHTTP(httpOpts.class))
+		filters = append(filters, authzFilters...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_STATS)
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
@@ -498,6 +499,10 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 				filters = append(filters, xdsfilters.InferencePoolExtProc)
 			}
 		}
+		// Filters which rely on the route remaining unchanged need to be placed
+		// last, in case another filter in the chain clears the routing cache.
+		filters = append(filters, routeScopedAuthzFilters...)
+		filters = append(filters, authz.RouteAnchorFilters(lb.node, httpOpts.class, routeScopedAuthzFilters)...)
 	}
 
 	if httpOpts.protocol == protocol.GRPCWeb {
