@@ -17,7 +17,6 @@ package autoregistration
 import (
 	"fmt"
 	"math"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -26,6 +25,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
@@ -260,7 +260,8 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		})
 		t.Run("same instance: connect before disconnect ", func(t *testing.T) {
 			// reconnect, ensure entry is there with the same instance id
-			p1conn2 = makeConn(p, p1conn1.ConnectedAt().Add(10*time.Millisecond))
+			time.Sleep(10 * time.Millisecond)
+			p1conn2 = makeConn(p, time.Now())
 			c1.OnConnect(p1conn2)
 			// disconnect (associated with original connect, not the reconnect)
 			// make sure entry is still there with disconnect meta
@@ -841,7 +842,7 @@ func checkEntry(
 	we := cfg.Spec.(*v1alpha3.WorkloadEntry)
 
 	// check workload entry specific fields
-	if !reflect.DeepEqual(we.Ports, tmpl.Template.Ports) {
+	if !apiequality.Semantic.DeepEqual(we.Ports, tmpl.Template.Ports) {
 		err = multierror.Append(err, fmt.Errorf("expected ports from WorkloadGroup"))
 	}
 	if we.Address != proxy.IPAddresses[0] {
@@ -879,7 +880,7 @@ func checkEntry(
 	}
 
 	// check all labels are copied to the WorkloadEntry
-	if !reflect.DeepEqual(cfg.Labels, we.Labels) {
+	if !apiequality.Semantic.DeepEqual(cfg.Labels, we.Labels) {
 		err = multierror.Append(err, fmt.Errorf("spec labels on WorkloadEntry should match meta labels"))
 	}
 	for k, v := range tmpl.Template.Labels {

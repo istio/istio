@@ -217,16 +217,26 @@ func TestDebounce(t *testing.T) {
 		{
 			name: "Should not debounce partial pushes",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
+				updateCh <- &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(1, 0)
-				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
+				updateCh <- &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(2, 0)
-				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
+				updateCh <- &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(3, 0)
-				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
+				updateCh <- &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(4, 0)
-				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
+				updateCh <- &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(5, 0)
+			},
+		},
+		{
+			name: "Should initialize forced endpoint pushes",
+			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
+				updateCh <- &model.PushRequest{
+					Forced:         true,
+					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"}),
+				}
+				expect(0, 1)
 			},
 		},
 		{
@@ -249,10 +259,10 @@ func TestDebounce(t *testing.T) {
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				updateCh <- &model.PushRequest{Forced: true}
 				updateCh <- &model.PushRequest{Forced: true}
-				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
-				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
+				updateCh <- &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
+				updateCh <- &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(2, 1)
-				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
+				updateCh <- &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(3, 1)
 			},
 		},
@@ -294,8 +304,8 @@ func TestDebounce(t *testing.T) {
 
 			wg := sync.WaitGroup{}
 
-			fakePush := func(req *model.PushRequest) {
-				if !model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints) {
+			fakePush := func(req *model.PushRequest, initializePushContext bool) {
+				if initializePushContext {
 					select {
 					case pushingCh <- struct{}{}:
 					default:
@@ -306,6 +316,10 @@ func TestDebounce(t *testing.T) {
 					time.Sleep(opts.debounceMax * 2)
 					<-pushingCh
 				} else {
+					if !model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints) {
+						errCh <- fmt.Errorf("push without initialization was not endpoint-only")
+						return
+					}
 					atomic.AddInt32(&partialPushes, 1)
 				}
 			}
@@ -344,6 +358,27 @@ func TestDebounce(t *testing.T) {
 			close(stopCh)
 			wg.Wait()
 		})
+	}
+}
+
+func TestPushCanReusePushContext(t *testing.T) {
+	env := model.NewEnvironment()
+	push := model.NewPushContext()
+	push.InitDone.Store(true)
+	env.SetPushContext(push)
+
+	server := NewDiscoveryServer(env, nil, nil)
+	defer server.Shutdown()
+	req := &model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"}),
+	}
+	server.Push(req, false)
+
+	if got := env.PushContext(); got != push {
+		t.Fatal("endpoint-only push replaced the global push context")
+	}
+	if req.Push != push {
+		t.Fatal("endpoint-only push did not use the existing global push context")
 	}
 }
 

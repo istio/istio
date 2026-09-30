@@ -51,320 +51,6 @@ const (
 
 var analyzerFoundIssuesError = analyze.AnalyzerFoundIssuesError{}
 
-func TestEmptyCluster(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// For a clean istio install with injection enabled, expect no validation errors
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
-			expectNoMessages(t, g, output)
-			g.Expect(err).To(BeNil())
-		})
-}
-
-func TestFileOnly(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// Validation error if we have a virtual service with subset not defined.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, virtualServiceFile)
-			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
-
-			// Error goes away if we define the subset in the destination rule.
-			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, destinationRuleFile)
-			expectNoMessages(t, g, output)
-			g.Expect(err).To(BeNil())
-		})
-}
-
-func TestDirectory(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// Hardcore recursive to true, so we should see one error (SchemaValidationError).
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, dirWithConfig)
-			expectMessages(t, g, output, msg.SchemaValidationError)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
-		})
-}
-
-func TestInvalidFileError(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// Skip the file with invalid extension and produce no errors.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, invalidExtensionFile)
-			g.Expect(output[0]).To(ContainSubstring(fmt.Sprintf("Skipping file %v, recognized file extensions are: [.json .yaml .yml]", invalidExtensionFile)))
-			g.Expect(err).To(BeNil())
-
-			// Parse error as the yaml file itself is not valid yaml.
-			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile)
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("Error(s) adding files"))
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
-
-			g.Expect(err).To(MatchError(analyze.FileParseError{}))
-
-			// Parse error as the yaml file itself is not valid yaml, but ignore.
-			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile, "--ignore-unknown=true")
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("Error(s) adding files"))
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
-
-			g.Expect(err).To(BeNil())
-		})
-}
-
-func TestJsonInputFile(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// Validation error if we have a gateway with invalid selector.
-			applyFileOrFail(t, ns.Name(), jsonGatewayFile)
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
-			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
-		})
-}
-
-func TestJsonOutput(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			t.NewSubTest("no other output except analysis json output").Run(func(t framework.TestContext) {
-				applyFileOrFail(t, ns.Name(), jsonGatewayFile)
-				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), true, jsonOutput)
-				expectJSONMessages(t, g, stdout, msg.ReferencedResourceNotFound)
-				g.Expect(err).To(BeNil())
-			})
-
-			t.NewSubTest("invalid file does not output error in stdout").Run(func(t framework.TestContext) {
-				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), false, invalidExtensionFile, jsonOutput)
-				expectJSONMessages(t, g, stdout)
-				g.Expect(err).To(BeNil())
-			})
-		})
-}
-
-func TestKubeOnly(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			applyFileOrFail(t, ns.Name(), gatewayFile)
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// Validation error if we have a gateway with invalid selector.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
-			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
-		})
-}
-
-func TestFileAndKubeCombined(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			applyFileOrFail(t, ns.Name(), virtualServiceFile)
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// Simulating applying the destination rule that defines the subset, we should
-			// fix the error and thus see no message
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, destinationRuleFile)
-			expectNoMessages(t, g, output)
-			g.Expect(err).To(BeNil())
-		})
-}
-
-func TestAllNamespaces(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns1 := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze-1",
-				Inject: true,
-			})
-			ns2 := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze-2",
-				Inject: true,
-			})
-
-			applyFileOrFail(t, ns1.Name(), gatewayFile)
-			applyFileOrFail(t, ns2.Name(), gatewayFile)
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// If we look at one namespace, we should successfully run and see one message (and not anything from any other namespace)
-			output, _ := istioctlSafe(t, istioCtl, ns1.Name(), true)
-			expectMessages(t, g, output, msg.ReferencedResourceNotFound, msg.ConflictingGateways)
-
-			// If we use --all-namespaces, we should successfully run and see a message from each namespace
-			output, _ = istioctlSafe(t, istioCtl, "", true, "--all-namespaces")
-			// Since this test runs in a cluster with lots of other namespaces we don't actually care about, only look for ns1 and ns2
-			foundCount := 0
-			for _, line := range output {
-				if strings.Contains(line, ns1.Name()) {
-					if strings.Contains(line, msg.ReferencedResourceNotFound.Code()) {
-						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-						foundCount++
-					}
-					// There are 2 conflictings can be detected, A to B and B to A
-					if strings.Contains(line, msg.ConflictingGateways.Code()) {
-						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
-						foundCount++
-					}
-				}
-				if strings.Contains(line, ns2.Name()) {
-					if strings.Contains(line, msg.ReferencedResourceNotFound.Code()) {
-						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-						foundCount++
-					}
-					// There are 2 conflictings can be detected, B to A and A to B
-					if strings.Contains(line, msg.ConflictingGateways.Code()) {
-						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
-						foundCount++
-					}
-				}
-			}
-			g.Expect(foundCount).To(Equal(6))
-		})
-}
-
-func TestTimeout(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/25893")
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// We should time out immediately.
-			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
-			g.Expect(err.Error()).To(ContainSubstring("timed out"))
-		})
-}
-
-// Verify the error line number in the message is correct
-func TestErrorLine(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// Validation error if we have a gateway with invalid selector.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile, virtualServiceFile)
-
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/gateway.yaml:9"))
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/virtualservice.yaml:11"))
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
-		})
-}
-
 // Verify the output contains messages of the expected type, in order, followed by boilerplate lines
 func expectMessages(t test.Failer, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
 	t.Helper()
@@ -437,10 +123,333 @@ func applyFileOrFail(t framework.TestContext, ns, filename string) {
 	})
 }
 
+func createRemoteSecret(t test.Failer, i istioctl.Instance, cluster string) (string, string, error) {
+	t.Helper()
+
+	args := []string{"create-remote-secret"}
+	args = append(args, "--name", cluster)
+
+	return i.Invoke(args)
+}
+
+func TestEmptyCluster(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewFullTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			// For a clean istio install with injection enabled, expect no validation errors
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
+			expectNoMessages(t, g, output)
+			g.Expect(err).To(BeNil())
+		})
+}
+
+func TestFileOnly(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewFullTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			// Validation error if we have a virtual service with subset not defined.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, virtualServiceFile)
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+
+			// Error goes away if we define the subset in the destination rule.
+			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, destinationRuleFile)
+			expectNoMessages(t, g, output)
+			g.Expect(err).To(BeNil())
+		})
+}
+
+func TestDirectory(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewFullTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			// Hardcore recursive to true, so we should see one error (SchemaValidationError).
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, dirWithConfig)
+			expectMessages(t, g, output, msg.SchemaValidationError)
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+		})
+}
+
+func TestInvalidFileError(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewFullTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			// Skip the file with invalid extension and produce no errors.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, invalidExtensionFile)
+			g.Expect(output[0]).To(ContainSubstring(fmt.Sprintf("Skipping file %v, recognized file extensions are: [.json .yaml .yml]", invalidExtensionFile)))
+			g.Expect(err).To(BeNil())
+
+			// Parse error as the yaml file itself is not valid yaml.
+			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile)
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("Error(s) adding files"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
+
+			g.Expect(err).To(MatchError(analyze.FileParseError{}))
+
+			// Parse error as the yaml file itself is not valid yaml, but ignore.
+			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile, "--ignore-unknown=true")
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("Error(s) adding files"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
+
+			g.Expect(err).To(BeNil())
+		})
+}
+
+func TestJsonInputFile(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewFullTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			// Validation error if we have a gateway with invalid selector.
+			applyFileOrFail(t, ns.Name(), jsonGatewayFile)
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+		})
+}
+
+func TestJsonOutput(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewFullTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			t.NewSubTest("no other output except analysis json output").Run(func(t framework.TestContext) {
+				applyFileOrFail(t, ns.Name(), jsonGatewayFile)
+				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), true, jsonOutput)
+				expectJSONMessages(t, g, stdout, msg.ReferencedResourceNotFound)
+				g.Expect(err).To(BeNil())
+			})
+
+			t.NewSubTest("invalid file does not output error in stdout").Run(func(t framework.TestContext) {
+				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), false, invalidExtensionFile, jsonOutput)
+				expectJSONMessages(t, g, stdout)
+				g.Expect(err).To(BeNil())
+			})
+		})
+}
+
+func TestKubeOnly(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewFullTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			applyFileOrFail(t, ns.Name(), gatewayFile)
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			// Validation error if we have a gateway with invalid selector.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+		})
+}
+
+func TestFileAndKubeCombined(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewFullTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			applyFileOrFail(t, ns.Name(), virtualServiceFile)
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			// Simulating applying the destination rule that defines the subset, we should
+			// fix the error and thus see no message
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, destinationRuleFile)
+			expectNoMessages(t, g, output)
+			g.Expect(err).To(BeNil())
+		})
+}
+
+func TestAllNamespaces(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewFullTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns1 := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze-1",
+				Inject: true,
+			})
+			ns2 := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze-2",
+				Inject: true,
+			})
+
+			applyFileOrFail(t, ns1.Name(), gatewayFile)
+			applyFileOrFail(t, ns2.Name(), gatewayFile)
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			// If we look at one namespace, we should successfully run and see one message (and not anything from any other namespace)
+			output, _ := istioctlSafe(t, istioCtl, ns1.Name(), true)
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound, msg.ConflictingGateways)
+
+			// If we use --all-namespaces, we should successfully run and see a message from each namespace
+			output, _ = istioctlSafe(t, istioCtl, "", true, "--all-namespaces")
+			// Since this test runs in a cluster with lots of other namespaces we don't actually care about, only look for ns1 and ns2
+			foundCount := 0
+			for _, line := range output {
+				if strings.Contains(line, ns1.Name()) {
+					if strings.Contains(line, msg.ReferencedResourceNotFound.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+						foundCount++
+					}
+					// There are 2 conflictings can be detected, A to B and B to A
+					if strings.Contains(line, msg.ConflictingGateways.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
+						foundCount++
+					}
+				}
+				if strings.Contains(line, ns2.Name()) {
+					if strings.Contains(line, msg.ReferencedResourceNotFound.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+						foundCount++
+					}
+					// There are 2 conflictings can be detected, B to A and A to B
+					if strings.Contains(line, msg.ConflictingGateways.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
+						foundCount++
+					}
+				}
+			}
+			g.Expect(foundCount).To(Equal(6))
+		})
+}
+
+func TestTimeout(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/25893")
+	// nolint: staticcheck
+	framework.
+		NewFullTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			// We should time out immediately.
+			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
+			g.Expect(err.Error()).To(ContainSubstring("timed out"))
+		})
+}
+
+// Verify the error line number in the message is correct
+func TestErrorLine(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewFullTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			// Validation error if we have a gateway with invalid selector.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile, virtualServiceFile)
+
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/gateway.yaml:9"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/virtualservice.yaml:11"))
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+		})
+}
+
 func TestMultiClusterWithSecrets(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewMulticlusterTest(t).
 		Run(func(t framework.TestContext) {
 			if len(t.Environment().Clusters()) < 2 {
 				t.Skip("skipping test, need at least 2 clusters")
@@ -499,19 +508,10 @@ spec:
 		})
 }
 
-func createRemoteSecret(t test.Failer, i istioctl.Instance, cluster string) (string, string, error) {
-	t.Helper()
-
-	args := []string{"create-remote-secret"}
-	args = append(args, "--name", cluster)
-
-	return i.Invoke(args)
-}
-
 func TestMultiClusterWithContexts(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewMulticlusterTest(t).
 		Run(func(t framework.TestContext) {
 			if len(t.Environment().Clusters()) < 2 {
 				t.Skip("skipping test, need at least 2 clusters")

@@ -192,7 +192,7 @@ func mutateStruct(ctx mutateCtx, e reflect.Value) error {
 			}
 			e.SetMapIndex(k, v)
 		}
-	case reflect.Ptr:
+	case reflect.Pointer:
 		err := mutateStruct(ctx, e.Elem())
 		if err != nil {
 			return err

@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -40,6 +41,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Label(label.Full).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.Values["pilot.env.PILOT_ENABLE_AGENTGATEWAY"] = "true"
 		})).

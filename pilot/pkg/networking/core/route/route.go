@@ -101,19 +101,14 @@ type VirtualHostWrapper struct {
 // BuildSidecarVirtualHostWrapper creates virtual hosts from the given set of virtual Services
 // and a list of Services from the service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
-func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
+func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
 	virtualServices []*config.Config, listenPort int, mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
-	// dependentDestinationRules includes all the destinationrules referenced by
-	// the virtualservices, which have consistent hash policy.
-	dependentDestinationRules := []*model.ConsolidatedDestRule{}
-
 	// First build virtual host wrappers for services that have virtual services.
 	for _, virtualService := range virtualServices {
-		hashByDestination, destinationRules := hashForVirtualService(push, node, *virtualService)
-		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
+		hashByDestination := hashForVirtualService(push, node, *virtualService)
 		wrappers := buildSidecarVirtualHostsForVirtualService(
 			node, virtualService, serviceRegistry, hashByDestination, listenPort, push, mostSpecificWildcardVsIndex,
 		)
@@ -137,18 +132,11 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 		}
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTPOrSniffed() {
-				hash, destinationRule := hashForService(push, node, svc, port)
-				if hash != nil {
-					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
-				}
+				hash, _ := hashForService(push, node, svc, port)
 				// append default hosts for the service missing virtual Services.
 				out = append(out, buildSidecarVirtualHostForService(svc, port, hash, push))
 			}
 		}
-	}
-
-	if routeCache != nil {
-		routeCache.DestinationRules = dependentDestinationRules
 	}
 
 	return out
@@ -385,6 +373,9 @@ type RouteOptions struct {
 	LookupService             func(name host.Name) *model.Service
 	LookupDestinationCluster  func(destination *networking.Destination, service *model.Service, listenerPort int) string
 	LookupHash                func(*networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB
+	// ConfigMetadata is shared by all routes generated from a VirtualService. Route metadata is immutable
+	// after generation, so building it once avoids allocating the same metadata map for every match.
+	ConfigMetadata *core.Metadata
 
 	InferencePoolExtensionRefs map[string]kube.InferencePoolRouteRuleConfig
 }
@@ -407,6 +398,10 @@ func BuildHTTPRoutesForVirtualService(
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
+	}
+
+	if opts.ConfigMetadata == nil {
+		opts.ConfigMetadata = util.BuildConfigInfoMetadata(virtualService.Meta)
 	}
 
 	out := make([]*route.Route, 0, len(vs.Http))
@@ -490,10 +485,15 @@ func TranslateRoute(
 		routeName = routeName + "." + match.Name
 	}
 
+	metadata := opts.ConfigMetadata
+	if metadata == nil {
+		// TranslateRoute is also used directly by waypoint listener generation.
+		metadata = util.BuildConfigInfoMetadata(virtualService.Meta)
+	}
 	out := &route.Route{
 		Name:     routeName,
 		Match:    TranslateRouteMatch(virtualService, match),
-		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
+		Metadata: metadata,
 	}
 
 	if match != nil && match.StatPrefix != "" {
@@ -511,40 +511,6 @@ func TranslateRoute(
 	}
 
 	var hostnames []host.Name
-	if infPoolRouteRuleCfg, ok := opts.InferencePoolExtensionRefs[in.Name]; ok {
-		// This route has an inference pool config, set up ext_proc
-		extSvcHost := host.Name(infPoolRouteRuleCfg.FQDN)
-		extPortNum, _ := strconv.Atoi(infPoolRouteRuleCfg.Port)
-		if out.TypedPerFilterConfig == nil {
-			out.TypedPerFilterConfig = make(map[string]*anypb.Any)
-		}
-		out.TypedPerFilterConfig[wellknown.HTTPExternalProcessing] = protoconv.MessageToAny(&extproc.ExtProcPerRoute{
-			Override: &extproc.ExtProcPerRoute_Overrides{
-				Overrides: &extproc.ExtProcOverrides{
-					FailureModeAllow: &wrapperspb.BoolValue{Value: infPoolRouteRuleCfg.FailureModeAllow},
-					GrpcService: &core.GrpcService{
-						TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-							EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-								ClusterName: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", extSvcHost, extPortNum),
-							},
-						},
-					},
-					ProcessingMode: &extproc.ProcessingMode{
-						RequestHeaderMode: extproc.ProcessingMode_SEND,
-						// open AI standard includes the model and other information the ext_proc server needs in the request body
-						RequestBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
-						// If the ext_proc server has the request_body_mode set to FULL_DUPLEX_STREAMED, then the request_trailer_mode has to be set to SEND
-						RequestTrailerMode: extproc.ProcessingMode_SEND,
-						ResponseHeaderMode: extproc.ProcessingMode_SEND,
-						// GIE collects statistics present in the open AI standard response message
-						ResponseBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
-						// If the ext_proc server has the response_body_mode set to FULL_DUPLEX_STREAMED, then the response_trailer_mode has to be set to SEND
-						ResponseTrailerMode: extproc.ProcessingMode_SEND,
-					},
-				},
-			},
-		})
-	}
 	if in.Redirect != nil {
 		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS)
 	} else if in.DirectResponse != nil {
@@ -556,7 +522,7 @@ func TranslateRoute(
 	out.Decorator = &route.Decorator{
 		Operation: GetRouteOperation(out, virtualService.Name, listenPort),
 	}
-	if in.Fault != nil || in.CorsPolicy != nil {
+	if (in.Fault != nil || in.CorsPolicy != nil) && out.TypedPerFilterConfig == nil {
 		out.TypedPerFilterConfig = make(map[string]*anypb.Any)
 	}
 	if in.Fault != nil {
@@ -682,11 +648,23 @@ func applyHTTPRouteDestination(
 		// No VS policy set, use mesh defaults
 		policy = opts.Mesh.GetDefaultHttpRetryPolicy()
 	}
+	// An endpoint picker belongs to an InferencePool backendRef, not to the rule as a whole: a
+	// rule may weight traffic across several pools, and each pool's share has to be scored by
+	// that pool's own picker. So the ext_proc override goes wherever the backend's cluster went -
+	// on the route itself for a single destination, on each weighted cluster otherwise.
+	infPoolCfg := opts.InferencePoolExtensionRefs[in.Name]
+
 	consistentHash := false
 	if len(in.Route) == 1 {
 		hostnames = append(hostnames, processDestination(in.Route[0], opts, listenerPort, out, action))
 		hash := opts.LookupHash(in.Route[0])
 		consistentHash = hash != nil
+		if cfg, ok := infPoolCfg[in.Route[0].GetDestination().GetHost()]; ok {
+			if out.TypedPerFilterConfig == nil {
+				out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+			}
+			out.TypedPerFilterConfig[wellknown.HTTPExternalProcessing] = buildExtProcPerRoute(cfg)
+		}
 	} else {
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 		for _, dst := range in.Route {
@@ -695,6 +673,17 @@ func applyHTTPRouteDestination(
 				continue
 			}
 			destinationweight, hostname := processWeightedDestination(dst, opts, listenerPort, action)
+			if cfg, ok := infPoolCfg[dst.GetDestination().GetHost()]; ok {
+				destinationweight.TypedPerFilterConfig = map[string]*anypb.Any{
+					wellknown.HTTPExternalProcessing: buildExtProcPerRoute(cfg),
+				}
+			} else if len(infPoolCfg) > 0 {
+				// An ordinary backend sharing a rule with an InferencePool. It belongs to no pool,
+				// so no picker may claim it.
+				destinationweight.TypedPerFilterConfig = map[string]*anypb.Any{
+					wellknown.HTTPExternalProcessing: extProcDisabled,
+				}
+			}
 			weighted = append(weighted, destinationweight)
 			hostnames = append(hostnames, hostname)
 		}
@@ -706,6 +695,44 @@ func applyHTTPRouteDestination(
 	}
 	action.RetryPolicy = retry.ConvertPolicy(policy, consistentHash)
 	return hostnames
+}
+
+// extProcDisabled turns ext_proc off for one backend. Used for a backend that shares a route
+// rule with an InferencePool but is not one itself.
+var extProcDisabled = protoconv.MessageToAny(&extproc.ExtProcPerRoute{
+	Override: &extproc.ExtProcPerRoute_Disabled{Disabled: true},
+})
+
+// buildExtProcPerRoute returns the ext_proc override that sends requests for one InferencePool
+// backendRef to that pool's endpoint picker.
+func buildExtProcPerRoute(cfg kube.InferencePoolBackendConfig) *anypb.Any {
+	extPortNum, _ := strconv.Atoi(cfg.Port)
+	return protoconv.MessageToAny(&extproc.ExtProcPerRoute{
+		Override: &extproc.ExtProcPerRoute_Overrides{
+			Overrides: &extproc.ExtProcOverrides{
+				FailureModeAllow: &wrapperspb.BoolValue{Value: cfg.FailureModeAllow},
+				GrpcService: &core.GrpcService{
+					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+							ClusterName: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(cfg.FQDN), extPortNum),
+						},
+					},
+				},
+				ProcessingMode: &extproc.ProcessingMode{
+					RequestHeaderMode: extproc.ProcessingMode_SEND,
+					// open AI standard includes the model and other information the ext_proc server needs in the request body
+					RequestBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
+					// If the ext_proc server has the request_body_mode set to FULL_DUPLEX_STREAMED, then the request_trailer_mode has to be set to SEND
+					RequestTrailerMode: extproc.ProcessingMode_SEND,
+					ResponseHeaderMode: extproc.ProcessingMode_SEND,
+					// GIE collects statistics present in the open AI standard response message
+					ResponseBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
+					// If the ext_proc server has the response_body_mode set to FULL_DUPLEX_STREAMED, then the response_trailer_mode has to be set to SEND
+					ResponseTrailerMode: extproc.ProcessingMode_SEND,
+				},
+			},
+		},
+	})
 }
 
 // processDestination processes a single destination in a route. It specifies to which cluster the route should
@@ -914,7 +941,7 @@ func MirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
 	case in.MirrorPercent != nil:
 		if in.MirrorPercent.GetValue() > 0 {
 			return &core.RuntimeFractionalPercent{
-				DefaultValue: translateIntegerToFractionalPercent((int32(in.MirrorPercent.GetValue()))),
+				DefaultValue: translateIntegerToFractionalPercent(int32(in.MirrorPercent.GetValue())),
 			}
 		}
 		// If zero percent is provided explicitly, we should not mirror.
@@ -1549,24 +1576,52 @@ func hashForService(push *model.PushContext,
 func hashForVirtualService(push *model.PushContext,
 	node *model.Proxy,
 	virtualService config.Config,
-) (DestinationHashMap, []*model.ConsolidatedDestRule) {
+) DestinationHashMap {
 	hashByDestination := DestinationHashMap{}
-	destinationRules := make([]*model.ConsolidatedDestRule, 0)
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
 		for _, destination := range httpRoute.Route {
-			hash, dr := HashForHTTPDestination(push, node, destination)
+			hash, _ := HashForHTTPDestination(push, node, destination)
 			if hash != nil {
 				hashByDestination[destination] = hash
-				destinationRules = append(destinationRules, dr)
 			}
 		}
 	}
-	return hashByDestination, destinationRules
+	return hashByDestination
 }
 
 func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy, virtualService config.Config) DestinationHashMap {
-	hashByDestination, _ := hashForVirtualService(push, node, virtualService)
-	return hashByDestination
+	return hashForVirtualService(push, node, virtualService)
+}
+
+// DestinationRuleDependencies returns all DestinationRules that can contribute a consistent-hash policy to a route
+// configuration. It intentionally includes every candidate service and VirtualService; this conservative set lets the
+// RDS cache be checked before route protos are built without risking stale entries.
+func DestinationRuleDependencies(push *model.PushContext,
+	node *model.Proxy, virtualServices []*config.Config, services []*model.Service,
+) []*model.ConsolidatedDestRule {
+	var result []*model.ConsolidatedDestRule
+	for _, virtualService := range virtualServices {
+		for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
+			for _, destination := range httpRoute.Route {
+				hash, dr := HashForHTTPDestination(push, node, destination)
+				if hash != nil {
+					result = append(result, dr)
+				}
+			}
+		}
+	}
+	for _, svc := range services {
+		for _, port := range svc.Ports {
+			if !port.Protocol.IsHTTPOrSniffed() {
+				continue
+			}
+			hash, dr := hashForService(push, node, svc, port)
+			if hash != nil {
+				result = append(result, dr)
+			}
+		}
+	}
+	return result
 }
 
 // HashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.

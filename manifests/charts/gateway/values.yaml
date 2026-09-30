@@ -134,6 +134,7 @@ _internal_defaults_do_not_set:
   networkGateway: ""
 
   # Ports for the network gateway service. Only used when networkGateway is set.
+  # Each port may optionally set "nodePort" to override the default node port allocation.
   networkGatewayPorts:
     status-port:
       port: 15021

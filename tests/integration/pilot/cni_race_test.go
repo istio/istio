@@ -72,7 +72,7 @@ func TestCNIRaceRepair(t *testing.T) {
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
 			}
-			util.WaitForStalledPodOrFail(t, c, ns)
+			util.WaitForBrokenPodOrFail(t, c, ns)
 
 			t.Log("Redeploy CNI and verify repair takes effect by evicting the broken pod")
 			// Now bring back CNI Daemonset, and pod in the echo namespace should be repaired.
@@ -81,6 +81,10 @@ func TestCNIRaceRepair(t *testing.T) {
 		})
 }
 
+// waitForRepairOrFail waits until every pod is actually working again. The repair controller
+// defaults to repairPods mode, which fixes the pod in place instead of deleting it, so
+// LastTerminationState keeps the original istio-validation failure for the life of the pod.
+// Check the current state instead.
 func waitForRepairOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {
 	retry.UntilSuccessOrFail(t, func() error {
 		pods, err := cluster.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
@@ -90,15 +94,26 @@ func waitForRepairOrFail(t framework.TestContext, cluster cluster.Cluster, ns na
 		if len(pods.Items) == 0 {
 			return errors.New("no pod found")
 		}
-		// Verify that no pod is broken by the race condition now.
 		for _, p := range pods.Items {
+			// skip pods on their way out from the rollout restart
+			if p.DeletionTimestamp != nil {
+				continue
+			}
+			found := false
 			for _, container := range p.Status.InitContainerStatuses {
-				if state := container.LastTerminationState.Terminated; state != nil && state.ExitCode ==
-					constants.ValidationErrorCode {
-					return errors.New("there are still pods in broken state due to CNI race condition")
+				if container.Name != constants.ValidationContainerName {
+					continue
 				}
+				found = true
+				if state := container.State.Terminated; state == nil || state.ExitCode != 0 {
+					return fmt.Errorf("pod %s/%s still broken, %s state: %v",
+						p.Namespace, p.Name, container.Name, container.State)
+				}
+			}
+			if !found {
+				return fmt.Errorf("pod %s/%s has no %s status yet", p.Namespace, p.Name, constants.ValidationContainerName)
 			}
 		}
 		return nil
-	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+	}, retry.Delay(1*time.Second), retry.Timeout(2*time.Minute))
 }

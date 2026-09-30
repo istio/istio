@@ -163,3 +163,102 @@ spec:
 
 	t.Logf("Failover priority test passed: foo.com (priority=1) -> Priority 0, bar.com (priority=2) -> Priority 1")
 }
+
+// TestFailoverPriorityWithMultiLocalityDNSServiceEntry reproduces
+// https://github.com/istio/istio/issues/61857: a DNS-resolution ServiceEntry whose endpoints span
+// more than one locality, combined with a DestinationRule that enables locality failoverPriority
+// and outlier detection, used to panic (index out of range) while building the STRICT_DNS
+// cluster, since only the first locality group's LbEndpoints were paired with the flattened,
+// all-locality IstioEndpoints list. It must build cleanly and keep every endpoint.
+func TestFailoverPriorityWithMultiLocalityDNSServiceEntry(t *testing.T) {
+	g := NewWithT(t)
+
+	const config = `
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: search-external
+  namespace: default
+spec:
+  hosts:
+    - search.example.internal
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+    - number: 8080
+      name: http
+      protocol: HTTP
+  endpoints:
+    - address: node-a.example.internal
+      locality: region-a
+    - address: node-b.example.internal
+      locality: region-b
+    - address: node-c.example.internal
+      locality: region-c
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: search-external
+  namespace: default
+spec:
+  host: search.example.internal
+  trafficPolicy:
+    outlierDetection:
+      consecutive5xxErrors: 4
+      interval: 30s
+      baseEjectionTime: 30s
+    loadBalancer:
+      localityLbSetting:
+        enabled: true
+        failoverPriority:
+          - topology.kubernetes.io/region
+`
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		ConfigString: config,
+	})
+
+	proxy := &model.Proxy{
+		Metadata: &model.NodeMetadata{},
+		Labels: map[string]string{
+			"topology.kubernetes.io/region": "region-a",
+		},
+	}
+
+	// Building the clusters below must not panic.
+	sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
+
+	clusterName := "outbound|8080||search.example.internal"
+	var dnsCluster *cluster.Cluster
+	for _, c := range sim.Clusters {
+		if c.Name == clusterName {
+			dnsCluster = c
+			break
+		}
+	}
+	g.Expect(dnsCluster).NotTo(BeNil(), "cluster %s not found", clusterName)
+	g.Expect(dnsCluster.GetType()).To(Equal(cluster.Cluster_STRICT_DNS))
+
+	// All three endpoints, across all three locality groups, must still be present: the fix must
+	// not drop endpoints belonging to locality groups other than the first.
+	var addrs []string
+	for _, epGroup := range dnsCluster.LoadAssignment.Endpoints {
+		for _, lbEp := range epGroup.LbEndpoints {
+			addrs = append(addrs, lbEp.GetEndpoint().GetAddress().GetSocketAddress().GetAddress())
+		}
+	}
+	g.Expect(addrs).To(ConsistOf("node-a.example.internal", "node-b.example.internal", "node-c.example.internal"))
+
+	// The proxy is in region-a, so region-a's group should be the highest priority (0); the other
+	// two groups should be lower (non-zero) priorities.
+	for _, epGroup := range dnsCluster.LoadAssignment.Endpoints {
+		for _, lbEp := range epGroup.LbEndpoints {
+			addr := lbEp.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
+			if addr == "node-a.example.internal" {
+				g.Expect(epGroup.Priority).To(Equal(uint32(0)), "region-a group should be highest priority")
+			} else {
+				g.Expect(epGroup.Priority).NotTo(Equal(uint32(0)), "%s should not be highest priority", addr)
+			}
+		}
+	}
+}

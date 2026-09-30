@@ -15,13 +15,13 @@
 package controller
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
@@ -170,7 +170,7 @@ func testEndpointsEqual(a, b []*model.IstioEndpoint) bool {
 	for _, i := range b {
 		m2[endpointKey{i.FirstAddressOrNil(), i.ServicePortName}]++
 	}
-	return reflect.DeepEqual(m1, m2)
+	return apiequality.Semantic.DeepEqual(m1, m2)
 }
 
 func TestUpdateEndpointCacheForSlice(t *testing.T) {

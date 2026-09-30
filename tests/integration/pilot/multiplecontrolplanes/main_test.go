@@ -60,6 +60,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMultiPrimary().
+		Label(label.Full).
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
 		// We are deploying two isolated environments, which CNI doesn't support.

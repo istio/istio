@@ -104,13 +104,17 @@ func appendAddress(
 	switch requestedType {
 	case v3.WorkloadType:
 		if addr.GetWorkload() != nil {
+			proto := addr.MarshaledWorkload
+			if proto == nil {
+				proto = protoconv.MessageToAny(addr.GetWorkload())
+			}
 			resources = append(resources, &discovery.Resource{
 				Name: n,
 				// The Version hashes the Address wrapper rather than the Workload sent here; since
 				// the wrapping is 1:1 it still changes exactly when the content changes.
 				Version:  addr.Version,
 				Aliases:  aliases,
-				Resource: protoconv.MessageToAny(addr.GetWorkload()), // TODO: pre-marshal
+				Resource: proto,
 			})
 		}
 	case v3.AddressType:

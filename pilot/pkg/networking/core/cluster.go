@@ -351,7 +351,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches)
+		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches, wps.orderedServices)
 		outboundServices := filterWaypointOutboundServices(
 			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services)
 		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
@@ -530,18 +530,22 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
 			var lbEndpoints []*endpoint.LocalityLbEndpoints
-			var dnsWrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
+			var dnsWrappedLocalityLbEndpoints []*loadbalancer.WrappedLocalityLbEndpoints
 			if clusterKey.endpointBuilder != nil {
-				// This is set only for DNS clusters.
-				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
-				if len(lbEndpoints) > 0 {
-					istioEndpoints := clusterKey.endpointBuilder.IstioEndpoints()
-					dnsWrappedLocalityLbEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
-						IstioEndpoints: istioEndpoints,
-						// For DNS clusters, we only have one locality lb endpoint
-						// with multiple LbEndpoints.
-						LocalityLbEndpoints: lbEndpoints[0],
-					}
+				// This is set only for DNS clusters. The ServiceEntry's endpoints may span more than
+				// one locality, so build one wrapper per locality group, each pairing that group's
+				// LocalityLbEndpoints with only the IstioEndpoints that produced it (see #61857 - mixing
+				// endpoints across locality groups causes an out-of-range index in failover priority
+				// computation).
+				localityEndpoints := clusterKey.endpointBuilder.FromServiceEndpointsByLocality()
+				lbEndpoints = make([]*endpoint.LocalityLbEndpoints, 0, len(localityEndpoints))
+				dnsWrappedLocalityLbEndpoints = make([]*loadbalancer.WrappedLocalityLbEndpoints, 0, len(localityEndpoints))
+				for _, le := range localityEndpoints {
+					lbEndpoints = append(lbEndpoints, le.LbEndpoints())
+					dnsWrappedLocalityLbEndpoints = append(dnsWrappedLocalityLbEndpoints, &loadbalancer.WrappedLocalityLbEndpoints{
+						IstioEndpoints:      le.IstioEndpoints(),
+						LocalityLbEndpoints: le.LbEndpoints(),
+					})
 				}
 			}
 

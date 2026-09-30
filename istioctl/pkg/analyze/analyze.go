@@ -228,7 +228,9 @@ func Analyze(ctx cli.Context) *cobra.Command {
 			// If we explicitly specify mesh config, use it.
 			// This takes precedence over default mesh config or mesh config from a running Kube instance.
 			if meshCfgFile != "" {
-				_ = sa.AddFileKubeMeshConfig(meshCfgFile)
+				if err := sa.AddFileKubeMeshConfig(meshCfgFile); err != nil {
+					return fmt.Errorf("failed to load mesh config file %q: %w", meshCfgFile, err)
+				}
 			}
 
 			// If we're not using kube (files only), add defaults for some resources we expect to be provided by Istio
@@ -551,11 +553,16 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 	}
 	for _, s := range secrets.Items {
 		for _, cfg := range s.Data {
-			clientConfig, err := clientcmd.NewClientConfigFromBytes(cfg)
+			// Secrets in this namespace are untrusted input from the perspective of this
+			// process, exactly as istiod treats them in DefaultBuildClientsFromConfig. Sanitize
+			// the kubeconfig - rejecting exec, file-based, or other unsafe auth - and build the
+			// client from the sanitized rest.Config itself, not from the original bytes, so a
+			// gap between what's validated and what's used can't reopen this.
+			restConfig, err := kube.NewUntrustedRestConfig(cfg)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("kubeconfig in secret %s/%s is not allowed: %v", s.Namespace, s.Name, err)
 			}
-			rawConfig, err := clientConfig.RawConfig()
+			rawConfig, err := clientcmd.Load(cfg)
 			if err != nil {
 				return nil, err
 			}
@@ -563,7 +570,7 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 			if curContext == nil {
 				continue
 			}
-			client, err := kube.NewCLIClient(clientConfig,
+			client, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(restConfig),
 				kube.WithRevision(revisionSpecified),
 				kube.WithCluster(cluster.ID(curContext.Cluster)))
 			if err != nil {

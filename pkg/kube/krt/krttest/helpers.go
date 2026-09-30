@@ -20,6 +20,7 @@ import (
 
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -64,6 +65,16 @@ func GetMockCollection[T any](mc *MockCollection) krt.Collection[T] {
 	return krt.NewStaticCollection(
 		nil, // Always synced
 		extractType[T](&mc.inputs),
+		krt.WithStop(test.NewStop(mc.t)),
+		krt.WithDebugging(krt.GlobalDebugHandler),
+	)
+}
+
+func GetMockPointers[T any](mc *MockCollection) krt.Collection[*T] {
+	values := extractType[T](&mc.inputs)
+	return krt.NewStaticCollection(
+		nil, // Always synced
+		slices.Map(values, ptr.Of),
 		krt.WithStop(test.NewStop(mc.t)),
 		krt.WithDebugging(krt.GlobalDebugHandler),
 	)

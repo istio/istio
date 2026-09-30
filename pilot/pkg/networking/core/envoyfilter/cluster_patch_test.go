@@ -22,6 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -621,6 +622,123 @@ func TestClusterPatching(t *testing.T) {
 			output = append(output, InsertedClusters(tc.patchContext, efw)...)
 			if diff := cmp.Diff(tc.output, output, protocmp.Transform()); diff != "" {
 				t.Errorf("%s mismatch (-want +got):\n%s", tc.name, diff)
+			}
+		})
+	}
+}
+
+func TestMergeAndReplaceListClusterTransportSocket(t *testing.T) {
+	alpnPatch := func(op networking.EnvoyFilter_Patch_Operation) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+		return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+			{
+				ApplyTo: networking.EnvoyFilter_CLUSTER,
+				Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				},
+				Patch: &networking.EnvoyFilter_Patch{
+					Operation: op,
+					Value: buildPatchStruct(`
+						{"transport_socket":{
+							"name":"envoy.transport_sockets.tls",
+							"typed_config":{
+								"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
+								"common_tls_context":{
+									"alpn_protocols":["my-alpn"]}}}}`),
+				},
+			},
+		}
+	}
+
+	buildCluster := func(alpnProtocols ...string) *cluster.Cluster {
+		return &cluster.Cluster{
+			Name: "outbound|443||foo.example.com",
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+						CommonTlsContext: &tls.CommonTlsContext{AlpnProtocols: alpnProtocols},
+					}),
+				},
+			},
+		}
+	}
+
+	sidecarNode := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"}
+
+	tests := []struct {
+		name      string
+		operation networking.EnvoyFilter_Patch_Operation
+		wantALPN  []string
+	}{
+		{
+			name:      "MERGE appends to alpn_protocols",
+			operation: networking.EnvoyFilter_Patch_MERGE,
+			wantALPN:  []string{"istio", "my-alpn"},
+		},
+		{
+			name:      "MERGE_AND_REPLACE_LIST replaces alpn_protocols",
+			operation: networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+			wantALPN:  []string{"my-alpn"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			serviceDiscovery := memory.NewServiceDiscovery()
+			env := newTestEnvironment(t, serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(alpnPatch(tt.operation)))
+			push := model.NewPushContext()
+			push.InitContext(env, nil, nil)
+
+			got := ApplyClusterMerge(networking.EnvoyFilter_SIDECAR_OUTBOUND, push.EnvoyFilters(sidecarNode),
+				buildCluster("istio"), nil)
+			if diff := cmp.Diff(buildCluster(tt.wantALPN...), got, protocmp.Transform()); diff != "" {
+				t.Errorf("%s mismatch (-want +got):\n%s", tt.name, diff)
+			}
+		})
+	}
+}
+
+func TestClusterMergeUndecodedTransportSocket(t *testing.T) {
+	for _, operation := range []networking.EnvoyFilter_Patch_Operation{
+		networking.EnvoyFilter_Patch_MERGE,
+		networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+	} {
+		t.Run(operation.String(), func(t *testing.T) {
+			c := &cluster.Cluster{
+				Name: "original",
+				TransportSocket: &core.TransportSocket{
+					Name: "envoy.transport_sockets.tls",
+					ConfigType: &core.TransportSocket_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{}),
+					},
+				},
+			}
+			want := proto.Clone(c)
+			invalidConfig := protoconv.MessageToAny(&tls.UpstreamTlsContext{})
+			invalidConfig.Value = []byte{0xff}
+			patch := &model.EnvoyFilterConfigPatchWrapper{
+				ApplyTo:   networking.EnvoyFilter_CLUSTER,
+				Operation: operation,
+				Match:     &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY},
+				Value: &cluster.Cluster{
+					LbPolicy: cluster.Cluster_RANDOM,
+					TransportSocket: &core.TransportSocket{
+						Name:       c.TransportSocket.Name,
+						ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: invalidConfig},
+					},
+				},
+			}
+			if merged, err := mergeTransportSocketCluster(c, patch); merged || err == nil {
+				t.Fatalf("expected merge failure, got merged=%v, err=%v", merged, err)
+			}
+			got := ApplyClusterMerge(networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				&model.MergedEnvoyFilterWrapper{
+					Patches: map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper{
+						networking.EnvoyFilter_CLUSTER: {patch},
+					},
+				}, c, nil)
+			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("failed merge should skip the entire cluster patch (-want +got):\n%s", diff)
 			}
 		})
 	}

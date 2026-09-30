@@ -133,6 +133,9 @@ func ScaleCNIDaemonsetToZeroPods(ctx framework.TestContext, c cluster.Cluster, s
 	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 }
 
+// WaitForStalledPodOrFail waits for a pod that cannot get a sandbox. This is what happens when the
+// istio-cni plugin is left in the node CNI config with no agent behind it, so the pod never starts
+// and no init container ever runs.
 func WaitForStalledPodOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {
 	retry.UntilSuccessOrFail(t, func() error {
 		pods, err := cluster.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
@@ -142,7 +145,6 @@ func WaitForStalledPodOrFail(t framework.TestContext, cluster cluster.Cluster, n
 		if len(pods.Items) == 0 {
 			return fmt.Errorf("still waiting the pod in namespace %v to start", ns.Name())
 		}
-		// Verify that every pod is in broken state due to CNI plugin failure.
 		for _, p := range pods.Items {
 			for _, cState := range p.Status.ContainerStatuses {
 				waiting := cState.State.Waiting
@@ -161,7 +163,27 @@ func WaitForStalledPodOrFail(t framework.TestContext, cluster cluster.Cluster, n
 					}
 				}
 			}
+		}
+		return fmt.Errorf("cannot find any pod stalled on sandbox creation")
+	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+}
+
+// WaitForBrokenPodOrFail waits for a pod that got a sandbox but no istio redirection, so
+// istio-validation crashloops. This is the state the CNI repair controller acts on.
+func WaitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {
+	retry.UntilSuccessOrFail(t, func() error {
+		pods, err := cluster.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		if len(pods.Items) == 0 {
+			return fmt.Errorf("still waiting the pod in namespace %v to start", ns.Name())
+		}
+		for _, p := range pods.Items {
 			for _, cState := range p.Status.InitContainerStatuses {
+				if cState.Name != constants.ValidationContainerName {
+					continue
+				}
 				terminated := cState.LastTerminationState.Terminated
 
 				scopes.Framework.Infof("checking pod status terminated")
@@ -170,8 +192,8 @@ func WaitForStalledPodOrFail(t framework.TestContext, cluster cluster.Cluster, n
 				}
 			}
 		}
-		return fmt.Errorf("cannot find any pod with wanted failure status")
-	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+		return fmt.Errorf("cannot find any pod with a crashlooping %s", constants.ValidationContainerName)
+	}, retry.Delay(1*time.Second), retry.Timeout(2*time.Minute))
 }
 
 func PatchCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster, systemNamespace string, patch []byte) *appsv1.DaemonSet {

@@ -268,7 +268,11 @@ func (le *LeaderElector) acquire(ctx context.Context) bool {
 	desc := le.config.Lock.Describe()
 	klog.Infof("attempting to acquire leader lease %v...", desc)
 	wait.JitterUntil(func() {
-		succeeded = le.tryAcquireOrRenew(ctx)
+		// Bound the whole attempt to the renew deadline so that a hung client request
+		// is canceled within the expected renew window.
+		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, le.config.RenewDeadline)
+		succeeded = le.tryAcquireOrRenew(timeoutCtx)
+		timeoutCancel()
 		le.maybeReportTransition()
 		if !succeeded {
 			klog.V(4).Infof("failed to acquire lease %v", desc)

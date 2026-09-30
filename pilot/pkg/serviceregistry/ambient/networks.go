@@ -320,7 +320,6 @@ func localK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *gatewayv1.Gatewa
 			if l.Protocol == "HBONE" {
 				networkGateway := base
 				networkGateway.Addr = addr.Value
-				networkGateway.Port = uint32(l.Port)
 				networkGateway.HBONEPort = uint32(l.Port)
 				gateways = append(gateways, NetworkGateway{
 					NetworkGateway: networkGateway,

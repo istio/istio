@@ -372,359 +372,359 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 }
 
 func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) informerfactory.StartableInformer {
-	var l func(options metav1.ListOptions) (runtime.Object, error)
-	var w func(options metav1.ListOptions) (watch.Interface, error)
+	var l func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error)
+	var w func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error)
 
 	switch g {
 	case gvr.AuthorizationPolicy:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().SecurityV1().AuthorizationPolicies(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().SecurityV1().AuthorizationPolicies(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().SecurityV1().AuthorizationPolicies(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().SecurityV1().AuthorizationPolicies(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.BackendTLSPolicy:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1().BackendTLSPolicies(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1().BackendTLSPolicies(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1().BackendTLSPolicies(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1().BackendTLSPolicies(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.CertificateSigningRequest:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().CertificatesV1().CertificateSigningRequests().List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CertificatesV1().CertificateSigningRequests().List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().CertificatesV1().CertificateSigningRequests().Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CertificatesV1().CertificateSigningRequests().Watch(ctx, options)
 		}
 	case gvr.ClusterTrustBundle:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().CertificatesV1beta1().ClusterTrustBundles().List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CertificatesV1beta1().ClusterTrustBundles().List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().CertificatesV1beta1().ClusterTrustBundles().Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CertificatesV1beta1().ClusterTrustBundles().Watch(ctx, options)
 		}
 	case gvr.ConfigMap:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().CoreV1().ConfigMaps(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CoreV1().ConfigMaps(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().CoreV1().ConfigMaps(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CoreV1().ConfigMaps(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.CustomResourceDefinition:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Ext().ApiextensionsV1().CustomResourceDefinitions().List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Ext().ApiextensionsV1().CustomResourceDefinitions().List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Ext().ApiextensionsV1().CustomResourceDefinitions().Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Ext().ApiextensionsV1().CustomResourceDefinitions().Watch(ctx, options)
 		}
 	case gvr.DaemonSet:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().AppsV1().DaemonSets(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().AppsV1().DaemonSets(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().AppsV1().DaemonSets(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().AppsV1().DaemonSets(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.Deployment:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().AppsV1().Deployments(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().AppsV1().Deployments(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().AppsV1().Deployments(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().AppsV1().Deployments(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.DestinationRule:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().NetworkingV1().DestinationRules(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().NetworkingV1().DestinationRules(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1().DestinationRules(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1().DestinationRules(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.EndpointSlice:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().DiscoveryV1().EndpointSlices(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().DiscoveryV1().EndpointSlices(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().DiscoveryV1().EndpointSlices(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().DiscoveryV1().EndpointSlices(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.Endpoints:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().CoreV1().Endpoints(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CoreV1().Endpoints(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().CoreV1().Endpoints(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CoreV1().Endpoints(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.EnvoyFilter:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().NetworkingV1alpha3().EnvoyFilters(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().NetworkingV1alpha3().EnvoyFilters(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1alpha3().EnvoyFilters(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1alpha3().EnvoyFilters(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.GRPCRoute:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1().GRPCRoutes(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1().GRPCRoutes(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1().GRPCRoutes(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1().GRPCRoutes(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.Gateway:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().NetworkingV1().Gateways(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().NetworkingV1().Gateways(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1().Gateways(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1().Gateways(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.GatewayClass:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1().GatewayClasses().List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1().GatewayClasses().List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1().GatewayClasses().Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1().GatewayClasses().Watch(ctx, options)
 		}
 	case gvr.HTTPRoute:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1().HTTPRoutes(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1().HTTPRoutes(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1().HTTPRoutes(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1().HTTPRoutes(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.HorizontalPodAutoscaler:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.InferencePool:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPIInference().InferenceV1().InferencePools(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPIInference().InferenceV1().InferencePools(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPIInference().InferenceV1().InferencePools(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPIInference().InferenceV1().InferencePools(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.Ingress:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().NetworkingV1().Ingresses(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().NetworkingV1().Ingresses(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().NetworkingV1().Ingresses(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().NetworkingV1().Ingresses(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.IngressClass:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().NetworkingV1().IngressClasses().List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().NetworkingV1().IngressClasses().List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().NetworkingV1().IngressClasses().Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().NetworkingV1().IngressClasses().Watch(ctx, options)
 		}
 	case gvr.KubernetesGateway:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1().Gateways(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1().Gateways(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1().Gateways(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1().Gateways(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.Lease:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().CoordinationV1().Leases(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CoordinationV1().Leases(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().CoordinationV1().Leases(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CoordinationV1().Leases(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.ListenerSet:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1().ListenerSets(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1().ListenerSets(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1().ListenerSets(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1().ListenerSets(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.MutatingWebhookConfiguration:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().Watch(ctx, options)
 		}
 	case gvr.Namespace:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().CoreV1().Namespaces().List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CoreV1().Namespaces().List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().CoreV1().Namespaces().Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CoreV1().Namespaces().Watch(ctx, options)
 		}
 	case gvr.Node:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().CoreV1().Nodes().List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CoreV1().Nodes().List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().CoreV1().Nodes().Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CoreV1().Nodes().Watch(ctx, options)
 		}
 	case gvr.PeerAuthentication:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().SecurityV1().PeerAuthentications(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().SecurityV1().PeerAuthentications(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().SecurityV1().PeerAuthentications(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().SecurityV1().PeerAuthentications(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.Pod:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().CoreV1().Pods(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CoreV1().Pods(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().CoreV1().Pods(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CoreV1().Pods(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.PodDisruptionBudget:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().PolicyV1().PodDisruptionBudgets(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().PolicyV1().PodDisruptionBudgets(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().PolicyV1().PodDisruptionBudgets(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().PolicyV1().PodDisruptionBudgets(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.ProxyConfig:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().NetworkingV1beta1().ProxyConfigs(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().NetworkingV1beta1().ProxyConfigs(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1beta1().ProxyConfigs(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1beta1().ProxyConfigs(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.ReferenceGrant:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.RequestAuthentication:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().SecurityV1().RequestAuthentications(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().SecurityV1().RequestAuthentications(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().SecurityV1().RequestAuthentications(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().SecurityV1().RequestAuthentications(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.Secret:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().CoreV1().Secrets(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CoreV1().Secrets(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().CoreV1().Secrets(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CoreV1().Secrets(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.Service:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().CoreV1().Services(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CoreV1().Services(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().CoreV1().Services(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CoreV1().Services(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.ServiceAccount:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().CoreV1().ServiceAccounts(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CoreV1().ServiceAccounts(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().CoreV1().ServiceAccounts(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CoreV1().ServiceAccounts(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.ServiceEntry:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().NetworkingV1().ServiceEntries(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().NetworkingV1().ServiceEntries(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1().ServiceEntries(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1().ServiceEntries(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.Sidecar:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().NetworkingV1().Sidecars(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().NetworkingV1().Sidecars(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1().Sidecars(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1().Sidecars(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.StatefulSet:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().AppsV1().StatefulSets(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().AppsV1().StatefulSets(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().AppsV1().StatefulSets(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().AppsV1().StatefulSets(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.TCPRoute:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1().TCPRoutes(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1().TCPRoutes(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1().TCPRoutes(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1().TCPRoutes(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.TLSRoute:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1().TLSRoutes(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1().TLSRoutes(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1().TLSRoutes(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1().TLSRoutes(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.Telemetry:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().TelemetryV1().Telemetries(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().TelemetryV1().Telemetries(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().TelemetryV1().Telemetries(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().TelemetryV1().Telemetries(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.TrafficExtension:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.UDPRoute:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.ValidatingWebhookConfiguration:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(ctx, options)
 		}
 	case gvr.VirtualService:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().NetworkingV1().VirtualServices(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().NetworkingV1().VirtualServices(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1().VirtualServices(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1().VirtualServices(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.WasmPlugin:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().ExtensionsV1alpha1().WasmPlugins(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().ExtensionsV1alpha1().WasmPlugins(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().ExtensionsV1alpha1().WasmPlugins(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().ExtensionsV1alpha1().WasmPlugins(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.WorkloadEntry:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().NetworkingV1().WorkloadEntries(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().NetworkingV1().WorkloadEntries(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1().WorkloadEntries(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1().WorkloadEntries(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.WorkloadGroup:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().NetworkingV1().WorkloadGroups(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().NetworkingV1().WorkloadGroups(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1().WorkloadGroups(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1().WorkloadGroups(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.XBackend:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().ExperimentalV1alpha1().XBackends(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().ExperimentalV1alpha1().XBackends(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().ExperimentalV1alpha1().XBackends(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().ExperimentalV1alpha1().XBackends(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.XBackendTrafficPolicy:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(opts.Namespace).List(context.Background(), options)
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(opts.Namespace).List(ctx, options)
 		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(opts.Namespace).Watch(context.Background(), options)
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(opts.Namespace).Watch(ctx, options)
 		}
 	default:
 		panic(fmt.Sprintf("Unknown type %v", g))
@@ -732,15 +732,15 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 	return c.Informers().InformerFor(g, opts, func() cache.SharedIndexInformer {
 		inf := cache.NewSharedIndexInformer(
 			cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
-				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					return l(options)
+					return l(ctx, options)
 				},
-				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					return w(options)
+					return w(ctx, options)
 				},
 			}, c),
 			gvrToObject(g),

@@ -65,7 +65,7 @@ func TestAccessLogs(t *testing.T) {
 }
 
 func TestAccessLogsFilter(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			runAccessLogFilterTests(t, false)
 			t.ConfigIstio().File(apps.Namespace.Name(), "./testdata/accesslog/filter.yaml").ApplyOrFail(t)
@@ -74,7 +74,7 @@ func TestAccessLogsFilter(t *testing.T) {
 }
 
 func TestAccessLogsMode(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("client").Run(func(t framework.TestContext) {
 				t.ConfigIstio().File(apps.Namespace.Name(), "./testdata/accesslog/mode-client.yaml").ApplyOrFail(t)
@@ -92,7 +92,7 @@ func TestAccessLogsMode(t *testing.T) {
 }
 
 func TestAccessLogsDefaultProvider(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("disabled").Run(func(t framework.TestContext) {
 				runAccessLogsTests(t, false, false)
@@ -110,7 +110,7 @@ defaultProviders:
 }
 
 func TestAccessLogWithFilterState(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			t.ConfigIstio().File(apps.Namespace.Name(), "./testdata/accesslog/enable-filter-state-log.yaml").ApplyOrFail(t)
 			to := GetTarget()

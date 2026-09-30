@@ -16,32 +16,41 @@ package envoyfilter
 
 import (
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto/merge"
 )
-
-// isMergeOperation reports whether the operation merges the patch value into the
-// existing config. Both MERGE and MERGE_AND_REPLACE_LIST are merge operations; they
-// differ only in how repeated (list) fields are handled (see mergePatchValue).
-func isMergeOperation(operation networking.EnvoyFilter_Patch_Operation) bool {
-	return operation == networking.EnvoyFilter_Patch_MERGE ||
-		operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST
-}
 
 // mergePatchValue merges src into dst using the semantics of the given patch operation.
 // MERGE appends repeated (list) fields, while MERGE_AND_REPLACE_LIST replaces them
 // wholesale. Both operations merge scalar and message fields identically.
 //
-// Note: this only governs the top-level proto merge. Filter-level merges of Any-typed
-// configs (HTTP/network/listener filters and transport sockets) go through
-// util.MergeAnyWithAny and are not affected by the replace-list semantics.
+// Note: this only governs the top-level proto merge. Merges of Any-typed configs
+// (HTTP/network/listener filters and transport sockets) go through mergeAnyPatchValue,
+// which applies the same semantics to the message carried by the Any.
 func mergePatchValue(operation networking.EnvoyFilter_Patch_Operation, dst, src proto.Message) {
 	if operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST {
 		merge.MergeWithReplaceList(dst, src)
 		return
 	}
 	merge.Merge(dst, src)
+}
+
+// mergeAnyPatchValue merges the decoded source into the dst Any using the semantics of the
+// given patch operation without modifying src. It is the
+// Any-typed counterpart of mergePatchValue: MERGE appends repeated (list) fields of the
+// carried message, while MERGE_AND_REPLACE_LIST replaces them wholesale.
+//
+// This is what allows lists nested inside an Any to be overridden, e.g. replacing the
+// alpn_protocols of a transport socket or the list of rules of an HTTP filter, instead of
+// appending the patched values to the ones Istio already generated.
+func mergeAnyPatchValue(operation networking.EnvoyFilter_Patch_Operation, dst *anypb.Any, src proto.Message) (*anypb.Any, error) {
+	if operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST {
+		return util.MergeAnyWithMessageReplaceList(dst, src)
+	}
+	return util.MergeAnyWithMessage(dst, src)
 }
 
 // replaceFunc find and replace the first matching element.

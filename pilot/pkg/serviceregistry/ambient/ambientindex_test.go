@@ -987,11 +987,14 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
+		svc1Host := []*model.ServiceInfo{ptr.Flatten(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))}
 		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+		assert.EventuallyEqual(t, func() []*model.ServiceInfo {
 			return s.ServicesForWaypoint(wpKey)
 		}, svc1Host)
+		if got := s.ServicesForWaypoint(wpKey); len(got) != 1 || got[0] != svc1Host[0] {
+			t.Fatal("ServicesForWaypoint must return the stored ServiceInfo pointer")
+		}
 	})
 	t.Run("ip", func(t *testing.T) {
 		s := newAmbientTestServer(t, testC, testNW, "")
@@ -1009,9 +1012,9 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
+		svc1Host := []*model.ServiceInfo{ptr.Flatten(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))}
 		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+		assert.EventuallyEqual(t, func() []*model.ServiceInfo {
 			return s.ServicesForWaypoint(wpKey)
 		}, svc1Host)
 	})
@@ -1030,9 +1033,9 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
+		svc1Host := []*model.ServiceInfo{ptr.Flatten(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))}
 		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+		assert.EventuallyEqual(t, func() []*model.ServiceInfo {
 			return s.ServicesForWaypoint(wpKey)
 		}, svc1Host)
 	})
@@ -1349,7 +1352,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 				}
 			})
 			// All pods have an event (since we're only testing one namespace)
-			s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"))
+			s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"), xdsConvertedPeerAuthSelector)
 			assert.Equal(t,
 				s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 				[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)}) // Effective mode is STRICT so set static policy
@@ -2071,10 +2074,16 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 
 			assertWaypoint := func(t *testing.T, waypointHostname string, expected ...string) {
 				t.Helper()
-				wl := sets.New(slices.Map(s.WorkloadsForWaypoint(model.WaypointKey{
+				workloads := s.WorkloadsForWaypoint(model.WaypointKey{
 					Namespace: testNS,
 					Hostnames: []string{waypointHostname},
-				}), func(e model.WorkloadInfo) string {
+				})
+				for _, workload := range workloads {
+					if stored := ptr.Flatten(s.workloads.GetKey(workload.ResourceName())); stored != workload {
+						t.Fatal("WorkloadsForWaypoint must return the stored WorkloadInfo pointer")
+					}
+				}
+				wl := sets.New(slices.Map(workloads, func(e *model.WorkloadInfo) string {
 					return e.ResourceName()
 				})...)
 				assert.Equal(t, wl, sets.New(expected...))
@@ -2979,6 +2988,9 @@ func (s *ambientTestServer) assertAddresses(t *testing.T, lookup string, names .
 		for _, address := range addresses {
 			// Validate we pre-marshal everything
 			assert.Equal(t, address.Marshaled != nil, true)
+			if address.GetWorkload() != nil {
+				assert.Equal(t, address.MarshaledWorkload != nil, true)
+			}
 			switch addr := address.Address.Type.(type) {
 			case *workloadapi.Address_Workload:
 				have.Insert(addr.Workload.Name)
@@ -3315,40 +3327,40 @@ func TestPushXdsAddressWaypointRefs(t *testing.T) {
 		},
 	}
 	waypointRef := model.WaypointReference{Namespace: "default", Hostname: "waypoint.default.svc.cluster.local"}
-	attached := model.WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/default/a", Waypoint: waypoint}}
-	unattached := model.WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/default/a"}}
+	attached := &model.WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/default/a", Waypoint: waypoint}}
+	unattached := &model.WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/default/a"}}
 
 	cases := []struct {
 		name  string
-		event krt.Event[model.WorkloadInfo]
+		event krt.Event[*model.WorkloadInfo]
 		want  sets.Set[model.WaypointReference]
 	}{
 		{
 			name:  "workload without waypoint",
-			event: krt.Event[model.WorkloadInfo]{New: &unattached, Event: controllers.EventAdd},
+			event: krt.Event[*model.WorkloadInfo]{New: &unattached, Event: controllers.EventAdd},
 			want:  sets.New[model.WaypointReference](),
 		},
 		{
 			name:  "workload attached to waypoint",
-			event: krt.Event[model.WorkloadInfo]{New: &attached, Event: controllers.EventAdd},
+			event: krt.Event[*model.WorkloadInfo]{New: &attached, Event: controllers.EventAdd},
 			want:  sets.New(waypointRef),
 		},
 		{
 			// The waypoint a workload detaches from must still see the change to drop its config
 			name:  "workload detached from waypoint",
-			event: krt.Event[model.WorkloadInfo]{Old: &attached, New: &unattached, Event: controllers.EventUpdate},
+			event: krt.Event[*model.WorkloadInfo]{Old: &attached, New: &unattached, Event: controllers.EventUpdate},
 			want:  sets.New(waypointRef),
 		},
 		{
 			name:  "attached workload deleted",
-			event: krt.Event[model.WorkloadInfo]{Old: &attached, Event: controllers.EventDelete},
+			event: krt.Event[*model.WorkloadInfo]{Old: &attached, Event: controllers.EventDelete},
 			want:  sets.New(waypointRef),
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := &pushRequestRecorder{}
-			PushXdsAddress(rec, model.WorkloadInfo.ResourceName, model.WorkloadInfo.WaypointRef)([]krt.Event[model.WorkloadInfo]{tt.event})
+			PushXdsAddress(rec, (*model.WorkloadInfo).ResourceName, (*model.WorkloadInfo).WaypointRef)([]krt.Event[*model.WorkloadInfo]{tt.event})
 			assert.Equal(t, rec.req.WaypointsUpdated, tt.want)
 			assert.Equal(t, rec.req.AddressesUpdated, sets.New("cluster0//Pod/default/a"))
 		})

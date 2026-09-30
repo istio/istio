@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- 61343
+releaseNotes:
+- |
+    **Added** a `WORKLOAD_IDENTITY_SOCKET_TIMEOUT` environment variable to
+    `pilot-agent`, which configures how long to wait at startup for an external
+    SDS provider, such as SPIRE, to create and start serving on the workload
+    identity socket. Without configuring the timeout, the socket is checked
+    only once at startup, so a provider that binds its socket after
+    `pilot-agent` starts could cause the proxy to request the system root CA
+    from the external SDS provider, failing upstream TLS validation. Defaults
+    to `0s`, which preserves the existing single-check behavior.

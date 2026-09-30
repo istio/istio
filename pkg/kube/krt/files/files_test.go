@@ -85,7 +85,7 @@ func newKubernetesFromFiles[T controllers.Object](fw *krtfiles.FolderWatch[contr
 			return &t
 		}
 		return nil
-	}, opts...)
+	}, opts...).AsCollection()
 }
 
 func parseInputs(f io.Reader) ([]controllers.Object, error) {

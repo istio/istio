@@ -28,6 +28,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -298,7 +299,7 @@ func TestController_GetPodLocality(t *testing.T) {
 			for pod, wantAZ := range tc.wantAZ {
 				az := controller.getPodLocality(pod)
 				if wantAZ != "" {
-					if !reflect.DeepEqual(az, wantAZ) {
+					if !apiequality.Semantic.DeepEqual(az, wantAZ) {
 						t.Fatalf("Wanted az: %s, got: %s", wantAZ, az)
 					}
 				} else {
@@ -1959,7 +1960,7 @@ func servicesEqual(svcList, expectedSvcList []*model.Service) bool {
 		if exp.DefaultAddress != svcList[i].DefaultAddress {
 			return false
 		}
-		if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
+		if !apiequality.Semantic.DeepEqual(exp.Ports, svcList[i].Ports) {
 			return false
 		}
 	}
@@ -2153,10 +2154,10 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 		for _, e := range ev.Endpoints {
 			gotSA = append(gotSA, e.ServiceAccount)
 		}
-		if !reflect.DeepEqual(gotIps, ips) {
+		if !apiequality.Semantic.DeepEqual(gotIps, ips) {
 			t.Fatalf("expected ips %v, got %v", ips, gotIps)
 		}
-		if !reflect.DeepEqual(gotSA, expectedSa) {
+		if !apiequality.Semantic.DeepEqual(gotSA, expectedSa) {
 			t.Fatalf("expected SAs %v, got %v", expectedSa, gotSA)
 		}
 	}
@@ -2279,7 +2280,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	for _, ep := range ev.Endpoints {
 		gotEndpointIPs = append(gotEndpointIPs, ep.Addresses...)
 	}
-	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
+	if !apiequality.Semantic.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
 		t.Fatalf("eds update after adding workload entry did not match expected list. got %v, want %v",
 			gotEndpointIPs, expectedEndpointIPs)
 	}
@@ -2294,7 +2295,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	for _, instance := range endpoints {
 		gotEndpointIPs = append(gotEndpointIPs, instance.Addresses...)
 	}
-	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
+	if !apiequality.Semantic.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
 		t.Fatalf("InstancesByPort after adding workload entry did not match expected list. got %v, want %v",
 			gotEndpointIPs, expectedEndpointIPs)
 	}
@@ -2307,7 +2308,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 		gotEndpointIPs = append(gotEndpointIPs, ep.Addresses...)
 	}
 	expectedEndpointIPs = []string{"172.0.1.1", "172.0.1.2", "2.2.2.2", "2001:1::2"}
-	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
+	if !apiequality.Semantic.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
 		t.Fatalf("eds update after adding pod did not match expected list. got %v, want %v",
 			gotEndpointIPs, expectedEndpointIPs)
 	}
@@ -2763,7 +2764,7 @@ func TestStripPodUnusedFields(t *testing.T) {
 	// The final pod status conditions will be determined by the function addPods.
 	// So we assign these status conditions to expect pod.
 	expectPod.Status.Conditions = output.Status.Conditions
-	if !reflect.DeepEqual(expectPod, output) {
+	if !apiequality.Semantic.DeepEqual(expectPod, output) {
 		t.Fatalf("Wanted: %v\n. Got: %v", expectPod, output)
 	}
 }

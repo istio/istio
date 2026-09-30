@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** a pod in a remote cluster, selected by a `ServiceEntry` may not have been recomputed
+    when it became an endpoint of that service. The recompute was addressed to the cluster istiod
+    runs in rather than the cluster the pod belongs to.
+  - |
+    **Fixed** a WorkloadEntry selected by a `Service` not having its corresponding proxy recomputed
+    when it became an endpoint of that service.

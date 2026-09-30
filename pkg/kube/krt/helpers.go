@@ -44,6 +44,9 @@ func (o ObjectWithCluster[T]) ResourceName() string {
 	if o.Object == nil {
 		return ""
 	}
+	if rn, ok := any(o.Object).(ResourceNamer); ok {
+		return rn.ResourceName()
+	}
 	return GetKey(*o.Object)
 }
 
@@ -154,7 +157,7 @@ func GetApplyConfigKey[O any](a O) *string {
 	}
 	val := reflect.ValueOf(a)
 
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 	if val.Kind() != reflect.Struct {

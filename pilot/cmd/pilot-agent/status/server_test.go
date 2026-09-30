@@ -533,6 +533,19 @@ func TestHTTPCompressionOnStats(t *testing.T) {
 	}
 }
 
+// negotiateFormat mirrors the deprecated expfmt.NegotiateIncludingOpenMetrics.
+func negotiateFormat(h http.Header) expfmt.Format {
+	om001, _ := expfmt.NewOpenMetricsFormat(expfmt.OpenMetricsVersion_0_0_1)
+	return expfmt.NegotiateAccept(h,
+		expfmt.NewFormat(expfmt.TypeOpenMetrics),
+		om001,
+		expfmt.NewFormat(expfmt.TypeProtoDelim),
+		expfmt.NewFormat(expfmt.TypeProtoText),
+		expfmt.NewFormat(expfmt.TypeProtoCompact),
+		expfmt.NewFormat(expfmt.TypeTextPlain),
+	)
+}
+
 // TestContentTypeNegotiation verifies end-to-end Content-Type negotiation
 // through handleStats. The merger forwards the client's Accept header verbatim
 // to upstreams; each upstream negotiates its own format via the standard
@@ -730,7 +743,7 @@ my_other_metric{} 0
 			}))
 			defer envoy.Close()
 			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
+				format := negotiateFormat(r.Header)
 				var negotiatedMetrics string
 				if strings.Contains(string(format), "text/plain") {
 					negotiatedMetrics = appText004
@@ -1263,7 +1276,7 @@ my_other_metric{} 0
 	}))
 	t.Cleanup(envoyServer.Close)
 	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
+		format := negotiateFormat(r.Header)
 		var negotiatedMetrics string
 		if format == FmtText {
 			negotiatedMetrics = appText

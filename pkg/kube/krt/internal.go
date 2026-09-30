@@ -88,9 +88,10 @@ type collectionOptions struct {
 	// When false, `stop` is a manufactured default that is never closed, so any goroutine waiting
 	// on it would leak. Lifecycle goroutines (e.g. debugger unregistration) must not be started in
 	// that case.
-	stopProvided  bool
-	debugger      *DebugHandler
-	joinUnchecked bool
+	stopProvided    bool
+	debugger        *DebugHandler
+	joinUnchecked   bool
+	mapDiscardEqual bool
 
 	indexCollectionFromString func(string) any
 	metadata                  Metadata
@@ -151,7 +152,7 @@ func getLabelSelector(a any) map[string]string {
 	}
 	val := reflect.ValueOf(a)
 
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 

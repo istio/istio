@@ -156,13 +156,13 @@ func startInstallServer(ctx context.Context, serverConfig *config.Config, t *tes
 	t.Logf("CNI installer created, watching...")
 	// installer.Run() will block indefinitely, and attempt to permanently "keep"
 	// the CNI binary installed.
-	if err := installer.Run(ctx); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			// Error was caused by interrupt/termination signal
-			t.Logf("installer complete: %v", err)
-		} else {
-			t.Errorf("installer failed: %v", err)
-		}
+	// Run blocks until ctx is canceled or an install error occurs; it never returns nil.
+	err := installer.Run(ctx)
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		// Error was caused by interrupt/termination signal
+		t.Logf("installer complete: %v", err)
+	} else {
+		t.Errorf("installer failed: %v", err)
 	}
 
 	if cleanErr := installer.Cleanup(); cleanErr != nil {

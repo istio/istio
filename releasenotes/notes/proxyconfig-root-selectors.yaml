@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** support for applying `ProxyConfig` resources with workload selectors in the mesh root namespace
+  to matching workloads across all namespaces. A matching workload-scoped `ProxyConfig` in the workload's
+  own namespace takes precedence over the root namespace configuration.

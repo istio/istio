@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 60774
+releaseNotes:
+  - |
+    **Fixed** istiod preferring the CA cert from the separately-mounted, always-present
+    `istio-ca-root-cert` ConfigMap (`/var/run/secrets/istiod/ca/root-cert.pem`) over the CA cert
+    co-located with the DNS serving cert (`/var/run/secrets/istiod/tls/ca.crt`) when both exist.
+    This could cause the `MutatingWebhookConfiguration`/`ValidatingWebhookConfiguration` `caBundle`
+    to not match the CA after the DNS serving cert is provisioned externally (e.g. by cert-manager
+    istio-csr or a manually created Secret), even though istiod itself correctly served TLS with
+    the new certificate.

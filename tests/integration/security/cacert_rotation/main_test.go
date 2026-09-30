@@ -50,6 +50,7 @@ var apps deployment.SingleNamespaceView
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Label(label.Full).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(nil, setupConfig, cert.CreateCASecret)).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).

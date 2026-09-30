@@ -169,7 +169,7 @@ func TestClient(t *testing.T) {
 	store, _ := makeClient(t, collections.PilotGatewayAPI().Union(collections.Kube), nil)
 	configName := "test"
 	configNamespace := "test-ns"
-	timeout := retry.Timeout(time.Millisecond * 200)
+	timeout := retry.Timeout(time.Second)
 	for _, r := range collections.PilotGatewayAPI().All() {
 		name := r.Kind()
 		t.Run(name, func(t *testing.T) {

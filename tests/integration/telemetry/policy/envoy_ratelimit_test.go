@@ -18,11 +18,9 @@ package policy
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
@@ -33,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -51,6 +48,9 @@ func TestRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
+			// TODO(stevenjin8): Re-enable after migrating Redis off Docker Hub.
+			t.Skip("temporarily disabled because Redis image pulls are rate limited in CI")
+
 			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_ratelimit.yaml")
 			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
@@ -145,6 +145,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return err
 	}
 
+	/*  FIXME(stevenjin8): Re-enable after migrating Redis off Docker Hub.
 	err = ctx.ConfigIstio().File(ratelimitNs.Name(), "testdata/rate-limit-configmap.yaml").Apply()
 	if err != nil {
 		return err
@@ -165,6 +166,7 @@ func testSetup(ctx resource.Context) (err error) {
 	if _, err = kube.WaitUntilPodsAreReady(fetchFn); err != nil {
 		return err
 	}
+	*/
 
 	return nil
 }

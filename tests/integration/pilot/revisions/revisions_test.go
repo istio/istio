@@ -47,6 +47,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMultiPrimary().
+		Label(label.Full).
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {

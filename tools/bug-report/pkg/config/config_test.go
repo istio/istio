@@ -144,6 +144,13 @@ func TestUnmarshalSelectionSpec(t *testing.T) {
 	assert.Equal(t, got, want)
 }
 
+func TestUnmarshalSelectionSpecTooManyFields(t *testing.T) {
+	got := &SelectionSpec{}
+	err := got.UnmarshalJSON([]byte("ns/deployment/pod/label=value/annotation=value/container/extra"))
+
+	assert.Error(t, err)
+}
+
 func TestMarshalSelectionSpec(t *testing.T) {
 	spec := &SelectionSpec{
 		Namespaces:  []string{"ns1", "ns2"},

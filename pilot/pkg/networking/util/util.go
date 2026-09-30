@@ -34,6 +34,7 @@ import (
 	headerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/header/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -504,9 +505,18 @@ func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 	return false
 }
 
-// MergeAnyWithAny merges a given any typed message into the given Any typed message by dynamically inferring the
-// type of Any
-func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
+// MergeAnyWithMessage merges a decoded source message into an Any without modifying src.
+func MergeAnyWithMessage(dst *anypb.Any, src proto.Message) (*anypb.Any, error) {
+	return mergeAnyWithMessage(dst, src, merge.Merge)
+}
+
+// MergeAnyWithMessageReplaceList behaves like MergeAnyWithMessage, except that repeated (list) fields
+// present in src fully replace the corresponding list in dst instead of being appended to it.
+func MergeAnyWithMessageReplaceList(dst *anypb.Any, src proto.Message) (*anypb.Any, error) {
+	return mergeAnyWithMessage(dst, src, merge.MergeWithReplaceList)
+}
+
+func mergeAnyWithMessage(dst *anypb.Any, src proto.Message, mergeFn func(dst, src proto.Message)) (*anypb.Any, error) {
 	// Assuming that Pilot is compiled with this type [which should always be the case]
 	var err error
 
@@ -516,14 +526,12 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 		return nil, err
 	}
 
-	// get an object of type used by this message
-	srcX, err := src.UnmarshalNew()
-	if err != nil {
-		return nil, err
+	if src == nil {
+		return nil, fmt.Errorf("merge source typed config is not decoded")
 	}
 
 	// Merge the two typed protos
-	merge.Merge(dstX, srcX)
+	mergeFn(dstX, src)
 
 	// Convert the merged proto back to dst
 	retVal := protoconv.MessageToAny(dstX)

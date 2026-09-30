@@ -71,7 +71,7 @@ func resetLuaTrafficExtension(ctx framework.TestContext, filterName, path string
 
 // TestLuaTrafficExtension_HeaderInjection tests that Lua filters can inject headers in sidecar mode
 func TestLuaTrafficExtension_HeaderInjection(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			filterName := "lua-header-injector"
 			targetAppName := GetTarget().(echo.Instances).NamespacedName().Name
@@ -91,7 +91,7 @@ func TestLuaTrafficExtension_HeaderInjection(t *testing.T) {
 
 // TestLuaTrafficExtension_ResponseModification tests that Lua filters can modify responses in sidecar mode
 func TestLuaTrafficExtension_ResponseModification(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			filterName := "lua-response-modifier"
 			targetAppName := GetTarget().(echo.Instances).NamespacedName().Name
@@ -111,7 +111,7 @@ func TestLuaTrafficExtension_ResponseModification(t *testing.T) {
 
 // TestLuaTrafficExtension_MultipleFilters tests multiple Lua filters with different priorities
 func TestLuaTrafficExtension_MultipleFilters(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			targetAppName := GetTarget().(echo.Instances).NamespacedName().Name
 
@@ -149,7 +149,7 @@ func TestLuaTrafficExtension_MultipleFilters(t *testing.T) {
 
 // TestLuaTrafficExtension_PhaseOrdering tests that filters execute in the correct phase order
 func TestLuaTrafficExtension_PhaseOrdering(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			targetAppName := GetTarget().(echo.Instances).NamespacedName().Name
 
@@ -191,7 +191,7 @@ func TestLuaTrafficExtension_PhaseOrdering(t *testing.T) {
 
 // TestLuaTrafficExtension_SelectorMatching tests that selector-based matching works correctly
 func TestLuaTrafficExtension_SelectorMatching(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			targetAppName := GetTarget().(echo.Instances).NamespacedName().Name
 

@@ -28,7 +28,9 @@ import (
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -2094,6 +2096,94 @@ func TestGetDNSProxyAddress(t *testing.T) {
 			}
 			if sa.GetPortValue() != tc.wantPort {
 				t.Errorf("expected port %d, got %d", tc.wantPort, sa.GetPortValue())
+			}
+		})
+	}
+}
+
+func TestMergeAnyWithMessageListSemantics(t *testing.T) {
+	dst := protoconv.MessageToAny(&hcm.HttpConnectionManager{
+		StatPrefix:  "dst",
+		HttpFilters: []*hcm.HttpFilter{{Name: "istio.metadata_exchange"}},
+	})
+	src := &hcm.HttpConnectionManager{
+		HttpFilters: []*hcm.HttpFilter{{Name: "envoy.filters.http.router"}},
+	}
+
+	tests := []struct {
+		name  string
+		merge func(dst *anypb.Any, src proto.Message) (*anypb.Any, error)
+		want  *hcm.HttpConnectionManager
+	}{
+		{
+			name:  "MergeAnyWithMessage appends lists",
+			merge: MergeAnyWithMessage,
+			want: &hcm.HttpConnectionManager{
+				StatPrefix: "dst",
+				HttpFilters: []*hcm.HttpFilter{
+					{Name: "istio.metadata_exchange"},
+					{Name: "envoy.filters.http.router"},
+				},
+			},
+		},
+		{
+			name:  "MergeAnyWithMessageReplaceList replaces lists",
+			merge: MergeAnyWithMessageReplaceList,
+			want: &hcm.HttpConnectionManager{
+				StatPrefix:  "dst",
+				HttpFilters: []*hcm.HttpFilter{{Name: "envoy.filters.http.router"}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.merge(dst, src)
+			assert.NoError(t, err)
+			assert.Equal(t, got, protoconv.MessageToAny(tt.want))
+		})
+	}
+}
+
+func TestMergeAnyWithMessage(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		merge       func(dst *anypb.Any, src proto.Message) (*anypb.Any, error)
+		replaceList bool
+	}{
+		{name: "MERGE", merge: MergeAnyWithMessage},
+		{name: "MERGE_AND_REPLACE_LIST", merge: MergeAnyWithMessageReplaceList, replaceList: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := &hcm.HttpConnectionManager{
+				HttpFilters: []*hcm.HttpFilter{{Name: "patch"}},
+			}
+			original := proto.Clone(src).(*hcm.HttpConnectionManager)
+			for _, name := range []string{"first", "second"} {
+				dst := &hcm.HttpConnectionManager{
+					StatPrefix:  name,
+					HttpFilters: []*hcm.HttpFilter{{Name: name}},
+				}
+				merged, err := tc.merge(protoconv.MessageToAny(dst), src)
+				if err != nil {
+					t.Fatal(err)
+				}
+				got := &hcm.HttpConnectionManager{}
+				if err := merged.UnmarshalTo(got); err != nil {
+					t.Fatal(err)
+				}
+				wantFilters := []*hcm.HttpFilter{{Name: name}, {Name: "patch"}}
+				if tc.replaceList {
+					wantFilters = []*hcm.HttpFilter{{Name: "patch"}}
+				}
+				assert.Equal(t, got, &hcm.HttpConnectionManager{
+					StatPrefix:  name,
+					HttpFilters: wantFilters,
+				})
+				assert.Equal(t, src, original)
+			}
+			if _, err := tc.merge(protoconv.MessageToAny(original), nil); err == nil {
+				t.Fatal("expected an error for an undecoded source")
 			}
 		})
 	}

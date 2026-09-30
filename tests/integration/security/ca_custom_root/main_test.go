@@ -57,6 +57,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
+		Label(label.Full).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCASecret)).
 		Setup(namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true})).

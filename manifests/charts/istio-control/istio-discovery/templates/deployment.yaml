@@ -85,6 +85,7 @@ spec:
       topologySpreadConstraints:
 {{- toYaml . | nindent 8 }}
 {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"

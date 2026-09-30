@@ -32,7 +32,7 @@ import (
 
 func TestUserNamespace(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			if t.Settings().Skip(echo.UserNamespace) {
 				t.Skip("user namespace tests are disabled")

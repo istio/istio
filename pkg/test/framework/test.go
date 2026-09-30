@@ -132,7 +132,7 @@ type testImpl struct {
 	ts  traceapi.Span
 }
 
-// NewTest returns a new test wrapper for running a single test.
+// NewTest returns a new test wrapper for representative coverage that runs in every applicable environment.
 func NewTest(t *testing.T) Test {
 	rtMu.Lock()
 	defer rtMu.Unlock()
@@ -151,6 +151,16 @@ func NewTest(t *testing.T) Test {
 	}
 
 	return runner
+}
+
+// NewMulticlusterTest returns a test that requires a multicluster environment.
+func NewMulticlusterTest(t *testing.T) Test {
+	return NewTest(t).Label(label.Multicluster)
+}
+
+// NewFullTest returns a test for additional standard-environment coverage.
+func NewFullTest(t *testing.T) Test {
+	return NewTest(t).Label(label.Full)
 }
 
 func (t *testImpl) Label(labels ...label.Instance) Test {

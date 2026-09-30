@@ -21,7 +21,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"testing"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
@@ -206,8 +205,7 @@ func createGateway(t framework.TestContext, appsNamespace namespace.Instance, se
 // TODO support native environment for registry only/gateway. Blocked by #13177 because the listeners for native use static
 // routes and this test relies on the dynamic routes sent through pilot to allow external traffic.
 
-func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.Instance, mode TrafficPolicy) {
-	t.Helper()
+func RunExternalRequest(test framework.Test, cases []*TestCase, prometheus prometheus.Instance, mode TrafficPolicy) {
 	// Testing of Blackhole and Passthrough clusters:
 	// Setup of environment:
 	// 1. client and destination are deployed to app-1-XXXX namespace
@@ -247,50 +245,48 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 	//    client ---TCP request at port 9091 ----> Hits listener 0.0.0.0_9091 ->  ALLOW_ANY/REGISTRY_ONLY
 	//    Metric is istio_tcp_connections_closed_total i.e. TCP
 	//
-	framework.
-		NewTest(t).
-		Run(func(t framework.TestContext) {
-			client, to := setupEcho(t, mode)
+	test.Run(func(t framework.TestContext) {
+		client, to := setupEcho(t, mode)
 
-			for _, tc := range cases {
-				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
-					client.CallOrFail(t, echo.CallOptions{
-						To:    to,
-						Count: 1,
-						Port: echo.Port{
-							Name: tc.PortName,
-						},
-						HTTP: echo.HTTP{
-							HTTP2:   tc.HTTP2,
-							Headers: headers.New().WithHost(tc.Host).Build(),
-						},
-						Check: func(result echo.CallResult, err error) error {
-							// the expected response from a blackhole test case will have err
-							// set; use the length of the expected code to ignore this condition
-							if err != nil && tc.Expected.StatusCode > 0 {
-								return fmt.Errorf("request failed: %v", err)
+		for _, tc := range cases {
+			t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
+				client.CallOrFail(t, echo.CallOptions{
+					To:    to,
+					Count: 1,
+					Port: echo.Port{
+						Name: tc.PortName,
+					},
+					HTTP: echo.HTTP{
+						HTTP2:   tc.HTTP2,
+						Headers: headers.New().WithHost(tc.Host).Build(),
+					},
+					Check: func(result echo.CallResult, err error) error {
+						// the expected response from a blackhole test case will have err
+						// set; use the length of the expected code to ignore this condition
+						if err != nil && tc.Expected.StatusCode > 0 {
+							return fmt.Errorf("request failed: %v", err)
+						}
+						codeStr := strconv.Itoa(tc.Expected.StatusCode)
+						for i, r := range result.Responses {
+							if codeStr != r.Code {
+								return fmt.Errorf("response[%d] received status code %s, expected %d", i, r.Code, tc.Expected.StatusCode)
 							}
-							codeStr := strconv.Itoa(tc.Expected.StatusCode)
-							for i, r := range result.Responses {
-								if codeStr != r.Code {
-									return fmt.Errorf("response[%d] received status code %s, expected %d", i, r.Code, tc.Expected.StatusCode)
-								}
-								for k, v := range tc.Expected.RequestHeaders {
-									if got := r.RequestHeaders.Get(k); got != v {
-										return fmt.Errorf("expected metadata %v=%v, got %q", k, v, got)
-									}
+							for k, v := range tc.Expected.RequestHeaders {
+								if got := r.RequestHeaders.Get(k); got != v {
+									return fmt.Errorf("expected metadata %v=%v, got %q", k, v, got)
 								}
 							}
-							return nil
-						},
-					})
-
-					if tc.Expected.Query.Metric != "" {
-						util.ValidateMetric(t, t.Clusters().Default(), prometheus, tc.Expected.Query, 1)
-					}
+						}
+						return nil
+					},
 				})
-			}
-		})
+
+				if tc.Expected.Query.Metric != "" {
+					util.ValidateMetric(t, t.Clusters().Default(), prometheus, tc.Expected.Query, 1)
+				}
+			})
+		}
+	})
 }
 
 func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo.Target) {

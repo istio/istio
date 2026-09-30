@@ -56,7 +56,7 @@ func skipIfIngressClassUnsupported(t framework.TestContext) {
 // TestIngress tests that we can route using standard Kubernetes Ingress objects.
 func TestIngress(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			skipIfIngressClassUnsupported(t)
 			// Set up secret contain some TLS certs for *.example.com
@@ -445,7 +445,7 @@ spec:
 // TestCustomGateway deploys a simple gateway deployment, that is fully injected, and verifies it can startup and send traffic
 func TestCustomGateway(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			inject := false
 			if t.Settings().Compatibility {

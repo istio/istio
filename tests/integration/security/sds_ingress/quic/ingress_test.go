@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
@@ -41,6 +42,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		Label(label.Full).
 		// Need support for MixedProtocolLBService
 		RequireMinVersion(20).
 		RequireMultiPrimary().

@@ -31,7 +31,7 @@ import (
 // metrics command. It validates that values are being returned when there is
 // traffic and that the expected default output format is matched.
 func TestIstioctlMetrics(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := SendTraffic(GetClientInstances()[0]); err != nil {

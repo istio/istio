@@ -57,7 +57,6 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 		"--cluster", cluster.Name(),
 		"--network", cluster.NetworkName(),
 		"--revision", revision,
-		"--mesh", meshID,
 	}
 	if !i.env.IsMultiCluster() {
 		args = []string{"--single-cluster"}
@@ -136,7 +135,6 @@ func (i *istioImpl) deployAmbientEastWestGateway(cluster cluster.Cluster) error 
 	args := []string{
 		"--cluster", cluster.Name(),
 		"--network", cluster.NetworkName(),
-		"--mesh", meshID,
 		"--ambient",
 	}
 	if !i.env.IsMultiCluster() {

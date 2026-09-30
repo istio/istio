@@ -64,6 +64,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		Label(label.Full).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Setup(namespace.Setup(&appNS, namespace.Config{Prefix: "appns", Inject: true})).

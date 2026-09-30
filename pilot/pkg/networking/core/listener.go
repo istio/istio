@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/proto"
@@ -237,6 +238,10 @@ func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx
 	}
 	if serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
 		tlsParamsOrNew(ctx).TlsMaximumProtocolVersion = convertTLSProtocol(serverTLSSettings.MaxProtocolVersion)
+	}
+	// Explicitly configured ALPN protocols override the ones derived from the server protocol.
+	if alpn := security.FilterALPNProtocols(serverTLSSettings.AlpnProtocols); len(alpn) > 0 {
+		ctx.AlpnProtocols = alpn
 	}
 }
 
@@ -540,6 +545,16 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							if instance.FirstAddressOrNil() == node.IPAddresses[0] {
 								continue
 							}
+
+							// The applicable VirtualServices are identical for every pod endpoint (only the
+							// per-pod CIDR differs), so resolve them once and reuse the result to avoid
+							// O(pods * virtualServices) host-matching. Compute lazily here, after the guards,
+							// so services with no usable endpoints do no work. getConfigsForHost never returns
+							// nil, so a nil field means "not yet computed".
+							if listenerOpts.precomputedTCPConfigs == nil {
+								listenerOpts.precomputedTCPConfigs = getConfigsForHost("", service.Hostname, virtualServices)
+							}
+
 							if features.EnableHeadlessFilterChainListener && servicePort.Protocol.IsTCP() {
 								// Build a single wildcard listener with per-pod /32 CIDR filter chain matches
 								// instead of a separate per-pod-IP listener. This reduces the total listener
@@ -807,11 +822,16 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 	meshGateway := sets.New(constants.IstioMeshGateway)
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []*config.Config
-	if opts.service != nil {
+	switch {
+	case opts.precomputedTCPConfigs != nil:
+		// Caller already resolved the VirtualServices for this service+port (e.g. once for
+		// all pods of a headless service); avoid redoing the host-matching scan here.
+		svcConfigs = opts.precomputedTCPConfigs
+	case opts.service != nil:
 		// Do not filter namespace for now.
 		// TODO(https://github.com/istio/istio/issues/46146) we may need to, or something more sophisticated
 		svcConfigs = getConfigsForHost("", opts.service.Hostname, virtualServices)
-	} else {
+	default:
 		svcConfigs = virtualServices
 	}
 
@@ -1147,6 +1167,13 @@ type outboundListenerOpts struct {
 	// SNI-based discrimination is not needed and should be suppressed to avoid requiring
 	// callers to match on the service hostname.
 	headlessPodCIDR bool
+
+	// precomputedTCPConfigs, if non-nil, is the set of VirtualServices applicable to this
+	// service (as computed by getConfigsForHost) that callers have already resolved. It lets
+	// callers building many per-pod listeners for the same headless service+port (see
+	// buildSidecarOutboundListeners) skip repeating the O(len(virtualServices)) host-matching
+	// scan for every pod, since the result is identical for every pod of that service+port.
+	precomputedTCPConfigs []*config.Config
 }
 
 // buildGatewayListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.

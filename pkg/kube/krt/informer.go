@@ -88,9 +88,12 @@ func (i *informer[I]) uid() collectionUID {
 	return i.id
 }
 
-func (i *informer[I]) List() []I {
+func (i *informer[I]) ListFiltered(filter func(I) bool) []I {
 	res := i.inf.List(metav1.NamespaceAll, klabels.Everything())
-	return res
+	if filter == nil {
+		return res
+	}
+	return slices.FilterInPlace(res, filter)
 }
 
 func (i *informer[I]) GetKey(k string) *I {
@@ -107,10 +110,6 @@ func (i *informer[I]) GetKey(k string) *I {
 
 func (i *informer[I]) Metadata() Metadata {
 	return i.metadata
-}
-
-func (i *informer[I]) Register(f func(o Event[I])) HandlerRegistration {
-	return registerHandlerAsBatched[I](i, f)
 }
 
 func (i *informer[I]) RegisterBatch(f func(o []Event[I]), runExistingState bool) HandlerRegistration {
@@ -229,7 +228,7 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 
 		<-o.stop
 	}()
-	return h
+	return newCollection[I](h)
 }
 
 // NewInformer creates a Collection[I] sourced from

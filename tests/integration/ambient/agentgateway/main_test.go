@@ -42,6 +42,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
+		Label(label.Full).
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
 			t.Settings().SkipTProxy = true

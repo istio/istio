@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue where Envoy proxies subscribed to Workload metadata discovery (MDS) did not
+    receive incremental workload updates for Address-only changes when
+    `AMBIENT_SCOPED_ADDRESS_PUSHES` was enabled (the default).

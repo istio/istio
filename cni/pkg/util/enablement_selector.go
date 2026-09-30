@@ -54,7 +54,7 @@ func NewCompiledEnablementSelectors(selectors []EnablementSelector) (*CompiledEn
 				return nil, fmt.Errorf("failed to instantiate ambient enablement pod selector: %v", err)
 			}
 		}
-		if selector.NamespaceSelector.String() == ((&metav1.LabelSelector{}).String()) {
+		if selector.NamespaceSelector.String() == (&metav1.LabelSelector{}).String() {
 			namespaceSelector = labels.Everything()
 		} else {
 			namespaceSelector, err = metav1.LabelSelectorAsSelector(&selector.NamespaceSelector)

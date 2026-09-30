@@ -68,6 +68,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		Label(testlabel.Full).
 		RequireMinVersion(24).
 		RequireSingleCluster().
 		Label(testlabel.IPv4). // https://github.com/istio/istio/issues/41008

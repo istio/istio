@@ -40,6 +40,40 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+func TestWorkloadSubscriberNeedsAddressPush(t *testing.T) {
+	test.SetForTest(t, &features.ScopedAddressPushes, true)
+	push := core.NewConfigGenTest(t, core.TestOptions{}).PushContext()
+	const addr = "Kubernetes//Pod/default/x"
+	for _, nodeType := range []model.NodeType{model.Router, model.SidecarProxy} {
+		for _, subscribed := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/subscribed=%v", nodeType, subscribed), func(t *testing.T) {
+				proxy := &model.Proxy{
+					Type:             nodeType,
+					Metadata:         &model.NodeMetadata{},
+					WatchedResources: map[string]*model.WatchedResource{},
+				}
+				if subscribed {
+					proxy.NewWatchedResource(v3.WorkloadType, nil)
+				}
+				req := &model.PushRequest{
+					Push:             push,
+					AddressesUpdated: sets.New(addr),
+					ConfigsUpdated:   sets.New(model.ConfigKey{Kind: kind.Address, Name: addr}),
+				}
+				filtered, needsPush := DefaultProxyNeedsPush(proxy, req)
+				assert.Equal(t, needsPush, subscribed)
+				assert.Equal(t, len(filtered.ConfigsUpdated), 0)
+				assert.Equal(t, filtered.AddressesUpdated, sets.New(addr))
+				assert.Equal(t, req.ConfigsUpdated, sets.New(model.ConfigKey{Kind: kind.Address, Name: addr}))
+
+				req.AddressesUpdated = nil
+				_, needsPush = DefaultProxyNeedsPush(proxy, req)
+				assert.Equal(t, needsPush, false)
+			})
+		}
+	}
+}
+
 func TestProxyNeedsPush(t *testing.T) {
 	const (
 		svcName        = "svc1.com"
@@ -666,6 +700,58 @@ func TestProxyNeedsPushServiceTargets(t *testing.T) {
 			if !tt.wantConfigs.Equals(newReq.ConfigsUpdated) {
 				t.Fatalf("Got configs updated = %v, expected %v", newReq.ConfigsUpdated, tt.wantConfigs)
 			}
+		})
+	}
+}
+
+func TestCanSendPartialFullPushesIgnoresSkippedConfigs(t *testing.T) {
+	endpoint := model.ConfigKey{Kind: kind.Endpoints, Name: "service.example"}
+	for skippedKind := range skippedEdsConfigs {
+		if skippedKind == kind.Address {
+			continue
+		}
+		t.Run(skippedKind.String(), func(t *testing.T) {
+			assert.Equal(t, canSendPartialFullPushes(&model.PushRequest{
+				ConfigsUpdated: sets.New(
+					endpoint,
+					model.ConfigKey{Kind: skippedKind, Name: "unrelated"},
+				),
+			}), true)
+		})
+	}
+}
+
+func TestCanSendPartialFullPushesConservativeFallbacks(t *testing.T) {
+	endpoint := model.ConfigKey{Kind: kind.Endpoints, Name: "service.example"}
+	tests := []struct {
+		name string
+		req  *model.PushRequest
+	}{
+		{
+			name: "Address",
+			req: &model.PushRequest{ConfigsUpdated: sets.New(
+				endpoint,
+				model.ConfigKey{Kind: kind.Address, Name: "address"},
+			)},
+		},
+		{
+			name: "unclassified kind",
+			req: &model.PushRequest{ConfigsUpdated: sets.New(
+				endpoint,
+				model.ConfigKey{Kind: kind.Kind(255), Name: "unknown"},
+			)},
+		},
+		{
+			name: "root PeerAuthentication",
+			req: &model.PushRequest{
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "default", Namespace: "istio-system"}),
+				Push:           &model.PushContext{Mesh: &mesh.MeshConfig{RootNamespace: "istio-system"}},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, canSendPartialFullPushes(tt.req), false)
 		})
 	}
 }

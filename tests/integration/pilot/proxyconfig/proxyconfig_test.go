@@ -40,6 +40,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Skip("used for feature development, no need to run in CI").
+		Label(label.Full).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `

@@ -41,7 +41,7 @@ import (
 // It uses CredentialName set in DestinationRule API to fetch secrets from k8s API server
 func TestSimpleTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Run(func(t framework.TestContext) {
 			var (
@@ -118,7 +118,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 // It uses CredentialName set in DestinationRule API to fetch secrets from k8s API server
 func TestMutualTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Run(func(t framework.TestContext) {
 			var (

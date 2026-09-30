@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 61016
+releaseNotes:
+  - |
+    **Fixed** the gateway Helm chart's `NetworkPolicy` resource name including the revision, which caused
+    the `NetworkPolicy` to be deleted and recreated when the gateway's revision changed instead of being
+    updated in place.

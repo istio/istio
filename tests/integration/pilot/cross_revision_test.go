@@ -42,7 +42,7 @@ func TestRevisionTraffic(t *testing.T) {
 	extraRevs := strings.Split(rawExtraRevs, ",")
 
 	// nolint: staticcheck
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
