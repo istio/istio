@@ -445,7 +445,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			shouldResetSidecarScope = true
 		}
 	}
-	// Router and east-west gateway scopes depend on the gateway set, so select them after recomputing gateways.
+	// Router and east-west gateway scopes depend on the gateway set, we recompute sidecar scope after.
 	if shouldResetSidecarScope {
 		proxy.SetSidecarScope(push)
 	}
