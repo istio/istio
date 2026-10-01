@@ -191,7 +191,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		}
 	}
 	if !cacheHit {
-		virtualHosts, resource, routeCache = BuildSidecarOutboundVirtualHosts(node, req.Push, routeName, listenerPort, efKeys, configgen.Cache)
+		virtualHosts, resource, routeCache = BuildSidecarOutboundVirtualHosts(node, req.Push, routeName, listenerPort, efKeys, configgen.Cache, nil)
 		if resource != nil {
 			return resource, true
 		}
@@ -306,11 +306,13 @@ func selectVirtualServices(virtualServices []*config.Config, servicesByName map[
 	return out
 }
 
+// When hosts is set, only the services that serve them get virtual hosts and the route cache is skipped.
 func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
 	routeName string,
 	listenerPort int,
 	efKeys []string,
 	xdsCache model.XdsCache,
+	hosts sets.Set[host.Name],
 ) ([]*route.VirtualHost, *discovery.Resource, *istio_route.Cache) {
 	// Get the services from the egress listener.  When sniffing is enabled, we send
 	// route name as foo.bar.com:8080 which is going to match against the wildcard
@@ -338,14 +340,27 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 	includeRequestAttemptCount := util.GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound).IncludeRequestAttemptCount
 
-	servicesByName := make(map[host.Name]*model.Service)
+	servicesByName := make(map[host.Name]*model.Service, len(services))
+	// Route destinations resolve against every service on the listener; only vhostServices get virtual hosts.
+	vhostServices := servicesByName
+	if hosts != nil {
+		vhostServices = make(map[host.Name]*model.Service)
+	}
 	for _, svc := range services {
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
 			servicesByName[svc.Hostname] = svc
+			if hosts != nil && serviceServesHosts(svc, hosts) {
+				vhostServices[svc.Hostname] = svc
+			}
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 			h := host.Name(strings.ToLower(string(svc.Hostname)))
+			if hosts != nil && !serviceServesHosts(svc, hosts) {
+				// Lookups resolve the original like the copy below: same alias, labels and port.
+				servicesByName[h] = svc
+				continue
+			}
 			servicesByName[h] = &model.Service{
 				Hostname:       h,
 				DefaultAddress: svc.GetAddressForProxy(node),
@@ -361,6 +376,9 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 					K8sAttributes:   svc.Attributes.K8sAttributes,
 				},
 			}
+			if hosts != nil {
+				vhostServices[h] = servicesByName[h]
+			}
 		}
 	}
 
@@ -369,7 +387,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	// shared cache implementation, which is a no-op unless EnableXDSCaching is also on. Check both here so the
 	// cache-key computation and lookup are skipped entirely when caching is disabled, rather than doing the work
 	// and then discarding it.
-	if listenerPort > 0 && features.EnableXDSCaching && features.EnableRDSCaching {
+	if hosts == nil && listenerPort > 0 && features.EnableXDSCaching && features.EnableRDSCaching {
 		// sort services, ensure that routeCache calculation result is stable
 		services = make([]*model.Service, 0, len(servicesByName))
 		for _, svc := range servicesByName {
@@ -402,13 +420,13 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	// This is hack to keep consistent with previous behavior.
 	if listenerPort != 80 {
 		// only select virtualServices that matches a service
-		virtualServices = selectVirtualServices(virtualServices, servicesByName)
+		virtualServices = selectVirtualServices(virtualServices, vhostServices)
 	}
 
 	mostSpecificWildcardVsIndex := egressListener.MostSpecificWildcardVirtualServiceIndex()
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(node, push,
-		servicesByName, virtualServices, listenerPort, mostSpecificWildcardVsIndex,
+		servicesByName, vhostServices, virtualServices, listenerPort, mostSpecificWildcardVsIndex,
 	)
 
 	vHostPortMap := make(map[int][]*route.VirtualHost)
@@ -510,6 +528,19 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	return out, nil, routeCache
+}
+
+// serviceServesHosts reports whether svc or one of its aliases is one of the lower case hosts.
+func serviceServesHosts(svc *model.Service, hosts sets.Set[host.Name]) bool {
+	if hosts.Contains(host.Name(strings.ToLower(string(svc.Hostname)))) {
+		return true
+	}
+	for _, alias := range svc.Attributes.Aliases {
+		if hosts.Contains(host.Name(strings.ToLower(string(alias.Hostname)))) {
+			return true
+		}
+	}
+	return false
 }
 
 // dedupeDomains removes the duplicate domains from the passed in domains.
