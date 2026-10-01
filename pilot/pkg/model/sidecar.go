@@ -305,10 +305,12 @@ func gatewaySidecarScope(ps *PushContext, base *SidecarScope, gateways []string)
 	out := *base
 	out.Version = ps.PushVersion
 	out.gatewayVirtualServices = make(map[string][]*config.Config, len(gateways))
-	out.gatewayConfigDependencies = sets.New[ConfigHash]()
 	for _, gateway := range gateways {
 		virtualServices := ps.virtualServicesForGateway(base.Namespace, gateway)
 		out.gatewayVirtualServices[gateway] = virtualServices
+		if out.gatewayConfigDependencies == nil {
+			out.gatewayConfigDependencies = sets.NewWithLength[ConfigHash](len(virtualServices))
+		}
 		for _, vs := range virtualServices {
 			out.gatewayConfigDependencies.Insert(ConfigKey{
 				Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name,
