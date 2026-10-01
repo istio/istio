@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/istioctl/pkg/describe"
 	"istio.io/istio/istioctl/pkg/injector"
 	"istio.io/istio/istioctl/pkg/internaldebug"
+	"istio.io/istio/istioctl/pkg/ipaddress"
 	"istio.io/istio/istioctl/pkg/kubeinject"
 	"istio.io/istio/istioctl/pkg/metrics"
 	"istio.io/istio/istioctl/pkg/multicluster"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/istioctl/pkg/proxyconfig"
 	"istio.io/istio/istioctl/pkg/proxystatus"
 	"istio.io/istio/istioctl/pkg/root"
+	"istio.io/istio/istioctl/pkg/service"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/validate"
@@ -199,6 +201,8 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(precheck.Cmd(ctx))
 	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
 	experimentalCmd.AddCommand(checkinject.Cmd(ctx))
+	experimentalCmd.AddCommand(ipaddress.Cmd(ctx))
+	experimentalCmd.AddCommand(service.Cmd(ctx))
 	rootCmd.AddCommand(waypoint.Cmd(ctx))
 	rootCmd.AddCommand(ztunnelconfig.ZtunnelConfig(ctx))
 
