@@ -293,29 +293,12 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 
 // DefaultSidecarScopeForWaypoint extends the gateway scope with mesh VirtualServices for waypoint routing.
 func DefaultSidecarScopeForWaypoint(ps *PushContext, configNamespace string) *SidecarScope {
-	services := ps.servicesExportedToNamespace(configNamespace)
-	out := &SidecarScope{
-		Name:                    defaultSidecar,
-		Namespace:               configNamespace,
-		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
-		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
-		servicesByHostname:      make(map[host.Name]*Service, len(services)),
-		Version:                 ps.PushVersion,
-	}
-
-	servicesAdded := make(map[host.Name]sidecarServiceIndex)
-	for _, s := range services {
-		out.appendSidecarServices(servicesAdded, s)
-	}
-	out.selectDestinationRules(ps, configNamespace)
-
-	out.selectAuthnPolicies(ps, configNamespace)
+	out := DefaultSidecarScopeForGateway(ps, configNamespace)
 
 	out.EgressListeners = []*IstioEgressListenerWrapper{{
 		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
 	}}
 
-	out.initFunc = func() {}
 	return out
 }
 
