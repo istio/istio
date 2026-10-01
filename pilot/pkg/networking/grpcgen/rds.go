@@ -29,42 +29,47 @@ import (
 	"istio.io/istio/pkg/config/host"
 )
 
-// BuildHTTPRoutes supports per-VIP routes, as used by GRPC.
-// This mode is indicated by using names containing full host:port instead of just port.
-// Returns true of the request is of this type.
+// BuildHTTPRoutes generates per-host routes for proxyless gRPC clients.
 func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) model.Resources {
 	resp := model.Resources{}
+	remainingRoutes := make(map[int]int)
 	for _, routeName := range routeNames {
-		if rc := buildHTTPRoute(node, push, routeName); rc != nil {
-			resp = append(resp, &discovery.Resource{
-				Name:     routeName,
-				Resource: protoconv.MessageToAny(rc),
-			})
+		_, _, hostname, port := model.ParseSubsetKey(routeName)
+		if hostname != "" && port != 0 {
+			remainingRoutes[port]++
 		}
 	}
+	// Nonzero ports select the same egress listener regardless of the route name.
+	// Keep their virtual hosts only until the last request for each port.
+	virtualHostsByPort := make(map[int][]*route.VirtualHost)
+	for _, routeName := range routeNames {
+		// TODO use route-style naming instead of cluster naming
+		_, _, hostname, port := model.ParseSubsetKey(routeName)
+		if hostname == "" || port == 0 {
+			log.Warnf("failed to parse %v", routeName)
+			continue
+		}
+		virtualHosts, found := virtualHostsByPort[port]
+		if !found {
+			virtualHosts, _, _ = core.BuildSidecarOutboundVirtualHosts(node, push, routeName, port, nil, &model.DisabledCache{})
+		}
+		remainingRoutes[port]--
+		if remainingRoutes[port] == 0 {
+			delete(virtualHostsByPort, port)
+		} else if !found {
+			virtualHostsByPort[port] = virtualHosts
+		}
+		// Limit each route configuration to its hostname to avoid churn from unrelated services.
+		rc := &route.RouteConfiguration{
+			Name:         routeName,
+			VirtualHosts: filterVirtualHostsForHostname(virtualHosts, string(hostname), port),
+		}
+		resp = append(resp, &discovery.Resource{
+			Name:     routeName,
+			Resource: protoconv.MessageToAny(rc),
+		})
+	}
 	return resp
-}
-
-func buildHTTPRoute(node *model.Proxy, push *model.PushContext, routeName string) *route.RouteConfiguration {
-	// TODO use route-style naming instead of cluster naming
-	_, _, hostname, port := model.ParseSubsetKey(routeName)
-	if hostname == "" || port == 0 {
-		log.Warnf("failed to parse %v", routeName)
-		return nil
-	}
-
-	virtualHosts, _, _ := core.BuildSidecarOutboundVirtualHosts(node, push, routeName, port, nil, &model.DisabledCache{})
-
-	// gRPC-xDS clients self-filter by subscribing to individual route configs by name (e.g.
-	// "outbound|443||svc.ns.svc.cluster.local"). Filter the returned virtual hosts to only include
-	// the one matching the requested. Without this, the RouteConfiguration contains every service on
-	// the port from around the mesh, causing unnecessary churn pushes when unrelated services change.
-	virtualHosts = filterVirtualHostsForHostname(virtualHosts, string(hostname), port)
-
-	return &route.RouteConfiguration{
-		Name:         routeName,
-		VirtualHosts: virtualHosts,
-	}
 }
 
 // filterVirtualHostsForHostname returns only the virtual hosts whose domains contain the given

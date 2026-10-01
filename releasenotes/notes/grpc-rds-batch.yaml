@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Improved** Istiod efficiency for proxyless gRPC clients that request multiple routes on the
+    same port. Istiod now builds the shared virtual hosts once per port within each RDS response.
