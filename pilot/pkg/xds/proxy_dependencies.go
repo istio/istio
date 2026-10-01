@@ -18,7 +18,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -103,25 +102,15 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 			return true
 		}
 	case model.Router:
-		if config.Kind == kind.ServiceEntry {
-			// If config is ServiceEntry, name of the config is service's FQDN
-			if features.FilterGatewayClusterConfig && !push.ServiceAttachedToGateway(config.Name, config.Namespace, proxy) {
-				return false
-			}
-
-			hostname := host.Name(config.Name)
-			// gateways have default sidecar scopes
-			if proxy.SidecarScope.GetService(hostname) == nil &&
-				proxy.PrevSidecarScope.GetService(hostname) == nil {
-				// skip the push when the service is not visible to the gateway,
-				// and the old service is not visible/existent
-				return false
-			}
-			return true
+		// With filtered gateway clusters, only services referenced by the proxy's gateways are pushed,
+		// whatever their visibility. The ServiceEntry key names the service's FQDN.
+		if config.Kind == kind.ServiceEntry && features.FilterGatewayClusterConfig &&
+			!push.ServiceAttachedToGateway(config.Name, config.Namespace, proxy) {
+			return false
 		}
-		// we can rely on sidecar scope for other configs DestinationRules, EnvoyFilters, etc.
-		// Gateway scopes also carry the VirtualServices bound to the proxy's gateways; the previous
-		// scope still has the ones a VirtualService or gateway change removed.
+		// Gateway scopes track the services visible to the gateway, the VirtualServices bound to its
+		// gateways, and the usual DestinationRules and policies; the previous scope still has the ones
+		// an update removed.
 		return proxy.SidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) ||
 			(proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace))
 	default:

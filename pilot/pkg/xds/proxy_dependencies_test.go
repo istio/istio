@@ -138,6 +138,26 @@ func TestGatewayScopeDependencies(t *testing.T) {
 		}
 	})
 
+	t.Run("service visibility", func(t *testing.T) {
+		// Without filtered gateway clusters, ServiceEntry updates follow the scope's dependencies like
+		// any other config: the visible service by hostname and namespace, not by hostname alone.
+		test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
+		for _, tt := range []struct {
+			key  model.ConfigKey
+			want bool
+		}{
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: serviceHost, Namespace: serviceNamespace}, true},
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: serviceHost, Namespace: "unrelated"}, false},
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "other.example.com", Namespace: serviceNamespace}, false},
+		} {
+			filtered, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+				Push: current.PushContext(), ConfigsUpdated: sets.New(tt.key),
+			})
+			assert.Equal(t, needsPush, tt.want, tt.key.String())
+			assert.Equal(t, filtered.ConfigsUpdated.Contains(tt.key), tt.want, tt.key.String())
+		}
+	})
+
 	for _, k := range []kind.Kind{
 		kind.EnvoyFilter, kind.RequestAuthentication, kind.AuthorizationPolicy,
 		kind.Telemetry, kind.TrafficExtension, kind.WasmPlugin,
