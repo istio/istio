@@ -108,9 +108,6 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 			!push.ServiceAttachedToGateway(config.Name, config.Namespace, proxy) {
 			return false
 		}
-		// Gateway scopes track the services visible to the gateway, the VirtualServices bound to its
-		// gateways, and the usual DestinationRules and policies; the previous scope still has the ones
-		// an update removed.
 		return proxy.SidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) ||
 			(proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace))
 	default:
