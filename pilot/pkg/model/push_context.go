@@ -1570,8 +1570,6 @@ func (ps *PushContext) updateContext(
 		ps.initSidecarScopes(env)
 	} else {
 		// new ADS connection may insert new entry to computedSidecarsByNamespace/gatewayDefaultSidecarsByNamespace.
-		// Gateway-specific scopes are reused as well: they derive from the VirtualService index, which is
-		// unchanged on this path, so Gateway changes do not invalidate them.
 		oldPushContext.sidecarIndex.derivedSidecarMutex.RLock()
 		ps.sidecarIndex = oldPushContext.sidecarIndex
 		oldPushContext.sidecarIndex.derivedSidecarMutex.RUnlock()
