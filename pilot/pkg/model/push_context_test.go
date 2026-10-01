@@ -2472,20 +2472,24 @@ func TestGatewaySpecificSidecarScopes(t *testing.T) {
 		assert.Equal(t, p.SidecarScope.GetService(service.Hostname), service)
 		assert.Equal(t, p.SidecarScope.DependsOnConfig(serviceKey, ps.Mesh.RootNamespace), true)
 	}
+	// Gateway scopes depend on the VirtualServices bound to their gateways on top of the dependencies
+	// shared with the namespace scope, which stay in the shared set only.
 	keyA := ConfigKey{Kind: kind.VirtualService, Name: "a", Namespace: "routes"}
-	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(serviceKey, []string{"gateways/a", "gateways/b"}), false)
-	assert.Equal(t, pa.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), false)
-	assert.Equal(t, pa.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), true)
-	assert.Equal(t, ew.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), true)
-	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), true)
-	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b"}), false)
-	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, nil), false)
-	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/unknown"}), false)
-	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b", "gateways/a"}), true)
-	assert.Equal(t, pb.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b"}), false)
+	keyB := ConfigKey{Kind: kind.VirtualService, Name: "b", Namespace: "routes"}
+	keyPrivate := ConfigKey{Kind: kind.VirtualService, Name: "private", Namespace: "proxy"}
+	assert.Equal(t, pab.SidecarScope.gatewayConfigDependencies.Contains(serviceKey.HashCode()), false)
+	assert.Equal(t, pa.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), true)
+	assert.Equal(t, pa.SidecarScope.DependsOnConfig(keyPrivate, ps.Mesh.RootNamespace), true)
+	assert.Equal(t, pa.SidecarScope.DependsOnConfig(keyB, ps.Mesh.RootNamespace), false)
+	assert.Equal(t, pb.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), false)
+	assert.Equal(t, pb.SidecarScope.DependsOnConfig(keyB, ps.Mesh.RootNamespace), true)
+	assert.Equal(t, pab.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), true)
+	assert.Equal(t, pab.SidecarScope.DependsOnConfig(keyB, ps.Mesh.RootNamespace), true)
+	assert.Equal(t, ew.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), true)
+	assert.Equal(t, otherNamespace.SidecarScope.DependsOnConfig(keyPrivate, ps.Mesh.RootNamespace), false)
 	base := proxy(Router, "proxy")
-	assert.Equal(t, base.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), false)
-	assert.Equal(t, meshWaypoint.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), false)
+	assert.Equal(t, base.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), false)
+	assert.Equal(t, meshWaypoint.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), false)
 	assert.Equal(t, len(ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways) > 0, true)
 }
 

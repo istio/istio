@@ -119,25 +119,9 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 			}
 			return true
 		}
-		if config.Kind == kind.VirtualService {
-			gateways := proxy.MergedGateway.GetGatewayNames()
-			if proxy.SidecarScope.GatewaysDependOnConfig(config, gateways) {
-				return true
-			}
-			if proxy.PrevSidecarScope == nil {
-				return false
-			}
-			// The previous scope was built for the gateway set in effect before this push, because
-			// gateway-set changes reselect the scope as well. Checking it against the current names
-			// catches VirtualServices removed from gateways this proxy still serves. Checking it
-			// against the previous names only adds VirtualServices bound to gateways this push removed
-			// from the proxy; that push is already needed for the gateway change, so this only keeps
-			// the VirtualService key in the filtered request.
-			return proxy.PrevSidecarScope.GatewaysDependOnConfig(config, gateways) ||
-				proxy.PrevSidecarScope.GatewaysDependOnConfig(config, proxy.PrevMergedGateway.GetGatewayNames())
-		}
-
 		// we can rely on sidecar scope for other configs DestinationRules, EnvoyFilters, etc.
+		// Gateway scopes also carry the VirtualServices bound to the proxy's gateways; the previous
+		// scope still has the ones a VirtualService or gateway change removed.
 		return proxy.SidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) ||
 			(proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace))
 	default:

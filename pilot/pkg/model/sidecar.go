@@ -202,9 +202,9 @@ type SidecarScope struct {
 
 	// VirtualServices bound to each gateway selected by this scope. Gateway names are namespace/name.
 	gatewayVirtualServices map[string][]*config.Config
-	// Dependencies keyed by namespace/name of the gateway. Kept separate so gateway scopes
-	// can share the namespace scope's configDependencies.
-	gatewayConfigDependencies map[string]sets.Set[ConfigHash]
+	// The VirtualServices above as dependencies. Kept separate from configDependencies, which
+	// gateway scopes share with their namespace scope.
+	gatewayConfigDependencies sets.Set[ConfigHash]
 
 	// Function that will initialize the sidecar scope. This is used to
 	// defer the initialization of the sidecar scope until the first time
@@ -305,17 +305,15 @@ func gatewaySidecarScope(ps *PushContext, base *SidecarScope, gateways []string)
 	out := *base
 	out.Version = ps.PushVersion
 	out.gatewayVirtualServices = make(map[string][]*config.Config, len(gateways))
-	out.gatewayConfigDependencies = make(map[string]sets.Set[ConfigHash], len(gateways))
+	out.gatewayConfigDependencies = sets.New[ConfigHash]()
 	for _, gateway := range gateways {
 		virtualServices := ps.VirtualServicesForGateway(base.Namespace, gateway)
 		out.gatewayVirtualServices[gateway] = virtualServices
-		dependencies := sets.New[ConfigHash]()
 		for _, vs := range virtualServices {
-			dependencies.Insert(ConfigKey{
+			out.gatewayConfigDependencies.Insert(ConfigKey{
 				Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name,
 			}.HashCode())
 		}
-		out.gatewayConfigDependencies[gateway] = dependencies
 	}
 	return &out
 }
@@ -706,6 +704,7 @@ func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardVirtualServiceIndex()
 
 // DependsOnConfig determines if the proxy depends on the given config.
 // Returns whether depends on this config or this kind of config is not scoped(unknown to be depended) here.
+// Gateway-specific scopes also depend on the VirtualServices bound to their gateways.
 func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	if sc == nil {
 		return true
@@ -721,7 +720,8 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 		return true
 	}
 
-	return sc.configDependencies.Contains(config.HashCode())
+	hash := config.HashCode()
+	return sc.configDependencies.Contains(hash) || sc.gatewayConfigDependencies.Contains(hash)
 }
 
 // GatewayVirtualServices returns the VirtualServices bound to the namespace/name gateway in this scope.
@@ -729,21 +729,6 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 // selects those scopes from the proxy's merged gateways, so it must run after SetGatewaysForProxy.
 func (sc *SidecarScope) GatewayVirtualServices(gateway string) []*config.Config {
 	return sc.gatewayVirtualServices[gateway]
-}
-
-// GatewaysDependOnConfig checks dependencies for the supplied namespace/name gateway names.
-// An empty gateways slice has no dependencies. Common dependencies are checked by DependsOnConfig.
-func (sc *SidecarScope) GatewaysDependOnConfig(config ConfigKey, gateways []string) bool {
-	if sc == nil {
-		return true
-	}
-	configHash := config.HashCode()
-	for _, gateway := range gateways {
-		if sc.gatewayConfigDependencies[gateway].Contains(configHash) {
-			return true
-		}
-	}
-	return false
 }
 
 func (sc *SidecarScope) GetService(hostname host.Name) *Service {
