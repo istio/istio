@@ -1183,10 +1183,7 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 // or ambient east-west gateway. SetSidecarScope selects a gateway-specific scope from the proxy's
 // merged gateways, so it must run after SetGatewaysForProxy.
 func (ps *PushContext) VirtualServicesForGatewayProxy(proxy *Proxy, gateway string) []*config.Config {
-	if features.EnableGatewaySpecificSidecarScopes {
-		return proxy.SidecarScope.gatewayVirtualServices[gateway]
-	}
-	return ps.VirtualServicesForGateway(proxy.ConfigNamespace, gateway)
+	return proxy.SidecarScope.gatewayVirtualServices[gateway]
 }
 
 // getSidecarScope returns a SidecarScope object associated with the
@@ -1292,7 +1289,7 @@ func (ps *PushContext) doGetSidecarScope(proxy *Proxy, workloadLabels labels.Ins
 // or base itself when the proxy has none. Callers must hold derivedSidecarMutex.
 func (ps *PushContext) gatewayScope(proxy *Proxy, base *SidecarScope) *SidecarScope {
 	gateways := proxy.MergedGateway.GetGatewayNames()
-	if !features.EnableGatewaySpecificSidecarScopes || len(gateways) == 0 {
+	if len(gateways) == 0 {
 		return base
 	}
 	key := gatewayScopeKey{proxyType: proxy.Type, namespace: proxy.ConfigNamespace, gateways: strings.Join(gateways, ",")}

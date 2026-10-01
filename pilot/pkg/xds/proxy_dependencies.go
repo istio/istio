@@ -120,9 +120,6 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 			return true
 		}
 		if config.Kind == kind.VirtualService {
-			if !features.EnableGatewaySpecificSidecarScopes {
-				return true
-			}
 			gateways := proxy.MergedGateway.GetGatewayNames()
 			if proxy.SidecarScope.GatewaysDependOnConfig(config, gateways) {
 				return true

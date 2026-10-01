@@ -183,53 +183,49 @@ func TestGatewayScopeDependencies(t *testing.T) {
 }
 
 func TestGatewayVirtualServiceDependencies(t *testing.T) {
-	for _, enabled := range []bool{true, false} {
-		for _, change := range []string{"rebound", "deleted", "hidden"} {
-			t.Run(fmt.Sprintf("enabled=%v/%s", enabled, change), func(t *testing.T) {
-				test.SetForTest(t, &features.EnableGatewaySpecificSidecarScopes, enabled)
-				route := config.Config{
-					Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "route", Namespace: "routes"},
-					Spec: &networking.VirtualService{Hosts: []string{"example.com"}, Gateways: []string{"gateways/a"}},
+	for _, change := range []string{"rebound", "deleted", "hidden"} {
+		t.Run(change, func(t *testing.T) {
+			route := config.Config{
+				Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "route", Namespace: "routes"},
+				Spec: &networking.VirtualService{Hosts: []string{"example.com"}, Gateways: []string{"gateways/a"}},
+			}
+			old := core.NewConfigGenTest(t, core.TestOptions{Configs: []config.Config{route}})
+			var updated []config.Config
+			if change != "deleted" {
+				route = route.DeepCopy()
+				if change == "rebound" {
+					route.Spec.(*networking.VirtualService).Gateways = []string{"gateways/b"}
+				} else {
+					route.Spec.(*networking.VirtualService).ExportTo = []string{"."}
 				}
-				old := core.NewConfigGenTest(t, core.TestOptions{Configs: []config.Config{route}})
-				var updated []config.Config
-				if change != "deleted" {
-					route = route.DeepCopy()
-					if change == "rebound" {
-						route.Spec.(*networking.VirtualService).Gateways = []string{"gateways/b"}
-					} else {
-						route.Spec.(*networking.VirtualService).ExportTo = []string{"."}
-					}
-					updated = []config.Config{route}
+				updated = []config.Config{route}
+			}
+			current := core.NewConfigGenTest(t, core.TestOptions{Configs: updated})
+			key := model.ConfigKey{Kind: kind.VirtualService, Name: "route", Namespace: "routes"}
+			for _, gateway := range []string{"a", "b", "unrelated"} {
+				proxy := &model.Proxy{Type: model.Router, ConfigNamespace: "proxy", Metadata: &model.NodeMetadata{},
+					MergedGateway: &model.MergedGateway{GatewayNames: []string{"gateways/" + gateway}},
 				}
-				current := core.NewConfigGenTest(t, core.TestOptions{Configs: updated})
-				key := model.ConfigKey{Kind: kind.VirtualService, Name: "route", Namespace: "routes"}
-				for _, gateway := range []string{"a", "b", "unrelated"} {
-					proxy := &model.Proxy{Type: model.Router, ConfigNamespace: "proxy", Metadata: &model.NodeMetadata{},
-						MergedGateway: &model.MergedGateway{GatewayNames: []string{"gateways/" + gateway}},
-					}
-					proxy.SetSidecarScope(old.PushContext())
-					proxy.SetSidecarScope(current.PushContext())
-					// VirtualService updates refresh scopes without recomputing gateways. The previous
-					// merged gateway can therefore describe an older set than the previous scope.
-					proxy.PrevMergedGateway = &model.PrevMergedGateway{GatewayNames: []string{"gateways/stale"}}
-					assert.Equal(t, proxy.SidecarScope.GatewaysDependOnConfig(key, proxy.MergedGateway.GatewayNames),
-						enabled && gateway == "b" && change == "rebound")
-					assert.Equal(t, proxy.PrevSidecarScope.GatewaysDependOnConfig(key, proxy.MergedGateway.GatewayNames), enabled && gateway == "a")
-					filtered, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
-						Push: current.PushContext(), ConfigsUpdated: sets.New(key),
-					})
-					want := !enabled || gateway == "a" || (gateway == "b" && change == "rebound")
-					assert.Equal(t, needsPush, want)
-					assert.Equal(t, filtered.ConfigsUpdated.Contains(key), want)
-				}
-			})
-		}
+				proxy.SetSidecarScope(old.PushContext())
+				proxy.SetSidecarScope(current.PushContext())
+				// VirtualService updates refresh scopes without recomputing gateways. The previous
+				// merged gateway can therefore describe an older set than the previous scope.
+				proxy.PrevMergedGateway = &model.PrevMergedGateway{GatewayNames: []string{"gateways/stale"}}
+				assert.Equal(t, proxy.SidecarScope.GatewaysDependOnConfig(key, proxy.MergedGateway.GatewayNames),
+					gateway == "b" && change == "rebound")
+				assert.Equal(t, proxy.PrevSidecarScope.GatewaysDependOnConfig(key, proxy.MergedGateway.GatewayNames), gateway == "a")
+				filtered, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+					Push: current.PushContext(), ConfigsUpdated: sets.New(key),
+				})
+				want := gateway == "a" || (gateway == "b" && change == "rebound")
+				assert.Equal(t, needsPush, want)
+				assert.Equal(t, filtered.ConfigsUpdated.Contains(key), want)
+			}
+		})
 	}
 }
 
 func TestGatewaySidecarScopeReselection(t *testing.T) {
-	test.SetForTest(t, &features.EnableGatewaySpecificSidecarScopes, true)
 	test.SetForTest(t, &features.ScopeGatewayToNamespace, false)
 	gateway := func(name string, ports ...uint32) config.Config {
 		servers := make([]*networking.Server, 0, len(ports))
@@ -322,7 +318,6 @@ func TestGatewaySidecarScopeReselection(t *testing.T) {
 }
 
 func TestGatewaySidecarScopeFromNoGateways(t *testing.T) {
-	test.SetForTest(t, &features.EnableGatewaySpecificSidecarScopes, true)
 	test.SetForTest(t, &features.ScopeGatewayToNamespace, false)
 	gateway := config.Config{
 		Meta: config.Meta{GroupVersionKind: gvk.Gateway, Name: "a", Namespace: "gateways"},

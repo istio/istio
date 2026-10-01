@@ -2408,91 +2408,85 @@ func TestGatewayAndWaypointSidecarScopes(t *testing.T) {
 }
 
 func TestGatewaySpecificSidecarScopes(t *testing.T) {
-	for _, enabled := range []bool{true, false} {
-		t.Run(fmt.Sprint(enabled), func(t *testing.T) {
-			test.SetForTest(t, &features.EnableGatewaySpecificSidecarScopes, enabled)
-			ps := NewPushContext()
-			ps.Mesh = mesh.DefaultMeshConfig()
-			service := &Service{Hostname: "backend.example.com", Attributes: ServiceAttributes{Namespace: "backend"}}
-			ps.ServiceIndex.public = []*Service{service}
-			a := &config.Config{Meta: config.Meta{Name: "a", Namespace: "routes"}, Spec: &networking.VirtualService{}}
-			b := &config.Config{Meta: config.Meta{Name: "b", Namespace: "routes"}, Spec: &networking.VirtualService{}}
-			private := &config.Config{Meta: config.Meta{Name: "private", Namespace: "proxy"}, Spec: &networking.VirtualService{}}
-			meshRoute := &config.Config{Meta: config.Meta{Name: "mesh", Namespace: "proxy"}, Spec: &networking.VirtualService{}}
-			ps.virtualServiceIndex.publicByGateway["gateways/a"] = []*config.Config{a}
-			ps.virtualServiceIndex.publicByGateway["gateways/b"] = []*config.Config{b}
-			ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = []*config.Config{meshRoute}
-			ps.virtualServiceIndex.privateByNamespaceAndGateway[types.NamespacedName{Namespace: "proxy", Name: "gateways/a"}] = []*config.Config{private}
-			proxy := func(proxyType NodeType, namespace string, gateways ...string) *Proxy {
-				p := &Proxy{Type: proxyType, ConfigNamespace: namespace, MergedGateway: &MergedGateway{
-					GatewayNames: sets.SortedList(sets.New(gateways...)),
-				}}
-				if proxyType == Waypoint {
-					p.Labels = map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayEastWestControllerLabel}
-				}
-				p.SetSidecarScope(ps)
-				return p
-			}
-			pa := proxy(Router, "proxy", "gateways/a")
-			pb := proxy(Router, "proxy", "gateways/b")
-			pab := proxy(Router, "proxy", "gateways/a", "gateways/b")
-			assert.Equal(t, pab.SidecarScope == proxy(Router, "proxy", "gateways/b", "gateways/a", "gateways/a").SidecarScope, true)
-			assert.Equal(t, pa.SidecarScope == pb.SidecarScope, !enabled)
-			assert.Equal(t, ps.VirtualServicesForGatewayProxy(pa, "gateways/a"), []*config.Config{private, a})
-			assert.Equal(t, ps.VirtualServicesForGatewayProxy(pab, "gateways/b"), []*config.Config{b})
-			assert.Equal(t, len(pa.SidecarScope.EgressListeners), 0)
-			otherNamespace := proxy(Router, "other", "gateways/a")
-			assert.Equal(t, ps.VirtualServicesForGatewayProxy(otherNamespace, "gateways/a"), []*config.Config{a})
-			assert.Equal(t, otherNamespace.SidecarScope == pa.SidecarScope, false)
-
-			// Ambient east-west gateways layer the same gateway VirtualServices on the waypoint scope, which
-			// keeps the mesh VirtualServices, so the proxy type separates their scopes from router scopes.
-			ew := proxy(Waypoint, "proxy", "gateways/a")
-			assert.Equal(t, ew.SidecarScope == pa.SidecarScope, false)
-			assert.Equal(t, ew.SidecarScope == proxy(Waypoint, "proxy", "gateways/a").SidecarScope, true)
-			assert.Equal(t, ps.VirtualServicesForGatewayProxy(ew, "gateways/a"), []*config.Config{private, a})
-			assert.Equal(t, ew.SidecarScope.EgressListeners[0].VirtualServices(), []*config.Config{meshRoute})
-			waypointBase := ps.sidecarIndex.sidecarsForWaypointByNamespace["proxy"]
-			assert.Equal(t, ew.SidecarScope == waypointBase, !enabled)
-			assert.Equal(t, proxy(Waypoint, "proxy").SidecarScope == waypointBase, true)
-			plainWaypoint := &Proxy{Type: Waypoint, ConfigNamespace: "proxy"}
-			plainWaypoint.SetSidecarScope(ps)
-			assert.Equal(t, plainWaypoint.SidecarScope == waypointBase, true)
-			// A waypoint that is not an east-west gateway keeps the namespace scope even with a merged
-			// gateway, matching the label checks that gate gateway generation for waypoints.
-			meshWaypoint := &Proxy{
-				Type: Waypoint, ConfigNamespace: "proxy", MergedGateway: &MergedGateway{GatewayNames: []string{"gateways/a"}},
-				Labels: map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
-			}
-			meshWaypoint.SetSidecarScope(ps)
-			assert.Equal(t, meshWaypoint.SidecarScope == waypointBase, true)
-
-			serviceKey := ConfigKey{Kind: kind.ServiceEntry, Name: string(service.Hostname), Namespace: "backend"}
-			for _, p := range []*Proxy{pa, pb, pab, ew} {
-				assert.Equal(t, p.SidecarScope.GetService(service.Hostname), service)
-				assert.Equal(t, p.SidecarScope.DependsOnConfig(serviceKey, ps.Mesh.RootNamespace), true)
-			}
-			keyA := ConfigKey{Kind: kind.VirtualService, Name: "a", Namespace: "routes"}
-			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(serviceKey, []string{"gateways/a", "gateways/b"}), false)
-			assert.Equal(t, pa.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), false)
-			assert.Equal(t, pa.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), enabled)
-			assert.Equal(t, ew.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), enabled)
-			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), enabled)
-			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b"}), false)
-			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, nil), false)
-			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/unknown"}), false)
-			assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b", "gateways/a"}), enabled)
-			assert.Equal(t, pb.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b"}), false)
-			base := proxy(Router, "proxy")
-			assert.Equal(t, base.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), false)
-			assert.Equal(t, meshWaypoint.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), false)
-			assert.Equal(t, len(ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways) > 0, enabled)
-		})
+	ps := NewPushContext()
+	ps.Mesh = mesh.DefaultMeshConfig()
+	service := &Service{Hostname: "backend.example.com", Attributes: ServiceAttributes{Namespace: "backend"}}
+	ps.ServiceIndex.public = []*Service{service}
+	a := &config.Config{Meta: config.Meta{Name: "a", Namespace: "routes"}, Spec: &networking.VirtualService{}}
+	b := &config.Config{Meta: config.Meta{Name: "b", Namespace: "routes"}, Spec: &networking.VirtualService{}}
+	private := &config.Config{Meta: config.Meta{Name: "private", Namespace: "proxy"}, Spec: &networking.VirtualService{}}
+	meshRoute := &config.Config{Meta: config.Meta{Name: "mesh", Namespace: "proxy"}, Spec: &networking.VirtualService{}}
+	ps.virtualServiceIndex.publicByGateway["gateways/a"] = []*config.Config{a}
+	ps.virtualServiceIndex.publicByGateway["gateways/b"] = []*config.Config{b}
+	ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = []*config.Config{meshRoute}
+	ps.virtualServiceIndex.privateByNamespaceAndGateway[types.NamespacedName{Namespace: "proxy", Name: "gateways/a"}] = []*config.Config{private}
+	proxy := func(proxyType NodeType, namespace string, gateways ...string) *Proxy {
+		p := &Proxy{Type: proxyType, ConfigNamespace: namespace, MergedGateway: &MergedGateway{
+			GatewayNames: sets.SortedList(sets.New(gateways...)),
+		}}
+		if proxyType == Waypoint {
+			p.Labels = map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayEastWestControllerLabel}
+		}
+		p.SetSidecarScope(ps)
+		return p
 	}
+	pa := proxy(Router, "proxy", "gateways/a")
+	pb := proxy(Router, "proxy", "gateways/b")
+	pab := proxy(Router, "proxy", "gateways/a", "gateways/b")
+	assert.Equal(t, pab.SidecarScope == proxy(Router, "proxy", "gateways/b", "gateways/a", "gateways/a").SidecarScope, true)
+	assert.Equal(t, pa.SidecarScope == pb.SidecarScope, false)
+	assert.Equal(t, ps.VirtualServicesForGatewayProxy(pa, "gateways/a"), []*config.Config{private, a})
+	assert.Equal(t, ps.VirtualServicesForGatewayProxy(pab, "gateways/b"), []*config.Config{b})
+	assert.Equal(t, len(pa.SidecarScope.EgressListeners), 0)
+	otherNamespace := proxy(Router, "other", "gateways/a")
+	assert.Equal(t, ps.VirtualServicesForGatewayProxy(otherNamespace, "gateways/a"), []*config.Config{a})
+	assert.Equal(t, otherNamespace.SidecarScope == pa.SidecarScope, false)
+
+	// Ambient east-west gateways layer the same gateway VirtualServices on the waypoint scope, which
+	// keeps the mesh VirtualServices, so the proxy type separates their scopes from router scopes.
+	ew := proxy(Waypoint, "proxy", "gateways/a")
+	assert.Equal(t, ew.SidecarScope == pa.SidecarScope, false)
+	assert.Equal(t, ew.SidecarScope == proxy(Waypoint, "proxy", "gateways/a").SidecarScope, true)
+	assert.Equal(t, ps.VirtualServicesForGatewayProxy(ew, "gateways/a"), []*config.Config{private, a})
+	assert.Equal(t, ew.SidecarScope.EgressListeners[0].VirtualServices(), []*config.Config{meshRoute})
+	waypointBase := ps.sidecarIndex.sidecarsForWaypointByNamespace["proxy"]
+	assert.Equal(t, ew.SidecarScope == waypointBase, false)
+	assert.Equal(t, proxy(Waypoint, "proxy").SidecarScope == waypointBase, true)
+	plainWaypoint := &Proxy{Type: Waypoint, ConfigNamespace: "proxy"}
+	plainWaypoint.SetSidecarScope(ps)
+	assert.Equal(t, plainWaypoint.SidecarScope == waypointBase, true)
+	// A waypoint that is not an east-west gateway keeps the namespace scope even with a merged
+	// gateway, matching the label checks that gate gateway generation for waypoints.
+	meshWaypoint := &Proxy{
+		Type: Waypoint, ConfigNamespace: "proxy", MergedGateway: &MergedGateway{GatewayNames: []string{"gateways/a"}},
+		Labels: map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
+	}
+	meshWaypoint.SetSidecarScope(ps)
+	assert.Equal(t, meshWaypoint.SidecarScope == waypointBase, true)
+
+	serviceKey := ConfigKey{Kind: kind.ServiceEntry, Name: string(service.Hostname), Namespace: "backend"}
+	for _, p := range []*Proxy{pa, pb, pab, ew} {
+		assert.Equal(t, p.SidecarScope.GetService(service.Hostname), service)
+		assert.Equal(t, p.SidecarScope.DependsOnConfig(serviceKey, ps.Mesh.RootNamespace), true)
+	}
+	keyA := ConfigKey{Kind: kind.VirtualService, Name: "a", Namespace: "routes"}
+	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(serviceKey, []string{"gateways/a", "gateways/b"}), false)
+	assert.Equal(t, pa.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), false)
+	assert.Equal(t, pa.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), true)
+	assert.Equal(t, ew.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), true)
+	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), true)
+	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b"}), false)
+	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, nil), false)
+	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/unknown"}), false)
+	assert.Equal(t, pab.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b", "gateways/a"}), true)
+	assert.Equal(t, pb.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/b"}), false)
+	base := proxy(Router, "proxy")
+	assert.Equal(t, base.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), false)
+	assert.Equal(t, meshWaypoint.SidecarScope.GatewaysDependOnConfig(keyA, []string{"gateways/a"}), false)
+	assert.Equal(t, len(ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways) > 0, true)
 }
 
 func TestGatewaySpecificSidecarScopeReuse(t *testing.T) {
-	test.SetForTest(t, &features.EnableGatewaySpecificSidecarScopes, true)
 	for _, tt := range []struct {
 		changedKind kind.Kind
 		rebuilt     bool
