@@ -203,8 +203,9 @@ func TestGatewayVirtualServiceDependencies(t *testing.T) {
 			current := core.NewConfigGenTest(t, core.TestOptions{Configs: updated})
 			key := model.ConfigKey{Kind: kind.VirtualService, Name: "route", Namespace: "routes"}
 			for _, gateway := range []string{"a", "b", "unrelated"} {
+				names := []string{"gateways/" + gateway}
 				proxy := &model.Proxy{Type: model.Router, ConfigNamespace: "proxy", Metadata: &model.NodeMetadata{},
-					MergedGateway: &model.MergedGateway{GatewayNames: []string{"gateways/" + gateway}},
+					MergedGateway: &model.MergedGateway{GatewayNames: names, GatewayScopeKey: model.NewGatewayScopeKey(model.Router, "proxy", names)},
 				}
 				proxy.SetSidecarScope(old.PushContext())
 				proxy.SetSidecarScope(current.PushContext())
@@ -277,7 +278,7 @@ func TestGatewaySidecarScopeReselection(t *testing.T) {
 				oldScope := proxy.SidecarScope
 				assert.Equal(t, oldScope.GatewaysDependOnConfig(model.ConfigKey{Kind: kind.VirtualService, Name: "a", Namespace: "routes"},
 					proxy.MergedGateway.GatewayNames), true)
-				assert.Equal(t, len(old.PushContext().VirtualServicesForGatewayProxy(proxy, "gateways/a")), 1)
+				assert.Equal(t, len(proxy.SidecarScope.GatewayVirtualServices("gateways/a")), 1)
 				current := core.NewConfigGenTest(t, core.TestOptions{Configs: append(tt.gateways, routes...)})
 				server.Env = current.Env()
 				server.computeProxyState(proxy, &model.PushRequest{
@@ -292,7 +293,7 @@ func TestGatewaySidecarScopeReselection(t *testing.T) {
 					assert.Equal(t, proxy.SidecarScope.GatewaysDependOnConfig(model.ConfigKey{Kind: kind.VirtualService, Name: name, Namespace: "routes"},
 						gatewayNames), bound)
 					// Generation reads gateway VirtualServices from the scope, which must follow the merged gateways.
-					virtualServices := current.PushContext().VirtualServicesForGatewayProxy(proxy, "gateways/"+name)
+					virtualServices := proxy.SidecarScope.GatewayVirtualServices("gateways/" + name)
 					assert.Equal(t, len(virtualServices) == 1 && virtualServices[0].Name == name, bound)
 				}
 				key := model.ConfigKey{Kind: kind.VirtualService, Name: "a", Namespace: "routes"}
@@ -351,7 +352,7 @@ func TestGatewaySidecarScopeFromNoGateways(t *testing.T) {
 			assert.Equal(t, proxy.MergedGateway == nil, true)
 			baseScope := proxy.SidecarScope
 			assert.Equal(t, baseScope.GatewaysDependOnConfig(key, []string{"gateways/a"}), false)
-			assert.Equal(t, len(old.PushContext().VirtualServicesForGatewayProxy(proxy, "gateways/a")), 0)
+			assert.Equal(t, len(proxy.SidecarScope.GatewayVirtualServices("gateways/a")), 0)
 			_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{Push: old.PushContext(), ConfigsUpdated: sets.New(key)})
 			assert.Equal(t, needsPush, pt.typ != model.Router)
 
@@ -367,7 +368,7 @@ func TestGatewaySidecarScopeFromNoGateways(t *testing.T) {
 			assert.Equal(t, proxy.SidecarScope != baseScope, true)
 			assert.Equal(t, proxy.PrevSidecarScope == baseScope, true)
 			assert.Equal(t, proxy.SidecarScope.GatewaysDependOnConfig(key, proxy.MergedGateway.GetGatewayNames()), true)
-			virtualServices := current.PushContext().VirtualServicesForGatewayProxy(proxy, "gateways/a")
+			virtualServices := proxy.SidecarScope.GatewayVirtualServices("gateways/a")
 			assert.Equal(t, len(virtualServices), 1)
 			assert.Equal(t, virtualServices[0].Name, "a")
 			assert.Equal(t, proxyDependentOnConfig(proxy, key, current.PushContext()), true)
@@ -800,8 +801,10 @@ func TestProxyNeedsPush(t *testing.T) {
 		},
 	})
 
+	mergedGatewayNames := []string{nsName + "/" + generalName}
 	gateway.MergedGateway = &model.MergedGateway{
-		GatewayNames: []string{nsName + "/" + generalName},
+		GatewayNames:    mergedGatewayNames,
+		GatewayScopeKey: model.NewGatewayScopeKey(gateway.Type, gateway.ConfigNamespace, mergedGatewayNames),
 	}
 	gateway.SetSidecarScope(cg.PushContext())
 

@@ -462,6 +462,7 @@ func TestMergedGatewayNames(t *testing.T) {
 		}
 		merged := mergeGateways(instances, &Proxy{}, makePushContext())
 		assert.Equal(t, merged.GatewayNames, []string{"a/z", "z/a"})
+		assert.Equal(t, merged.GatewayScopeKey, GatewayScopeKey{Gateways: "a/z,z/a"})
 		assert.Equal(t, len(merged.GatewayNameForServer), 3)
 	}
 }

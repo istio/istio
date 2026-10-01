@@ -724,6 +724,13 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	return sc.configDependencies.Contains(config.HashCode())
 }
 
+// GatewayVirtualServices returns the VirtualServices bound to the namespace/name gateway in this scope.
+// Only the gateway-specific scopes of routers and ambient east-west gateways carry them. SetSidecarScope
+// selects those scopes from the proxy's merged gateways, so it must run after SetGatewaysForProxy.
+func (sc *SidecarScope) GatewayVirtualServices(gateway string) []*config.Config {
+	return sc.gatewayVirtualServices[gateway]
+}
+
 // GatewaysDependOnConfig checks dependencies for the supplied namespace/name gateway names.
 // An empty gateways slice has no dependencies. Common dependencies are checked by DependsOnConfig.
 func (sc *SidecarScope) GatewaysDependOnConfig(config ConfigKey, gateways []string) bool {

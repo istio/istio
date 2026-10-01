@@ -163,7 +163,7 @@ type sidecarIndex struct {
 	sidecarsForGatewayByNamespace map[string]*SidecarScope
 	// Gateway-specific scopes for routers and ambient east-west gateways, layered on the
 	// namespace scope of the proxy type. These are lazy-loaded. Access protected by derivedSidecarMutex.
-	sidecarsForGatewayByNamespaceAndGateways map[gatewayScopeKey]*SidecarScope
+	sidecarsForGatewayByNamespaceAndGateways map[GatewayScopeKey]*SidecarScope
 	// sidecarsForWaypointByNamespace contains the default sidecar for waypoints,
 	// including mesh VirtualServices used for waypoint routing.
 	// These are lazy-loaded. Access protected by derivedSidecarMutex.
@@ -173,21 +173,13 @@ type sidecarIndex struct {
 	derivedSidecarMutex *sync.RWMutex
 }
 
-// gatewayScopeKey identifies a gateway-specific SidecarScope. The proxy type and namespace select
-// the base scope; gateways is the sorted, comma-separated set of namespace/name gateway names.
-type gatewayScopeKey struct {
-	proxyType NodeType
-	namespace string
-	gateways  string
-}
-
 func newSidecarIndex() sidecarIndex {
 	return sidecarIndex{
 		sidecarsByNamespace:                      map[string][]*SidecarScope{},
 		meshRootSidecarsByNamespace:              map[string]*SidecarScope{},
 		defaultSidecarsByNamespace:               map[string]*SidecarScope{},
 		sidecarsForGatewayByNamespace:            map[string]*SidecarScope{},
-		sidecarsForGatewayByNamespaceAndGateways: map[gatewayScopeKey]*SidecarScope{},
+		sidecarsForGatewayByNamespaceAndGateways: map[GatewayScopeKey]*SidecarScope{},
 		sidecarsForWaypointByNamespace:           map[string]*SidecarScope{},
 		derivedSidecarMutex:                      &sync.RWMutex{},
 	}
@@ -1179,13 +1171,6 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	return res
 }
 
-// VirtualServicesForGatewayProxy returns the gateway VirtualServices cached in the scope of a router
-// or ambient east-west gateway. SetSidecarScope selects a gateway-specific scope from the proxy's
-// merged gateways, so it must run after SetGatewaysForProxy.
-func (ps *PushContext) VirtualServicesForGatewayProxy(proxy *Proxy, gateway string) []*config.Config {
-	return proxy.SidecarScope.gatewayVirtualServices[gateway]
-}
-
 // getSidecarScope returns a SidecarScope object associated with the
 // proxy. The SidecarScope object is a semi-processed view of the service
 // registry, and config state associated with the sidecar crd. The scope contains
@@ -1292,7 +1277,7 @@ func (ps *PushContext) gatewayScope(proxy *Proxy, base *SidecarScope) *SidecarSc
 	if len(gateways) == 0 {
 		return base
 	}
-	key := gatewayScopeKey{proxyType: proxy.Type, namespace: proxy.ConfigNamespace, gateways: strings.Join(gateways, ",")}
+	key := proxy.MergedGateway.GatewayScopeKey
 	if sc, found := ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[key]; found {
 		return sc
 	}

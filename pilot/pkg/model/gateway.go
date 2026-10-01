@@ -79,6 +79,11 @@ type MergedGateway struct {
 	// GatewayNames contains the sorted, deduplicated namespace/name gateway names in GatewayNameForServer.
 	GatewayNames []string
 
+	// GatewayScopeKey identifies the gateway-specific SidecarScope for this proxy and gateway set,
+	// precomputed so scope selection does not rebuild it. Code that constructs a MergedGateway
+	// directly must set it alongside GatewayNames.
+	GatewayScopeKey GatewayScopeKey
+
 	// ServersByRouteName maps from port names to virtual hosts
 	// Used for RDS. No two port names share same port except for HTTPS
 	// The typical length of the value is always 1, except for HTTP (not HTTPS),
@@ -118,6 +123,19 @@ func (g *MergedGateway) GetGatewayNames() []string {
 		return g.GatewayNames
 	}
 	return nil
+}
+
+// GatewayScopeKey identifies the gateway-specific SidecarScope of a proxy. The proxy type and
+// namespace select the base scope; Gateways is the sorted, comma-separated namespace/name gateway set.
+type GatewayScopeKey struct {
+	ProxyType NodeType
+	Namespace string
+	Gateways  string
+}
+
+// NewGatewayScopeKey builds the key for a proxy's sorted, deduplicated gateway names.
+func NewGatewayScopeKey(proxyType NodeType, namespace string, gateways []string) GatewayScopeKey {
+	return GatewayScopeKey{ProxyType: proxyType, Namespace: namespace, Gateways: strings.Join(gateways, ",")}
 }
 
 // PrevMergedGateway describes previous state of the gateway.
@@ -471,12 +489,14 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 		}
 	}
+	sortedGatewayNames := sets.SortedList(gatewayNames)
 	return &MergedGateway{
 		MergedServers:                   mergedServers,
 		MergedQUICTransportServers:      mergedQUICServers,
 		ServerPorts:                     serverPorts,
 		GatewayNameForServer:            gatewayNameForServer,
-		GatewayNames:                    sets.SortedList(gatewayNames),
+		GatewayNames:                    sortedGatewayNames,
+		GatewayScopeKey:                 NewGatewayScopeKey(proxy.Type, proxy.ConfigNamespace, sortedGatewayNames),
 		TLSServerInfo:                   tlsServerInfo,
 		ServersByRouteName:              serversByRouteName,
 		HTTP3AdvertisingRoutes:          http3AdvertisingRoutes,

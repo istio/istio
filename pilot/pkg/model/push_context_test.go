@@ -2421,8 +2421,9 @@ func TestGatewaySpecificSidecarScopes(t *testing.T) {
 	ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = []*config.Config{meshRoute}
 	ps.virtualServiceIndex.privateByNamespaceAndGateway[types.NamespacedName{Namespace: "proxy", Name: "gateways/a"}] = []*config.Config{private}
 	proxy := func(proxyType NodeType, namespace string, gateways ...string) *Proxy {
+		names := sets.SortedList(sets.New(gateways...))
 		p := &Proxy{Type: proxyType, ConfigNamespace: namespace, MergedGateway: &MergedGateway{
-			GatewayNames: sets.SortedList(sets.New(gateways...)),
+			GatewayNames: names, GatewayScopeKey: NewGatewayScopeKey(proxyType, namespace, names),
 		}}
 		if proxyType == Waypoint {
 			p.Labels = map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayEastWestControllerLabel}
@@ -2435,11 +2436,11 @@ func TestGatewaySpecificSidecarScopes(t *testing.T) {
 	pab := proxy(Router, "proxy", "gateways/a", "gateways/b")
 	assert.Equal(t, pab.SidecarScope == proxy(Router, "proxy", "gateways/b", "gateways/a", "gateways/a").SidecarScope, true)
 	assert.Equal(t, pa.SidecarScope == pb.SidecarScope, false)
-	assert.Equal(t, ps.VirtualServicesForGatewayProxy(pa, "gateways/a"), []*config.Config{private, a})
-	assert.Equal(t, ps.VirtualServicesForGatewayProxy(pab, "gateways/b"), []*config.Config{b})
+	assert.Equal(t, pa.SidecarScope.GatewayVirtualServices("gateways/a"), []*config.Config{private, a})
+	assert.Equal(t, pab.SidecarScope.GatewayVirtualServices("gateways/b"), []*config.Config{b})
 	assert.Equal(t, len(pa.SidecarScope.EgressListeners), 0)
 	otherNamespace := proxy(Router, "other", "gateways/a")
-	assert.Equal(t, ps.VirtualServicesForGatewayProxy(otherNamespace, "gateways/a"), []*config.Config{a})
+	assert.Equal(t, otherNamespace.SidecarScope.GatewayVirtualServices("gateways/a"), []*config.Config{a})
 	assert.Equal(t, otherNamespace.SidecarScope == pa.SidecarScope, false)
 
 	// Ambient east-west gateways layer the same gateway VirtualServices on the waypoint scope, which
@@ -2447,7 +2448,7 @@ func TestGatewaySpecificSidecarScopes(t *testing.T) {
 	ew := proxy(Waypoint, "proxy", "gateways/a")
 	assert.Equal(t, ew.SidecarScope == pa.SidecarScope, false)
 	assert.Equal(t, ew.SidecarScope == proxy(Waypoint, "proxy", "gateways/a").SidecarScope, true)
-	assert.Equal(t, ps.VirtualServicesForGatewayProxy(ew, "gateways/a"), []*config.Config{private, a})
+	assert.Equal(t, ew.SidecarScope.GatewayVirtualServices("gateways/a"), []*config.Config{private, a})
 	assert.Equal(t, ew.SidecarScope.EgressListeners[0].VirtualServices(), []*config.Config{meshRoute})
 	waypointBase := ps.sidecarIndex.sidecarsForWaypointByNamespace["proxy"]
 	assert.Equal(t, ew.SidecarScope == waypointBase, false)
@@ -2458,7 +2459,9 @@ func TestGatewaySpecificSidecarScopes(t *testing.T) {
 	// A waypoint that is not an east-west gateway keeps the namespace scope even with a merged
 	// gateway, matching the label checks that gate gateway generation for waypoints.
 	meshWaypoint := &Proxy{
-		Type: Waypoint, ConfigNamespace: "proxy", MergedGateway: &MergedGateway{GatewayNames: []string{"gateways/a"}},
+		Type: Waypoint, ConfigNamespace: "proxy", MergedGateway: &MergedGateway{
+			GatewayNames: []string{"gateways/a"}, GatewayScopeKey: NewGatewayScopeKey(Waypoint, "proxy", []string{"gateways/a"}),
+		},
 		Labels: map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 	}
 	meshWaypoint.SetSidecarScope(ps)
@@ -2502,9 +2505,14 @@ func TestGatewaySpecificSidecarScopeReuse(t *testing.T) {
 		t.Run(tt.changedKind.String(), func(t *testing.T) {
 			old := NewPushContext()
 			old.Mesh = mesh.DefaultMeshConfig()
-			router := &Proxy{Type: Router, ConfigNamespace: "proxy", MergedGateway: &MergedGateway{GatewayNames: []string{"gateways/a"}}}
+			names := []string{"gateways/a"}
+			router := &Proxy{Type: Router, ConfigNamespace: "proxy", MergedGateway: &MergedGateway{
+				GatewayNames: names, GatewayScopeKey: NewGatewayScopeKey(Router, "proxy", names),
+			}}
 			eastWest := &Proxy{
-				Type: Waypoint, ConfigNamespace: "proxy", MergedGateway: &MergedGateway{GatewayNames: []string{"gateways/a"}},
+				Type: Waypoint, ConfigNamespace: "proxy", MergedGateway: &MergedGateway{
+					GatewayNames: names, GatewayScopeKey: NewGatewayScopeKey(Waypoint, "proxy", names),
+				},
 				Labels: map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayEastWestControllerLabel},
 			}
 			proxies := []*Proxy{router, eastWest}
