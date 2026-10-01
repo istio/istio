@@ -253,7 +253,7 @@ type IstioEgressListenerWrapper struct {
 
 const defaultSidecar = "default-sidecar"
 
-// DefaultSidecarScopeForGateway builds a SidecarScope contains services and destinationRules for a given gateway/waypoint.
+// DefaultSidecarScopeForGateway builds a SidecarScope containing services and destination rules for a gateway.
 func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *SidecarScope {
 	services := ps.servicesExportedToNamespace(configNamespace)
 	out := &SidecarScope{
@@ -273,12 +273,18 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 
 	out.selectAuthnPolicies(ps, configNamespace)
 
-	// waypoint need to get vses from the egress listener
-	defaultEgressListener := &IstioEgressListenerWrapper{
-		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
-	}
-	out.EgressListeners = []*IstioEgressListenerWrapper{defaultEgressListener}
 	out.initFunc = func() {}
+
+	return out
+}
+
+// DefaultSidecarScopeForWaypoint extends the gateway scope with mesh VirtualServices for waypoint routing.
+func DefaultSidecarScopeForWaypoint(ps *PushContext, configNamespace string) *SidecarScope {
+	out := DefaultSidecarScopeForGateway(ps, configNamespace)
+
+	out.EgressListeners = []*IstioEgressListenerWrapper{{
+		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
+	}}
 
 	return out
 }
