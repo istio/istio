@@ -2370,7 +2370,7 @@ func TestInitPushContext(t *testing.T) {
 
 func TestGatewayAndWaypointSidecarScopes(t *testing.T) {
 	meshVirtualService := &config.Config{
-		Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "mesh-route", Namespace: "default"},
+		GroupVersionKind: gvk.VirtualService, Name: "mesh-route", Namespace: "default",
 		Spec: &networking.VirtualService{Hosts: []string{"example.com"}},
 	}
 	for _, order := range [][]NodeType{
@@ -2390,16 +2390,17 @@ func TestGatewayAndWaypointSidecarScopes(t *testing.T) {
 				proxy := &Proxy{Type: nodeType, ConfigNamespace: "default"}
 				scope := ps.getSidecarScope(proxy, nil)
 				scopes[nodeType] = scope
-				if nodeType == Router {
+				switch nodeType {
+				case Router:
 					assert.Equal(t, len(scope.EgressListeners), 0)
-				} else if nodeType == Waypoint {
+				case Waypoint:
 					assert.Equal(t, len(scope.EgressListeners), 1)
 					assert.Equal(t, scope.EgressListeners[0].VirtualServices(), []*config.Config{meshVirtualService})
 				}
 				assert.Equal(t, ps.getSidecarScope(proxy, nil) == scope, true)
 			}
 			assert.Equal(t, scopes[Router] == scopes[Waypoint], false)
-			assert.Equal(t, scopes[Router] == scopes[SidecarProxy], false)
+			assert.Equal(t, scopes[SidecarProxy] == scopes[Router], false)
 			assert.Equal(t, scopes[Waypoint] == scopes[SidecarProxy], false)
 		})
 	}
