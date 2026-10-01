@@ -167,7 +167,7 @@ func GlobalNestedWorkloadServicesCollection(
 	// This will contain the serviceinfos derived from Services AND ServiceEntries
 	LocalServiceInfosWithCluster := krt.MapCollection(
 		localServiceInfos,
-    wrapPointerObjectWithCluster[model.ServiceInfo](localCluster.ID()),
+		wrapPointerObjectWithCluster[model.ServiceInfo](localCluster.ID()),
 		opts.WithName("LocalServiceInfosWithCluster")...,
 	)
 
@@ -212,7 +212,7 @@ func GlobalNestedWorkloadServicesCollection(
 
 			servicesInfoWithCluster := krt.MapCollection(
 				servicesInfo,
-        wrapPointerObjectWithCluster[model.ServiceInfo](cluster.ID()),
+				wrapPointerObjectWithCluster[model.ServiceInfo](cluster.ID()),
 				append(
 					opts,
 					krt.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID())),

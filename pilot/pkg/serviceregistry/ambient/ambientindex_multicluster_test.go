@@ -123,7 +123,7 @@ func (s *ambientTestServer) newClusterClients(t *testing.T, stop <-chan struct{}
 				cl := c.Client()
 				// krt.NewStaticCollection returns a concrete StaticCollection, so the interface value
 				// has to be named to take its address.
-				var col krt.Collection[*remoteAmbientClients] = krt.NewStaticCollection(nil, []*remoteAmbientClients{{
+				col := krt.NewStaticCollection(nil, []*remoteAmbientClients{{
 					clusterID: c.ID(),
 					ambientclients: &ambientclients{
 						pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
@@ -992,7 +992,7 @@ func TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak(t *testing.T) {
 		s.mcController,
 		krt.NewStaticCollection[clusterGeneration](nil, nil, krt.WithName("LocalGenerations"), krt.WithStop(stop)),
 		func(ctx krt.HandlerContext, c multicluster.ClusterCollections) *krt.Collection[clusterGeneration] {
-			var col krt.Collection[clusterGeneration] = krt.NewStaticCollection(nil,
+			col := krt.NewStaticCollection(nil,
 				[]clusterGeneration{{id: c.ID(), stop: c.GetStop()}},
 				krt.WithName(fmt.Sprintf("Generation[%s]", c.ID())), krt.WithStop(c.GetStop()))
 			return &col

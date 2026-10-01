@@ -184,7 +184,7 @@ func MergedGlobalWorkloadsCollection(
 	)
 	LocalPodWorkloadsWithCluster := krt.MapCollection(
 		LocalPodWorkloads,
-    wrapPointerObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
+		wrapPointerObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
 		opts.WithName("LocalPodWorkloadsWithCluster")...,
 	)
 	LocalWorkloadEntryWorkloads := krt.NewPointerCollection(
@@ -208,7 +208,7 @@ func MergedGlobalWorkloadsCollection(
 	)
 	LocalWorkloadEntryWorkloadsWithCluster := krt.MapCollection(
 		LocalWorkloadEntryWorkloads,
-    wrapPointerObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
+		wrapPointerObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
 		opts.WithName("LocalWorkloadEntryWorkloadsWithCluster")...,
 	)
 	// Workloads coming from serviceEntries. These are inlined workloadEntries (under `spec.endpoints`); these serviceEntries will
@@ -231,7 +231,7 @@ func MergedGlobalWorkloadsCollection(
 	)
 	LocalServiceEntryWorkloadsWithCluster := krt.MapCollection(
 		LocalServiceEntryWorkloads,
-    wrapPointerObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
+		wrapPointerObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
 		opts.WithName("LocalServiceEntryWorkloadsWithCluster")...,
 	)
 	// Workloads coming from endpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
@@ -252,7 +252,7 @@ func MergedGlobalWorkloadsCollection(
 	)
 	LocalEndpointSliceWorkloadsWithCluster := krt.MapCollection(
 		LocalEndpointSliceWorkloads,
-    wrapPointerObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
+		wrapPointerObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
 		opts.WithName("LocalEndpointSliceWorkloadsWithCluster")...,
 	)
 
@@ -265,7 +265,7 @@ func MergedGlobalWorkloadsCollection(
 	}, opts.WithName("LocalNetworkGatewayWorkloads")...)
 	LocalNetworkGatewayWorkloadsWithCluster := krt.MapCollection(
 		GlobalNetworkGatewayWorkloads,
-    wrapPointerObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
+		wrapPointerObjectWithCluster[model.WorkloadInfo](localCluster.ID()),
 		opts.WithName("LocalNetworkGatewayWorkloadsWithCluster")...,
 	)
 	GlobalWorkloadInfosWithCluster := multicluster.NestedManyCollectionsFromLocalAndRemote(
@@ -367,7 +367,7 @@ func MergedGlobalWorkloadsCollection(
 			)
 			PodWorkloadsWithCluster := krt.MapCollection(
 				PodWorkloads,
-        wrapPointerObjectWithCluster[model.WorkloadInfo](c.ID()),
+				wrapPointerObjectWithCluster[model.WorkloadInfo](c.ID()),
 				append(
 					opts,
 					krt.WithName(fmt.Sprintf("PodWorkloadsWithCluster[%s]", c.ID())),
@@ -406,7 +406,7 @@ func MergedGlobalWorkloadsCollection(
 			)
 			WorkloadEntryWorkloadsWithCluster := krt.MapCollection(
 				WorkloadEntryWorkloads,
-        wrapPointerObjectWithCluster[model.WorkloadInfo](c.ID()),
+				wrapPointerObjectWithCluster[model.WorkloadInfo](c.ID()),
 				append(
 					opts,
 					krt.WithName(fmt.Sprintf("WorkloadEntryWorkloadsWithCluster[%s]", c.ID())),
@@ -443,7 +443,7 @@ func MergedGlobalWorkloadsCollection(
 			)
 			ServiceEntryWorkloadsWithCluster := krt.MapCollection(
 				ServiceEntryWorkloads,
-        wrapPointerObjectWithCluster[model.WorkloadInfo](c.ID()),
+				wrapPointerObjectWithCluster[model.WorkloadInfo](c.ID()),
 				append(
 					opts,
 					krt.WithName(fmt.Sprintf("ServiceEntryWorkloadsWithCluster[%s]", c.ID())),
@@ -478,7 +478,7 @@ func MergedGlobalWorkloadsCollection(
 			)
 			EndpointSliceWorkloadsWithCluster := krt.MapCollection(
 				EndpointSliceWorkloads,
-        wrapPointerObjectWithCluster[model.WorkloadInfo](c.ID()),
+				wrapPointerObjectWithCluster[model.WorkloadInfo](c.ID()),
 				append(
 					opts,
 					krt.WithName(fmt.Sprintf("EndpointSliceWorkloadsWithCluster[%s]", c.ID())),
