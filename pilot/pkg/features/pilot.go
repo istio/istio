@@ -41,8 +41,8 @@ var (
 			"Gateways with same selectors in different namespaces will not be applicable.",
 	).Get()
 
-	EnableGatewayScopedVirtualServices = env.Register(
-		"PILOT_GATEWAY_SPECIFIC_SIDECAR_SCOPE",
+	EnableGatewaySpecificSidecarScopes = env.Register(
+		"PILOT_GATEWAY_SPECIFIC_SIDECAR_SCOPES",
 		true,
 		"Cache VirtualServices in gateway-specific SidecarScopes and limit gateway pushes to their dependencies.",
 	).Get()
@@ -119,7 +119,8 @@ var (
 			"DEBUG_ENDPOINT_AUTH_ALLOWED_NAMESPACES",
 			"",
 			"Comma separated list of namespaces to allow access to debug endpoints. Only used if ENABLE_DEBUG_ENDPOINT_AUTH is enabled. The system namespace"+
-				"is always authorized.").Get()
+				"is always authorized.",
+		).Get()
 		return sets.New(strings.Split(v, ",")...)
 	}()
 
@@ -145,11 +146,13 @@ var (
 			"Setting the timeout to 0 disables this behavior.",
 	).Get()
 
-	DisableMxALPN = env.Register("PILOT_DISABLE_MX_ALPN", false,
+	DisableMxALPN = env.Register(
+		"PILOT_DISABLE_MX_ALPN", false,
 		"If true, pilot will not put istio-peer-exchange ALPN into TLS handshake configuration.",
 	).Get()
 
-	ALPNFilter = env.Register("PILOT_ENABLE_ALPN_FILTER", true,
+	ALPNFilter = env.Register(
+		"PILOT_ENABLE_ALPN_FILTER", true,
 		"If true, pilot will add Istio ALPN filters, required for proper protocol sniffing.",
 	).Get()
 
@@ -179,7 +182,8 @@ var (
 	EnableNodeUntaintControllers = env.Register(
 		"PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS",
 		false,
-		"If enabled, controller that untaints nodes with cni pods ready will run. This should be enabled if you disabled ambient init containers.").Get()
+		"If enabled, controller that untaints nodes with cni pods ready will run. This should be enabled if you disabled ambient init containers.",
+	).Get()
 
 	NodeUntaintTaintName = env.Register(
 		"PILOT_NODE_UNTAINT_CONTROLLERS_TAINT_NAME",
@@ -193,25 +197,29 @@ var (
 		true,  // with ambient: also require ztunnel ready before untainting
 		false, // without ambient: no ztunnel exists, keep istio-cni-only behavior
 		"If enabled, the node-untaint controller also requires ztunnel to be ready on a node before "+
-			"removing the readiness taint. Only applies when ambient is enabled.")
+			"removing the readiness taint. Only applies when ambient is enabled.",
+	)
 
 	EnableIPAutoallocate = env.Register(
 		"PILOT_ENABLE_IP_AUTOALLOCATE",
 		true,
 		"If enabled, pilot will start a controller that assigns IP addresses to ServiceEntry which do not have a user-supplied IP. "+
-			"This, when combined with DNS capture allows for tcp routing of traffic sent to the ServiceEntry.").Get()
+			"This, when combined with DNS capture allows for tcp routing of traffic sent to the ServiceEntry.",
+	).Get()
 
 	IPAutoallocateIPv4Prefix = env.Register(
 		"PILOT_IP_AUTOALLOCATE_IPV4_PREFIX",
 		"240.240.0.0/16",
 		"The CIDR range/prefix to use for auto-allocated IPv4 addresses. "+
-			"This should be a private range, and not conflict with any other IPs in the cluster.").Get()
+			"This should be a private range, and not conflict with any other IPs in the cluster.",
+	).Get()
 
 	IPAutoallocateIPv6Prefix = env.Register(
 		"PILOT_IP_AUTOALLOCATE_IPV6_PREFIX",
 		"2001:2::/48",
 		"The CIDR range/prefix to use for auto-allocated IPv6 addresses. "+
-			"This should be a private range, and not conflict with any other IPs in the cluster.").Get()
+			"This should be a private range, and not conflict with any other IPs in the cluster.",
+	).Get()
 
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
@@ -257,7 +265,8 @@ var (
 			"",
 			"Comma separated list of potentially insecure kubeconfig authentication options that are allowed for multicluster authentication."+
 				"Support values: all authProviders (`gcp`, `azure`, `exec`, `openstack`), "+
-				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
+				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.",
+		).Get()
 		return sets.New(strings.Split(v, ",")...)
 	}()
 
@@ -354,7 +363,8 @@ var (
 	EnableStrictGatewayMerging = env.Register(
 		"PILOT_ENABLE_STRICT_GATEWAY_MERGING",
 		true,
-		"If enabled, managed GatewayAPI Gateways will not be merged with Istio Gateways from different namespaces.").Get()
+		"If enabled, managed GatewayAPI Gateways will not be merged with Istio Gateways from different namespaces.",
+	).Get()
 
 	EnableNativeSidecars = func() NativeSidecarMode {
 		v := env.Register("ENABLE_NATIVE_SIDECARS", "auto",
@@ -384,7 +394,8 @@ var (
 		v := env.Register(
 			"BLOCKED_CIDRS_IN_JWKS_URIS",
 			"",
-			"Comma separated list of CIDR ranges that are blocked in JWKS URIs (e.g., 10.0.0.0/8,192.168.1.0/24).").Get()
+			"Comma separated list of CIDR ranges that are blocked in JWKS URIs (e.g., 10.0.0.0/8,192.168.1.0/24).",
+		).Get()
 		if v == "" {
 			return nil
 		}
@@ -413,7 +424,8 @@ var (
 		v := env.Register(
 			"BLOCKED_CIDRS_IN_WASM_FETCH",
 			"",
-			"Comma separated list of CIDR ranges that are blocked when fetching Wasm modules (e.g., 10.0.0.0/8,192.168.1.0/24).").Get()
+			"Comma separated list of CIDR ranges that are blocked when fetching Wasm modules (e.g., 10.0.0.0/8,192.168.1.0/24).",
+		).Get()
 		if v == "" {
 			return nil
 		}

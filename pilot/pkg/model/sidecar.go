@@ -298,8 +298,9 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 	return out
 }
 
-// gatewaySidecarScope extends an initialized namespace scope with the VirtualServices for a gateway set.
-// The common indexes are immutable and shared with the namespace scope.
+// gatewaySidecarScope extends the initialized namespace scope of a router or ambient east-west gateway
+// with the VirtualServices bound to its gateway set. The common indexes, including the mesh egress
+// listener of a waypoint base, are immutable and shared with the namespace scope.
 func gatewaySidecarScope(ps *PushContext, base *SidecarScope, gateways []string) *SidecarScope {
 	out := *base
 	out.Version = ps.PushVersion

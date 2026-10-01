@@ -433,7 +433,8 @@ func deltaAwareConfigTypes(cfgs sets.Set[model.ConfigKey], rootNamespace string)
 // services that are referenced by the gateway's VirtualServices (e.g., TLS passthrough backends).
 // This ensures that the required outbound clusters exist for non-HBONE traffic the E/W gateway routes.
 // Note: we do NOT rely on ServiceAttachedToGateway / destinationsByGateway because those are only
-// populated when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG=true. Instead we read VirtualServices directly.
+// populated when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG=true. Instead we read the gateway VirtualServices
+// from the proxy's scope, the same source the TLS/TCP listener filters are built from.
 func appendGatewayReferencedServices(push *model.PushContext, proxy *model.Proxy, existing []*model.Service, allServices []*model.Service) []*model.Service {
 	if proxy.MergedGateway == nil {
 		return existing
@@ -442,7 +443,7 @@ func appendGatewayReferencedServices(push *model.PushContext, proxy *model.Proxy
 	// Collect all destination hostnames referenced by TLS/TCP routes on this gateway's VirtualServices.
 	gwHosts := sets.New[string]()
 	for _, gwName := range proxy.MergedGateway.GatewayNames {
-		for _, vs := range push.VirtualServicesForGateway(proxy.ConfigNamespace, gwName) {
+		for _, vs := range push.VirtualServicesForGatewayProxy(proxy, gwName) {
 			rule := vs.Spec.(*networking.VirtualService)
 			for _, tls := range rule.Tls {
 				for _, route := range tls.Route {

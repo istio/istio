@@ -112,6 +112,14 @@ func (g *MergedGateway) HasAutoPassthroughGateways() bool {
 	return false
 }
 
+// GetGatewayNames returns the sorted, deduplicated namespace/name gateway names, or nil without a merged gateway.
+func (g *MergedGateway) GetGatewayNames() []string {
+	if g != nil {
+		return g.GatewayNames
+	}
+	return nil
+}
+
 // PrevMergedGateway describes previous state of the gateway.
 // Currently, it only contains information relevant for auto passthrough gateways
 // and gateway names used by CDS.
@@ -133,6 +141,14 @@ func (g *PrevMergedGateway) GetAutoPassthroughSNIHosts() sets.Set[string] {
 		return g.AutoPassthroughSNIHosts
 	}
 	return sets.Set[string]{}
+}
+
+// GetGatewayNames returns the sorted, deduplicated namespace/name gateway names, or nil without a previous gateway.
+func (g *PrevMergedGateway) GetGatewayNames() []string {
+	if g != nil {
+		return g.GatewayNames
+	}
+	return nil
 }
 
 var (

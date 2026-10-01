@@ -161,9 +161,9 @@ type sidecarIndex struct {
 	// These are *always* computed from DefaultSidecarScopeForGateway.
 	// These are lazy-loaded. Access protected by derivedSidecarMutex.
 	sidecarsForGatewayByNamespace map[string]*SidecarScope
-	// Gateway-specific scopes keyed by proxy namespace and a sorted, comma-separated set of
-	// fully qualified gateway names. Access protected by derivedSidecarMutex.
-	sidecarsForGatewayByNamespaceAndGateways map[types.NamespacedName]*SidecarScope
+	// Gateway-specific scopes for routers and ambient east-west gateways, layered on the
+	// namespace scope of the proxy type. These are lazy-loaded. Access protected by derivedSidecarMutex.
+	sidecarsForGatewayByNamespaceAndGateways map[gatewayScopeKey]*SidecarScope
 	// sidecarsForWaypointByNamespace contains the default sidecar for waypoints,
 	// including mesh VirtualServices used for waypoint routing.
 	// These are lazy-loaded. Access protected by derivedSidecarMutex.
@@ -173,13 +173,21 @@ type sidecarIndex struct {
 	derivedSidecarMutex *sync.RWMutex
 }
 
+// gatewayScopeKey identifies a gateway-specific SidecarScope. The proxy type and namespace select
+// the base scope; gateways is the sorted, comma-separated set of namespace/name gateway names.
+type gatewayScopeKey struct {
+	proxyType NodeType
+	namespace string
+	gateways  string
+}
+
 func newSidecarIndex() sidecarIndex {
 	return sidecarIndex{
 		sidecarsByNamespace:                      map[string][]*SidecarScope{},
 		meshRootSidecarsByNamespace:              map[string]*SidecarScope{},
 		defaultSidecarsByNamespace:               map[string]*SidecarScope{},
 		sidecarsForGatewayByNamespace:            map[string]*SidecarScope{},
-		sidecarsForGatewayByNamespaceAndGateways: map[types.NamespacedName]*SidecarScope{},
+		sidecarsForGatewayByNamespaceAndGateways: map[gatewayScopeKey]*SidecarScope{},
 		sidecarsForWaypointByNamespace:           map[string]*SidecarScope{},
 		derivedSidecarMutex:                      &sync.RWMutex{},
 	}
@@ -1171,10 +1179,11 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	return res
 }
 
-// VirtualServicesForGatewayProxy returns the gateway VirtualServices cached in a router's scope.
-// East-west waypoints use their mesh scope, so select gateway VirtualServices from the push index.
+// VirtualServicesForGatewayProxy returns the gateway VirtualServices cached in the scope of a router
+// or ambient east-west gateway. SetSidecarScope selects a gateway-specific scope from the proxy's
+// merged gateways, so it must run after SetGatewaysForProxy.
 func (ps *PushContext) VirtualServicesForGatewayProxy(proxy *Proxy, gateway string) []*config.Config {
-	if proxy.Type == Router && features.EnableGatewayScopedVirtualServices {
+	if features.EnableGatewaySpecificSidecarScopes {
 		return proxy.SidecarScope.gatewayVirtualServices[gateway]
 	}
 	return ps.VirtualServicesForGateway(proxy.ConfigNamespace, gateway)
@@ -1210,14 +1219,15 @@ func (ps *PushContext) doGetSidecarScope(proxy *Proxy, workloadLabels labels.Ins
 		ps.sidecarIndex.derivedSidecarMutex.Lock()
 		defer ps.sidecarIndex.derivedSidecarMutex.Unlock()
 
-		if sc, f := ps.sidecarIndex.sidecarsForWaypointByNamespace[proxy.ConfigNamespace]; f {
-			return sc
+		base, found := ps.sidecarIndex.sidecarsForWaypointByNamespace[proxy.ConfigNamespace]
+		if !found {
+			base = DefaultSidecarScopeForWaypoint(ps, proxy.ConfigNamespace)
+			ps.sidecarIndex.sidecarsForWaypointByNamespace[proxy.ConfigNamespace] = base
 		}
-
-		// We need to compute this namespace
-		computed := DefaultSidecarScopeForWaypoint(ps, proxy.ConfigNamespace)
-		ps.sidecarIndex.sidecarsForWaypointByNamespace[proxy.ConfigNamespace] = computed
-		return computed
+		if !proxy.IsAmbientEastWestGateway() {
+			return base
+		}
+		return ps.gatewayScope(proxy, base)
 	case Router:
 		ps.sidecarIndex.derivedSidecarMutex.Lock()
 		defer ps.sidecarIndex.derivedSidecarMutex.Unlock()
@@ -1227,21 +1237,7 @@ func (ps *PushContext) doGetSidecarScope(proxy *Proxy, workloadLabels labels.Ins
 			base = DefaultSidecarScopeForGateway(ps, proxy.ConfigNamespace)
 			ps.sidecarIndex.sidecarsForGatewayByNamespace[proxy.ConfigNamespace] = base
 		}
-		if !features.EnableGatewayScopedVirtualServices || proxy.MergedGateway == nil {
-			return base
-		}
-
-		gateways := proxy.MergedGateway.GatewayNames
-		if len(gateways) == 0 {
-			return base
-		}
-		key := types.NamespacedName{Namespace: proxy.ConfigNamespace, Name: strings.Join(gateways, ",")}
-		if sc, found := ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[key]; found {
-			return sc
-		}
-		computed := gatewaySidecarScope(ps, base, gateways)
-		ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[key] = computed
-		return computed
+		return ps.gatewayScope(proxy, base)
 	case SidecarProxy:
 		if hasSidecar {
 			for _, wrapper := range sidecars {
@@ -1290,6 +1286,22 @@ func (ps *PushContext) doGetSidecarScope(proxy *Proxy, workloadLabels labels.Ins
 		return computed
 	}
 	return nil
+}
+
+// gatewayScope returns base extended with the VirtualServices bound to the proxy's merged gateways,
+// or base itself when the proxy has none. Callers must hold derivedSidecarMutex.
+func (ps *PushContext) gatewayScope(proxy *Proxy, base *SidecarScope) *SidecarScope {
+	gateways := proxy.MergedGateway.GetGatewayNames()
+	if !features.EnableGatewaySpecificSidecarScopes || len(gateways) == 0 {
+		return base
+	}
+	key := gatewayScopeKey{proxyType: proxy.Type, namespace: proxy.ConfigNamespace, gateways: strings.Join(gateways, ",")}
+	if sc, found := ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[key]; found {
+		return sc
+	}
+	computed := gatewaySidecarScope(ps, base, gateways)
+	ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[key] = computed
+	return computed
 }
 
 // destinationRule returns a destination rule for a service name in a given namespace.
@@ -1576,14 +1588,11 @@ func (ps *PushContext) updateContext(
 		ps.initSidecarScopes(env)
 	} else {
 		// new ADS connection may insert new entry to computedSidecarsByNamespace/gatewayDefaultSidecarsByNamespace.
+		// Gateway-specific scopes are reused as well: they derive from the VirtualService index, which is
+		// unchanged on this path, so Gateway changes do not invalidate them.
 		oldPushContext.sidecarIndex.derivedSidecarMutex.RLock()
 		ps.sidecarIndex = oldPushContext.sidecarIndex
 		oldPushContext.sidecarIndex.derivedSidecarMutex.RUnlock()
-		if gatewayChanged {
-			// Retain common namespace scopes, but do not reuse gateway-specific scopes or
-			// mutate the cache that is still in use by the previous PushContext.
-			ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways = make(map[types.NamespacedName]*SidecarScope)
-		}
 	}
 }
 
