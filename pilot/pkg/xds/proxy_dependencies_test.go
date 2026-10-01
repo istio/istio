@@ -224,7 +224,8 @@ func TestGatewayVirtualServiceDependencies(t *testing.T) {
 			key := model.ConfigKey{Kind: kind.VirtualService, Name: "route", Namespace: "routes"}
 			for _, gateway := range []string{"a", "b", "unrelated"} {
 				names := []string{"gateways/" + gateway}
-				proxy := &model.Proxy{Type: model.Router, ConfigNamespace: "proxy", Metadata: &model.NodeMetadata{},
+				proxy := &model.Proxy{
+					Type: model.Router, ConfigNamespace: "proxy", Metadata: &model.NodeMetadata{},
 					MergedGateway: &model.MergedGateway{GatewayNames: names, GatewayScopeKey: model.NewGatewayScopeKey(model.Router, "proxy", names)},
 				}
 				proxy.SetSidecarScope(old.PushContext())
@@ -282,14 +283,20 @@ func TestGatewaySidecarScopeReselection(t *testing.T) {
 		for _, tt := range cases {
 			t.Run(pt.name+"/"+tt.name, func(t *testing.T) {
 				routes := []config.Config{
-					{Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "a", Namespace: "routes"},
-						Spec: &networking.VirtualService{Hosts: []string{"a.example.com"}, Gateways: []string{"gateways/a"}}},
-					{Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "b", Namespace: "routes"},
-						Spec: &networking.VirtualService{Hosts: []string{"b.example.com"}, Gateways: []string{"gateways/b"}}},
+					{
+						Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "a", Namespace: "routes"},
+						Spec: &networking.VirtualService{Hosts: []string{"a.example.com"}, Gateways: []string{"gateways/a"}},
+					},
+					{
+						Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "b", Namespace: "routes"},
+						Spec: &networking.VirtualService{Hosts: []string{"b.example.com"}, Gateways: []string{"gateways/b"}},
+					},
 				}
 				old := core.NewConfigGenTest(t, core.TestOptions{Configs: append([]config.Config{gateway("a", 80)}, routes...)})
-				proxy := &model.Proxy{Type: pt.typ, ConfigNamespace: "proxy",
-					Metadata: &model.NodeMetadata{Labels: pt.labels}, XdsNode: &envoycore.Node{}, LastPushContext: old.PushContext()}
+				proxy := &model.Proxy{
+					Type: pt.typ, ConfigNamespace: "proxy",
+					Metadata: &model.NodeMetadata{Labels: pt.labels}, XdsNode: &envoycore.Node{}, LastPushContext: old.PushContext(),
+				}
 				server := &DiscoveryServer{Env: old.Env()}
 				server.computeProxyState(proxy, nil)
 				oldScope := proxy.SidecarScope
@@ -362,8 +369,10 @@ func TestGatewaySidecarScopeFromNoGateways(t *testing.T) {
 			// The proxy connects before any Gateway selects it, so it has no merged gateway and
 			// sits on the namespace scope, which neither depends on nor serves gateway routes.
 			old := core.NewConfigGenTest(t, core.TestOptions{Configs: []config.Config{route}})
-			proxy := &model.Proxy{Type: pt.typ, ConfigNamespace: "proxy",
-				Metadata: &model.NodeMetadata{Labels: pt.labels}, XdsNode: &envoycore.Node{}, LastPushContext: old.PushContext()}
+			proxy := &model.Proxy{
+				Type: pt.typ, ConfigNamespace: "proxy",
+				Metadata: &model.NodeMetadata{Labels: pt.labels}, XdsNode: &envoycore.Node{}, LastPushContext: old.PushContext(),
+			}
 			server := &DiscoveryServer{Env: old.Env()}
 			server.computeProxyState(proxy, nil)
 			assert.Equal(t, proxy.MergedGateway == nil, true)
@@ -578,7 +587,8 @@ func TestProxyNeedsPush(t *testing.T) {
 		kind.EnvoyFilter, kind.AuthorizationPolicy, kind.RequestAuthentication, kind.WasmPlugin, kind.TrafficExtension,
 	}
 	for _, k := range sidecarNamespaceScopeTypes {
-		cases = append(cases,
+		cases = append(
+			cases,
 			Case{
 				name:        fmt.Sprintf("%s config for sidecar in same namespace", k.String()),
 				proxy:       sidecar,
@@ -677,7 +687,8 @@ func TestProxyNeedsPush(t *testing.T) {
 	})
 	gateway.SetSidecarScope(cg.PushContext())
 
-	cases = append(cases,
+	cases = append(
+		cases,
 		Case{
 			name:        "service with public visibility for gateway",
 			proxy:       gateway,
