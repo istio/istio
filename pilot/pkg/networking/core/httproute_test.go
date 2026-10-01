@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/route/retry"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/test/xdstest"
@@ -49,6 +50,103 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
+
+func TestSidecarOutboundDuplicateAddressDomains(t *testing.T) {
+	for _, generator := range []string{"envoy", "grpc"} {
+		for _, cached := range []bool{false, true} {
+			for _, tt := range []struct {
+				name         string
+				hosts        []string
+				addresses    []string
+				serviceEntry bool
+				wantOwner    string
+			}{
+				{name: "default", addresses: []string{"10.0.0.1"}, wantOwner: "alpha"},
+				{name: "wildcard", hosts: []string{"*.default.svc.cluster.local"}, addresses: []string{"10.0.0.1"}, wantOwner: "alpha"},
+				{
+					name:      "explicit host order",
+					hosts:     []string{"zulu.default.svc.cluster.local", "alpha.default.svc.cluster.local"},
+					addresses: []string{"10.0.0.1"},
+					wantOwner: "zulu",
+				},
+				{name: "virtual service precedence", hosts: []string{"zulu.default.svc.cluster.local"}, addresses: []string{"10.0.0.1"}, wantOwner: "zulu"},
+				{name: "ipv6", addresses: []string{"2001:db8::1"}, wantOwner: "alpha"},
+				{name: "dual stack", addresses: []string{"10.0.0.1", "2001:db8::1"}, wantOwner: "alpha"},
+				{name: "service entry", addresses: []string{"10.0.0.1"}, serviceEntry: true, wantOwner: "alpha"},
+			} {
+				t.Run(fmt.Sprintf("%s/cache=%t/%s", generator, cached, tt.name), func(t *testing.T) {
+					test.SetForTest(t, &features.EnableDualStack, true)
+					test.SetForTest(t, &features.EnableXDSCaching, cached)
+					test.SetForTest(t, &features.EnableRDSCaching, cached)
+					test.SetForTest(t, &features.EnableUnsafeAssertions, false)
+					var services []*model.Service
+					// Hostname order is an arbitrary tie-break, not a preference for the local cluster.
+					for _, name := range []string{"zulu", "alpha"} {
+						svc := buildHTTPService(name+".default.svc.cluster.local", visibility.Public, tt.addresses[0], "default", 80)
+						clusterID := cluster.ID("remote")
+						if name == "zulu" {
+							clusterID = "local"
+						}
+						if !tt.serviceEntry {
+							svc.ClusterVIPs = model.AddressMap{Addresses: map[cluster.ID][]string{clusterID: tt.addresses}}
+						} else {
+							svc.Attributes.ServiceRegistry = provider.External
+							svc.MeshExternal = true
+						}
+						services = append(services, svc)
+					}
+					var configs []config.Config
+					if len(tt.hosts) > 0 {
+						configs = []config.Config{{
+							Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "route", Namespace: "default"},
+							Spec: &networking.VirtualService{
+								Hosts: tt.hosts,
+								Http: []*networking.HTTPRoute{{Route: []*networking.HTTPRouteDestination{{
+									Destination: &networking.Destination{Host: "destination.default.svc.cluster.local"},
+								}}}},
+							},
+						}}
+					}
+					cg := NewConfigGenTest(t, TestOptions{Services: services, Configs: configs})
+					cg.ConfigGen.Cache = model.NewXdsCache()
+					proxy := cg.SetupProxy(&model.Proxy{
+						IPAddresses: tt.addresses,
+						Metadata:    &model.NodeMetadata{ClusterID: "local", Generator: generator},
+					})
+					req := &model.PushRequest{Push: cg.PushContext(), Start: time.Now()}
+					resource, hit := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(proxy, req, "80", map[int][]*route.VirtualHost{}, nil, nil)
+					assert.Equal(t, hit, false)
+					rc := &route.RouteConfiguration{}
+					assert.NoError(t, resource.Resource.UnmarshalTo(rc))
+					xdstest.ValidateRouteConfiguration(t, rc)
+					owners := map[string]string{}
+					for _, vh := range rc.VirtualHosts {
+						for _, domain := range vh.Domains {
+							owners[domain] = vh.Name
+						}
+					}
+					want := tt.wantOwner + ".default.svc.cluster.local:80"
+					assert.Equal(t, owners[util.IPv6Compliant(tt.addresses[0])], want)
+					if generator == "grpc" {
+						assert.Equal(t, owners[util.DomainName(tt.addresses[0], 80)], want)
+					}
+					if len(tt.addresses) > 1 {
+						// A remote fallback exposes only its default address. Keep the local IPv6 domain.
+						assert.Equal(t, owners[util.IPv6Compliant(tt.addresses[1])], "zulu.default.svc.cluster.local:80")
+					}
+					for _, svc := range services {
+						assert.Equal(t, owners[string(svc.Hostname)], string(svc.Hostname)+":80")
+					}
+					if cached {
+						second, cacheHit := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(proxy, req, "80", map[int][]*route.VirtualHost{}, nil, nil)
+						assert.Equal(t, cacheHit, true)
+						assert.Equal(t, second, resource)
+					}
+				})
+			}
+		}
+	}
+}
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
 	cases := []struct {
