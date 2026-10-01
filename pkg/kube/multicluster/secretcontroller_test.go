@@ -410,7 +410,7 @@ func TestListRemoteClusters(t *testing.T) {
 		SourceSecret types.NamespacedName
 	}
 	getSimpleClusters := func() []simpleCluster {
-		clusters := c.controller.Clusters().List()
+		clusters := c.controller.clusters.List()
 		sorted := slices.SortBy(clusters, func(cl *Cluster) cluster.ID { return cl.ID })
 		return slices.Map(sorted, func(cl *Cluster) simpleCluster {
 			return simpleCluster{ID: cl.ID, SourceSecret: cl.SourceSecret}
@@ -1147,7 +1147,7 @@ func TestKRTClustersCollection(t *testing.T) {
 	// Build derived KRT collections to track cluster lifecycle via iteration counter.
 	// Start at 1 so the first remote cluster gets iter=2, matching the config cluster's iter=1.
 	iter := uberatomic.NewInt32(1)
-	remoteResults := krt.NewCollection(c.Clusters(), func(_ krt.HandlerContext, cl *Cluster) *krtTestResult {
+	remoteResults := krt.NewCollection(c.clusters, func(_ krt.HandlerContext, cl *Cluster) *krtTestResult {
 		return &krtTestResult{
 			ID:   cl.ID,
 			Iter: iter.Inc(),
@@ -1165,9 +1165,9 @@ func TestKRTClustersCollection(t *testing.T) {
 	assert.NoError(t, c.Run(stopCh))
 
 	t.Run("sync timeout", func(t *testing.T) {
-		retry.UntilOrFail(t, c.Clusters().HasSynced, retry.Timeout(2*time.Second))
+		retry.UntilOrFail(t, c.clusters.HasSynced, retry.Timeout(2*time.Second))
 	})
-	kube.WaitForCacheSync("test", stopCh, c.Clusters().HasSynced, allResults.HasSynced)
+	kube.WaitForCacheSync("test", stopCh, c.clusters.HasSynced, allResults.HasSynced)
 
 	for _, step := range steps {
 		t.Run(step.name, func(t *testing.T) {
@@ -1216,7 +1216,7 @@ func TestKRTClustersCollectionSyncTimeoutEviction(t *testing.T) {
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
 	client.RunAndWait(stopCh)
 	assert.NoError(t, c.Run(stopCh))
-	retry.UntilOrFail(t, c.Clusters().HasSynced, retry.Timeout(2*time.Second))
+	retry.UntilOrFail(t, c.clusters.HasSynced, retry.Timeout(2*time.Second))
 
 	// Add a secret — the cluster will be stored but never sync
 	secrets.Create(makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0")}))
@@ -1228,14 +1228,14 @@ func TestKRTClustersCollectionSyncTimeoutEviction(t *testing.T) {
 
 	// But the KRT Clusters() collection should NOT include it (it's not synced yet and AllReady filters it out)
 	assert.EventuallyEqual(t, func() int {
-		return len(c.Clusters().List())
+		return len(c.clusters.List())
 	}, 0)
 
 	// Wait for RemoteClusterTimeout to fire, then wait a bit more to confirm no panic/segfault
 	time.Sleep(features.RemoteClusterTimeout + 500*time.Millisecond)
 
 	// The cluster should still not be in the Clusters() collection after timeout
-	assert.Equal(t, len(c.Clusters().List()), 0)
+	assert.Equal(t, len(c.clusters.List()), 0)
 
 	// Verify the cluster timed out via the ClusterStore
 	cl := c.cs.GetByID("c0")
