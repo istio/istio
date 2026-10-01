@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** an issue where the cni does not remove ipset entries for a pod that had failures during creation. All ipset entries associated with the pod are now removed.

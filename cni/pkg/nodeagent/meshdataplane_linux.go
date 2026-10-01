@@ -361,18 +361,16 @@ func (s *meshDataplane) removePodFromHostAddrSet(pod *corev1.Pod) error {
 
 	podIPs := util.GetPodIPsIfPresent(pod)
 	return util.RunAsHost(func() error {
-		for _, pip := range podIPs {
-			if uidMismatch, err := s.hostAddrSet.ClearEntriesWithIPAndComment(pip, podUID); err != nil {
-				return err
-			} else if uidMismatch != "" {
-				log.Warnf("pod ip %s could not be removed from addressSet, found entry with pod UID %s instead", pip, uidMismatch)
-			}
-			log.Debugf("removed pod from host addressSet by ip %s", pip)
+		if err := s.hostAddrSet.ClearEntriesWithComment(podUID); err != nil {
+			return err
+		}
+		log.Debugf("removed pod from host addressSet by pod UID %s", podUID)
 
-			// Clean up branch ENI rules if we added any. Use the cached info from
-			// the add path instead of re-detecting, since aws-vpc-cni may have
-			// already torn down its iif rules.
-			if EnableAWSBranchENIProbe {
+		// Clean up branch ENI rules if we added any. Use the cached info from
+		// the add path instead of re-detecting, since aws-vpc-cni may have
+		// already torn down its iif rules.
+		if EnableAWSBranchENIProbe {
+			for _, pip := range podIPs {
 				if info := s.forgetBranchENIRoute(pip); info != nil {
 					delBranchENIRules(pip, info)
 				}
