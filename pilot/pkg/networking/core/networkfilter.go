@@ -343,9 +343,9 @@ func buildNetworkFiltersStack(p protocol.Instance, tcpFilter *listener.Filter, s
 // filter).
 func (lb *ListenerBuilder) buildOutboundNetworkFilters(
 	routes []*networking.RouteDestination,
-	port *model.Port, configMeta config.Meta, includeMx bool,
+	port *model.Port, configMeta config.Meta,
 ) []*listener.Filter {
-	return lb.buildOutboundNetworkFiltersWithScope(routes, port, configMeta, includeMx, types.NamespacedName{})
+	return lb.buildOutboundNetworkFiltersWithScope(routes, port, configMeta, false, types.NamespacedName{})
 }
 
 // buildOutboundNetworkFiltersWithScope is buildOutboundNetworkFilters, additionally scoping any

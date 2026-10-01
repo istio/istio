@@ -160,7 +160,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 							metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   lb.buildOutboundNetworkFilters(tls.Route, listenPort, cfg.Meta, false),
+							networkFilters:   lb.buildOutboundNetworkFilters(tls.Route, listenPort, cfg.Meta),
 						})
 						hasTLSMatch = true
 					}
@@ -266,7 +266,7 @@ TcpLoop:
 				out = append(out, &filterChainOpts{
 					metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false),
+					networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -290,7 +290,7 @@ TcpLoop:
 						out = append(out, &filterChainOpts{
 							metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false),
+							networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -302,7 +302,7 @@ TcpLoop:
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false),
+					networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta),
 				})
 
 				// If at this point there is a filter chain generated with the same CIDR match as the
