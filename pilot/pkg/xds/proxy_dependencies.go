@@ -95,12 +95,6 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	}
 	// Detailed config dependencies check.
 	switch proxy.Type {
-	case model.SidecarProxy:
-		if proxy.SidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) {
-			return true
-		} else if proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) {
-			return true
-		}
 	case model.Router:
 		// With filtered gateway clusters, only services referenced by the proxy's gateways are pushed,
 		// whatever their visibility. The ServiceEntry key names the service's FQDN.
@@ -108,8 +102,14 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 			!push.ServiceAttachedToGateway(config.Name, config.Namespace, proxy) {
 			return false
 		}
-		return proxy.SidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) ||
-			(proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace))
+		// fallthrough to the standard sidecar proxy dependency check.
+		fallthrough
+	case model.SidecarProxy:
+		if proxy.SidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) {
+			return true
+		} else if proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) {
+			return true
+		}
 	default:
 		// TODO We'll add the check for other proxy types later.
 		return true

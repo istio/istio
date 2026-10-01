@@ -79,9 +79,7 @@ type MergedGateway struct {
 	// GatewayNames contains the sorted, deduplicated namespace/name gateway names in GatewayNameForServer.
 	GatewayNames []string
 
-	// GatewayScopeKey identifies the gateway-specific SidecarScope for this proxy and gateway set,
-	// precomputed so scope selection does not rebuild it. Code that constructs a MergedGateway
-	// directly must set it alongside GatewayNames.
+	// GatewayScopeKey identifies the gateway-specific SidecarScope for this proxy and gateway set.
 	GatewayScopeKey GatewayScopeKey
 
 	// ServersByRouteName maps from port names to virtual hosts
