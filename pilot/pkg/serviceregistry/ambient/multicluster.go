@@ -114,6 +114,13 @@ func (a *index) buildGlobalCollections(
 		opts,
 	)
 	a.networks = GlobalNetworks
+	GlobalMeshConfigs := buildGlobalMeshConfigCollections(
+		a.mcController,
+		LocalMeshConfig,
+		options,
+		opts,
+	)
+	a.clusterMeshConfigs = GlobalMeshConfigs
 	builder := Builder{
 		DomainSuffix: a.DomainSuffix,
 		ClusterID:    a.ClusterID,
@@ -249,6 +256,7 @@ func (a *index) buildGlobalCollections(
 		GlobalNodeLocality,
 		GlobalNodeLocalityByCluster,
 		options.MeshConfig,
+		GlobalMeshConfigs,
 		authPoliciesByNs,
 		localPeerAuthsByNs,
 		GlobalWaypoints,
@@ -325,11 +333,6 @@ func (a *index) buildGlobalCollections(
 				}
 			}
 			gws := LookupNetworkGateway(ctx, networkID, GlobalNetworks.GatewaysByNetwork)
-			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
-			if meshCfg == nil {
-				log.Errorf("Failed to find mesh config for network %s", networkID)
-				return nil
-			}
 			if len(gws) == 0 {
 				log.Warnf("No network gateway found for network %s", networkID)
 				return nil
@@ -339,7 +342,7 @@ func (a *index) buildGlobalCollections(
 				log.Warnf("Multiple gateways found for network %s, using the first one", networkID)
 			}
 			gw := gws[0]
-			return a.createSplitHorizonWorkload(svcName, (*svc).Service, &gw, capacity, meshCfg)
+			return a.createSplitHorizonWorkload(ctx, svcName, (*svc).Service, &gw, capacity)
 		}, opts.WithName("CoalesedWorkloads")...,
 	)
 	networkLocalWorkloads := krt.NewPointerCollection(GlobalWorkloads, func(ctx krt.HandlerContext, wi *model.WorkloadInfo) *model.WorkloadInfo {
@@ -427,11 +430,6 @@ func (a *index) buildGlobalCollections(
 
 			// Since we merge the workloads in the remote cluster, we need to input the
 			// service account sans of the remote workloads through the SubjectAlNames field.
-			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
-			if meshCfg == nil {
-				log.Errorf("Failed to find mesh config")
-				return nil
-			}
 			localNetwork := GlobalNetworks.FetchLocalNetworkID(ctx).String()
 			sans := sets.String{}
 
@@ -439,7 +437,8 @@ func (a *index) buildGlobalCollections(
 				if wl.Workload.Network == localNetwork {
 					continue
 				}
-				sans.Insert(spiffe.MustGenSpiffeURI(meshCfg.MeshConfig, wl.Workload.Namespace, wl.Workload.ServiceAccount))
+				trustDomain := a.clusterMeshConfigs.FetchTrustDomain(ctx, cluster.ID(wl.Workload.ClusterId))
+				sans.Insert(spiffe.MustGenSpiffeURIForTrustDomain(trustDomain, wl.Workload.Namespace, wl.Workload.ServiceAccount))
 			}
 			if sans.IsEmpty() {
 				return svc
@@ -707,7 +706,7 @@ func wrapPointerObjectWithCluster[T any](clusterID cluster.ID) func(obj *T) krt.
 }
 
 func (a *index) createSplitHorizonWorkload(
-	svcNamespacedName string, svc *workloadapi.Service, networkGateway *NetworkGateway, capacity uint32, meshCfg *MeshConfig,
+	ctx krt.HandlerContext, svcNamespacedName string, svc *workloadapi.Service, networkGateway *NetworkGateway, capacity uint32,
 ) *model.WorkloadInfo {
 	hboneMtlsPort := networkGateway.HBONEPort
 	if hboneMtlsPort == 0 {
@@ -719,7 +718,7 @@ func (a *index) createSplitHorizonWorkload(
 		Name:           uid,
 		Namespace:      svc.Namespace,
 		Network:        networkGateway.Network.String(),
-		TrustDomain:    pickTrustDomain(meshCfg),
+		TrustDomain:    pickTrustDomain(a.clusterMeshConfigs.FetchTrustDomain(ctx, networkGateway.Cluster)),
 		Capacity:       &wrapperspb.UInt32Value{Value: capacity},
 		WorkloadType:   workloadapi.WorkloadType_POD, // TODO(stevenjin8): What is the correct type here?
 		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,

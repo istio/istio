@@ -31,6 +31,7 @@ import (
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
@@ -43,6 +44,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 const (
@@ -444,7 +446,7 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			outPol, outStatusMessage := convertAuthorizationPolicy(rootns, tt.inputAuthzPol)
+			outPol, outStatusMessage := convertAuthorizationPolicy(rootns, trustdomain.NewBundle(constants.DefaultClusterLocalDomain, nil), tt.inputAuthzPol)
 			assert.Equal(t, tt.expectStatusMessage, outStatusMessage)
 			if tt.checkEffectiveRules {
 				if outPol == nil {
@@ -1456,4 +1458,75 @@ type TestWaypointPolicyStatusCollectionTestCase struct {
 
 func getStatus[T any](col krt.Collection[T], name, namespace string) *T {
 	return col.GetKey(namespace + "/" + name)
+}
+
+// Source principals match across the trust domain, its aliases and "cluster.local", as they do for sidecars and
+// waypoints, so a policy written for one keeps matching peers ztunnel accepts from the others.
+func TestConvertAuthorizationPolicyTrustDomainAliases(t *testing.T) {
+	tdBundle := trustdomain.NewBundle("new.local", []string{"old.local"})
+	pol := &securityclient.AuthorizationPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"},
+		Spec: v1beta1.AuthorizationPolicy{
+			Action: v1beta1.AuthorizationPolicy_ALLOW,
+			Rules: []*v1beta1.Rule{{
+				From: []*v1beta1.Rule_From{{Source: &v1beta1.Source{
+					Principals: []string{
+						"cluster.local/ns/a/sa/a", // pointer to the local trust domain and its aliases
+						"old.local/ns/b/sa/b",     // an alias
+						"unrelated.local/ns/c/sa/c",
+						"*/ns/d/sa/d",
+						"*",
+					},
+					NotPrincipals: []string{"new.local/ns/e/sa/e"},
+				}}},
+				When: []*v1beta1.Condition{{
+					Key:       "source.principal",
+					Values:    []string{"new.local/ns/f/sa/f"},
+					NotValues: []string{"old.local/ns/g/sa/g"},
+				}},
+			}},
+		},
+	}
+	out, status := convertAuthorizationPolicy("istio-system", tdBundle, pol)
+	assert.Equal(t, status, nil)
+
+	var principals, notPrincipals []string
+	for _, g := range out.GetGroups() {
+		for _, r := range g.GetRules() {
+			for _, m := range r.GetMatches() {
+				for _, p := range m.GetPrincipals() {
+					principals = append(principals, matchString(p))
+				}
+				for _, p := range m.GetNotPrincipals() {
+					notPrincipals = append(notPrincipals, matchString(p))
+				}
+			}
+		}
+	}
+	assert.Equal(t, principals, []string{
+		"new.local/ns/a/sa/a", "old.local/ns/a/sa/a",
+		"new.local/ns/b/sa/b", "old.local/ns/b/sa/b",
+		"unrelated.local/ns/c/sa/c",
+		"suffix:/ns/d/sa/d",
+		"presence",
+		"new.local/ns/f/sa/f", "old.local/ns/f/sa/f",
+	})
+	assert.Equal(t, notPrincipals, []string{
+		"new.local/ns/e/sa/e", "old.local/ns/e/sa/e",
+		"new.local/ns/g/sa/g", "old.local/ns/g/sa/g",
+	})
+}
+
+func matchString(m *security.StringMatch) string {
+	switch v := m.GetMatchType().(type) {
+	case *security.StringMatch_Exact:
+		return v.Exact
+	case *security.StringMatch_Prefix:
+		return "prefix:" + v.Prefix
+	case *security.StringMatch_Suffix:
+		return "suffix:" + v.Suffix
+	case *security.StringMatch_Presence:
+		return "presence"
+	}
+	return fmt.Sprintf("unknown %v", m)
 }
