@@ -548,7 +548,7 @@ func validateTLS(certInfo *TLSInfo) *ConfigError {
 		}
 	}
 	if certInfo.CaCert != nil {
-		if !x509.NewCertPool().AppendCertsFromPEM(certInfo.Cert) {
+		if !x509.NewCertPool().AppendCertsFromPEM(certInfo.CaCert) {
 			return &ConfigError{
 				Reason:  InvalidTLS,
 				Message: "invalid CA certificate reference, the bundle is malformed",
