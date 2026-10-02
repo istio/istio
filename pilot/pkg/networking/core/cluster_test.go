@@ -5200,3 +5200,64 @@ func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
 		"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
 	}))
 }
+
+func TestBackendPolicyRemovalClearsPortTLS(t *testing.T) {
+	const h = "backend.default.svc.cluster.local"
+	user := config.Config{
+		Meta: config.Meta{Name: "user-dr", Namespace: "default", CreationTimestamp: time.Unix(2, 0), GroupVersionKind: gvk.DestinationRule},
+		Spec: &networking.DestinationRule{Host: h, TrafficPolicy: &networking.TrafficPolicy{
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
+				Port: &networking.PortSelector{Number: 8080},
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_ROUND_ROBIN},
+				},
+			}},
+		}},
+	}
+	backend := config.Config{
+		Meta: config.Meta{
+			Name: "generated-backend-policy", Namespace: "default", CreationTimestamp: time.Unix(1, 0),
+			GroupVersionKind: gvk.DestinationRule, Annotations: map[string]string{constants.InternalParentNames: "BackendTLSPolicy/policy.default"},
+		},
+		Spec: &networking.DestinationRule{Host: h, TrafficPolicy: &networking.TrafficPolicy{
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
+				Port: &networking.PortSelector{Number: 8080},
+				Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE, Sni: h},
+			}},
+		}},
+	}
+	cg := NewConfigGenTest(t, TestOptions{
+		Configs:  []config.Config{user, backend},
+		Services: []*model.Service{buildService(h, "10.0.0.1", protocol.HTTP, time.Unix(1, 0))},
+	})
+	check := func(wantTLS bool) {
+		t.Helper()
+		for _, c := range cg.Clusters(cg.SetupProxy(nil)) {
+			if c.Name != "outbound|8080||"+h {
+				continue
+			}
+			gotTLS := c.GetTransportSocket() != nil
+			t.Logf("want TLS=%v Envoy CDS transport_socket=%v", wantTLS, gotTLS)
+			if gotTLS != wantTLS {
+				t.Errorf("CDS TLS=%v, want %v after backend policy removal", gotTLS, wantTLS)
+			}
+			return
+		}
+		t.Fatal("backend cluster missing")
+	}
+	check(true)
+	stored := cg.Store().Get(gvk.DestinationRule, "user-dr", "default")
+	if stored.Spec.(*networking.DestinationRule).TrafficPolicy.PortLevelSettings[0].Tls != nil {
+		t.Error("merging generated BackendTLSPolicy mutated the cached user DestinationRule")
+	}
+	if err := cg.Store().Delete(gvk.DestinationRule, "generated-backend-policy", "default", nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := cg.Store().Get(gvk.DestinationRule, "generated-backend-policy", "default"); got != nil {
+		t.Fatal("backend policy remains in config store")
+	}
+	next := model.NewPushContext()
+	next.InitContext(cg.Env(), nil, nil)
+	cg.Env().SetPushContext(next)
+	check(false)
+}
