@@ -94,6 +94,10 @@ var (
 		"If enabled, istiod will use a secret named cacerts to store its self-signed istio-"+
 			"generated root certificate.").Get()
 
+	DisableSelfSignedCA = env.Register("PILOT_DISABLE_SELF_SIGNED_CA",
+		false,
+		"If true, disable the self-signed Istio CA and error if no external CA is configured.").Get()
+
 	EnableMultipleCustomAuthzProviders = env.Register(
 		"PILOT_ENABLE_MULTIPLE_CUSTOM_AUTHZ_PROVIDERS",
 		false,
