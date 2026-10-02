@@ -26,6 +26,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 	raerror "istio.io/istio/security/pkg/pki/error"
@@ -38,8 +39,9 @@ type KubernetesRA struct {
 	keyCertBundle                *util.KeyCertBundle
 	raOpts                       *IstioRAOptions
 	caCertificatesFromMeshConfig map[string]string
+	certSignerNamespaceMap       map[string]string
 	certSignerDomain             string
-	// mutex protects the R/W to caCertificatesFromMeshConfig.
+	// mutex protects the R/W to caCertificatesFromMeshConfig and certSignerNamespaceMap.
 	mutex sync.RWMutex
 }
 
@@ -57,6 +59,7 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 		keyCertBundle:                keyCertBundle,
 		certSignerDomain:             raOpts.CertSignerDomain,
 		caCertificatesFromMeshConfig: make(map[string]string),
+		certSignerNamespaceMap:       make(map[string]string),
 	}
 	return istioRA, nil
 }
@@ -92,8 +95,34 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	certSigner := certOpts.CertSigner
 
+	r.mutex.RLock()
+	nsMap := r.certSignerNamespaceMap
+	r.mutex.RUnlock()
+	if len(nsMap) > 0 {
+		if len(certOpts.SubjectIDs) == 0 {
+			return nil, raerror.NewError(raerror.CertGenError,
+				fmt.Errorf("cert signer namespace map is set but request has no SubjectIDs"))
+		}
+		// Only the first SubjectID is inspected; CSR flow always presents a single SPIFFE identity.
+		id, parseErr := spiffe.ParseIdentity(certOpts.SubjectIDs[0])
+		if parseErr != nil {
+			return nil, raerror.NewError(raerror.CertGenError,
+				fmt.Errorf("failed to parse SPIFFE identity: %v", parseErr))
+		}
+		authorized, ok := nsMap[id.Namespace]
+		if !ok {
+			return nil, raerror.NewError(raerror.CertGenError,
+				fmt.Errorf("namespace %q is not authorized by cert_signer_namespace_map", id.Namespace))
+		}
+		if certOpts.CertSigner != authorized {
+			return nil, raerror.NewError(raerror.CertGenError,
+				fmt.Errorf("namespace %q requested signer %q but is authorized for %q",
+					id.Namespace, certOpts.CertSigner, authorized))
+		}
+	}
+
+	certSigner := certOpts.CertSigner
 	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, certSigner, certOpts.TTL)
 }
 
@@ -169,6 +198,12 @@ func (r *KubernetesRA) SetCACertificatesFromMeshConfig(caCertificates []*meshcon
 			}
 		}
 	}
+	r.mutex.Unlock()
+}
+
+func (r *KubernetesRA) SetCertSignerNamespaceMap(m map[string]string) {
+	r.mutex.Lock()
+	r.certSignerNamespaceMap = m
 	r.mutex.Unlock()
 }
 

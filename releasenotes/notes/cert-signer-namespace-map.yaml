@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+
+kind: feature
+area: security
+
+releaseNotes:
+- |
+    **Added** enforcement of `cert_signer_namespace_map` in MeshConfig: when
+    Istiod acts as a Kubernetes RA, certificate requests from namespaces not
+    in the map or requesting an unauthorized signer are now rejected.
+    Thanks to Juno Im for the contribution.
