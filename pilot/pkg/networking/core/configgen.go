@@ -45,6 +45,10 @@ type ConfigGenerator interface {
 	// BuildNameTable returns list of hostnames and the associated IPs
 	BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable
 
+	// BuildDeltaNameTable returns named DNS resources, removals, and whether the response is incremental.
+	BuildDeltaNameTable(proxy *model.Proxy, updates *model.PushRequest,
+		watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool)
+
 	// BuildExtensionConfiguration returns the list of extension configuration for the given proxy and list of names. This is the ECDS output.
 	BuildExtensionConfiguration(node *model.Proxy, push *model.PushContext, extensionConfigNames []string,
 		pullSecrets map[string][]byte) []*core.TypedExtensionConfig
