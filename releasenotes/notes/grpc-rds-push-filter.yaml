@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Optimized** proxyless gRPC route generation by skipping rebuilds for updates that do not affect
+    routes, such as endpoint-only changes.
