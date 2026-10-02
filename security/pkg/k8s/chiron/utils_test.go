@@ -16,8 +16,10 @@ package chiron
 
 import (
 	"bytes"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
 	kt "k8s.io/client-go/testing"
 
@@ -283,6 +286,48 @@ func TestReadSignedCertificate(t *testing.T) {
 				}
 			} else if err != nil {
 				t.Fatalf("failed at updateMutatingWebhookConfig: %v", err)
+			}
+		})
+	}
+}
+
+func TestReadSignedCsrUnexpectedWatchEvents(t *testing.T) {
+	testCases := []struct {
+		name    string
+		watcher func() watch.Interface
+		wantErr string
+	}{
+		{
+			name:    "watch channel closed",
+			watcher: watch.NewEmptyWatch,
+			wantErr: "watch closed",
+		},
+		{
+			name: "watch error event",
+			watcher: func() watch.Interface {
+				w := watch.NewFakeWithOptions(watch.FakeOptions{ChannelSize: 1})
+				w.Error(&metav1.Status{
+					Status: metav1.StatusFailure,
+					Reason: metav1.StatusReasonExpired,
+					Code:   http.StatusGone,
+				})
+				return w
+			},
+			wantErr: "unexpected object *v1.Status",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := fake.NewClientset()
+			client.PrependWatchReactor("certificatesigningrequests", func(kt.Action) (bool, watch.Interface, error) {
+				return true, tc.watcher(), nil
+			})
+
+			_, err := readSignedCsr(client, "test-csr", time.Second)
+			assert.Error(t, err)
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("got error %q, want it to contain %q", err, tc.wantErr)
 			}
 		})
 	}
