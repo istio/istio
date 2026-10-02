@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61040
+releaseNotes:
+  - |
+    **Fixed** TLSRoutes attached to a TLS termination listener routing all hostnames to the first backend instead of selecting the backend by SNI.

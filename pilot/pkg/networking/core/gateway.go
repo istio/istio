@@ -852,6 +852,10 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 				},
 			}
 		}
+		// TLSRoutes can select different backends by SNI even when the listener terminates TLS.
+		if filterChains := lb.buildGatewayNetworkFiltersFromTLSRoutes(server, listenerPort, gatewayName, tlsHostsByPort); len(filterChains) > 0 {
+			return filterChains
+		}
 		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
 	} else {
 		// Passthrough server.
@@ -905,22 +909,6 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 				return lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx)
 			}
 		}
-
-		// Fallback to TLS blocks for TLSRoute with TLS termination.
-		// TLSRoute-sourced VirtualServices always have Tls blocks (not Tcp blocks),
-		// so we need to handle them here when the server is in terminate mode.
-		if parentName, ok := v.Annotations[constants.InternalParentNames]; ok &&
-			strings.HasPrefix(parentName, "TLSRoute/") &&
-			!gateway.IsPassThroughServer(server) {
-			includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
-			for _, tls := range vsvc.Tls {
-				for _, match := range tls.Match {
-					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
-						return lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, includeMx)
-					}
-				}
-			}
-		}
 	}
 	return nil
 }
@@ -947,8 +935,17 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 		filterChains = append(filterChains, builtAutoPassthroughFilterChains(lb.push, lb.node, lb.node.MergedGateway.TLSServerInfo[server].SNIHosts)...)
 	} else {
+		terminate := !gateway.IsPassThroughServer(server)
+		var tlsContext *tls.DownstreamTlsContext
+		if terminate {
+			tlsContext = buildGatewayListenerTLSContext(lb.push, server, lb.node, istionetworking.TransportProtocolTCP)
+		}
 		virtualServices := lb.push.VirtualServicesForGateway(lb.node.ConfigNamespace, gatewayName)
 		for _, v := range virtualServices {
+			if terminate && !strings.HasPrefix(v.Annotations[constants.InternalParentNames], "TLSRoute/") {
+				// Traditional VirtualService TLS blocks only apply to passthrough listeners.
+				continue
+			}
 			vsvc := v.Spec.(*networking.VirtualService)
 			// We have two cases here:
 			// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and gateway's hosts are ns/*.foo.com
@@ -971,13 +968,21 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 				}
 				for i, match := range tls.Match {
 					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
+						sniHosts := match.SniHosts
+						if terminate {
+							// The controller creates one VirtualService per route hostname, while retaining
+							// all SNI matches. Match each hostname independently so duplicate route hosts
+							// do not discard other, non-conflicting hosts from the same TLSRoute.
+							sniHosts = slices.Map(host.NewNames(vsvc.Hosts).Intersection(host.NewNames(sniHosts)),
+								func(h host.Name) string { return string(h) })
+						}
 						// Envoy will reject config that has multiple filter chain matches with the same matching rules
 						// To avoid this, we need to make sure we don't have duplicated SNI hosts, which will become
 						// SNI filter chain matches
 						if tlsHostsByPort[listenerPort] == nil {
 							tlsHostsByPort[listenerPort] = make(map[string]string)
 						}
-						if duplicateSniHosts := model.CheckDuplicates(match.SniHosts, server.Bind, tlsHostsByPort[listenerPort]); len(duplicateSniHosts) != 0 {
+						if duplicateSniHosts := model.CheckDuplicates(sniHosts, server.Bind, tlsHostsByPort[listenerPort]); len(duplicateSniHosts) != 0 {
 							log.Warnf(
 								"skipping VirtualService %s rule #%v on server port %d of gateway %s, duplicate SNI host names: %v",
 								v.Meta.Name, i, port.Port, gatewayName, duplicateSniHosts)
@@ -987,9 +992,10 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 
 						// the sni hosts in the match will become part of a filter chain match
 						filterChains = append(filterChains, &filterChainOpts{
-							sniHosts:       match.SniHosts,
-							tlsContext:     nil, // NO TLS context because this is passthrough
-							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false),
+							sniHosts:   sniHosts,
+							tlsContext: tlsContext,
+							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta,
+								server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL),
 						})
 					}
 				}
