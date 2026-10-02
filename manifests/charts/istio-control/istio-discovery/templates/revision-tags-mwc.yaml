@@ -46,7 +46,7 @@ metadata:
   name: istio-revision-tag-{{ $tagName }}-{{ $.Release.Namespace }}
 {{- end }}
   labels:
-    istio.io/tag: {{ $tagName }}
+    istio.io/tag: {{ $tagName | quote }}
     istio.io/rev: {{ $.Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ $.Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"

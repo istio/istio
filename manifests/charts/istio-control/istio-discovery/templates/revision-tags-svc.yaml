@@ -12,7 +12,7 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ $.Values.revision | default "default" | quote }}
-    istio.io/tag: {{ $tagName }}
+    istio.io/tag: {{ $tagName | quote }}
     install.operator.istio.io/owning-resource: {{ $.Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     app: istiod
