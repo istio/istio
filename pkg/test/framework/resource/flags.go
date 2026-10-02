@@ -102,7 +102,9 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	}
 
 	if s.HelmRepo == "" {
-		s.HelmRepo = "https://istio-release.storage.googleapis.com/charts"
+		// istio-release.storage.googleapis.com stops at 1.31.0-rc.0 and is deleted in December
+		// 2026. blob.istio.io carries every release, including the ones the GCS bucket mirrored.
+		s.HelmRepo = "https://blob.istio.io/istio-release/charts"
 	}
 
 	if err = validate(s); err != nil {
