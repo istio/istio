@@ -1101,6 +1101,8 @@ const (
 	FmtOpenMetrics_0_0_1 = expfmt.OpenMetricsType + `; version=` + expfmt.OpenMetricsVersion_0_0_1 + `; charset=utf-8`
 	// nolint: revive, stylecheck
 	FmtOpenMetrics_1_0_0 = expfmt.OpenMetricsType + `; version=` + expfmt.OpenMetricsVersion_1_0_0 + `; charset=utf-8`
+	// nolint: revive, stylecheck
+	FmtOpenMetrics_2_0_0 = expfmt.OpenMetricsType + `; version=` + expfmt.OpenMetricsVersion_2_0_0 + `; charset=utf-8`
 	FmtText              = `text/plain; version=` + expfmt.TextVersion + `; charset=utf-8`
 )
 
@@ -1117,7 +1119,7 @@ const (
 var FmtProtoDelim = expfmt.NewFormat(expfmt.TypeProtoDelim)
 
 // negotiateMetricsFormat inspects an upstream's response Content-Type and maps it to a
-// known expfmt.Format. Recognized formats are OpenMetrics (versions 0.0.1 / 1.0.0), the
+// known expfmt.Format. Recognized formats are OpenMetrics (versions 0.0.1 / 1.0.0 / 2.0.0), the
 // delimited Prometheus protobuf format (used for native histograms), and text/plain
 // (the default for anything unrecognized, preserving back-compat).
 //
@@ -1135,6 +1137,8 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 	switch mediaType {
 	case expfmt.OpenMetricsType:
 		switch params["version"] {
+		case expfmt.OpenMetricsVersion_2_0_0:
+			return FmtOpenMetrics_2_0_0
 		case expfmt.OpenMetricsVersion_1_0_0:
 			return FmtOpenMetrics_1_0_0
 		case expfmt.OpenMetricsVersion_0_0_1, "":
