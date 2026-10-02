@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // innerConnectOriginate is the name for the resources associated with establishing double-HBONE connection.
@@ -100,6 +101,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 		// Create a map to keep track of the gateways used and their aggregate weights.
 		gatewayWeights := make(map[model.NetworkGateway]uint32)
 
+		// Track the gateways that carry at least one sidecar-to-ambient bridged endpoint. Only
+		// those gateway endpoints relax peer validation (see the TLSMode selection below), because
+		// only they terminate the client's mTLS instead of passing it through to the destination.
+		bridgedGateways := sets.New[model.NetworkGateway]()
+
 		// Process all the endpoints.
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
 			istioEndpoint := ep.istioEndpoints[i]
@@ -147,10 +153,17 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
+			// A sidecar cannot speak double-HBONE, but it can reach an ambient destination
+			// through an E/W gateway that terminates its mTLS and originates HBONE onward.
+			// Such an endpoint takes the legacy mTLS gateway rather than the HBONE one, so it
+			// must not be treated as requiring HBONE below.
+			bridged := features.EnableAmbientMultiNetwork && features.EnableSidecarAmbientBridge &&
+				isSidecarProxy(b.proxy) && istioEndpoint.CapturedByZtunnel
+
 			// We require using double-HBONE in a either of the following cases:
 			// 1. This is a waypoint proxy - it can only talk HBONE
 			// 2. We earlier decided to use HBONE for this endpoint
-			requireHBONE := model.IsWaypointProxy(b.proxy) || usesTunnel(lbEp)
+			requireHBONE := !bridged && (model.IsWaypointProxy(b.proxy) || usesTunnel(lbEp))
 
 			// If we use HBONE and the proxy is ingress gateway check that the feature
 			// is enabled first and if it's not, skip the endpoint.
@@ -205,9 +218,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 			// Cross-network traffic relies on mTLS for SNI routing in sidecar mode.
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
-			// network we skip it altogether.
+			// network we skip it altogether. A bridged endpoint is the exception: the E/W gateway
+			// terminates the sidecar's mTLS and originates HBONE onward, so the destination not
+			// speaking legacy mTLS is precisely the case the bridge exists for.
 			// TODO BTS may allow us to work around this
-			if !requireHBONE && !isMtlsEnabled(lbEp) {
+			if !requireHBONE && !isMtlsEnabled(lbEp) && !bridged {
 				log.Warnf("Workload %s on network %s does not support mTLS or double-HBONE, skipping",
 					istioEndpoint.WorkloadName, epNetwork)
 				continue
@@ -215,6 +230,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 			// Apply the weight for this endpoint to the network gateways.
 			splitWeightAmongGateways(weight, reachableGateways, gatewayWeights)
+			if bridged {
+				bridgedGateways.InsertAll(reachableGateways...)
+			}
 		}
 
 		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
@@ -299,10 +317,19 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 					Metadata: &core.Metadata{},
 				}
 
+				// An AUTO_PASSTHROUGH gateway does not terminate, so the TLS peer really is the
+				// destination workload and its SANs can be validated exactly - keep the default.
+				// A bridging gateway does terminate and presents its own identity, so those
+				// endpoints (and only those) fall back to trust domain matching.
+				tlsMode := model.IstioMutualTLSModeLabel
+				if bridgedGateways.Contains(gw) {
+					tlsMode = model.GatewayTLSModeLabel
+				}
+
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
 				util.AppendLbEndpointMetadata(&model.EndpointMetadata{
 					Network:   gw.Network,
-					TLSMode:   model.IstioMutualTLSModeLabel,
+					TLSMode:   tlsMode,
 					ClusterID: gw.Cluster,
 					Labels:    labels.Instance{},
 				}, gwEp.Metadata)
