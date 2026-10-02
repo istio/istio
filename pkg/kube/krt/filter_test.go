@@ -116,3 +116,29 @@ func TestFilterNeedsMatching(t *testing.T) {
 		})
 	}
 }
+
+type selectorObject map[string]string
+
+func (s selectorObject) GetLabelSelector() map[string]string {
+	return s
+}
+
+func TestFilterSelectsNilLabels(t *testing.T) {
+	cases := []struct {
+		name     string
+		selector map[string]string
+		want     bool
+	}{
+		{name: "empty selector", selector: nil, want: true},
+		{name: "non-empty selector", selector: map[string]string{"app": "a"}, want: false},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &dependency{filter: &filter{}}
+			FilterSelects(nil)(h)
+			if got := h.filter.Matches(selectorObject(tt.selector), false); got != tt.want {
+				t.Errorf("Matches() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
