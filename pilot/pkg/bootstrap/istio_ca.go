@@ -517,7 +517,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	useSelfSignedCA := !signingCABundleComplete || (features.UseCacertsForSelfSignedCA && istioGenerated)
 	if useSelfSignedCA {
 		if features.DisableSelfSignedCA {
-			return nil, fmt.Errorf("self-signed Istio CA is disabled and no external CA is configured")
+			return nil, fmt.Errorf("self-signed Istio CA is disabled (PILOT_DISABLE_SELF_SIGNED_CA=true) and no plugged-in CA (cacerts) is configured")
 		}
 		if features.UseCacertsForSelfSignedCA && istioGenerated {
 			log.Infof("IstioGenerated %s secret found, use it as the CA certificate", ca.CACertsSecret)
