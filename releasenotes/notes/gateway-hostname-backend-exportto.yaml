@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62027
+releaseNotes:
+- |
+  **Fixed** Gateway API routes reporting `BackendNotFound` for a `Hostname` backendRef to a ServiceEntry host
+  defined in another namespace, when the ServiceEntry's `exportTo` makes the host visible to the route's namespace.
