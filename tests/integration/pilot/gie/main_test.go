@@ -17,12 +17,20 @@
 package gie
 
 import (
+	"context"
+	"fmt"
 	"testing"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 var i istio.Instance
@@ -40,4 +48,45 @@ values:
 `
 		})).
 		Run()
+}
+
+// waitForGatewayProgrammed blocks until the Gateway reports both Accepted and Programmed.
+func waitForGatewayProgrammed(ctx framework.TestContext, ns, name string) {
+	ctx.Helper()
+	retry.UntilSuccessOrFail(ctx, func() error {
+		gw, err := ctx.Clusters().Default().Dynamic().Resource(schema.GroupVersionResource{
+			Group:    "gateway.networking.k8s.io",
+			Version:  "v1",
+			Resource: "gateways",
+		}).Namespace(ns).Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("gateway resource not found: %v", err)
+		}
+
+		conditions, found, err := unstructured.NestedSlice(gw.Object, "status", "conditions")
+		if err != nil || !found {
+			return fmt.Errorf("gateway status conditions not found")
+		}
+
+		accepted, programmed := false, false
+		for _, cond := range conditions {
+			condition, ok := cond.(map[string]any)
+			if !ok {
+				continue
+			}
+			switch condition["type"] {
+			case "Accepted":
+				accepted = condition["status"] == "True"
+			case "Programmed":
+				programmed = condition["status"] == "True"
+			}
+		}
+		if !accepted {
+			return fmt.Errorf("gateway not accepted yet")
+		}
+		if !programmed {
+			return fmt.Errorf("gateway not programmed yet")
+		}
+		return nil
+	}, retry.Timeout(60*time.Second))
 }

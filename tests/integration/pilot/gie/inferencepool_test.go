@@ -22,12 +22,9 @@ import (
 	"net"
 	"strconv"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -266,49 +263,7 @@ spec:
 				return fmt.Errorf("no running workload pods with IP found")
 			})
 
-			// Wait for Gateway resource to be ready
-			retry.UntilSuccessOrFail(ctx, func() error {
-				// Get the Gateway resource and check its status
-				gw, err := ctx.Clusters().Default().Dynamic().Resource(schema.GroupVersionResource{
-					Group:    "gateway.networking.k8s.io",
-					Version:  "v1",
-					Resource: "gateways",
-				}).Namespace(ns.Name()).Get(context.TODO(), "inference-gateway", metav1.GetOptions{})
-				if err != nil {
-					return fmt.Errorf("gateway resource not found: %v", err)
-				}
-
-				// Check Gateway status conditions for Accepted and Programmed
-				status, found, err := unstructured.NestedSlice(gw.Object, "status", "conditions")
-				if err != nil || !found {
-					return fmt.Errorf("gateway status conditions not found")
-				}
-
-				accepted := false
-				programmed := false
-				for _, cond := range status {
-					condition := cond.(map[string]interface{})
-					condType := condition["type"].(string)
-					condStatus := condition["status"].(string)
-
-					if condType == "Accepted" && condStatus == "True" {
-						accepted = true
-					}
-					if condType == "Programmed" && condStatus == "True" {
-						programmed = true
-					}
-				}
-
-				if !accepted {
-					return fmt.Errorf("gateway not accepted yet")
-				}
-				if !programmed {
-					return fmt.Errorf("gateway not programmed yet")
-				}
-
-				ctx.Logf("Gateway is ready (Accepted and Programmed)")
-				return nil
-			}, retry.Timeout(60*time.Second))
+			waitForGatewayProgrammed(ctx, ns.Name(), "inference-gateway")
 
 			// Send request through the gateway with x-endpoint header
 			// This tests the EPP protocol end-to-end
