@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -264,6 +265,30 @@ var services = []*model.Service{
 		},
 		Ports:    ports,
 		Hostname: "google.com",
+	},
+	// ServiceEntry hosts in a namespace other than the routes that reference them.
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "other",
+		},
+		Ports:    ports,
+		Hostname: "exported.example.com",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "other",
+			ExportTo:  sets.New(visibility.Instance("default")),
+		},
+		Ports:    ports,
+		Hostname: "exported-to-default.example.com",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "other",
+			ExportTo:  sets.New(visibility.Private),
+		},
+		Ports:    ports,
+		Hostname: "private.example.com",
 	},
 	{
 		Attributes: model.ServiceAttributes{
@@ -776,6 +801,7 @@ func TestConvertResources(t *testing.T) {
 			),
 		},
 		{name: "serviceentry"},
+		{name: "serviceentry-cross-namespace"},
 		{name: "status"},
 		{name: "eastwest"},
 		{name: "eastwest-tlsoption"},
