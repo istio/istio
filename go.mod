@@ -20,8 +20,8 @@ require (
 	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v29.5.2+incompatible
-	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20260829101913-1e3cf565f8ea
-	github.com/envoyproxy/go-control-plane/envoy v1.39.1-0.20260829101913-1e3cf565f8ea
+	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20260917191952-76d65350c086
+	github.com/envoyproxy/go-control-plane/envoy v1.39.1-0.20260917080528-9f36692b52bb
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.19.0
 	github.com/felixge/fgprof v0.9.5
@@ -56,7 +56,7 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240409071808-615f978279ca
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/prometheus/client_golang v1.23.2
-	github.com/prometheus/client_model v0.6.2
+	github.com/prometheus/client_model v0.6.3
 	github.com/prometheus/common v0.71.0
 	github.com/prometheus/procfs v0.21.0
 	github.com/prometheus/prometheus v0.311.3
