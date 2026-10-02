@@ -452,6 +452,7 @@ func TestInjection(t *testing.T) {
 				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
+		{in: "native-sidecar-uds.yaml", want: "native-sidecar-uds.yaml.injected"},
 		{
 			in:   "native-sidecar-opt-in.yaml",
 			want: "native-sidecar-opt-in.yaml.injected",
@@ -1102,6 +1103,11 @@ spec:
       image: fake.docker.io/google-samples/hello-go-gke:1.0
     - name: istio-proxy
       image: proxy
+      env:
+      - name: ISTIO_ENVOY_ADMIN_TRANSPORT
+        value: TCP
+      - name: ISTIO_NATIVE_SIDECAR
+        value: "false"
 `
 	runWebhook(t, webhook, []byte(input), []byte(fmt.Sprintf(expected, "sidecar,init")), false)
 	runWebhook(t, webhook, []byte(inputAlias), []byte(fmt.Sprintf(expected, "both")), false)

@@ -93,6 +93,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/envoy/admin"
 	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
@@ -932,13 +933,17 @@ func (c *client) Revision() string {
 }
 
 func (c *client) PodExecCommands(podName, podNamespace, container string, commands []string) (stdout, stderr string, err error) {
+	return c.podExecCommandsContext(context.Background(), podName, podNamespace, container, commands)
+}
+
+func (c *client) podExecCommandsContext(ctx context.Context, podName, podNamespace, container string, commands []string) (stdout, stderr string, err error) {
 	defer func() {
 		if err != nil {
 			if len(stderr) > 0 {
-				err = fmt.Errorf("error exec'ing into %s/%s %s container: %v\n%s",
+				err = fmt.Errorf("error exec'ing into %s/%s %s container: %w\n%s",
 					podNamespace, podName, container, err, stderr)
 			} else {
-				err = fmt.Errorf("error exec'ing into %s/%s %s container: %v",
+				err = fmt.Errorf("error exec'ing into %s/%s %s container: %w",
 					podNamespace, podName, container, err)
 			}
 		}
@@ -984,7 +989,7 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
-	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  nil,
 		Stdout: &stdoutBuf,
 		Stderr: &stderrBuf,
@@ -1064,7 +1069,80 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 }
 
 func (c *client) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
+	pod, err := c.Kube().CoreV1().Pods(podNamespace).Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	command, err := envoyAdminCommand(pod, method, path, port)
+	if err != nil {
+		return nil, err
+	}
+	if command != nil {
+		return c.execEnvoyAdmin(ctx, podName, podNamespace, command)
+	}
+
 	return c.portForwardRequest(ctx, podName, podNamespace, method, path, port)
+}
+
+// execEnvoyAdmin bounds both the request and the upgrade handshake. Some streaming
+// transports observe cancellation only after the handshake completes; keep the
+// response buffers inside the worker so cancellation can return without racing it.
+func (c *client) execEnvoyAdmin(ctx context.Context, podName, podNamespace string, command []string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	type result struct {
+		stdout string
+		err    error
+	}
+	done := make(chan result, 1)
+	go func() {
+		stdout, _, err := c.podExecCommandsContext(ctx, podName, podNamespace, "istio-proxy", command)
+		done <- result{stdout: stdout, err: err}
+	}()
+	select {
+	case r := <-done:
+		return []byte(r.stdout), r.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// envoyAdminCommand returns nil for requests which use port forwarding.
+func envoyAdminCommand(pod *v1.Pod, method, path string, port int) ([]string, error) {
+	for _, container := range append(append([]v1.Container{}, pod.Spec.Containers...), pod.Spec.InitContainers...) {
+		if container.Name != "istio-proxy" {
+			continue
+		}
+		transport := admin.TCP
+		var err error
+		found := false
+		for _, e := range container.Env {
+			if e.Name != admin.Env {
+				continue
+			}
+			if found || e.ValueFrom != nil {
+				return nil, fmt.Errorf("ambiguous resolved admin transport in istio-proxy")
+			}
+			found = true
+			transport, err = admin.Parse(e.Value)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if transport == admin.UDS {
+			switch port {
+			case 15000:
+				return []string{"pilot-agent", "request", method, path}, nil
+			case 15020, 15021, 15004:
+				// These ports serve agent readiness, metrics, and control-plane debugging.
+			default:
+				return nil, fmt.Errorf("UDS administration does not support alternate admin port %d", port)
+			}
+		}
+		break
+	}
+
+	return nil, nil
 }
 
 func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {

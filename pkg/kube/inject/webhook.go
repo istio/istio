@@ -740,6 +740,9 @@ func createPatch(pod *corev1.Pod, original []byte) ([]byte, error) {
 // postProcessPod applies additionally transformations to the pod after merging with the injected template
 // This is generally things that cannot reasonably be added to the template
 func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParameters) error {
+	if err := configureAdmin(pod, req); err != nil {
+		return err
+	}
 	if pod.Annotations == nil {
 		pod.Annotations = map[string]string{}
 	}

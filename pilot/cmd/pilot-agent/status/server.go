@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/envoy/admin"
 	commonFeatures "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/log"
@@ -424,8 +425,10 @@ func (s *Server) Run(ctx context.Context) {
 	// Envoy uses something else - and original agent used the same.
 	// Keep for backward compat with configs.
 	mux.HandleFunc(`/stats/prometheus`, s.handleStats)
-	mux.HandleFunc(quitPath, s.handleQuit)
-	mux.HandleFunc(drainPath, s.handleDrain)
+	if !admin.Restricted() {
+		mux.HandleFunc(quitPath, s.handleQuit)
+		mux.HandleFunc(drainPath, s.handleDrain)
+	}
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
 	mux.HandleFunc("/app-lifecycle/", s.handleAppProbe)
 
