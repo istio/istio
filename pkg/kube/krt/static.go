@@ -273,19 +273,29 @@ type staticListIndex[T any] struct {
 }
 
 // nolint: unused // (not true)
-func (s staticListIndex[T]) Lookup(key string) []T {
+// LookupFiltered returns objects matching the key and filter. A nil filter returns all objects for the key.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
+func (s staticListIndex[T]) LookupFiltered(key string, filter func(T) bool) []T {
 	s.parent.mu.RLock()
 	defer s.parent.mu.RUnlock()
 	keys := s.index[key]
 
-	res := make([]T, 0, len(keys))
+	var res []T
+	if filter == nil {
+		res = make([]T, 0, len(keys))
+	}
 	for k := range keys {
 		v, f := s.parent.vals[k]
 		if !f {
 			log.WithLabels("key", k).Errorf("invalid index state, object does not exist")
 			continue
 		}
-		res = append(res, v)
+		if filter == nil || filter(v) {
+			res = append(res, v)
+		}
 	}
 	return res
 }
@@ -335,6 +345,11 @@ func (s *staticList[T]) index(name string, extract func(o T) []string) indexer[T
 	return idx
 }
 
+// ListFiltered returns objects accepted by filter. A nil filter returns all objects.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (s *staticList[T]) ListFiltered(filter func(T) bool) []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

@@ -40,7 +40,7 @@ type filter struct {
 
 type indexFilter struct {
 	filterUID    collectionUID
-	list         func() any
+	listFiltered func(any) any
 	indexMatches func(any) bool
 	extractKeys  objectKeyExtractor
 	key          string
@@ -123,8 +123,8 @@ func FilterIndex[K comparable, I any](idx Index[K, I], k K) FetchOption {
 		// Index is used to pre-filter on the List, and also to match in Matches. Provide type-erased methods for both
 		h.filter.index = &indexFilter{
 			filterUID: idx.id(),
-			list: func() any {
-				return idx.Lookup(k)
+			listFiltered: func(filter any) any {
+				return idx.LookupFiltered(k, filter.(func(I) bool))
 			},
 			indexMatches: func(a any) bool {
 				return idx.objectHasKey(a.(I), k)
