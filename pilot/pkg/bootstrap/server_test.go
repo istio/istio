@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"net/http"
@@ -348,6 +349,31 @@ func TestHasCustomTLSCerts(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreatePeerCertVerifierUsesMeshRoot(t *testing.T) {
+	assert.NoError(t, os.Chdir(t.TempDir()))
+
+	writeFile := func(path string, contents []byte) {
+		t.Helper()
+		assert.NoError(t, os.MkdirAll(filepath.Dir(path), os.ModePerm))
+		assert.NoError(t, os.WriteFile(path, contents, 0o644))
+	}
+
+	externalRoot, err := os.ReadFile(filepath.Join(env.IstioSrc, "security/pkg/pki/testdata/ec-root-cert.pem"))
+	assert.NoError(t, err)
+	writeFile(constants.DefaultPilotTLSCert, testcerts.ServerCert)
+	writeFile(constants.DefaultPilotTLSKey, testcerts.ServerKey)
+	writeFile(constants.DefaultPilotTLSCaCertAlternatePath, externalRoot)
+	writeFile(constants.DefaultPilotTLSCaCert, testcerts.CACert)
+
+	verifier, err := (&Server{}).createPeerCertVerifier(TLSOptions{}, "cluster.local")
+	assert.NoError(t, err)
+	meshRoot, err := util.ParsePemEncodedCertificate(testcerts.CACert)
+	assert.NoError(t, err)
+	meshRootPool := x509.NewCertPool()
+	meshRootPool.AddCert(meshRoot)
+	assert.Equal(t, meshRootPool.Equal(verifier.GetGeneralCertPool()), true)
 }
 
 func TestReloadIstiodCert(t *testing.T) {
