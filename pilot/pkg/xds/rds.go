@@ -46,13 +46,14 @@ var skippedRdsConfigs = func() sets.Set[kind.Kind] {
 	)
 	if features.ScopedAddressPushes {
 		// Sidecar and gateway routes don't depend on ambient Address data; service changes that
-		// affect them arrive as ServiceEntry/Endpoints updates. Waypoints are handled in rdsNeedsPush.
+		// affect them arrive as ServiceEntry/Endpoints updates. Waypoints are handled in RdsNeedsPush.
 		s.Insert(kind.Address)
 	}
 	return s
 }()
 
-func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+// RdsNeedsPush reports whether an update requires route generation for Envoy or proxyless gRPC.
+func RdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
@@ -77,6 +78,15 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 			// Not exclusively the headless endpoint marker; fall through to the normal check below.
 			headlessOnly = false
 		}
+		if config.Kind == kind.AuthorizationPolicy && proxy.Type == model.Router &&
+			features.EnableGatewayAPIHTTPRouteAuth {
+			// An AuthorizationPolicy can target an HTTPRoute, attaching RBAC config to individual
+			// routes, so RDS must be regenerated. Waypoints carry routes inline in LDS.
+			//
+			// This cannot be narrowed to "a route-targeted policy exists": deleting the last one
+			// must also regenerate RDS, and by then it is gone from the new PushContext.
+			return true
+		}
 		if !skippedRdsConfigs.Contains(config.Kind) {
 			if config.Kind == kind.Gateway {
 				if proxy.Type == model.Router || proxy.IsAmbientEastWestGateway() {
@@ -92,7 +102,7 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 }
 
 func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !rdsNeedsPush(req, proxy) {
+	if !RdsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	resources, logDetails := c.ConfigGenerator.BuildHTTPRoutes(proxy, req, w.ResourceNames.UnsortedList())

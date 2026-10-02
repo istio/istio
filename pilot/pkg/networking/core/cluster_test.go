@@ -4684,6 +4684,85 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 		},
 	}
 
+	// Wildcard DYNAMIC_DNS ServiceEntry fixtures, used to verify that the delta cluster path
+	// (deltaFromServices -> PushContext.ServiceAttachedToGateway) discriminates a wildcard host
+	// named by a VirtualService route from a same-shaped wildcard host that is not, the same
+	// way the full-build path (PushContext.GatewayServices) does.
+	wildcardGatewayName := proxyNamespace + "/wildcard-gateway"
+
+	wildcardGatewayConfig := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.Gateway,
+			Name:             "wildcard-gateway",
+			Namespace:        proxyNamespace,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"*.destination1.com"},
+					Port:  &networking.Port{Name: "tls-d1", Number: 443, Protocol: "TLS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+				},
+				{
+					Hosts: []string{"*.destination2.com"},
+					Port:  &networking.Port{Name: "tls-d2", Number: 444, Protocol: "TLS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+				},
+			},
+		},
+	}
+
+	// Only destination1 is named by a route. destination2 has a matching Server but no
+	// VirtualService route, so it must never reach the gateway's delta cluster filter.
+	wildcardVirtualService := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "wildcard-vs",
+			Namespace:        TestServiceNamespace,
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.destination1.com"},
+			Gateways: []string{wildcardGatewayName},
+			Tls: []*networking.TLSRoute{{
+				Match: []*networking.TLSMatchAttributes{{
+					SniHosts: []string{"*.destination1.com"},
+					Port:     443,
+				}},
+				Route: []*networking.RouteDestination{{
+					Destination: &networking.Destination{
+						Host: "*.destination1.com",
+						Port: &networking.PortSelector{Number: 443},
+					},
+				}},
+			}},
+		},
+	}
+
+	wildcardDestination1 := &model.Service{
+		Hostname: host.Name("*.destination1.com"),
+		Ports: []*model.Port{
+			{Name: "tls", Port: 443, Protocol: protocol.TLS},
+		},
+		Resolution:   model.DynamicDNS,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
+	wildcardDestination2 := &model.Service{
+		Hostname: host.Name("*.destination2.com"),
+		Ports: []*model.Port{
+			{Name: "tls", Port: 443, Protocol: protocol.TLS},
+		},
+		Resolution:   model.DynamicDNS,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
 	testCases := []struct {
 		name                 string
 		services             []*model.Service
@@ -5121,6 +5200,28 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 				"outbound|8080||test.com", "outbound|8080||testnew.com",
 			},
 		},
+		{
+			name:     "wildcard service referenced by route is added",
+			services: []*model.Service{wildcardDestination1, wildcardDestination2},
+			configs:  []config.Config{wildcardGatewayConfig, wildcardVirtualService},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.destination1.com", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters:     []string{"BlackHoleCluster", "outbound|443||*.destination1.com"},
+		},
+		{
+			name:     "wildcard service with no route is not added",
+			services: []*model.Service{wildcardDestination1, wildcardDestination2},
+			configs:  []config.Config{wildcardGatewayConfig, wildcardVirtualService},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.destination2.com", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters:     []string{"BlackHoleCluster"},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -5158,6 +5259,149 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 			assert.Equal(t, len(cg.env.PushContext().GetMetric(model.DuplicatedClusters.Name())), 0)
 		})
 	}
+}
+
+// TestGatewayWildcardDynamicDNSSurvivesFilteredGatewayCDS confirms that
+// PILOT_FILTER_GATEWAY_CLUSTER_CONFIG performs a real exact-string match on wildcard
+// DYNAMIC_DNS services, rather than passing every wildcard host through unconditionally.
+// A wildcard host named by a VirtualService route's destination.host must produce a
+// dynamic-forward-proxy cluster in Router CDS. A same-shaped wildcard host with no
+// VirtualService route on the gateway must not.
+func TestGatewayWildcardDynamicDNSSurvivesFilteredGatewayCDS(t *testing.T) {
+	g := NewWithT(t)
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
+
+	proxyNamespace := "foo"
+	gatewayName := proxyNamespace + "/wildcard-gateway"
+
+	// wildcardService1 is named by the VirtualService route below, and must survive the
+	// gateway-cluster filter.
+	wildcardService1 := &model.Service{
+		Hostname: host.Name("*.destination1.com"),
+		Ports: []*model.Port{
+			{
+				Name:     "tls",
+				Port:     443,
+				Protocol: protocol.TLS,
+			},
+		},
+		Resolution:   model.DynamicDNS,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
+	// wildcardService2 has the same shape (wildcard host, DYNAMIC_DNS resolution) but no
+	// VirtualService route names it on this gateway. It is the negative control: if the
+	// gateway-cluster filter is not doing a real exact-string match, this cluster would leak
+	// through too.
+	wildcardService2 := &model.Service{
+		Hostname: host.Name("*.destination2.com"),
+		Ports: []*model.Port{
+			{
+				Name:     "tls",
+				Port:     443,
+				Protocol: protocol.TLS,
+			},
+		},
+		Resolution:   model.DynamicDNS,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
+	gatewayConfig := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.Gateway,
+			Name:             "wildcard-gateway",
+			Namespace:        proxyNamespace,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"*.destination1.com"},
+					Port:  &networking.Port{Name: "tls-d1", Number: 443, Protocol: "TLS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+				},
+				{
+					Hosts: []string{"*.destination2.com"},
+					Port:  &networking.Port{Name: "tls-d2", Number: 444, Protocol: "TLS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+				},
+			},
+		},
+	}
+
+	// Only destination1 is named by a route. destination2 has a matching Server (above) but
+	// no VirtualService route, so it must never reach the gateway's CDS filter.
+	virtualService := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "wildcard-vs",
+			Namespace:        TestServiceNamespace,
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.destination1.com"},
+			Gateways: []string{gatewayName},
+			Tls: []*networking.TLSRoute{{
+				Match: []*networking.TLSMatchAttributes{{
+					SniHosts: []string{"*.destination1.com"},
+					Port:     443,
+				}},
+				Route: []*networking.RouteDestination{{
+					Destination: &networking.Destination{
+						Host: "*.destination1.com",
+						Port: &networking.PortSelector{Number: 443},
+					},
+				}},
+			}},
+		},
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{wildcardService1, wildcardService2},
+		Configs:  []config.Config{gatewayConfig, virtualService},
+	})
+
+	proxy := cg.SetupProxy(&model.Proxy{
+		IPAddresses:     []string{"127.0.0.1"},
+		ConfigNamespace: proxyNamespace,
+		Type:            model.Router,
+		Labels:          map[string]string{"istio": "ingressgateway"},
+	})
+
+	clusters := cg.Clusters(proxy)
+
+	referencedName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", wildcardService1.Hostname, 443)
+	unreferencedName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", wildcardService2.Hostname, 443)
+
+	var referenced, unreferenced *cluster.Cluster
+	var gotNames []string
+	for _, c := range clusters {
+		gotNames = append(gotNames, c.Name)
+		switch c.Name {
+		case referencedName:
+			referenced = c
+		case unreferencedName:
+			unreferenced = c
+		}
+	}
+
+	// Positive case: the referenced wildcard host must produce a dynamic-forward-proxy cluster.
+	if referenced == nil {
+		t.Fatalf("expected wildcard DFP cluster %q in Router CDS with "+
+			"FilterGatewayClusterConfig=true, but it was not present. Got clusters: %v",
+			referencedName, gotNames)
+	}
+	g.Expect(referenced.LbPolicy).To(Equal(cluster.Cluster_CLUSTER_PROVIDED))
+
+	// Negative control: a same-shaped wildcard host with no VirtualService route must not
+	// leak through. Without this check, the positive case alone cannot tell a correct
+	// exact-string filter apart from a filter that is not filtering anything.
+	g.Expect(unreferenced).To(BeNil())
 }
 
 func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {

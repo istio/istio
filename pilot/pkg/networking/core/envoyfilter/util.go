@@ -23,14 +23,6 @@ import (
 	"istio.io/istio/pkg/proto/merge"
 )
 
-// isMergeOperation reports whether the operation merges the patch value into the
-// existing config. Both MERGE and MERGE_AND_REPLACE_LIST are merge operations; they
-// differ only in how repeated (list) fields are handled (see mergePatchValue).
-func isMergeOperation(operation networking.EnvoyFilter_Patch_Operation) bool {
-	return operation == networking.EnvoyFilter_Patch_MERGE ||
-		operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST
-}
-
 // mergePatchValue merges src into dst using the semantics of the given patch operation.
 // MERGE appends repeated (list) fields, while MERGE_AND_REPLACE_LIST replaces them
 // wholesale. Both operations merge scalar and message fields identically.
@@ -46,19 +38,19 @@ func mergePatchValue(operation networking.EnvoyFilter_Patch_Operation, dst, src 
 	merge.Merge(dst, src)
 }
 
-// mergeAnyPatchValue merges the src Any into the dst Any using the semantics of the given
-// patch operation, dynamically inferring the concrete type carried by the Any. It is the
+// mergeAnyPatchValue merges the decoded source into the dst Any using the semantics of the
+// given patch operation without modifying src. It is the
 // Any-typed counterpart of mergePatchValue: MERGE appends repeated (list) fields of the
 // carried message, while MERGE_AND_REPLACE_LIST replaces them wholesale.
 //
 // This is what allows lists nested inside an Any to be overridden, e.g. replacing the
 // alpn_protocols of a transport socket or the list of rules of an HTTP filter, instead of
 // appending the patched values to the ones Istio already generated.
-func mergeAnyPatchValue(operation networking.EnvoyFilter_Patch_Operation, dst, src *anypb.Any) (*anypb.Any, error) {
+func mergeAnyPatchValue(operation networking.EnvoyFilter_Patch_Operation, dst *anypb.Any, src proto.Message) (*anypb.Any, error) {
 	if operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST {
-		return util.MergeAnyWithAnyReplaceList(dst, src)
+		return util.MergeAnyWithMessageReplaceList(dst, src)
 	}
-	return util.MergeAnyWithAny(dst, src)
+	return util.MergeAnyWithMessage(dst, src)
 }
 
 // replaceFunc find and replace the first matching element.

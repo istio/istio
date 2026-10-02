@@ -22,6 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -692,6 +693,52 @@ func TestMergeAndReplaceListClusterTransportSocket(t *testing.T) {
 				buildCluster("istio"), nil)
 			if diff := cmp.Diff(buildCluster(tt.wantALPN...), got, protocmp.Transform()); diff != "" {
 				t.Errorf("%s mismatch (-want +got):\n%s", tt.name, diff)
+			}
+		})
+	}
+}
+
+func TestClusterMergeUndecodedTransportSocket(t *testing.T) {
+	for _, operation := range []networking.EnvoyFilter_Patch_Operation{
+		networking.EnvoyFilter_Patch_MERGE,
+		networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+	} {
+		t.Run(operation.String(), func(t *testing.T) {
+			c := &cluster.Cluster{
+				Name: "original",
+				TransportSocket: &core.TransportSocket{
+					Name: "envoy.transport_sockets.tls",
+					ConfigType: &core.TransportSocket_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{}),
+					},
+				},
+			}
+			want := proto.Clone(c)
+			invalidConfig := protoconv.MessageToAny(&tls.UpstreamTlsContext{})
+			invalidConfig.Value = []byte{0xff}
+			patch := &model.EnvoyFilterConfigPatchWrapper{
+				ApplyTo:   networking.EnvoyFilter_CLUSTER,
+				Operation: operation,
+				Match:     &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY},
+				Value: &cluster.Cluster{
+					LbPolicy: cluster.Cluster_RANDOM,
+					TransportSocket: &core.TransportSocket{
+						Name:       c.TransportSocket.Name,
+						ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: invalidConfig},
+					},
+				},
+			}
+			if merged, err := mergeTransportSocketCluster(c, patch); merged || err == nil {
+				t.Fatalf("expected merge failure, got merged=%v, err=%v", merged, err)
+			}
+			got := ApplyClusterMerge(networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				&model.MergedEnvoyFilterWrapper{
+					Patches: map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper{
+						networking.EnvoyFilter_CLUSTER: {patch},
+					},
+				}, c, nil)
+			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("failed merge should skip the entire cluster patch (-want +got):\n%s", diff)
 			}
 		})
 	}
