@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -226,10 +227,13 @@ func mergeBackendPolicyPortLevelSettings(user, backend []*networking.TrafficPoli
 		return user
 	}
 	byPort := make(map[uint32]*networking.TrafficPolicy_PortTrafficPolicy, len(user))
+	merged := make([]*networking.TrafficPolicy_PortTrafficPolicy, 0, len(user)+len(backend))
 	for _, p := range user {
+		// The user settings may belong to the config store; filling defaults must not mutate them.
+		p = protomarshal.Clone(p)
 		byPort[p.GetPort().GetNumber()] = p
+		merged = append(merged, p)
 	}
-	merged := user
 	for _, bp := range backend {
 		up, ok := byPort[bp.GetPort().GetNumber()]
 		if !ok {
