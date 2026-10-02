@@ -88,6 +88,12 @@
         "labels": {
           "type": "object"
         },
+        "selectorLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "name": {
           "type": "string"
         },
