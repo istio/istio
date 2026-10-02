@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+- |
+  **Fixed** istiod failing to start when the self-signed CA certificate in `istio-ca-secret` has expired,
+  which can happen when the deployment is scaled to zero for longer than the certificate TTL.
+  The expired certificate is now automatically renewed using the existing private key.
