@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61182
+releaseNotes:
+  - |
+    **Fixed** ambient pods staying outside the mesh after their network namespace was replaced. Such a pod keeps
+    its UID, so it produces no add or delete event, while its redirection rules and its ztunnel proxy stay behind
+    in the namespace that is gone — the pod then runs without traffic redirection and outside its own
+    authorization policy for the rest of its life. The CNI agent now re-checks the namespace of an enrolled pod
+    when its IPs change, which is the observable side of a replaced sandbox, and re-enrolls it on a mismatch.
+  - |
+    **Added** `AMBIENT_RECONCILE_ENROLLMENT_INTERVAL` to the CNI agent (disabled by default). When set, the agent
+    also runs that check periodically over every enrolled pod, covering the drift no pod update reports: a
+    namespace replaced without a pod IP change, and an add that never reached the agent.
