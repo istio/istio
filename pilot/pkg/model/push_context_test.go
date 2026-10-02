@@ -2450,7 +2450,7 @@ func TestGatewaySpecificSidecarScopes(t *testing.T) {
 	assert.Equal(t, ew.SidecarScope == proxy(Waypoint, "proxy", "gateways/a").SidecarScope, true)
 	assert.Equal(t, ew.SidecarScope.GatewayVirtualServices("gateways/a"), []*config.Config{private, a})
 	assert.Equal(t, ew.SidecarScope.EgressListeners[0].VirtualServices(), []*config.Config{meshRoute})
-	waypointBase := ps.sidecarIndex.sidecarsForWaypointByNamespace["proxy"]
+	waypointBase := ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[GatewayScopeKey{ProxyType: Waypoint, Namespace: "proxy"}]
 	assert.Equal(t, ew.SidecarScope == waypointBase, false)
 	assert.Equal(t, proxy(Waypoint, "proxy").SidecarScope == waypointBase, true)
 	plainWaypoint := &Proxy{Type: Waypoint, ConfigNamespace: "proxy"}
@@ -2524,9 +2524,12 @@ func TestGatewaySpecificSidecarScopeReuse(t *testing.T) {
 			for i, p := range proxies {
 				oldScopes[i] = old.getSidecarScope(p, nil)
 			}
-			assert.Equal(t, len(old.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), 2)
-			routerBase := old.sidecarIndex.sidecarsForGatewayByNamespace["proxy"]
-			waypointBase := old.sidecarIndex.sidecarsForWaypointByNamespace["proxy"]
+			// Each proxy type caches its namespace scope and its gateway scope.
+			assert.Equal(t, len(old.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), 4)
+			routerBaseKey := GatewayScopeKey{ProxyType: Router, Namespace: "proxy"}
+			waypointBaseKey := GatewayScopeKey{ProxyType: Waypoint, Namespace: "proxy"}
+			routerBase := old.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[routerBaseKey]
+			waypointBase := old.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[waypointBaseKey]
 
 			current := NewPushContext()
 			current.Mesh = old.Mesh
@@ -2535,9 +2538,9 @@ func TestGatewaySpecificSidecarScopeReuse(t *testing.T) {
 			current.updateContext(&Environment{ConfigStore: store}, old, &PushRequest{
 				ConfigsUpdated: sets.New(ConfigKey{Kind: tt.changedKind, Name: "a", Namespace: "gateways"}),
 			})
-			assert.Equal(t, current.sidecarIndex.sidecarsForGatewayByNamespace["proxy"] == routerBase, !tt.rebuilt)
-			assert.Equal(t, current.sidecarIndex.sidecarsForWaypointByNamespace["proxy"] == waypointBase, !tt.rebuilt)
-			wantCached := 2
+			assert.Equal(t, current.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[routerBaseKey] == routerBase, !tt.rebuilt)
+			assert.Equal(t, current.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[waypointBaseKey] == waypointBase, !tt.rebuilt)
+			wantCached := 4
 			if tt.rebuilt {
 				wantCached = 0
 			}
@@ -2547,8 +2550,8 @@ func TestGatewaySpecificSidecarScopeReuse(t *testing.T) {
 				// The previous PushContext keeps serving the scopes it already handed out.
 				assert.Equal(t, old.getSidecarScope(p, nil) == oldScopes[i], true)
 			}
-			assert.Equal(t, len(current.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), 2)
-			assert.Equal(t, len(old.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), 2)
+			assert.Equal(t, len(current.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), 4)
+			assert.Equal(t, len(old.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), 4)
 		})
 	}
 }
