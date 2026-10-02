@@ -15,6 +15,7 @@
 package xds_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -31,6 +32,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/model"
+	pilotxds "istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
@@ -40,6 +42,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	xdsserver "istio.io/istio/pkg/xds"
 )
@@ -547,5 +550,120 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {
 			t.Fatal("expect no private key provider in secret")
 		}
+	}
+}
+
+func TestScopedSecretPushNoStaleConfig(t *testing.T) {
+	const ns = "istio-system"
+	oldCert := readFile(filepath.Join(certDir, "dns/root-cert.pem"))
+	newCert := readFile(filepath.Join(certDir, "mountedcerts-client/root-cert.pem"))
+
+	type Case struct {
+		name         string
+		configKind   kind.Kind
+		makeObject   func(name, cert string) runtime.Object
+		resourceName func(name string) string
+		update       func(cc *fake.Clientset, obj runtime.Object) error
+	}
+
+	cases := []Case{
+		{
+			name:       "secret",
+			configKind: kind.Secret,
+			makeObject: func(name, cert string) runtime.Object {
+				return makeSecret(name, map[string]string{credentials.GenericScrtCaCert: cert})
+			},
+			resourceName: func(name string) string { return "kubernetes://" + name + "-cacert" },
+			update: func(cc *fake.Clientset, obj runtime.Object) error {
+				_, err := cc.CoreV1().Secrets(ns).Update(context.Background(), obj.(*corev1.Secret), metav1.UpdateOptions{})
+				return err
+			},
+		},
+		{
+			name:       "configmap",
+			configKind: kind.ConfigMap,
+			makeObject: func(name, cert string) runtime.Object {
+				return &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+					Data:       map[string]string{credentials.GenericScrtCaCert: cert},
+				}
+			},
+			resourceName: func(name string) string { return "configmap://" + ns + "/" + name },
+			update: func(cc *fake.Clientset, obj runtime.Object) error {
+				_, err := cc.CoreV1().ConfigMaps(ns).Update(context.Background(), obj.(*corev1.ConfigMap), metav1.UpdateOptions{})
+				return err
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			const (
+				rotatedName = "rotated"
+				otherName   = "other"
+			)
+			rotatedObj := tt.makeObject(rotatedName, oldCert)
+			otherObj := tt.makeObject(otherName, oldCert)
+
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				KubernetesObjects:          []runtime.Object{rotatedObj, otherObj},
+				DisableSecretAuthorization: true,
+			})
+
+			makeProxy := func(sdsResource string, watchECDS bool) *model.Proxy {
+				p := &model.Proxy{
+					Type:             model.SidecarProxy,
+					ConfigNamespace:  ns,
+					VerifiedIdentity: &spiffe.Identity{Namespace: ns},
+					Metadata:         &model.NodeMetadata{ClusterID: constants.DefaultClusterName, Namespace: ns},
+					WatchedResources: map[string]*model.WatchedResource{},
+				}
+				p.NewWatchedResource(v3.SecretType, []string{sdsResource})
+				if watchECDS {
+					p.NewWatchedResource(v3.ExtensionConfigurationType, nil)
+				}
+				return p
+			}
+			proxyRotated := makeProxy(tt.resourceName(rotatedName), false)
+			proxyOther := makeProxy(tt.resourceName(otherName), false)
+			proxyWasm := makeProxy(tt.resourceName(otherName), true)
+
+			gen := s.Discovery.Generators[v3.SecretType]
+			getCaCert := func(p *model.Proxy, name string) string {
+				t.Helper()
+				wr := p.GetWatchedResource(v3.SecretType)
+				res, _, err := gen.Generate(p, wr, &model.PushRequest{Forced: true, Start: time.Now(), Push: s.PushContext()})
+				assert.NoError(t, err)
+				raw := xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(res))
+				scrt, ok := raw[tt.resourceName(name)]
+				if !ok {
+					t.Fatalf("expected resource %v in response, got %v", tt.resourceName(name), raw)
+				}
+				return string(scrt.GetValidationContext().GetTrustedCa().GetInlineBytes())
+			}
+
+			assert.Equal(t, getCaCert(proxyRotated, rotatedName), oldCert)
+
+			cc := s.KubeClient().Kube().(*fake.Clientset)
+			before := s.Discovery.CommittedUpdates.Load()
+			assert.NoError(t, tt.update(cc, tt.makeObject(rotatedName, newCert)))
+			retry.UntilOrFail(t, func() bool {
+				return s.Discovery.CommittedUpdates.Load() > before
+			}, retry.Timeout(10*time.Second), retry.Delay(time.Millisecond*10))
+
+			changeKey := model.ConfigKey{Kind: tt.configKind, Name: rotatedName, Namespace: ns}
+			req := &model.PushRequest{ConfigsUpdated: sets.New(changeKey), Push: s.PushContext()}
+			_, needsPush := pilotxds.DefaultProxyNeedsPush(proxyRotated, req)
+			assert.Equal(t, needsPush, true)
+			_, needsPush = pilotxds.DefaultProxyNeedsPush(proxyOther, req)
+			assert.Equal(t, needsPush, false)
+			if tt.configKind == kind.Secret {
+				_, needsPush = pilotxds.DefaultProxyNeedsPush(proxyWasm, req)
+				assert.Equal(t, needsPush, true)
+			}
+
+			assert.Equal(t, getCaCert(proxyRotated, rotatedName), newCert)
+			assert.Equal(t, getCaCert(proxyOther, otherName), oldCert)
+		})
 	}
 }
