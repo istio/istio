@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/cbeuw/connutil"
-	"golang.org/x/net/http2"
 )
 
 func NewDoubleHBONEServer(tlsConfig *tls.Config) *http.Server {
@@ -39,13 +38,6 @@ func NewServer() *http.Server {
 }
 
 func newServer(handleFunc func(http.ResponseWriter, *http.Request) bool) *http.Server {
-	// Need to set this to allow timeout on the read header
-	h1 := &http.Transport{
-		ExpectContinueTimeout: 3 * time.Second,
-	}
-	h2, _ := http2.ConfigureTransports(h1)
-	h2.ReadIdleTimeout = 10 * time.Minute // TODO: much larger to support long-lived connections
-	h2.AllowHTTP = true
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodConnect {
 			if handleFunc(w, r) {
@@ -58,9 +50,15 @@ func newServer(handleFunc func(http.ResponseWriter, *http.Request) bool) *http.S
 	protocols := new(http.Protocols)
 	protocols.SetHTTP1(true)
 	protocols.SetUnencryptedHTTP2(true)
+	// HTTP2 (over TLS) is needed by the inner server in double HBONE, which is served over TLS.
+	// Without it the server does not advertise "h2" in ALPN and HTTP/2 clients are rejected.
+	protocols.SetHTTP2(true)
 	return &http.Server{
 		Handler:   handler,
 		Protocols: protocols,
+		HTTP2: &http.HTTP2Config{
+			SendPingTimeout: 10 * time.Minute, // TODO: much larger to support long-lived connections
+		},
 	}
 }
 
@@ -88,22 +86,23 @@ func handleDoubleConnect(w http.ResponseWriter, r *http.Request, tlsConfig *tls.
 	defer cancel()
 
 	innerServer := newServer(handleConnect)
+	serve := innerServer.Serve
 	if tlsConfig != nil {
 		innerServer.TLSConfig = tlsConfig
+		serve = func(l net.Listener) error { return innerServer.ServeTLS(l, "", "") }
 	} else {
 		log.Info("Using plaintext for inner HBONE server")
 	}
 
 	dialer, listener := connutil.DialerListener(128)
 	go func() {
-		err := innerServer.ServeTLS(listener, "", "")
-		if err != nil {
+		if err := serve(listener); err != nil {
 			log.Errorf("failed to start intermediate http server: %v", err)
 		}
 	}()
 
 	defer func() {
-		if innerServer.Shutdown(ctx) != nil {
+		if err := innerServer.Shutdown(ctx); err != nil {
 			log.Errorf("failed to shutdown inner server: %v", err)
 		}
 	}()
