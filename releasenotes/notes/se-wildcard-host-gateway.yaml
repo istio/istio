@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 61831
+releaseNotes:
+  - |
+    **Added** DYNAMIC_DNS wildcard ServiceEntry support for classic gateway proxies (for example, an egress gateway) for TLS
+    passthrough traffic. To use it, set `ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS=true` on istiod. Then use a `Gateway` server
+    with `tls.mode: PASSTHROUGH` and a `VirtualService` `tls` route with a single destination whose host is the wildcard host
+    (e.g., `*.example.com`). Weighted routes to the wildcard host are not supported.
+    This feature is alpha. It is possible to spoof SNI for TLS connections that match the wildcard host. E.g. a client connecting to
+    `foo.example.com` could connect via SE `*.example.com` while having SNI set to `bar.example.com`. Use it only with trusted clients.

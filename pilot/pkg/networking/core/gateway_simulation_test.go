@@ -21,6 +21,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/test/xds"
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -2647,4 +2649,82 @@ spec:
 	if caClusterName != expectedCluster {
 		t.Errorf("expected CA cert cluster %q, got %q", expectedCluster, caClusterName)
 	}
+}
+
+func TestGatewayWildcardDynamicDNS(t *testing.T) {
+	test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+	egressGateway := &model.Proxy{
+		Labels: map[string]string{"istio": "egressgateway"},
+		Metadata: &model.NodeMetadata{
+			Labels:    map[string]string{"istio": "egressgateway"},
+			Namespace: "istio-system",
+		},
+		Type: model.Router,
+	}
+	runSimulationTest(t, egressGateway, xds.FakeOptions{}, simulationTest{
+		name: "tls passthrough to wildcard DYNAMIC_DNS service entry",
+		config: `
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard
+  namespace: default
+spec:
+  hosts:
+  - '*.destination1.com'
+  location: MESH_EXTERNAL
+  resolution: DYNAMIC_DNS
+  ports:
+  - number: 443
+    name: tls
+    protocol: TLS
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: egressgateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - hosts:
+    - '*.destination1.com'
+    port:
+      name: tls
+      number: 443
+      protocol: TLS
+    tls:
+      mode: PASSTHROUGH
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: wildcard
+  namespace: default
+spec:
+  gateways:
+  - istio-system/egressgateway
+  hosts:
+  - '*.destination1.com'
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - '*.destination1.com'
+    route:
+    - destination:
+        host: '*.destination1.com'
+        port:
+          number: 443
+`,
+		calls: []simulation.Expect{{
+			Name: "call",
+			Call: simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "foo.destination1.com"},
+			Result: simulation.Result{
+				ListenerMatched: "0.0.0.0_443",
+				ClusterMatched:  "outbound|443||*.destination1.com",
+			},
+		}},
+	})
 }
