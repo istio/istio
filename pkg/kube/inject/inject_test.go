@@ -386,6 +386,10 @@ func TestInjection(t *testing.T) {
 			expectedError: "excludeoutboundports",
 		},
 		{
+			in:            "traffic-annotations-bad-includeoutboundports.yaml",
+			expectedError: "includeoutboundports",
+		},
+		{
 			in:   "traffic-annotations.yaml",
 			want: "traffic-annotations.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
