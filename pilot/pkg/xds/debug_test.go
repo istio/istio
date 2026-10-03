@@ -179,6 +179,11 @@ func TestConfigDump(t *testing.T) {
 			proxyID:  "",
 			wantCode: 400,
 		},
+		{
+			name:     "returns 404 if proxyID is a partial match (vulnerability check)",
+			proxyID:  "test",
+			wantCode: 404,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
