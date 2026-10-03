@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/61075
+releaseNotes:
+  - |
+    **Added** a metric, `istiod_cacerts_invalid`, to track failures when processing updates from the secret.
