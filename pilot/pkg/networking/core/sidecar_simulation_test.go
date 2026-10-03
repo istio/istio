@@ -1426,6 +1426,97 @@ spec:
 			},
 		},
 	})
+
+	// VirtualService with alias as destination on a port the alias doesn't declare.
+	// This is the scenario that exercises the LookupService fallback added in the fix:
+	// alias (port 80 only) is absent from the port-81-filtered servicesByName map, so
+	// without the fallback GetDestinationCluster never sees the ExternalName field and
+	// produces the wrong cluster name: outbound|80||alias... (non-existent → 503).
+	// With the fallback, the unfiltered scope lookup finds alias, the ExternalName
+	// redirect fires, and the cluster resolves to outbound|80||concrete... (valid).
+	appAndPartialAlias := `apiVersion: v1
+kind: Service
+metadata:
+  name: alias
+  namespace: default
+spec:
+  type: ExternalName
+  externalName: concrete.default.svc.cluster.local
+  ports:
+  - name: http
+    port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: concrete
+  namespace: default
+spec:
+  clusterIP: 1.2.3.4
+  ports:` + ports + `
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  namespace: default
+spec:
+  clusterIP: 1.2.3.5
+  ports:
+  - name: http
+    port: 80
+  - name: auto
+    port: 81`
+	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		config: `apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: route-via-alias
+  namespace: default
+spec:
+  hosts:
+  - app.default.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: alias.default.svc.cluster.local
+        port:
+          number: 80`,
+		kubeConfig: appAndPartialAlias,
+		calls: []simulation.Expect{
+			{
+				// alias declares port 80 only. The call arrives on port 81, so alias is
+				// absent from the port-filtered servicesByName map used to build the
+				// port-81 route config. The LookupService fallback must find alias via
+				// the unfiltered scope and trigger the ExternalName redirect so that the
+				// cluster resolves to concrete, not to the non-existent alias cluster.
+				Name: "VS destination is ExternalName alias missing listener port; ExternalName redirect must fire via fallback",
+				Call: simulation.Call{
+					Address:    "1.2.3.5",
+					Port:       81,
+					Protocol:   simulation.HTTP,
+					HostHeader: "app.default.svc.cluster.local",
+				},
+				Result: simulation.Result{
+					ClusterMatched: "outbound|80||concrete.default.svc.cluster.local",
+				},
+			},
+			{
+				// Baseline: alias declares port 80, so it IS in the port-filtered map.
+				// The ExternalName redirect fires on the standard path without the fallback.
+				Name: "VS destination is ExternalName alias on declared port; ExternalName redirect fires normally",
+				Call: simulation.Call{
+					Address:    "1.2.3.5",
+					Port:       80,
+					Protocol:   simulation.HTTP,
+					HostHeader: "app.default.svc.cluster.local",
+				},
+				Result: simulation.Result{
+					ClusterMatched: "outbound|80||concrete.default.svc.cluster.local",
+				},
+			},
+		},
+	})
 }
 
 func TestPassthroughTraffic(t *testing.T) {
