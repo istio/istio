@@ -836,6 +836,12 @@ func TestConvertResources(t *testing.T) {
 			),
 		},
 		{name: "backend-tls-client-cert"},
+		{
+			name: "backend-tls-client-cert-refgrant",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"certs/^existing-",
+			),
+		},
 		{name: "xbackend"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
