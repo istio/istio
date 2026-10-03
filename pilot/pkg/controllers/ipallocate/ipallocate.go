@@ -74,8 +74,31 @@ type conflictDetectedEvent struct {
 const conflictDetectedEventDelim = `,`
 
 func (event conflictDetectedEvent) getAddresses() []netip.Addr {
+	return parseAddresses(event.conflictingAddresses)
+}
+
+func newConflictDetectedEvent(id types.NamespacedName, addresses []netip.Addr) conflictDetectedEvent {
+	return conflictDetectedEvent{
+		conflictingResourceIdentifier: id,
+		conflictingAddresses:          joinAddresses(addresses),
+	}
+}
+
+func joinAddresses(addresses []netip.Addr) string {
+	if len(addresses) == 0 {
+		return ""
+	}
+	joined := addresses[0].String()
+	for _, a := range addresses[1:] {
+		joined += conflictDetectedEventDelim
+		joined += a.String()
+	}
+	return joined
+}
+
+func parseAddresses(joined string) []netip.Addr {
 	addresses := []netip.Addr{}
-	for _, a := range strings.Split(event.conflictingAddresses, conflictDetectedEventDelim) {
+	for _, a := range strings.Split(joined, conflictDetectedEventDelim) {
 		parsedAddress, err := netip.ParseAddr(a)
 		if err != nil {
 			continue
@@ -85,41 +108,53 @@ func (event conflictDetectedEvent) getAddresses() []netip.Addr {
 	return addresses
 }
 
-func newConflictDetectedEvent(id types.NamespacedName, addresses []netip.Addr) conflictDetectedEvent {
-	var conflictingAddresses string
-	if len(addresses) > 0 {
-		conflictingAddresses = addresses[0].String()
-		for _, a := range addresses[1:] {
-			conflictingAddresses += conflictDetectedEventDelim
-			conflictingAddresses += a.String()
-		}
-	}
-	return conflictDetectedEvent{
-		conflictingResourceIdentifier: id,
-		conflictingAddresses:          conflictingAddresses,
-	}
-}
-
 const (
 	controllerName = "IP Autoallocator"
 )
+
+// serviceEntryDeletedEvent carries the addresses a deleted ServiceEntry held so they
+// can be freed from the allocator; by the time this is reconciled the object is gone
+// from both the informer cache and the API server.
+//
+// Addresses are joined into a single string, like conflictDetectedEvent, because the
+// workqueue requires items to be comparable and a slice is not.
+type serviceEntryDeletedEvent struct {
+	owner     types.NamespacedName
+	addresses string
+}
+
+func newServiceEntryDeletedEvent(owner types.NamespacedName, addresses []netip.Addr) serviceEntryDeletedEvent {
+	return serviceEntryDeletedEvent{
+		owner:     owner,
+		addresses: joinAddresses(addresses),
+	}
+}
+
+func (event serviceEntryDeletedEvent) getAddresses() []netip.Addr {
+	return parseAddresses(event.addresses)
+}
+
+// addressesOwnedByServiceEntry returns every address this controller recorded as used
+// on behalf of se: auto-allocated addresses in status, plus any user-supplied spec
+// addresses that fall in our ranges and were tracked to detect conflicts.
+func addressesOwnedByServiceEntry(se *networkingv1.ServiceEntry) []netip.Addr {
+	addresses := autoallocate.GetAddressesFromServiceEntry(se)
+	for _, addr := range se.Spec.Addresses {
+		a, err := netip.ParseAddr(addr)
+		if err != nil {
+			continue
+		}
+		addresses = append(addresses, a)
+	}
+	return addresses
+}
 
 func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 	client := kclient.NewDelayedInformer[*networkingv1.ServiceEntry](c, gvr.ServiceEntry, kubetypes.StandardInformer, kclient.Filter{
 		ObjectFilter: c.ObjectFilter(),
 	})
 	writer := kclient.NewWriteClient[*networkingv1.ServiceEntry](c)
-	index := kclient.CreateIndex[netip.Addr, *networkingv1.ServiceEntry](client, "address", func(serviceentry *networkingv1.ServiceEntry) []netip.Addr {
-		addresses := autoallocate.GetAddressesFromServiceEntry(serviceentry)
-		for _, addr := range serviceentry.Spec.Addresses {
-			a, err := netip.ParseAddr(addr)
-			if err != nil {
-				continue
-			}
-			addresses = append(addresses, a)
-		}
-		return addresses
-	})
+	index := kclient.CreateIndex[netip.Addr, *networkingv1.ServiceEntry](client, "address", addressesOwnedByServiceEntry)
 	allocator := &IPAllocator{
 		serviceEntryClient: client,
 		serviceEntryWriter: writer,
@@ -130,7 +165,20 @@ func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 		v6allocator: newPrefixUse(netip.MustParsePrefix(features.IPAutoallocateIPv6Prefix)),
 	}
 	allocator.queue = controllers.NewQueue(controllerName, controllers.WithGenericReconciler(allocator.reconcile), controllers.WithMaxAttempts(5))
-	client.AddEventHandler(controllers.ObjectHandler(allocator.queue.AddObject))
+	client.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
+		if o.Event == controllers.EventDelete {
+			// The object is already gone from the informer cache by the time we would
+			// reconcile a bare NamespacedName, so we capture its addresses now and free
+			// them directly instead of relying on a later Get() that would return nil.
+			se, ok := o.Old.(*networkingv1.ServiceEntry)
+			if !ok {
+				return
+			}
+			allocator.queue.Add(newServiceEntryDeletedEvent(config.NamespacedName(se), addressesOwnedByServiceEntry(se)))
+			return
+		}
+		allocator.queue.AddObject(o.Latest())
+	}))
 	return allocator
 }
 
@@ -168,6 +216,10 @@ func (c *IPAllocator) reconcile(a any) error {
 	if conflict, ok := a.(conflictDetectedEvent); ok {
 		return c.resolveConflict(conflict)
 	}
+	if deleted, ok := a.(serviceEntryDeletedEvent); ok {
+		c.freeAddresses(deleted.getAddresses(), deleted.owner)
+		return nil
+	}
 
 	return nil
 }
@@ -177,9 +229,10 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 	log.Debugf("reconciling")
 	serviceentry := c.serviceEntryClient.Get(se.Name, se.Namespace)
 	if serviceentry == nil {
+		// A delete is handled directly by the event handler via serviceEntryDeletedEvent,
+		// since by the time we would reconcile a bare NamespacedName the object (and its
+		// addresses) is already gone from the informer cache. Nothing to do here.
 		log.Debugf("not found, no action required")
-		// probably a delete so we should remove ips from our addresses most likely
-		// TODO: we never actually remove IP right now, likely this should be done a little more slowly anyway to prevent reuse if we are too fast
 		return nil
 	}
 
