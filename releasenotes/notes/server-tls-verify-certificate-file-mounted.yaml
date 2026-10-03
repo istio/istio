@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 61771
+releaseNotes:
+  - |
+    **Fixed** `verifyCertificateSpki` and `verifyCertificateHash` being ignored on a `MUTUAL` or `OPTIONAL_MUTUAL` server TLS setting that uses `serverCertificate`, `privateKey` and `caCertificates` instead of `credentialName`.

@@ -197,6 +197,10 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		authnmodel.ApplyToCommonTLSContext(
 			ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl,
 			[]string{}, validateClient, serverTLSSettings.TlsCertificates, serverTLSSettings.GetInsecureSkipVerify().GetValue())
+		if vc := ctx.CommonTlsContext.GetCombinedValidationContext().GetDefaultValidationContext(); vc != nil {
+			vc.VerifyCertificateSpki = serverTLSSettings.VerifyCertificateSpki
+			vc.VerifyCertificateHash = serverTLSSettings.VerifyCertificateHash
+		}
 	}
 
 	if isSimpleOrMutual(serverTLSSettings.Mode) {
