@@ -4075,12 +4075,89 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 }
 
 func TestBuildGatewayListenersFilters(t *testing.T) {
+	wildcardPassthroughConfigs := []config.Config{
+		{
+			Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+			Spec: &networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port:  &networking.Port{Name: "tls", Number: 443, Protocol: "TLS"},
+						Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+						Hosts: []string{"*.example.com"},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "wildcard", Namespace: "testns", GroupVersionKind: gvk.ServiceEntry},
+			Spec: &networking.ServiceEntry{
+				Hosts:      []string{"*.example.com"},
+				Ports:      []*networking.ServicePort{{Number: 443, Name: "tls", Protocol: "TLS"}},
+				Location:   networking.ServiceEntry_MESH_EXTERNAL,
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+		},
+		{
+			Meta: config.Meta{Name: "wildcard", Namespace: "testns", GroupVersionKind: gvk.VirtualService},
+			Spec: &networking.VirtualService{
+				Gateways: []string{"testns/gateway"},
+				Hosts:    []string{"*.example.com"},
+				Tls: []*networking.TLSRoute{
+					{
+						Match: []*networking.TLSMatchAttributes{{Port: 443, SniHosts: []string{"*.example.com"}}},
+						Route: []*networking.RouteDestination{
+							{Destination: &networking.Destination{Host: "*.example.com", Port: &networking.PortSelector{Number: 443}}},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.AuthorizationPolicy},
+			Spec: &security.AuthorizationPolicy{},
+		},
+	}
 	cases := []struct {
 		name             string
 		configs          []config.Config
 		proxyConfig      *pilot_model.NodeMetaProxyConfig
+		wildcardTLS      bool
 		expectedListener listenertest.ListenerTest
 	}{
+		{
+			// RBAC must run before the SNI DFP filter, so a denied connection never triggers DNS resolution.
+			name:        "TLS passthrough to wildcard DYNAMIC_DNS with RBAC",
+			configs:     wildcardPassthroughConfigs,
+			wildcardTLS: true,
+			expectedListener: listenertest.ListenerTest{
+				Filters: []string{wellknown.TLSInspector},
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						TotalMatch: true,
+						NetworkFilters: []string{
+							wellknown.RoleBasedAccessControl,
+							wellknown.SNIDynamicForwardProxy,
+							wellknown.TCPProxy,
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "TLS passthrough to wildcard DYNAMIC_DNS with RBAC, wildcard TLS disabled",
+			configs: wildcardPassthroughConfigs,
+			expectedListener: listenertest.ListenerTest{
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						TotalMatch: true,
+						NetworkFilters: []string{
+							wellknown.RoleBasedAccessControl,
+							wellknown.TCPProxy,
+						},
+					},
+				},
+			},
+		},
 		{
 			name: "http server",
 			configs: []config.Config{
@@ -4785,6 +4862,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, tt.wildcardTLS)
 			mc := mesh.DefaultMeshConfig()
 			mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
 				Name: "extauthz",
