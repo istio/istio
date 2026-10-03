@@ -989,7 +989,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 						filterChains = append(filterChains, &filterChainOpts{
 							sniHosts:       match.SniHosts,
 							tlsContext:     nil, // NO TLS context because this is passthrough
-							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false),
+							networkFilters: lb.withGatewaySNIDFPFilter(lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false), tls.Route, port),
 						})
 					}
 				}
@@ -998,6 +998,32 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 	}
 
 	return filterChains
+}
+
+// withGatewaySNIDFPFilter inserts an SNI dynamic forward proxy filter before the TCP proxy when a passthrough
+// TLS route sends to a single wildcard DYNAMIC_DNS ServiceEntry, so Envoy resolves the upstream from the SNI.
+// Like waypoints, this is gated by ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: a shared gateway trusts the
+// client-provided SNI. Weighted routes are not supported, as one DNS cache cannot serve several destinations.
+func (lb *ListenerBuilder) withGatewaySNIDFPFilter(
+	filters []*listener.Filter, routes []*networking.RouteDestination, port *model.Port,
+) []*listener.Filter {
+	if !features.EnableWildcardHostServiceEntriesForTLS || len(routes) != 1 {
+		return filters
+	}
+	svc := lb.push.ServiceForHostname(lb.node, host.Name(routes[0].Destination.Host))
+	if svc == nil || !svc.Hostname.IsWildCarded() || svc.Resolution != model.DynamicDNS {
+		return filters
+	}
+	tcpProxy := slices.IndexFunc(filters, func(f *listener.Filter) bool { return f.Name == wellknown.TCPProxy })
+	if tcpProxy < 0 {
+		return filters
+	}
+	upstreamPort := port.Port
+	if p := routes[0].Destination.GetPort().GetNumber(); p != 0 {
+		upstreamPort = int(p)
+	}
+	dfp := buildSNIDFPFilter(upstreamPort, svc, util.SelectDNSLookupFamily(lb.node.IPAddresses))
+	return slices.Insert(filters, tcpProxy, dfp)
 }
 
 // builtAutoPassthroughFilterChains builds a set of filter chains for auto_passthrough gateway servers.
