@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection"
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
@@ -177,8 +178,15 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 			// See below, where we disable KeyComparison as well
 			leaseKey = ""
 		}
+		leaseMeta := metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID}
+		if l.perRevision {
+			leaseMeta.Labels = map[string]string{
+				label.IoIstioRev.Name:         l.revision,
+				"operator.istio.io/component": "Pilot",
+			}
+		}
 		lock = &k8sresourcelock.LeaseLock{
-			LeaseMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
+			LeaseMeta: leaseMeta,
 			Client:    l.client.CoordinationV1(),
 			LockConfig: k8sresourcelock.ResourceLockConfig{
 				Identity: l.name,
