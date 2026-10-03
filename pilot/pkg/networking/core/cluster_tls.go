@@ -119,7 +119,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	// We do not want to support CredentialName setting in non workloadSelector based DestinationRules, because
 	// that would result in the CredentialName being supplied to all the sidecars which the DestinationRule is scoped to,
 	// resulting in delayed startup of sidecars who do not have access to the credentials.
-	// `filterAuthorizedResources` allows ConfigMap to anyone, so do not exclude it here.
+	// `filterAuthorizedResources` allows ConfigMap to anyone, so do not exclude a ConfigMap
+	// referenced by CredentialName here. CaCertCredentialName requires a selector for
+	// sidecars otherwise it will only be applicable to gateways.
 	//
 	// invalid:// (BackendTLSPolicy's unresolved-CA sentinel) is not privileged either: SDS drops
 	// it for everyone, so let it build an unservable validation context that fails closed instead
@@ -127,9 +129,14 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	privilegedCredentialLookup := tls.CredentialName != "" &&
 		!strings.HasPrefix(tls.CredentialName, credentials.KubernetesConfigMapTypeURI) &&
 		tls.CredentialName != credentials.InvalidSecretTypeURI
-	if privilegedCredentialLookup && cb.sidecarProxy() && !opts.isDrWithSelector {
-		if tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL {
+	if cb.sidecarProxy() && !opts.isDrWithSelector {
+		if privilegedCredentialLookup &&
+			(tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL) {
 			return nil, nil
+		}
+		if tls.CaCertCredentialName != "" {
+			tls = tls.DeepCopy()
+			tls.CaCertCredentialName = ""
 		}
 	}
 
@@ -208,9 +215,30 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		tls = tls.DeepCopy()
 		tls.SubjectAltNames = opts.serviceAccounts
 	}
-	if tls.CredentialName != "" {
+
+	// Used to fallback to file-based approach when CredentialName is not configured.
+	applyFileClientCertificate := func() error {
+		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
+			return fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
+				c.cluster.Name)
+		}
+		res := security.SdsCertificateConfig{
+			CertificatePath: tls.ClientCertificate,
+			PrivateKeyPath:  tls.PrivateKey,
+		}
+		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+			constructSdsSecretConfigFromFile(res.GetResourceName(), opts.fileCredentialSocketExist))
+		return nil
+	}
+
+	if tls.CredentialName != "" || tls.CaCertCredentialName != "" {
 		// If credential name is specified at Destination Rule config and originating node is egress gateway, create
 		// SDS config for egress gateway to fetch key/cert at gateway agent.
+		if mutual && tls.CredentialName == "" {
+			if err := applyFileClientCertificate(); err != nil {
+				return nil, err
+			}
+		}
 		sec_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, opts.credentialSocketExist)
 	} else {
 		// These are certs being mounted from within the pod and specified in Destination Rules.
@@ -221,15 +249,9 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		}
 		// If CredentialName is not set fallback to file based approach
 		if mutual {
-			if tls.ClientCertificate == "" || tls.PrivateKey == "" {
-				err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
-					c.cluster.Name)
+			if err := applyFileClientCertificate(); err != nil {
 				return nil, err
 			}
-			res.CertificatePath = tls.ClientCertificate
-			res.PrivateKeyPath = tls.PrivateKey
-			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				constructSdsSecretConfigFromFile(res.GetResourceName(), opts.fileCredentialSocketExist))
 		}
 		// If tls.CaCertificate or CaCertificate in Metadata isn't configured, or tls.InsecureSkipVerify is true,
 		// don't set up SdsSecretConfig
