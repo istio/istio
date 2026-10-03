@@ -414,19 +414,19 @@ func TestPodWorkloads(t *testing.T) {
 			inputs: []any{
 				model.WorkloadAuthorization{
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-					Authorization: &security.Authorization{Name: "wrong-ns", Namespace: "not-ns"},
+					Authorization: &security.Authorization{Name: "wrong-ns", Namespace: "not-ns", Scope: security.Scope_WORKLOAD_SELECTOR},
 				},
 				model.WorkloadAuthorization{
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-					Authorization: &security.Authorization{Name: "local-ns", Namespace: "ns"},
+					Authorization: &security.Authorization{Name: "local-ns", Namespace: "ns", Scope: security.Scope_WORKLOAD_SELECTOR},
 				},
 				model.WorkloadAuthorization{
 					LabelSelector: model.NewSelector(map[string]string{"app": "not-foo"}),
-					Authorization: &security.Authorization{Name: "local-ns-wrong-labels", Namespace: "ns"},
+					Authorization: &security.Authorization{Name: "local-ns-wrong-labels", Namespace: "ns", Scope: security.Scope_WORKLOAD_SELECTOR},
 				},
 				model.WorkloadAuthorization{
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-					Authorization: &security.Authorization{Name: "root-ns", Namespace: "istio-system"},
+					Authorization: &security.Authorization{Name: "root-ns", Namespace: "istio-system", Scope: security.Scope_WORKLOAD_SELECTOR},
 				},
 			},
 			pod: &v1.Pod{
