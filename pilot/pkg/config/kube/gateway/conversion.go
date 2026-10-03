@@ -1201,7 +1201,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case gvk.InferencePool:
-		if !features.EnableGatewayAPIInferenceExtension {
+		if !ctx.Flags.EnableGatewayAPIInferenceExtension {
 			return &istio.Destination{}, nil, &ConfigError{
 				Reason:  InvalidDestinationKind,
 				Message: "InferencePool is not enabled. To enable, set ENABLE_GATEWAY_API_INFERENCE_EXTENSION to true in istiod",
