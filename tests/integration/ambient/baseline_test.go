@@ -1092,6 +1092,76 @@ spec:
 	})
 }
 
+func TestAuthorizationL4EmptySelector(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		ns := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "authz-empty-selector",
+			Inject: false,
+			Labels: map[string]string{
+				label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
+			},
+		})
+		targets := deployment.New(t).
+			WithConfig(echo.Config{
+				Service:        "server-a",
+				Namespace:      ns,
+				Ports:          echo.Ports{ports.TCP, ports.AutoTCP},
+				ServiceAccount: true,
+			}).
+			WithConfig(echo.Config{
+				Service:        "server-b",
+				Namespace:      ns,
+				Ports:          echo.Ports{ports.TCP, ports.AutoTCP},
+				ServiceAccount: true,
+			}).
+			BuildOrFail(t)
+
+		checkTraffic := func(t framework.TestContext, deny bool) {
+			for _, dst := range targets {
+				src := apps.Captured.ForCluster(dst.Config().Cluster.Name())[0]
+				t.NewSubTestf("%s/%s", dst.Config().Cluster.StableName(), dst.Config().Service).Run(func(t framework.TestContext) {
+					for _, port := range []echo.Port{ports.TCP, ports.AutoTCP} {
+						checker := check.OK()
+						if deny && port.Name == ports.TCP.Name {
+							checker = CheckDeny
+						}
+						src.CallOrFail(t, echo.CallOptions{
+							To:                      dst,
+							Port:                    port,
+							Scheme:                  scheme.TCP,
+							Count:                   1,
+							NewConnectionPerRequest: true,
+							Check:                   checker,
+						})
+					}
+				})
+			}
+		}
+		t.NewSubTest("before policy").Run(func(t framework.TestContext) {
+			checkTraffic(t, false)
+		})
+
+		t.ConfigIstio().Eval(ns.Name(), map[string]any{
+			"Port": ports.TCP.WorkloadPort,
+		}, `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-tcp
+spec:
+  selector: {}
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        ports: ["{{ .Port }}"]
+`).ApplyOrFail(t)
+		t.NewSubTest("empty selector").Run(func(t framework.TestContext) {
+			checkTraffic(t, true)
+		})
+	})
+}
+
 func TestAuthorizationServiceAttached(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
