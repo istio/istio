@@ -8,4 +8,11 @@ issue: []
 
 releaseNotes:
 - |
-  **Fixed** [GHSA-qm8v-g4f9-qhjx](https://github.com/istio/istio/security/advisories/GHSA-qm8v-g4f9-qhjx): a fail-open in `BackendTLSPolicy` where sidecar proxies sent upstream traffic in plaintext instead of failing closed when a policy's `caCertificateRefs` could not be resolved. Reported by [@thc1006](https://github.com/thc1006).
+  **Fixed** a fail-open in `BackendTLSPolicy` where sidecar proxies sent upstream traffic in plaintext instead of failing closed when a policy's `caCertificateRefs` could not be resolved.
+
+securityNotes:
+- |
+  __[GHSA-qm8v-g4f9-qhjx](https://github.com/istio/istio/security/advisories/GHSA-qm8v-g4f9-qhjx)__: When a `BackendTLSPolicy` referenced a CA certificate that could not be resolved, sidecar proxies sent upstream traffic in plaintext instead of failing closed.
+  - CVSS Score: 6.8 [AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:N](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:N&version=3.1)
+
+  **Credit**: This vulnerability was discovered and reported by [@thc1006](https://github.com/thc1006).
