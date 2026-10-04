@@ -2534,6 +2534,35 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false},
+		{name: "bad gateway after mesh", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"mesh", "ns1/b@dgateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "bad gateway after FQDN gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"gateway.example.com", "ns1/b@dgateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false, warning: true},
+		{name: "bad http match gateway after mesh", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Match: []*networking.HTTPMatchRequest{{
+					Gateways: []string{"mesh", "ns1/b@dgateway"},
+				}},
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
 		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
 			Hosts: []string{"*"},
 			Http: []*networking.HTTPRoute{{
