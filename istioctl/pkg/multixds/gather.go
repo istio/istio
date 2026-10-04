@@ -183,8 +183,24 @@ func mergeShards(responses map[string]*discovery.DiscoveryResponse) (*discovery.
 	return &retval, nil
 }
 
+// defaultSan sets the expected istiod SAN when dialing an IP or localhost address,
+// since istiod certificates only contain DNS SANs. An explicit --authority wins.
+func defaultSan(centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.CLIClient) {
+	if centralOpts.XDSSAN != "" || centralOpts.Plaintext || centralOpts.InsecureSkipVerify {
+		return
+	}
+	host, _, err := net.SplitHostPort(centralOpts.Xds)
+	if err != nil {
+		host = centralOpts.Xds
+	}
+	if host == "localhost" || net.ParseIP(host) != nil {
+		centralOpts.XDSSAN = makeSan(istioNamespace, kubeClient.Revision())
+	}
+}
+
 func makeSan(istioNamespace, revision string) string {
-	if revision == "" {
+	// istiod only adds istiod-<revision> to its cert for non-default revisions, see getDNSNames in pilot/pkg/bootstrap.
+	if revision == "" || revision == "default" {
 		return fmt.Sprintf("istiod.%s.svc", istioNamespace)
 	}
 	return fmt.Sprintf("istiod-%s.%s.svc", revision, istioNamespace)
@@ -251,6 +267,7 @@ func MultiRequestAndProcessXds(all bool, dr *discovery.DiscoveryRequest, central
 		serviceAccount = tokenServiceAccount
 	}
 	if centralOpts.Xds != "" {
+		defaultSan(&centralOpts, istioNamespace, kubeClient)
 		dialOpts, err := xds.DialOptions(centralOpts, ns, serviceAccount, kubeClient)
 		if err != nil {
 			return nil, err
@@ -274,6 +291,7 @@ func MultiRequestAndProcessXds(all bool, dr *discovery.DiscoveryRequest, central
 				centralOpts.Xds = addr.host
 				centralOpts.GCPProject = addr.gcpProject
 				centralOpts.IstiodAddr = addr.istiod
+				defaultSan(&centralOpts, istioNamespace, kubeClient)
 				dialOpts, err := xds.DialOptions(centralOpts, istioNamespace, tokenServiceAccount, kubeClient)
 				if err != nil {
 					return nil, err
