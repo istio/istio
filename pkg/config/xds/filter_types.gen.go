@@ -277,6 +277,8 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/health_checkers/thrift/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/health_checkers/udp/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/ai_filters/request_info/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/ai_filters/schema_validation/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/ai_filters/transcoder/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/cache/file_system_http_cache/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/cache/simple_http_cache/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/cache_v2/file_system_http_cache/v3"
