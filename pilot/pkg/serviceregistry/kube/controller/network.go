@@ -85,7 +85,16 @@ func initNetworkManager(c *Controller, options Options) *networkManager {
 	if features.MultiNetworkGatewayAPI {
 		n.gatewayResourceClient = kclient.NewDelayedInformer[*gatewayv1.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
 		// conditionally register this handler
-		registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
+		registerHandlers(c, n.gatewayResourceClient, "Gateways", func(old, cur *gatewayv1.Gateway, event model.Event) error {
+			err := n.handleGatewayResource(old, cur, event)
+			// The Service of an ambient east-west gateway is registered from its own labels, but
+			// whether its mTLS port terminates is read from this Gateway. Re-register it so the
+			// two cannot drift, e.g. when the Service was processed before this Gateway was cached.
+			if cur != nil && cur.Spec.GatewayClassName == constants.EastWestGatewayClassName {
+				c.reprocessGatewayServices(cur.Namespace, cur.Name)
+			}
+			return err
+		}, nil)
 	}
 	return n
 }
@@ -310,6 +319,29 @@ func (n *networkManager) extractGatewaysInner(svc *model.Service) bool {
 	return gatewaysChanged
 }
 
+// terminatesMTLS reports whether the gateway behind svc terminates Istio mTLS on port. Only the
+// Gateway that deployed the Service can tell: the Service carries the port but not its TLS mode.
+// Gateways this istiod deploys label their Service with the Gateway's name.
+func (n *networkManager) terminatesMTLS(svc *model.Service, port int) bool {
+	if n.gatewayResourceClient == nil {
+		return false
+	}
+	name := svc.Attributes.Labels[label.IoK8sNetworkingGatewayGatewayName.Name]
+	if name == "" {
+		return false
+	}
+	gw := n.gatewayResourceClient.Get(name, svc.Attributes.Namespace)
+	if gw == nil {
+		return false
+	}
+	for _, l := range gw.Spec.Listeners {
+		if int(l.Port) == port && kube.IsMTLSTerminating(gw.Spec.GatewayClassName, l) {
+			return true
+		}
+	}
+	return false
+}
+
 // getGatewayDetails returns gateways without the address populated, only the network and (unmapped) port for a given service.
 func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGateway {
 	// We have different types of E/W gateways - those that use mTLS (those are used in sidecar mode when talking cross networks)
@@ -347,6 +379,16 @@ func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGa
 		}
 		if !acceptHBONE {
 			hbonePort = 0
+		}
+		if acceptMTLS && n.terminatesMTLS(svc, gwPort) {
+			// Two entries rather than one marked gateway: the mark only describes the mTLS port.
+			// Carried on a combined entry it would also keep HBONE clients, which this gateway
+			// serves normally, from selecting it.
+			out := []model.NetworkGateway{{Port: uint32(gwPort), TerminatesMTLS: true, Network: network.ID(nw)}}
+			if acceptHBONE {
+				out = append(out, model.NetworkGateway{HBONEPort: uint32(hbonePort), Network: network.ID(nw)})
+			}
+			return out
 		}
 		return []model.NetworkGateway{{Port: uint32(gwPort), HBONEPort: uint32(hbonePort), Network: network.ID(nw)}}
 	}

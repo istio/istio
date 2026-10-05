@@ -362,3 +362,84 @@ func TestGatewayResourceMTLSTerminatingListener(t *testing.T) {
 		t.Errorf("sidecar gateway entry = %+v (found=%v), want an ordinary passthrough Port 15443", gw, f)
 	}
 }
+
+// An ambient east-west gateway without spec.addresses is registered from its Service. The Service
+// only carries ports, so whether its mTLS port terminates comes from the Gateway it was deployed for.
+func TestLabeledServiceGatewayMTLSTerminatingListener(t *testing.T) {
+	for _, gatewayFirst := range []bool{true, false} {
+		t.Run(fmt.Sprintf("gateway first=%v", gatewayFirst), func(t *testing.T) {
+			test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+			c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
+				ClusterID:    constants.DefaultClusterName,
+				DomainSuffix: "cluster.local",
+				CRDs:         []schema.GroupVersionResource{gvr.KubernetesGateway},
+			})
+
+			terminate := k8sv1.TLSModeTerminate
+			addGateway := func() {
+				clienttest.Wrap(t, kclient.New[*k8sv1.Gateway](c.client)).CreateOrUpdate(&k8sv1.Gateway{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "eastwest-ambient",
+						Namespace: "istio-system",
+						UID:       "eastwest-ambient",
+						Labels:    map[string]string{label.TopologyNetwork.Name: "nw2"},
+					},
+					Spec: k8sv1.GatewaySpec{
+						GatewayClassName: constants.EastWestGatewayClassName,
+						Listeners: []k8sv1.Listener{
+							{Name: "mesh", Protocol: "HBONE", Port: 15008},
+							{
+								Name:     "mtls",
+								Protocol: k8sv1.TLSProtocolType,
+								Port:     15443,
+								TLS: &k8sv1.ListenerTLSConfig{
+									Mode:    &terminate,
+									Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{"gateway.istio.io/tls-terminate-mode": "ISTIO_MUTUAL"},
+								},
+							},
+						},
+					},
+				})
+			}
+			addService := func() {
+				clienttest.Wrap(t, c.services).CreateOrUpdate(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{Name: "eastwest-ambient", Namespace: "istio-system", Labels: map[string]string{
+						label.TopologyNetwork.Name:                   "nw2",
+						label.IoK8sNetworkingGatewayGatewayName.Name: "eastwest-ambient",
+					}},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Name: "mesh", Port: 15008, Protocol: corev1.ProtocolTCP},
+							{Name: "mtls", Port: 15443, Protocol: corev1.ProtocolTCP},
+						},
+					},
+					Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "2.3.4.5"}}}},
+				})
+			}
+			gateways := func() map[string]bool {
+				got := map[string]bool{}
+				for _, gw := range c.NetworkGateways() {
+					got[fmt.Sprintf("%s:%d/%d", gw.Addr, gw.Port, gw.HBONEPort)] = gw.TerminatesMTLS
+				}
+				return got
+			}
+			if gatewayFirst {
+				addGateway()
+				addService()
+			} else {
+				// Let the Service register while its Gateway is unknown, as on an istiod restart
+				// where the Service informer delivers first; the Gateway must then correct it.
+				addService()
+				assert.EventuallyEqual(t, gateways, map[string]bool{"2.3.4.5:15443/15008": false},
+					retry.Timeout(30*time.Second), retry.BackoffDelay(5*time.Millisecond))
+				addGateway()
+			}
+			// A classic passthrough gateway on the same network must stay unmarked.
+			addLabeledServiceGateway(t, c, "nw2")
+
+			want := map[string]bool{"2.3.4.5:15443/0": true, "2.3.4.5:0/15008": false, "2.3.4.6:15443/0": false}
+			assert.EventuallyEqual(t, gateways, want, retry.Timeout(30*time.Second), retry.BackoffDelay(5*time.Millisecond))
+		})
+	}
+}
