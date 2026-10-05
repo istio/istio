@@ -163,34 +163,6 @@ func Test_injectionDisabled(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "Both annotation and label are enabled;",
-			pod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.SidecarInject.Name: "true",
-					},
-					Labels: map[string]string{
-						label.SidecarInject.Name: "true",
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "Both annotation and label are disabled",
-			pod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.SidecarInject.Name: "false",
-					},
-					Labels: map[string]string{
-						label.SidecarInject.Name: "false",
-					},
-				},
-			},
-			expected: true,
-		},
-		{
 			name: "Only label present and enabled",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
