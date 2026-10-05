@@ -19,14 +19,14 @@ import (
 	"fmt"
 	"time"
 
+	cliflag "k8s.io/component-base/cli/flag"
+
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/util/sets"
 )
 
 // RegistryOptions provide configuration options for the configuration controller. If FileDir is set, that directory will
@@ -106,15 +106,15 @@ const (
 
 // TLSOptions is optional TLS parameters for Istiod server.
 type TLSOptions struct {
-	CaCertFile       string
-	CertFile         string
-	KeyFile          string
-	TLSCipherSuites  []string
-	CipherSuites     []uint16 // This is the parsed cipher suites
-	TLSCurves        []string
-	CurvePreferences []tls.CurveID // This is the parsed curve preferences
-	TLSMinVersion    string        // Minimum TLS version for the server (e.g., "1.2", "1.3")
-	MinVersion       uint16        // This is the parsed minimum TLS version
+	CaCertFile          string
+	CertFile            string
+	KeyFile             string
+	TLSCipherSuites     []string
+	CipherSuites        []uint16      // This is the parsed cipher suites
+	TLSCurvePreferences []int32       // Numeric Go crypto/tls CurveID values
+	CurvePreferences    []tls.CurveID // These are the parsed curve preferences
+	TLSMinVersion       string        // Minimum TLS version for the server (e.g., "1.2", "1.3")
+	MinVersion          uint16        // This is the parsed minimum TLS version
 }
 
 var (
@@ -169,7 +169,7 @@ func (p *PilotArgs) Complete() error {
 	}
 	p.ServerOptions.TLSOptions.MinVersion = minVersion
 
-	curvePreferences, err := TLSCurvePreferences(p.ServerOptions.TLSOptions.TLSCurves)
+	curvePreferences, err := cliflag.TLSCurvePreferences(p.ServerOptions.TLSOptions.TLSCurvePreferences)
 	if err != nil {
 		return err
 	}
@@ -216,36 +216,4 @@ func TLSMinVersion(version string) (uint16, error) {
 	default:
 		return tls.VersionTLS12, fmt.Errorf("minimum TLS version: %s is not supported. Only %s and %s are supported", version, TLSMinVersion1_2, TLSMinVersion1_3)
 	}
-}
-
-// Map of curve names to curve IDs.
-// This may be a different list than security.ValidECDHCurves because what go
-// supports and what envoy supports are not always the same.
-var curveNamesToIDs = map[string]tls.CurveID{
-	"P-256":          tls.CurveP256,
-	"P-521":          tls.CurveP521,
-	"P-384":          tls.CurveP384,
-	"X25519":         tls.X25519,
-	"X25519MLKEM768": tls.X25519MLKEM768,
-}
-
-// TLSCurveNames returns the list of supported TLS curve names.
-func TLSCurveNames() []string {
-	return maps.Keys(curveNamesToIDs)
-}
-
-// TLSCurvePreferences returns a list of curve IDs from the curve names passed.
-func TLSCurvePreferences(curveNames []string) ([]tls.CurveID, error) {
-	if len(curveNames) == 0 {
-		return nil, nil
-	}
-	curves := sets.New[tls.CurveID]()
-	for _, curve := range curveNames {
-		curveID, ok := curveNamesToIDs[curve]
-		if !ok {
-			return nil, fmt.Errorf("curve %s not supported or doesn't exist. Supported curves: %v", curve, TLSCurveNames())
-		}
-		curves.Insert(curveID)
-	}
-	return curves.UnsortedList(), nil
 }

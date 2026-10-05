@@ -185,10 +185,14 @@ func addFlags(c *cobra.Command) {
 	c.PersistentFlags().StringVar(&serverArgs.ServerOptions.TLSOptions.TLSMinVersion, "tls-min-version", bootstrap.TLSMinVersion1_2,
 		"Minimum TLS version for the istiod TLS server. "+
 			fmt.Sprintf("Only %s and %s are supported.", bootstrap.TLSMinVersion1_2, bootstrap.TLSMinVersion1_3))
-	c.PersistentFlags().StringSliceVar(&serverArgs.ServerOptions.TLSOptions.TLSCurves, "tls-curves", nil,
-		"Comma-separated list of ECDH curves for istiod TLS server. "+
-			"If omitted, the default Go curves will be used. \n"+
-			"Supported values: "+strings.Join(bootstrap.TLSCurveNames(), ", ")+".")
+	c.PersistentFlags().Int32SliceVar(&serverArgs.ServerOptions.TLSOptions.TLSCurvePreferences, "tls-curve-preferences", nil,
+		"Comma-separated list of numeric Go crypto/tls CurveID values, "+
+			"as the allowed key exchange mechanisms for the istiod TLS server. "+
+			"The supported values depend on the Go version of istiod. "+
+			"See https://pkg.go.dev/crypto/tls#CurveID for values supported for each Go version. "+
+			"The order of the list is ignored, and key exchange mechanisms are chosen "+
+			"by Go from this list using an internal preference order. "+
+			"If omitted, the default Go curves will be used.")
 
 	c.PersistentFlags().Float32Var(&serverArgs.RegistryOptions.KubeOptions.KubernetesAPIQPS, "kubernetesApiQPS", 80.0,
 		"Maximum QPS when communicating with the kubernetes API")
