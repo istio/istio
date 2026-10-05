@@ -113,7 +113,7 @@ func Test_injectionDisabled(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "Injection disabled by annotation",
+			name: "Annotation alone no longer disables injection",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -121,10 +121,10 @@ func Test_injectionDisabled(t *testing.T) {
 					},
 				},
 			},
-			expected: true,
+			expected: false,
 		},
 		{
-			name: "Injection enabled by annotation",
+			name: "Annotation alone no longer enables injection",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{

@@ -250,7 +250,6 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		Ports:          ports.All(),
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 				Labels: map[string]string{
 					label.SidecarInject.Name:        "false",
 					label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,

@@ -29,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	api_pkg_labels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -326,10 +325,7 @@ func extractRevisionFromPod(pod *corev1.Pod) string {
 }
 
 func injectionDisabled(pod *corev1.Pod) bool {
-	inject := pod.ObjectMeta.GetAnnotations()[annotation.SidecarInject.Name]
-	if lbl, labelPresent := pod.ObjectMeta.GetLabels()[label.SidecarInject.Name]; labelPresent {
-		inject = lbl
-	}
+	inject := pod.ObjectMeta.GetLabels()[label.SidecarInject.Name]
 	return strings.EqualFold(inject, "false")
 }
 

@@ -130,7 +130,7 @@ func TestInjectRequired(t *testing.T) {
 			},
 			podSpec: podSpec,
 			meta: metav1.ObjectMeta{
-				Name:        "force-on-policy",
+				Name:        "annotation-true-no-longer-honored",
 				Namespace:   "test-namespace",
 				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
 			},
@@ -142,11 +142,11 @@ func TestInjectRequired(t *testing.T) {
 			},
 			podSpec: podSpec,
 			meta: metav1.ObjectMeta{
-				Name:        "force-off-policy",
+				Name:        "annotation-false-no-longer-honored",
 				Namespace:   "test-namespace",
 				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
-			want: false,
+			want: true,
 		},
 		{
 			config: &Config{
@@ -177,45 +177,21 @@ func TestInjectRequired(t *testing.T) {
 			},
 			podSpec: podSpec,
 			meta: metav1.ObjectMeta{
-				Name:        "force-on-policy",
+				Name:        "annotation-true-no-longer-honored",
 				Namespace:   "test-namespace",
 				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
-			},
-			want: true,
-		},
-		{
-			config: &Config{
-				Policy: InjectionPolicyDisabled,
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "force-off-policy",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
 			want: false,
 		},
 		{
 			config: &Config{
-				Policy: InjectionPolicyEnabled,
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "invalid-inject-value-yes",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "yes"},
-			},
-			want: true,
-		},
-		{
-			config: &Config{
 				Policy: InjectionPolicyDisabled,
 			},
 			podSpec: podSpec,
 			meta: metav1.ObjectMeta{
-				Name:        "invalid-inject-value-on",
+				Name:        "annotation-false-no-longer-honored",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "on"},
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
 			want: false,
 		},
@@ -426,48 +402,6 @@ func TestInjectRequired(t *testing.T) {
 		{
 			config: &Config{
 				Policy:              InjectionPolicyEnabled,
-				NeverInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo")},
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "policy-enabled-annotation-true-never-inject",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
-				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
-			},
-			want: true,
-		},
-		{
-			config: &Config{
-				Policy:               InjectionPolicyEnabled,
-				AlwaysInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo")},
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "policy-enabled-annotation-false-always-inject",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
-				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
-			},
-			want: false,
-		},
-		{
-			config: &Config{
-				Policy:               InjectionPolicyDisabled,
-				AlwaysInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo")},
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "policy-disabled-annotation-false-always-inject",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
-				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
-			},
-			want: false,
-		},
-		{
-			config: &Config{
-				Policy:              InjectionPolicyEnabled,
 				NeverInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo"), *parseToLabelSelector(t, "bar")},
 			},
 			podSpec: podSpec,
@@ -493,20 +427,6 @@ func TestInjectRequired(t *testing.T) {
 		},
 		{
 			config: &Config{
-				Policy:              InjectionPolicyDisabled,
-				NeverInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo")},
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "policy-disabled-annotation-true-never-inject",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
-				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
-			},
-			want: true,
-		},
-		{
-			config: &Config{
 				Policy: InjectionPolicyDisabled,
 			},
 			podSpec: podSpec,
@@ -523,33 +443,7 @@ func TestInjectRequired(t *testing.T) {
 			},
 			podSpec: podSpec,
 			meta: metav1.ObjectMeta{
-				Name:        "policy-disabled-both-enabled",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
-				Labels:      map[string]string{label.SidecarInject.Name: "true"},
-			},
-			want: true,
-		},
-		{
-			config: &Config{
-				Policy: InjectionPolicyDisabled,
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "policy-disabled-label-enabled-annotation-disabled",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
-				Labels:      map[string]string{label.SidecarInject.Name: "true"},
-			},
-			want: true,
-		},
-		{
-			config: &Config{
-				Policy: InjectionPolicyDisabled,
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "policy-disabled-label-disabled-annotation-enabled",
+				Name:        "policy-disabled-label-disabled",
 				Namespace:   "test-namespace",
 				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
 				Labels:      map[string]string{label.SidecarInject.Name: "false"},
@@ -848,7 +742,7 @@ func makeTestData(t testing.TB, skip bool, apiVersion string) []byte {
 	}
 
 	if skip {
-		pod.ObjectMeta.Annotations[annotation.SidecarInject.Name] = "false"
+		pod.ObjectMeta.Labels = map[string]string{label.SidecarInject.Name: "false"}
 	}
 
 	raw, err := json.Marshal(&pod)
