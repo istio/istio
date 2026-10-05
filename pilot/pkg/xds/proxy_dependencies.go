@@ -117,8 +117,17 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 				// and the old service is not visible/existent
 				return false
 			}
+			return true
 		}
-		return true
+		// Gateway scopes do not track the VirtualServices bound to the proxy's gateways.
+		// Keep these updates until gateway-specific dependencies are available.
+		if config.Kind == kind.VirtualService {
+			return true
+		}
+
+		// we can rely on sidecar scope for other configs DestinationRules, EnvoyFilters, etc.
+		return proxy.SidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) ||
+			(proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace))
 	default:
 		// TODO We'll add the check for other proxy types later.
 		return true
