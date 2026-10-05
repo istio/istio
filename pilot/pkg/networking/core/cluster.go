@@ -367,6 +367,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		if proxy.Type == model.Router && proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher)...)
 		}
+		clusters = append(clusters, buildGatewayWildcardTLSClusters(proxy)...)
 		clusters = append(clusters, patcher.insertedClusters()...)
 		// Ingress gateway needs the clusters necessary for Double HBONE communications
 		// that happen cross cluster. A request arrives at the ingress and the LB
