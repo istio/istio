@@ -23,10 +23,15 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	dfp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
+	rbacnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
+	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	snidfp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	. "github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/xdstest"
@@ -35,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -360,4 +366,212 @@ func TestGatewaySNIDFPFilter(t *testing.T) {
 			g.Expect(cfg.GetPortValue()).To(Equal(tt.wantPort))
 		})
 	}
+}
+
+// TestGatewayMutualTLSWildcardDynamicDNS covers an ISTIO_MUTUAL gateway server whose TCP route sends to a wildcard
+// DYNAMIC_DNS ServiceEntry. The app's own TLS is carried inside the mesh mTLS, so the real host is only visible after
+// the mTLS is terminated. Like an ambient waypoint, the gateway must hand the caller identity and addresses to an
+// internal listener, which reads the inner SNI and applies AuthorizationPolicy with filter-state principals.
+func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
+	serviceEntry := func(name, host string) config.Config {
+		return config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Name: name, Namespace: "istio-system"},
+			Spec: &networking.ServiceEntry{
+				Hosts:      []string{host},
+				Ports:      []*networking.ServicePort{{Number: 443, Name: "tls", Protocol: "TLS"}},
+				Location:   networking.ServiceEntry_MESH_EXTERNAL,
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+		}
+	}
+	server := func(name, host string) *networking.Server {
+		return &networking.Server{
+			Port:  &networking.Port{Number: 443, Name: name, Protocol: "TLS"},
+			Hosts: []string{host},
+			Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+		}
+	}
+	gatewayRoute := func(name, host string) config.Config {
+		return config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: name, Namespace: "istio-system"},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{host},
+				Gateways: []string{"egressgateway"},
+				Tcp: []*networking.TCPRoute{{
+					Match: []*networking.L4MatchAttributes{{Port: 443, Gateways: []string{"egressgateway"}}},
+					Route: []*networking.RouteDestination{{
+						Destination: &networking.Destination{Host: host, Port: &networking.PortSelector{Number: 443}},
+					}},
+				}},
+			},
+		}
+	}
+	allow := func(principal, sni string) *security.Rule {
+		return &security.Rule{
+			From: []*security.Rule_From{{Source: &security.Source{Principals: []string{principal}}}},
+			When: []*security.Condition{{Key: "connection.sni", Values: []string{sni}}},
+		}
+	}
+	configs := []config.Config{
+		serviceEntry("wikipedia", "*.wikipedia.org"),
+		serviceEntry("github", "*.github.com"),
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.Gateway, Name: "egressgateway", Namespace: "istio-system"},
+			Spec: &networking.Gateway{
+				Selector: map[string]string{"istio": "egressgateway"},
+				Servers:  []*networking.Server{server("tls-wikipedia", "*.wikipedia.org"), server("tls-github", "*.github.com")},
+			},
+		},
+		gatewayRoute("wikipedia", "*.wikipedia.org"),
+		gatewayRoute("github", "*.github.com"),
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.AuthorizationPolicy, Name: "egress-per-caller", Namespace: "istio-system"},
+			Spec: &security.AuthorizationPolicy{
+				Selector: &v1beta1.WorkloadSelector{MatchLabels: map[string]string{"istio": "egressgateway"}},
+				Action:   security.AuthorizationPolicy_ALLOW,
+				Rules: []*security.Rule{
+					allow("cluster.local/ns/svc1/sa/default", "*.wikipedia.org"),
+					allow("cluster.local/ns/svc2/sa/default", "*.github.com"),
+				},
+			},
+		},
+	}
+
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("flag=%v", enabled), func(t *testing.T) {
+			g := NewWithT(t)
+			test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, enabled)
+			cg := NewConfigGenTest(t, TestOptions{Configs: configs})
+			proxy := cg.SetupProxy(&model.Proxy{
+				Type:     model.Router,
+				Labels:   map[string]string{"istio": "egressgateway"},
+				Metadata: &model.NodeMetadata{Labels: map[string]string{"istio": "egressgateway"}, Namespace: "istio-system"},
+			})
+			listeners := cg.Listeners(proxy)
+			clusters := cg.Clusters(proxy)
+			xdstest.ValidateListeners(t, listeners)
+			xdstest.ValidateClusters(t, clusters)
+
+			for _, wildcard := range []string{"*.wikipedia.org", "*.github.com"} {
+				dfpCluster := "outbound|443||" + wildcard
+				outer := findMutualTLSChain(t, listeners, wildcard)
+				g.Expect(outer).NotTo(BeNil(), "ISTIO_MUTUAL chain for %s", wildcard)
+				outerTCP := xdstest.ExtractTCPProxy(t, outer)
+
+				if !enabled {
+					// Unchanged master behavior: straight to the DFP cluster, nothing to resolve the host from.
+					g.Expect(outerTCP.GetCluster()).To(Equal(dfpCluster))
+					g.Expect(filterNames(outer)).NotTo(ContainElement(wellknown.SNIDynamicForwardProxy))
+					continue
+				}
+
+				// Outer chain: no RBAC (the outer SNI is the mesh mTLS SNI, not the real host), and the caller identity
+				// and original addresses are handed to the internal listener once the mTLS handshake completes.
+				g.Expect(filterNames(outer)).NotTo(ContainElement(wellknown.RoleBasedAccessControl))
+				g.Expect(handedOffKeys(outer)).To(ContainElements(
+					"io.istio.peer_principal",
+					"envoy.filters.listener.original_dst.remote_ip",
+					"envoy.filters.listener.original_dst.local_ip",
+				))
+
+				// The outer tcp_proxy targets an internal listener, not the DFP cluster.
+				g.Expect(outerTCP.GetCluster()).NotTo(Equal(dfpCluster))
+				internalName := internalListenerTarget(clusters, outerTCP.GetCluster())
+				g.Expect(internalName).NotTo(BeEmpty(), "cluster %s must point to an internal listener", outerTCP.GetCluster())
+				inner := xdstest.ExtractListener(internalName, listeners)
+				g.Expect(inner).NotTo(BeNil())
+				g.Expect(inner.GetInternalListener()).NotTo(BeNil())
+				g.Expect(xdstest.ExtractListenerFilters(inner)).To(HaveKey(wellknown.OriginalDestination))
+				g.Expect(xdstest.ExtractListenerFilters(inner)).To(HaveKey(wellknown.TLSInspector))
+
+				// Like the waypoint, the chain is selected by destination, not by SNI.
+				g.Expect(inner.FilterChains).To(HaveLen(1))
+				innerChain := inner.FilterChains[0]
+
+				// RBAC, then SNI DFP, then tcp_proxy to the DFP cluster.
+				names := filterNames(innerChain)
+				rbacIdx := slices.Index(names, wellknown.RoleBasedAccessControl)
+				dfpIdx := slices.Index(names, wellknown.SNIDynamicForwardProxy)
+				tcpIdx := slices.Index(names, wellknown.TCPProxy)
+				g.Expect(rbacIdx).To(BeNumerically(">=", 0), "inner filters %v", names)
+				g.Expect(dfpIdx).To(BeNumerically(">", rbacIdx), "inner filters %v", names)
+				g.Expect(tcpIdx).To(BeNumerically(">", dfpIdx), "inner filters %v", names)
+				g.Expect(xdstest.ExtractTCPProxy(t, innerChain).GetCluster()).To(Equal(dfpCluster))
+
+				// Principals come from filter state (no TLS peer on the internal hop); the host is the real inner SNI.
+				rbacJSON := rbacFilterJSON(t, innerChain)
+				g.Expect(rbacJSON).To(ContainSubstring(`"key":"io.istio.peer_principal"`))
+				g.Expect(rbacJSON).To(ContainSubstring(`"requestedServerName"`))
+				g.Expect(rbacJSON).NotTo(ContainSubstring(`"authenticated"`))
+			}
+		})
+	}
+}
+
+func findMutualTLSChain(t *testing.T, listeners []*listener.Listener, sni string) *listener.FilterChain {
+	for _, l := range listeners {
+		for _, fc := range l.FilterChains {
+			if fc.GetTransportSocket() == nil || !slices.Contains(fc.GetFilterChainMatch().GetServerNames(), sni) {
+				continue
+			}
+			ctx := &tls.DownstreamTlsContext{}
+			if err := fc.GetTransportSocket().GetTypedConfig().UnmarshalTo(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if ctx.GetRequireClientCertificate().GetValue() {
+				return fc
+			}
+		}
+	}
+	return nil
+}
+
+func filterNames(fc *listener.FilterChain) []string {
+	return slices.Map(fc.Filters, func(f *listener.Filter) string { return f.Name })
+}
+
+// handedOffKeys returns the filter-state keys that the chain sets after the downstream TLS handshake.
+func handedOffKeys(fc *listener.FilterChain) []string {
+	var keys []string
+	for _, f := range fc.Filters {
+		cfg := &sfsnetwork.Config{}
+		if f.GetTypedConfig().UnmarshalTo(cfg) != nil {
+			continue
+		}
+		for _, v := range cfg.GetOnDownstreamTlsHandshake() {
+			keys = append(keys, v.GetObjectKey())
+		}
+	}
+	return keys
+}
+
+// internalListenerTarget returns the internal listener that the named cluster sends to, if any.
+func internalListenerTarget(clusters []*cluster.Cluster, name string) string {
+	c := xdstest.ExtractCluster(name, clusters)
+	for _, lle := range c.GetLoadAssignment().GetEndpoints() {
+		for _, ep := range lle.GetLbEndpoints() {
+			if addr := ep.GetEndpoint().GetAddress().GetEnvoyInternalAddress(); addr != nil {
+				return addr.GetServerListenerName()
+			}
+		}
+	}
+	return ""
+}
+
+func rbacFilterJSON(t *testing.T, fc *listener.FilterChain) string {
+	for _, f := range fc.Filters {
+		if f.Name != wellknown.RoleBasedAccessControl {
+			continue
+		}
+		cfg := &rbacnetwork.RBAC{}
+		if err := f.GetTypedConfig().UnmarshalTo(cfg); err != nil {
+			t.Fatal(err)
+		}
+		js, err := protomarshal.ToJSON(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return js
+	}
+	return ""
 }
