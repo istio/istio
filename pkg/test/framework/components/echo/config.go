@@ -314,7 +314,7 @@ func (c Config) IsStatefulSet() bool {
 // Note: instances that mix subsets with and without sidecars are considered 'naked'.
 func (c Config) IsNaked() bool {
 	for _, s := range c.Subsets {
-		if s.Annotations != nil && s.Annotations[annotation.SidecarInject.Name] == "false" {
+		if s.Labels != nil && s.Labels[label.SidecarInject.Name] == "false" {
 			// Sidecar injection is disabled - it's naked.
 			return true
 		}
@@ -330,12 +330,12 @@ func (c Config) IsAllNaked() bool {
 	}
 	// if ANY subset has a sidecar, not naked.
 	for _, s := range c.Subsets {
-		if s.Annotations == nil || s.Annotations[annotation.SidecarInject.Name] != "false" {
+		if s.Labels == nil || s.Labels[label.SidecarInject.Name] != "false" {
 			// Sidecar injection is enabled - it's not naked.
 			return false
 		}
 	}
-	// All subsets were annotated indicating no sidecar injection.
+	// All subsets were labeled indicating no sidecar injection.
 	return true
 }
 

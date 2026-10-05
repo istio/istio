@@ -47,8 +47,7 @@ import (
 )
 
 var (
-	injectAnnotationKey = annotation.SidecarInject.Name
-	sidecarStatusKey    = annotation.SidecarStatus.Name
+	sidecarStatusKey = annotation.SidecarStatus.Name
 
 	podRetrievalMaxRetries = 30
 	podRetrievalInterval   = 1 * time.Second
@@ -343,11 +342,7 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 		return nil
 	}
 
-	val := pi.Annotations[injectAnnotationKey]
-	if lbl, labelPresent := pi.Labels[label.SidecarInject.Name]; labelPresent {
-		// The label is the new API; if both are present we prefer the label
-		val = lbl
-	}
+	val := pi.Labels[label.SidecarInject.Name]
 	if val != "" {
 		log.Debugf("contains inject annotation: %s", val)
 		if injectEnabled, err := strconv.ParseBool(val); err == nil {

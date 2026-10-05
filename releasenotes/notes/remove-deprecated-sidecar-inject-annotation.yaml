@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+- 62019
+releaseNotes:
+- |
+  **Removed** support for the long-deprecated `sidecar.istio.io/inject` *annotation* (deprecated
+  since Istio 1.11 in favor of the `sidecar.istio.io/inject` *label*). The annotation is no longer
+  read anywhere in the codebase; use the label to control sidecar injection instead.
