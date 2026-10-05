@@ -2450,7 +2450,7 @@ func TestGatewaySpecificSidecarScopes(t *testing.T) {
 	assert.Equal(t, ew.SidecarScope == proxy(Waypoint, "proxy", "gateways/a").SidecarScope, true)
 	assert.Equal(t, ew.SidecarScope.GatewayVirtualServices("gateways/a"), []*config.Config{private, a})
 	assert.Equal(t, ew.SidecarScope.EgressListeners[0].VirtualServices(), []*config.Config{meshRoute})
-	waypointBase := ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[GatewayScopeKey{ProxyType: Waypoint, Namespace: "proxy"}]
+	waypointBase := ps.sidecarIndex.sidecarsForGatewaysByGatewayScope[GatewayScopeKey{ProxyType: Waypoint, Namespace: "proxy"}]
 	assert.Equal(t, ew.SidecarScope == waypointBase, false)
 	assert.Equal(t, proxy(Waypoint, "proxy").SidecarScope == waypointBase, true)
 	plainWaypoint := &Proxy{Type: Waypoint, ConfigNamespace: "proxy"}
@@ -2490,7 +2490,7 @@ func TestGatewaySpecificSidecarScopes(t *testing.T) {
 	base := proxy(Router, "proxy")
 	assert.Equal(t, base.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), false)
 	assert.Equal(t, meshWaypoint.SidecarScope.DependsOnConfig(keyA, ps.Mesh.RootNamespace), false)
-	assert.Equal(t, len(ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways) > 0, true)
+	assert.Equal(t, len(ps.sidecarIndex.sidecarsForGatewaysByGatewayScope) > 0, true)
 }
 
 func TestGatewaySpecificSidecarScopeReuse(t *testing.T) {
@@ -2525,11 +2525,11 @@ func TestGatewaySpecificSidecarScopeReuse(t *testing.T) {
 				oldScopes[i] = old.getSidecarScope(p, nil)
 			}
 			// Each proxy type caches its namespace scope and its gateway scope.
-			assert.Equal(t, len(old.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), 4)
+			assert.Equal(t, len(old.sidecarIndex.sidecarsForGatewaysByGatewayScope), 4)
 			routerBaseKey := GatewayScopeKey{ProxyType: Router, Namespace: "proxy"}
 			waypointBaseKey := GatewayScopeKey{ProxyType: Waypoint, Namespace: "proxy"}
-			routerBase := old.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[routerBaseKey]
-			waypointBase := old.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[waypointBaseKey]
+			routerBase := old.sidecarIndex.sidecarsForGatewaysByGatewayScope[routerBaseKey]
+			waypointBase := old.sidecarIndex.sidecarsForGatewaysByGatewayScope[waypointBaseKey]
 
 			current := NewPushContext()
 			current.Mesh = old.Mesh
@@ -2538,20 +2538,20 @@ func TestGatewaySpecificSidecarScopeReuse(t *testing.T) {
 			current.updateContext(&Environment{ConfigStore: store}, old, &PushRequest{
 				ConfigsUpdated: sets.New(ConfigKey{Kind: tt.changedKind, Name: "a", Namespace: "gateways"}),
 			})
-			assert.Equal(t, current.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[routerBaseKey] == routerBase, !tt.rebuilt)
-			assert.Equal(t, current.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways[waypointBaseKey] == waypointBase, !tt.rebuilt)
+			assert.Equal(t, current.sidecarIndex.sidecarsForGatewaysByGatewayScope[routerBaseKey] == routerBase, !tt.rebuilt)
+			assert.Equal(t, current.sidecarIndex.sidecarsForGatewaysByGatewayScope[waypointBaseKey] == waypointBase, !tt.rebuilt)
 			wantCached := 4
 			if tt.rebuilt {
 				wantCached = 0
 			}
-			assert.Equal(t, len(current.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), wantCached)
+			assert.Equal(t, len(current.sidecarIndex.sidecarsForGatewaysByGatewayScope), wantCached)
 			for i, p := range proxies {
 				assert.Equal(t, current.getSidecarScope(p, nil) == oldScopes[i], !tt.rebuilt)
 				// The previous PushContext keeps serving the scopes it already handed out.
 				assert.Equal(t, old.getSidecarScope(p, nil) == oldScopes[i], true)
 			}
-			assert.Equal(t, len(current.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), 4)
-			assert.Equal(t, len(old.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways), 4)
+			assert.Equal(t, len(current.sidecarIndex.sidecarsForGatewaysByGatewayScope), 4)
+			assert.Equal(t, len(old.sidecarIndex.sidecarsForGatewaysByGatewayScope), 4)
 		})
 	}
 }

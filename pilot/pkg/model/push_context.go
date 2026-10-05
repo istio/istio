@@ -161,7 +161,7 @@ type sidecarIndex struct {
 	// type, computed from DefaultSidecarScopeForGateway or DefaultSidecarScopeForWaypoint. Routers and
 	// ambient east-west gateways with merged gateways get a gateway-specific scope layered on it.
 	// These are lazy-loaded. Access protected by derivedSidecarMutex.
-	sidecarsForGatewayByNamespaceAndGateways map[GatewayScopeKey]*SidecarScope
+	sidecarsForGatewaysByGatewayScope map[GatewayScopeKey]*SidecarScope
 
 	// mutex to protect derived sidecars i.e. not specified by user.
 	derivedSidecarMutex *sync.RWMutex
@@ -169,11 +169,11 @@ type sidecarIndex struct {
 
 func newSidecarIndex() sidecarIndex {
 	return sidecarIndex{
-		sidecarsByNamespace:                      map[string][]*SidecarScope{},
-		meshRootSidecarsByNamespace:              map[string]*SidecarScope{},
-		defaultSidecarsByNamespace:               map[string]*SidecarScope{},
-		sidecarsForGatewayByNamespaceAndGateways: map[GatewayScopeKey]*SidecarScope{},
-		derivedSidecarMutex:                      &sync.RWMutex{},
+		sidecarsByNamespace:               map[string][]*SidecarScope{},
+		meshRootSidecarsByNamespace:       map[string]*SidecarScope{},
+		defaultSidecarsByNamespace:        map[string]*SidecarScope{},
+		sidecarsForGatewaysByGatewayScope: map[GatewayScopeKey]*SidecarScope{},
+		derivedSidecarMutex:               &sync.RWMutex{},
 	}
 }
 
@@ -1241,7 +1241,7 @@ func (ps *PushContext) doGetSidecarScope(proxy *Proxy, workloadLabels labels.Ins
 // gatewayScope returns the namespace scope of a router or waypoint, extended with the VirtualServices
 // bound to the merged gateways of routers and ambient east-west gateways. Callers must hold derivedSidecarMutex.
 func (ps *PushContext) gatewayScope(proxy *Proxy) *SidecarScope {
-	scopes := ps.sidecarIndex.sidecarsForGatewayByNamespaceAndGateways
+	scopes := ps.sidecarIndex.sidecarsForGatewaysByGatewayScope
 	baseKey := GatewayScopeKey{ProxyType: proxy.Type, Namespace: proxy.ConfigNamespace}
 	base, found := scopes[baseKey]
 	if !found {
@@ -1252,8 +1252,11 @@ func (ps *PushContext) gatewayScope(proxy *Proxy) *SidecarScope {
 		}
 		scopes[baseKey] = base
 	}
+	if proxy.Type == Waypoint && !proxy.IsAmbientEastWestGateway() {
+		return base
+	}
 	gateways := proxy.MergedGateway.GetGatewayNames()
-	if len(gateways) == 0 || (proxy.Type == Waypoint && !proxy.IsAmbientEastWestGateway()) {
+	if len(gateways) == 0 {
 		return base
 	}
 	key := proxy.MergedGateway.GatewayScopeKey
