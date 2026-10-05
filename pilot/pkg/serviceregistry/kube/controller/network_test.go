@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -277,4 +279,86 @@ func TestGatewayResourceHBONEListener(t *testing.T) {
 	}
 	assert.Equal(t, mtls, 1)
 	assert.Equal(t, hbone, 1)
+}
+
+// TestGatewayResourceMTLSTerminatingListener covers the sidecar-to-ambient bridge listener on an
+// ambient east-west gateway: TLS terminated with ISTIO_MUTUAL on 15443. IsAutoPassthrough treats
+// any TLS listener on that port as passthrough when no mode says otherwise, which would hand the
+// gateway ordinary sidecar mTLS it can only fail. It must be registered as terminating instead, so
+// that only bridged traffic is sent to it, while a real passthrough listener stays as it was.
+func TestGatewayResourceMTLSTerminatingListener(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		ClusterID:    constants.DefaultClusterName,
+		DomainSuffix: "cluster.local",
+		CRDs:         []schema.GroupVersionResource{gvr.KubernetesGateway},
+	})
+
+	terminate := k8sv1.TLSModeTerminate
+	passthrough := k8sv1.TLSModePassthrough
+	ipType := k8sv1.IPAddressType
+	gateways := clienttest.Wrap(t, kclient.New[*k8sv1.Gateway](c.client))
+	gateways.CreateOrUpdate(&k8sv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "eastwest-ambient",
+			Namespace: "istio-system",
+			// Gateways are tracked by UID, which the fake client does not assign.
+			UID:    "eastwest-ambient",
+			Labels: map[string]string{label.TopologyNetwork.Name: "nw2"},
+		},
+		Spec: k8sv1.GatewaySpec{
+			GatewayClassName: constants.EastWestGatewayClassName,
+			Addresses:        []k8sv1.GatewaySpecAddress{{Type: &ipType, Value: "1.2.3.4"}},
+			Listeners: []k8sv1.Listener{
+				{Name: "mesh", Protocol: "HBONE", Port: 15008},
+				{
+					Name:     "mtls",
+					Protocol: k8sv1.TLSProtocolType,
+					Port:     15443,
+					TLS: &k8sv1.ListenerTLSConfig{
+						Mode:    &terminate,
+						Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{"gateway.istio.io/tls-terminate-mode": "ISTIO_MUTUAL"},
+					},
+				},
+			},
+		},
+	})
+	gateways.CreateOrUpdate(&k8sv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "eastwest-sidecar",
+			Namespace: "istio-system",
+			UID:       "eastwest-sidecar",
+			Labels:    map[string]string{label.TopologyNetwork.Name: "nw2"},
+		},
+		Spec: k8sv1.GatewaySpec{
+			GatewayClassName: "istio",
+			Addresses:        []k8sv1.GatewaySpecAddress{{Type: &ipType, Value: "5.6.7.8"}},
+			Listeners: []k8sv1.Listener{{
+				Name:     "tls-passthrough",
+				Protocol: k8sv1.TLSProtocolType,
+				Port:     15443,
+				TLS: &k8sv1.ListenerTLSConfig{
+					Mode:    &passthrough,
+					Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{constants.ListenerModeOption: constants.ListenerModeAutoPassthrough},
+				},
+			}},
+		},
+	})
+
+	assert.EventuallyEqual(t, func() int { return len(c.NetworkGateways()) }, 3,
+		retry.Timeout(30*time.Second), retry.BackoffDelay(5*time.Millisecond))
+
+	got := map[string]model.NetworkGateway{}
+	for _, gw := range c.NetworkGateways() {
+		got[fmt.Sprintf("%s:%d/%d", gw.Addr, gw.Port, gw.HBONEPort)] = gw
+	}
+	if gw, f := got["1.2.3.4:0/15008"]; !f || gw.TerminatesMTLS {
+		t.Errorf("ambient gateway HBONE entry = %+v (found=%v), want HBONEPort only", gw, f)
+	}
+	if gw, f := got["1.2.3.4:15443/0"]; !f || !gw.TerminatesMTLS {
+		t.Errorf("ambient gateway mtls entry = %+v (found=%v), want Port 15443 marked as terminating", gw, f)
+	}
+	if gw, f := got["5.6.7.8:15443/0"]; !f || gw.TerminatesMTLS {
+		t.Errorf("sidecar gateway entry = %+v (found=%v), want an ordinary passthrough Port 15443", gw, f)
+	}
 }

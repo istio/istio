@@ -47,6 +47,11 @@ type NetworkGateway struct {
 	Port uint32
 	// HBONEPort if non-zero indicates that the gateway supports HBONE
 	HBONEPort uint32
+	// TerminatesMTLS marks a Port that terminates Istio mTLS at the gateway rather than passing
+	// it through to the destination. Only the sidecar-to-ambient bridge can use such a port:
+	// ordinary sidecar traffic validates the destination's identity, and the gateway presents
+	// its own.
+	TerminatesMTLS bool
 	// ServiceAccount the gateway runs as
 	ServiceAccount types.NamespacedName
 }
@@ -324,12 +329,26 @@ func networkAndClusterFor(nw network.ID, c cluster.ID) networkAndCluster {
 }
 
 // SortGateways sorts the array so that it's stable.
+func boolCompare(a, b bool) int {
+	switch {
+	case a == b:
+		return 0
+	case !a:
+		return -1
+	default:
+		return 1
+	}
+}
+
 func SortGateways(gws []NetworkGateway) []NetworkGateway {
 	return slices.SortFunc(gws, func(a, b NetworkGateway) int {
 		if r := cmp.Compare(a.Addr, b.Addr); r != 0 {
 			return r
 		}
-		return cmp.Compare(a.Port, b.Port)
+		if r := cmp.Compare(a.Port, b.Port); r != 0 {
+			return r
+		}
+		return boolCompare(a.TerminatesMTLS, b.TerminatesMTLS)
 	})
 }
 

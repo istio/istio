@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"testing"
 
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -2075,48 +2074,46 @@ func newEndpointIndex(t *testing.T, eps []*model.IstioEndpoint) *model.EndpointI
 	return index
 }
 
-// TestSidecarAmbientBridgeGatewayTLSMode covers the endpoint-level half of the sidecar/ambient
-// bridge: whether a sidecar client gets an EDS entry for an ambient destination on a remote
-// network at all, and which peer validation mode the resulting E/W gateway endpoint carries.
+// TestSidecarAmbientBridgeGatewaySelection covers which east-west gateway a sidecar is sent to on
+// a remote network that has both kinds: a passthrough gateway for ordinary sidecar mTLS and an
+// ambient east-west gateway whose 15443 listener terminates mTLS to bridge sidecars into ambient.
 //
-// An AUTO_PASSTHROUGH gateway does not terminate TLS, so the peer really is the destination
-// workload and its SANs can be validated exactly. A bridging gateway does terminate, so those
-// endpoints - and only those - fall back to trust domain matching. The negative cases here are
-// the regression guard: with the bridge disabled the output must be unchanged from a mesh that
-// has never heard of it.
-func TestSidecarAmbientBridgeGatewayTLSMode(t *testing.T) {
+// Each can only serve its own traffic. Ordinary sidecar mTLS validates the destination's identity,
+// so sending it to the terminating gateway - which presents its own - fails the handshake; that
+// broke cross-cluster sidecar-to-sidecar calls once the bridge listener was added. Bridged traffic
+// needs the termination, so it cannot use the passthrough gateway. The flag-off cases are the
+// escape hatch: the bridge listener stays in the Gateway resource when the feature is disabled, so
+// ignoring it has to come from gateway selection, not from the listener being absent.
+func TestSidecarAmbientBridgeGatewaySelection(t *testing.T) {
 	const (
-		ambientNetwork = "network-ambient"
-		sidecarNetwork = "network-sidecar"
-		localNetwork   = "network-local"
-		ambientGateway = "2.2.2.2"
-		sidecarGateway = "3.3.3.3"
-
-		ambientEndpoint = "10.1.0.1"
-		sidecarEndpoint = "10.2.0.1"
+		remoteNetwork = "network-remote"
+		remoteCluster = "cluster-remote"
+		passthroughGW = "3.3.3.3"
+		bridgeGW      = "2.2.2.2"
 	)
+	passthrough := model.NetworkGateway{Network: remoteNetwork, Cluster: remoteCluster, Addr: passthroughGW, Port: 15443}
+	bridge := model.NetworkGateway{Network: remoteNetwork, Cluster: remoteCluster, Addr: bridgeGW, Port: 15443, TerminatesMTLS: true}
+	hbone := model.NetworkGateway{Network: remoteNetwork, Cluster: remoteCluster, Addr: bridgeGW, HBONEPort: 15008}
 
-	// tlsModeOf reports the transport socket match label that a sidecar will use to pick a
-	// transport socket for the endpoint at the given address.
-	tlsModeOf := func(t *testing.T, llbEps []*endpoint.LocalityLbEndpoints, addr string) string {
-		t.Helper()
-		for _, llbEp := range llbEps {
-			for _, ep := range llbEp.LbEndpoints {
-				if ep.GetEndpoint().GetAddress().GetSocketAddress().GetAddress() != addr {
-					continue
-				}
-				return ep.Metadata.GetFilterMetadata()[util.EnvoyTransportSocketMetadataKey].
-					GetFields()[model.TLSModeLabelShortname].GetStringValue()
-			}
-		}
-		return ""
+	ambientPod := &model.IstioEndpoint{
+		Addresses: []string{"10.1.0.1"},
+		// An ambient workload terminates HBONE in ztunnel, so it never advertises the legacy
+		// Istio mTLS that a sidecar client looks for.
+		TLSMode:           model.DisabledTLSModeLabel,
+		CapturedByZtunnel: true,
+	}
+	sidecarPod := &model.IstioEndpoint{
+		Addresses: []string{"10.2.0.1"},
+		TLSMode:   model.IstioMutualTLSModeLabel,
 	}
 
-	buildFor := func(t *testing.T, bridge bool) []*endpoint.LocalityLbEndpoints {
+	// endpointsFor returns address -> tlsMode for everything a sidecar on another network is
+	// given for a service backed by the one remote pod.
+	endpointsFor := func(t *testing.T, bridgeEnabled bool, gateways []model.NetworkGateway, pod *model.IstioEndpoint) map[string]string {
 		t.Helper()
 		test.SetForTest(t, &features.EnableAmbient, true)
 		test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-		test.SetForTest(t, &features.EnableSidecarAmbientBridge, bridge)
+		test.SetForTest(t, &features.EnableSidecarAmbientBridge, bridgeEnabled)
 
 		ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			Services: []*model.Service{{
@@ -2124,73 +2121,82 @@ func TestSidecarAmbientBridgeGatewayTLSMode(t *testing.T) {
 				Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
 				Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
 			}},
-			Gateways: []model.NetworkGateway{
-				{Network: ambientNetwork, Cluster: "cluster-ambient", Addr: ambientGateway, Port: 15443, HBONEPort: 15008},
-				{Network: sidecarNetwork, Cluster: "cluster-sidecar", Addr: sidecarGateway, Port: 15443},
-			},
+			Gateways: gateways,
 		})
 		ds.Env().InitNetworksManager(ds.Discovery)
 
-		index := model.NewEndpointIndex(model.NewXdsCache())
-		svc, _ := index.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
-		svc.Lock()
-		svc.Shards[model.ShardKey{Cluster: "cluster-ambient"}] = []*model.IstioEndpoint{{
-			Network:         ambientNetwork,
-			Addresses:       []string{ambientEndpoint},
-			ServicePortName: "http",
-			Namespace:       "ns",
-			HostName:        "example.ns.svc.cluster.local",
-			EndpointPort:    8080,
-			// An ambient workload terminates HBONE in ztunnel, so it never advertises the
-			// legacy Istio mTLS that a sidecar client looks for.
-			TLSMode:           model.DisabledTLSModeLabel,
-			CapturedByZtunnel: true,
-			Labels:            map[string]string{"app": "example"},
-			Locality:          model.Locality{ClusterID: "cluster-ambient"},
-		}}
-		svc.Shards[model.ShardKey{Cluster: "cluster-sidecar"}] = []*model.IstioEndpoint{{
-			Network:         sidecarNetwork,
-			Addresses:       []string{sidecarEndpoint},
-			ServicePortName: "http",
-			Namespace:       "ns",
-			HostName:        "example.ns.svc.cluster.local",
-			EndpointPort:    8080,
-			TLSMode:         model.IstioMutualTLSModeLabel,
-			Labels:          map[string]string{"app": "example"},
-			Locality:        model.Locality{ClusterID: "cluster-sidecar"},
-		}}
-		svc.Unlock()
+		ep := *pod
+		ep.Network = remoteNetwork
+		ep.Locality = model.Locality{ClusterID: remoteCluster}
+		ep.ServicePortName = "http"
+		ep.Namespace = "ns"
+		ep.HostName = "example.ns.svc.cluster.local"
+		ep.EndpointPort = 8080
+		ep.Labels = map[string]string{"app": "example"}
 
-		proxy := ds.SetupProxy(makeProxy(localNetwork, "cluster-local"))
-		cn := "outbound|80||example.ns.svc.cluster.local"
-		b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
-		return b.BuildClusterLoadAssignment(index).Endpoints
+		index := model.NewEndpointIndex(model.NewXdsCache())
+		shard, _ := index.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+		shard.Lock()
+		shard.Shards[model.ShardKey{Cluster: remoteCluster}] = []*model.IstioEndpoint{&ep}
+		shard.Unlock()
+
+		proxy := ds.SetupProxy(makeProxy("network-local", "cluster-local"))
+		b := endpoints.NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", proxy, ds.PushContext())
+		got := map[string]string{}
+		for _, llbEp := range b.BuildClusterLoadAssignment(index).Endpoints {
+			for _, e := range llbEp.LbEndpoints {
+				addr := e.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
+				got[addr] = e.Metadata.GetFilterMetadata()[util.EnvoyTransportSocketMetadataKey].
+					GetFields()[model.TLSModeLabelShortname].GetStringValue()
+			}
+		}
+		return got
 	}
 
-	t.Run("bridge disabled", func(t *testing.T) {
-		eps := buildFor(t, false)
-		// The ambient destination has no path from a sidecar client, so it must not appear at
-		// all - offering an endpoint here would produce a connection that can only fail.
-		if got := tlsModeOf(t, eps, ambientGateway); got != "" {
-			t.Errorf("ambient E/W gateway should not be reachable from a sidecar when the bridge is disabled, got tlsMode %q", got)
-		}
-		// Unrelated sidecar-to-sidecar multi-network traffic must be untouched.
-		if got := tlsModeOf(t, eps, sidecarGateway); got != model.IstioMutualTLSModeLabel {
-			t.Errorf("sidecar E/W gateway tlsMode = %q, want %q", got, model.IstioMutualTLSModeLabel)
-		}
-	})
-
-	t.Run("bridge enabled", func(t *testing.T) {
-		eps := buildFor(t, true)
-		// The bridging gateway terminates and presents its own identity, so exact SAN
-		// validation against the destination service would fail.
-		if got := tlsModeOf(t, eps, ambientGateway); got != model.GatewayTLSModeLabel {
-			t.Errorf("ambient E/W gateway tlsMode = %q, want %q", got, model.GatewayTLSModeLabel)
-		}
-		// Enabling the bridge must not relax validation for gateways that do not bridge.
-		if got := tlsModeOf(t, eps, sidecarGateway); got != model.IstioMutualTLSModeLabel {
-			t.Errorf("sidecar E/W gateway tlsMode = %q, want %q (enabling the bridge must not relax unrelated gateways)",
-				got, model.IstioMutualTLSModeLabel)
-		}
-	})
+	both := []model.NetworkGateway{passthrough, bridge, hbone}
+	cases := []struct {
+		name     string
+		bridge   bool
+		gateways []model.NetworkGateway
+		pod      *model.IstioEndpoint
+		want     map[string]string
+	}{
+		{
+			name:   "remote sidecar goes only to the passthrough gateway",
+			bridge: true, gateways: both, pod: sidecarPod,
+			want: map[string]string{passthroughGW: model.IstioMutualTLSModeLabel},
+		},
+		{
+			name:   "remote ambient goes only to the terminating gateway",
+			bridge: true, gateways: both, pod: ambientPod,
+			// The terminating gateway presents its own identity, so validation falls back to the
+			// trust domain for this endpoint only.
+			want: map[string]string{bridgeGW: model.GatewayTLSModeLabel},
+		},
+		{
+			name:   "bridge disabled: remote sidecar still avoids the terminating gateway",
+			bridge: false, gateways: both, pod: sidecarPod,
+			want: map[string]string{passthroughGW: model.IstioMutualTLSModeLabel},
+		},
+		{
+			name:   "bridge disabled: remote ambient has no path from a sidecar",
+			bridge: false, gateways: both, pod: ambientPod,
+			want: map[string]string{},
+		},
+		{
+			// The terminating gateway still marks the network as reached through a gateway, so the
+			// endpoint is dropped rather than dialled directly on an address that is not routable.
+			name:   "remote sidecar on a network with only a terminating gateway is skipped",
+			bridge: true, gateways: []model.NetworkGateway{bridge, hbone}, pod: sidecarPod,
+			want: map[string]string{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := endpointsFor(t, tc.bridge, tc.gateways, tc.pod)
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("endpoints (address -> tlsMode) mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
 }

@@ -392,8 +392,13 @@ func (n *networkManager) handleGatewayResource(_ *gatewayv1.Gateway, gw *gateway
 		return nil
 	}
 
+	mtlsTerminating := func(l gatewayv1.Listener) bool {
+		return kube.IsMTLSTerminating(gw.Spec.GatewayClassName, l)
+	}
 	autoPassthrough := func(l gatewayv1.Listener) bool {
-		return kube.IsAutoPassthrough(gw.GetLabels(), l)
+		// IsAutoPassthrough goes by port number when no mode is set explicitly, so it would also
+		// claim a terminating listener on 15443. That listener is registered separately below.
+		return kube.IsAutoPassthrough(gw.GetLabels(), l) && !mtlsTerminating(l)
 	}
 
 	base := model.NetworkGateway{
@@ -416,6 +421,13 @@ func (n *networkManager) handleGatewayResource(_ *gatewayv1.Gateway, gw *gateway
 			networkGateway := base
 			networkGateway.Addr = addr.Value
 			networkGateway.Port = uint32(l.Port)
+			newGateways.Insert(networkGateway)
+		}
+		for _, l := range slices.Filter(gw.Spec.Listeners, mtlsTerminating) {
+			networkGateway := base
+			networkGateway.Addr = addr.Value
+			networkGateway.Port = uint32(l.Port)
+			networkGateway.TerminatesMTLS = true
 			newGateways.Insert(networkGateway)
 		}
 		for _, l := range gw.Spec.Listeners {

@@ -33,8 +33,8 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/istio/pkg/util/sets"
 )
 
 // innerConnectOriginate is the name for the resources associated with establishing double-HBONE connection.
@@ -100,11 +100,6 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 		// Create a map to keep track of the gateways used and their aggregate weights.
 		gatewayWeights := make(map[model.NetworkGateway]uint32)
-
-		// Track the gateways that carry at least one sidecar-to-ambient bridged endpoint. Only
-		// those gateway endpoints relax peer validation (see the TLSMode selection below), because
-		// only they terminate the client's mTLS instead of passing it through to the destination.
-		bridgedGateways := sets.New[model.NetworkGateway]()
 
 		// Process all the endpoints.
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
@@ -188,7 +183,14 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			}
 
 			gateways := b.selectNetworkGateways(epNetwork, epCluster, requireHBONE)
-			reachableGateways := b.filterGatewaysByIPFamily(gateways)
+			// A gateway port that terminates mTLS serves bridged traffic and nothing else. Ordinary
+			// mTLS sent there would fail, because the gateway presents its own identity where the
+			// destination's is expected; bridged traffic needs exactly that termination. It still
+			// counts in gateways above, so a network whose only gateway terminates is not mistaken
+			// for one that is directly reachable.
+			reachableGateways := slices.Filter(b.filterGatewaysByIPFamily(gateways), func(gw model.NetworkGateway) bool {
+				return gw.TerminatesMTLS == bridged
+			})
 
 			// Check if the endpoint is directly reachable. It's considered directly reachable if
 			// the endpoint is either on the local network or on a remote network that can be reached
@@ -230,9 +232,6 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 			// Apply the weight for this endpoint to the network gateways.
 			splitWeightAmongGateways(weight, reachableGateways, gatewayWeights)
-			if bridged {
-				bridgedGateways.InsertAll(reachableGateways...)
-			}
 		}
 
 		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
@@ -319,10 +318,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 				// An AUTO_PASSTHROUGH gateway does not terminate, so the TLS peer really is the
 				// destination workload and its SANs can be validated exactly - keep the default.
-				// A bridging gateway does terminate and presents its own identity, so those
-				// endpoints (and only those) fall back to trust domain matching.
+				// A terminating gateway presents its own identity, so its endpoints (and only those)
+				// fall back to trust domain matching.
 				tlsMode := model.IstioMutualTLSModeLabel
-				if bridgedGateways.Contains(gw) {
+				if gw.TerminatesMTLS {
 					tlsMode = model.GatewayTLSModeLabel
 				}
 
