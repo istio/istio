@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: []
+releaseNotes:
+  - |
+    **Added** `--tls-curve-preferences` flag to `pilot-discovery` to configure the key exchange mechanisms
+    for the istiod server and webhook. The value is a comma-separated list of numeric Go
+    `crypto/tls` `CurveID` values.
