@@ -830,6 +830,7 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 				ParentKey:         ir,
 				ParentSection:     pr.SectionName,
 				WaypointError:     waypointError,
+				GatewayNamespace:  pr.GatewayNamespace,
 			}
 			parentRefs = append(parentRefs, rpi)
 		}
@@ -1223,7 +1224,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
 		}
 		hostname = string(to.Name)
-		if ctx.LookupHostname(hostname, namespace) == nil {
+		if !ctx.HostnameVisible(hostname) {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case config.GroupVersionKind{Group: features.MCSAPIGroup, Kind: "ServiceImport"}:
@@ -1772,6 +1773,9 @@ type parentInfo struct {
 	SectionName k8s.SectionName
 	Port        k8s.PortNumber
 	Protocol    k8s.ProtocolType
+	// GatewayNamespace is the namespace of the Gateway whose pods serve this parent.
+	// For a ListenerSet it is the namespace of the ListenerSet's parent Gateway.
+	GatewayNamespace string
 }
 
 // routeParentReference holds information about a route's parent reference
@@ -1791,6 +1795,8 @@ type routeParentReference struct {
 	ParentSection   k8s.SectionName
 	// WaypointError, if present, indicates why the reference does not have valid configuration for generating a Waypoint
 	WaypointError *WaypointError
+	// GatewayNamespace is the namespace of the gateway pods that apply the route for this parent. It is empty for mesh.
+	GatewayNamespace string
 }
 
 func (r routeParentReference) IsMesh() bool {

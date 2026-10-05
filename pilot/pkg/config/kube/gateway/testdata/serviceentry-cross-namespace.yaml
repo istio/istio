@@ -1,0 +1,236 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+# exported.example.com is defined in namespace "other" with the default exportTo, so it is visible here.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: exported
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames:
+  - exported.example.org
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: exported.example.com
+      port: 80
+---
+# exported-to-default.example.com is defined in namespace "other" and exported to "default".
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: exported-to-default
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames:
+  - exported-to-default.example.org
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: exported-to-default.example.com
+      port: 80
+---
+# private.example.com is defined in namespace "other" with exportTo ".", so it is not visible here.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: private
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames:
+  - private.example.org
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: private.example.com
+      port: 80
+---
+# exported-to-gateway.example.com is exported only to istio-system, where the gateway pods run.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: exported-to-gateway
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames:
+  - exported-to-gateway.example.org
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: exported-to-gateway.example.com
+      port: 80
+---
+# route-namespace-private.example.com is in the route's namespace with exportTo ".", so the gateway pods cannot see it.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-namespace-private
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames:
+  - route-namespace-private.example.org
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: route-namespace-private.example.com
+      port: 80
+---
+# A mesh route applies on client sidecars; the route's namespace stands in for them.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mesh-exported-to-default
+  namespace: default
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: httpbin
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: exported-to-default.example.com
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system-ls
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: listenerset-parent
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  allowedListeners:
+    namespaces:
+      from: All
+  listeners:
+  - name: default
+    port: 8080
+    protocol: HTTP
+---
+# The ListenerSet is in "default", but its listeners run on the pods of its parent Gateway in istio-system.
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset
+  namespace: default
+spec:
+  parentRef:
+    name: listenerset-parent
+    namespace: istio-system
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+  - name: ls
+    port: 8081
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: listenerset-exported-to-gateway
+  namespace: default
+spec:
+  parentRefs:
+  - kind: ListenerSet
+    group: gateway.networking.k8s.io
+    name: listenerset
+  hostnames:
+  - listenerset-exported-to-gateway.example.org
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: exported-to-gateway.example.com
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: listenerset-exported-to-default
+  namespace: default
+spec:
+  parentRefs:
+  - kind: ListenerSet
+    group: gateway.networking.k8s.io
+    name: listenerset
+  hostnames:
+  - listenerset-exported-to-default.example.org
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: exported-to-default.example.com
+      port: 80
+---
+# Two parent Gateways in different namespaces: the backend must be visible to both.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: two-gateway-namespaces
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  - name: gateway
+    namespace: istio-system-ls
+  hostnames:
+  - two-gateway-namespaces.example.org
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: exported-to-gateway.example.com
+      port: 80

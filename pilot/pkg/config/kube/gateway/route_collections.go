@@ -90,7 +90,9 @@ func HTTPRouteCollection(
 		}{}
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
-		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(mesh bool, obj *gatewayv1.HTTPRoute) iter.Seq2[*istio.HTTPRoute, *ConfigError] {
+		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(
+			ctx RouteContext, mesh bool, obj *gatewayv1.HTTPRoute,
+		) iter.Seq2[*istio.HTTPRoute, *ConfigError] {
 			return func(yield func(*istio.HTTPRoute, *ConfigError) bool) {
 				for n, r := range route.Rules {
 					// split the rule to make sure each rule has up to one match
@@ -103,7 +105,8 @@ func HTTPRouteCollection(
 							r.Matches = []gatewayv1.HTTPRouteMatch{*m}
 						}
 						istioRoute, ipCfgs, configErr := convertHTTPRoute(ctx, r, obj, n, !mesh)
-						if istioRoute != nil && len(ipCfgs) > 0 {
+						// A conversion that runs only for its error drops its routes, so it adds no config here.
+						if istioRoute != nil && len(ipCfgs) > 0 && !ctx.errorsOnly {
 							inferencePoolCfgPairs = append(inferencePoolCfgPairs, struct {
 								name string
 								cfgs inferencePoolConfigs
@@ -329,7 +332,9 @@ func GRPCRouteCollection(
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
-		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(mesh bool, obj *gatewayv1.GRPCRoute) iter.Seq2[*istio.HTTPRoute, *ConfigError] {
+		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(
+			ctx RouteContext, mesh bool, obj *gatewayv1.GRPCRoute,
+		) iter.Seq2[*istio.HTTPRoute, *ConfigError] {
 			return func(yield func(*istio.HTTPRoute, *ConfigError) bool) {
 				for n, r := range route.Rules {
 					// split the rule to make sure each rule has up to one match
@@ -458,7 +463,7 @@ func TCPRouteCollection(
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj,
-			func(mesh bool, obj *gatewayv1.TCPRoute) iter.Seq2[*istio.TCPRoute, *ConfigError] {
+			func(ctx RouteContext, mesh bool, obj *gatewayv1.TCPRoute) iter.Seq2[*istio.TCPRoute, *ConfigError] {
 				return func(yield func(*istio.TCPRoute, *ConfigError) bool) {
 					for _, r := range route.Rules {
 						if !yield(convertTCPRoute(ctx, r, obj, !mesh)) {
@@ -555,7 +560,7 @@ func TLSRouteCollection(
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx,
-			obj, func(mesh bool, obj *gatewayv1.TLSRoute) iter.Seq2[*istio.TLSRoute, *ConfigError] {
+			obj, func(ctx RouteContext, mesh bool, obj *gatewayv1.TLSRoute) iter.Seq2[*istio.TLSRoute, *ConfigError] {
 				return func(yield func(*istio.TLSRoute, *ConfigError) bool) {
 					for _, r := range route.Rules {
 						if !yield(convertTLSRoute(ctx, r, obj, !mesh)) {
@@ -636,15 +641,20 @@ func TLSRouteCollection(
 
 // computeRoute holds the common route building logic shared amongst all types
 func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, translator func(
+	ctx RouteContext,
 	mesh bool,
 	obj T,
 ) iter.Seq2[O, *ConfigError],
 ) ([]gatewayv1.RouteParentStatus, []routeParentReference, conversionResult[O], conversionResult[O]) {
 	parentRefs := extractParentReferenceInfo(ctx, ctx.RouteParents, obj)
+	gatewayNamespaces := acceptedGatewayNamespaces(parentRefs)
 
-	convertRules := func(mesh bool) conversionResult[O] {
+	convertRules := func(mesh bool, proxyNamespace string, errorsOnly bool) conversionResult[O] {
+		ctx := ctx
+		ctx.proxyNamespace = proxyNamespace
+		ctx.errorsOnly = errorsOnly
 		res := conversionResult[O]{}
-		for vs, err := range translator(mesh, obj) {
+		for vs, err := range translator(ctx, mesh, obj) {
 			// This was a hard error
 			if controllers.IsNil(vs) {
 				res.error = err
@@ -658,13 +668,32 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 		}
 		return res
 	}
-	meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
+	meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, func(mesh bool) conversionResult[O] {
+		if mesh || len(gatewayNamespaces) == 0 {
+			return convertRules(mesh, obj.GetNamespace(), false)
+		}
+		return convertRules(mesh, gatewayNamespaces[0], false)
+	})
+
+	// A Hostname backend can be visible to the pods of one parent Gateway and not to another's.
+	// gwResult checks Hostname backends from the first namespace in gatewayNamespaces.
+	// Each other namespace gets one more conversion, and only its error is kept.
+	// Its routes would match gwResult's, since a Hostname backend that is not visible changes only the error.
+	gatewayErrors := map[string]*ConfigError{}
+	if len(gatewayNamespaces) > 1 {
+		for _, ns := range gatewayNamespaces[1:] {
+			gatewayErrors[ns] = convertRules(false, ns, true).error
+		}
+	}
 
 	rpResults := slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
 		res := RouteParentResult{
 			OriginalReference: r.OriginalReference,
 			DeniedReason:      r.DeniedReason,
 			RouteError:        gwResult.error,
+		}
+		if err, ok := gatewayErrors[r.GatewayNamespace]; ok {
+			res.RouteError = err
 		}
 		if r.IsMesh() {
 			res.RouteError = meshResult.error
@@ -676,12 +705,30 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 	return parents, parentRefs, meshResult, gwResult
 }
 
+// acceptedGatewayNamespaces returns the sorted namespaces of the Gateways whose pods apply a route's gateway rules.
+// Each accepted parent that is not mesh adds the namespace of its Gateway, or of the parent Gateway of its ListenerSet.
+func acceptedGatewayNamespaces(parents []routeParentReference) []string {
+	namespaces := sets.New[string]()
+	for _, p := range filteredReferences(parents) {
+		if !p.IsMesh() {
+			namespaces.Insert(p.GatewayNamespace)
+		}
+	}
+	return sets.SortedList(namespaces)
+}
+
 // RouteContext defines a common set of inputs to a route collection. This should be built once per route translation and
 // not shared outside of that.
 // The embedded RouteContextInputs is typically based into a collection, then translated to a RouteContext with RouteContextInputs.WithCtx().
 type RouteContext struct {
 	Krt krt.HandlerContext
 	RouteContextInputs
+	// proxyNamespace is the namespace of the proxies that apply the rules being converted.
+	// For gateway rules it is the namespace of a parent Gateway.
+	// For mesh rules, or when no gateway parent is accepted, it is the route's namespace.
+	proxyNamespace string
+	// errorsOnly is set when the conversion runs only for its error and its routes are dropped.
+	errorsOnly bool
 }
 
 func (r RouteContext) LookupHostname(hostname string, namespace string) *model.Service {
@@ -689,6 +736,14 @@ func (r RouteContext) LookupHostname(hostname string, namespace string) *model.S
 		return c.GetService(hostname, namespace)
 	}
 	return nil
+}
+
+// HostnameVisible reports whether a proxy in proxyNamespace can route to hostname.
+func (r RouteContext) HostnameVisible(hostname string) bool {
+	if c := r.internalContext.Get(r.Krt).Load(); c != nil {
+		return c.HostnameVisible(hostname, r.proxyNamespace)
+	}
+	return false
 }
 
 type RouteContextInputs struct {
