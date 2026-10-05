@@ -357,7 +357,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
 		// to the Kubernetes API server), include services referenced by those gateway servers.
 		if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil {
-			outboundServices = appendGatewayReferencedServices(req.Push, proxy, outboundServices, services)
+			outboundServices = appendGatewayReferencedServices(proxy, outboundServices, services)
 		}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, outboundServices)
 		cacheStats = cacheStats.merge(cs)
@@ -433,16 +433,17 @@ func deltaAwareConfigTypes(cfgs sets.Set[model.ConfigKey], rootNamespace string)
 // services that are referenced by the gateway's VirtualServices (e.g., TLS passthrough backends).
 // This ensures that the required outbound clusters exist for non-HBONE traffic the E/W gateway routes.
 // Note: we do NOT rely on ServiceAttachedToGateway / destinationsByGateway because those are only
-// populated when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG=true. Instead we read VirtualServices directly.
-func appendGatewayReferencedServices(push *model.PushContext, proxy *model.Proxy, existing []*model.Service, allServices []*model.Service) []*model.Service {
+// populated when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG=true. Instead we read the gateway VirtualServices
+// from the proxy's scope, the same source the TLS/TCP listener filters are built from.
+func appendGatewayReferencedServices(proxy *model.Proxy, existing []*model.Service, allServices []*model.Service) []*model.Service {
 	if proxy.MergedGateway == nil {
 		return existing
 	}
 
 	// Collect all destination hostnames referenced by TLS/TCP routes on this gateway's VirtualServices.
 	gwHosts := sets.New[string]()
-	for _, gwName := range proxy.MergedGateway.GatewayNameForServer {
-		for _, vs := range push.VirtualServicesForGateway(proxy.ConfigNamespace, gwName) {
+	for _, gwName := range proxy.MergedGateway.GatewayNames {
+		for _, vs := range proxy.SidecarScope.GatewayVirtualServices(gwName) {
 			rule := vs.Spec.(*networking.VirtualService)
 			for _, tls := range rule.Tls {
 				for _, route := range tls.Route {

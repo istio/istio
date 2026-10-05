@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -77,6 +76,12 @@ type MergedGateway struct {
 	// Used for select the set of virtual services that apply to a port.
 	GatewayNameForServer map[*networking.Server]string
 
+	// GatewayNames contains the sorted, deduplicated namespace/name gateway names in GatewayNameForServer.
+	GatewayNames []string
+
+	// GatewayScopeKey identifies the gateway-specific SidecarScope for this proxy and gateway set.
+	GatewayScopeKey GatewayScopeKey
+
 	// ServersByRouteName maps from port names to virtual hosts
 	// Used for RDS. No two port names share same port except for HTTPS
 	// The typical length of the value is always 1, except for HTTP (not HTTPS),
@@ -110,11 +115,25 @@ func (g *MergedGateway) HasAutoPassthroughGateways() bool {
 	return false
 }
 
+// GetGatewayNames returns the sorted, deduplicated namespace/name gateway names, or nil without a merged gateway.
 func (g *MergedGateway) GetGatewayNames() []string {
 	if g != nil {
-		return maps.Values(g.GatewayNameForServer)
+		return g.GatewayNames
 	}
 	return nil
+}
+
+// GatewayScopeKey identifies the gateway-specific SidecarScope of a proxy. The proxy type and
+// namespace select the base scope; Gateways is the sorted, comma-separated namespace/name gateway set.
+type GatewayScopeKey struct {
+	ProxyType NodeType
+	Namespace string
+	Gateways  string
+}
+
+// NewGatewayScopeKey builds the key for a proxy's sorted, deduplicated gateway names.
+func NewGatewayScopeKey(proxyType NodeType, namespace string, gateways []string) GatewayScopeKey {
+	return GatewayScopeKey{ProxyType: proxyType, Namespace: namespace, Gateways: strings.Join(gateways, ",")}
 }
 
 // PrevMergedGateway describes previous state of the gateway.
@@ -123,7 +142,7 @@ func (g *MergedGateway) GetGatewayNames() []string {
 type PrevMergedGateway struct {
 	ContainsAutoPassthroughGateways bool
 	AutoPassthroughSNIHosts         sets.Set[string]
-	GatewayNameForServer            map[*networking.Server]string
+	GatewayNames                    []string
 }
 
 func (g *PrevMergedGateway) HasAutoPassthroughGateway() bool {
@@ -140,9 +159,10 @@ func (g *PrevMergedGateway) GetAutoPassthroughSNIHosts() sets.Set[string] {
 	return sets.Set[string]{}
 }
 
+// GetGatewayNames returns the sorted, deduplicated namespace/name gateway names, or nil without a previous gateway.
 func (g *PrevMergedGateway) GetGatewayNames() []string {
 	if g != nil {
-		return maps.Values(g.GatewayNameForServer)
+		return g.GatewayNames
 	}
 	return nil
 }
@@ -187,6 +207,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
+	gatewayNames := sets.New[string]()
 	verifiedCertificateReferences := sets.New[string]()
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
@@ -214,6 +235,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 			s := sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
+			gatewayNames.Insert(gatewayName)
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
 			expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
@@ -465,11 +487,14 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 		}
 	}
+	sortedGatewayNames := sets.SortedList(gatewayNames)
 	return &MergedGateway{
 		MergedServers:                   mergedServers,
 		MergedQUICTransportServers:      mergedQUICServers,
 		ServerPorts:                     serverPorts,
 		GatewayNameForServer:            gatewayNameForServer,
+		GatewayNames:                    sortedGatewayNames,
+		GatewayScopeKey:                 NewGatewayScopeKey(proxy.Type, proxy.ConfigNamespace, sortedGatewayNames),
 		TLSServerInfo:                   tlsServerInfo,
 		ServersByRouteName:              serversByRouteName,
 		HTTP3AdvertisingRoutes:          http3AdvertisingRoutes,
