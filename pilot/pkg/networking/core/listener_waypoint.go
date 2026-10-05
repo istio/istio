@@ -207,9 +207,12 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 
 	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway(lb.node) {
 		listeners = append(listeners, buildWaypointForwardInnerConnectListener(lb.push, lb.node))
-		// E/W gateway needs connect_originate for traffic that needs to establish new HBONE tunnels
-		// (e.g., sidecar mTLS traffic bridging to ambient workloads via service waypoints)
-		listeners = append(listeners, buildWaypointConnectOriginateListener(lb.push, lb.node))
+		if sidecarAmbientBridgeEnabled() {
+			// Bridged sidecar traffic is terminated here and re-originated as HBONE toward the
+			// destination, which the inner-connect forwarding listener above cannot do. Must stay
+			// in step with the matching cluster in buildWaypointInboundClusters.
+			listeners = append(listeners, buildWaypointConnectOriginateListener(lb.push, lb.node))
+		}
 		listeners = append(listeners, lb.buildEastWestTLSPassthroughListeners()...)
 	} else {
 		listeners = append(listeners, buildWaypointConnectOriginateListener(lb.push, lb.node))

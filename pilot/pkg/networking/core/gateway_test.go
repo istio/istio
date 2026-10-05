@@ -5481,3 +5481,79 @@ func TestSidecarAmbientBridgeFilterChains(t *testing.T) {
 		}
 	}
 }
+
+// TestSidecarAmbientBridgeIsOptIn is the escape hatch guarantee: with the flag off, an ambient
+// east-west gateway must come out as it would on a build that has never heard of the bridge, so a
+// deployment can fall back by flipping one environment variable rather than rolling back the
+// binary.
+//
+// It asserts over the whole generated listener and cluster set rather than over one call site,
+// because the risk is a future change adding a bridge artifact and forgetting the gate. That has
+// already happened once: the connect_originate listener was emitted unconditionally while its
+// cluster was gated, leaving a listener nothing routed to.
+//
+// Coverage limit worth knowing: this harness does not populate the ambient index, so the gateway
+// generates no inbound-vip clusters at all and the per-service bridge subsets never appear here.
+// What this test actually pins down is the connect_originate listener and cluster, which is where
+// the leak was. The subset gating is exercised end to end rather than here.
+func TestSidecarAmbientBridgeIsOptIn(t *testing.T) {
+	svc := &pilot_model.Service{
+		Hostname:   "example.ns.svc.cluster.local",
+		Ports:      []*pilot_model.Port{{Name: "http", Protocol: protocol.HTTP, Port: 80}},
+		Attributes: pilot_model.ServiceAttributes{Namespace: "ns", Name: "example", Labels: map[string]string{"istio.io/global": "true"}},
+	}
+
+	// Names that only ever exist to serve bridged traffic.
+	bridgeArtifacts := func(names []string) []string {
+		var found []string
+		for _, n := range names {
+			if strings.Contains(n, pilot_model.SidecarBridgeSubsetName) || strings.Contains(n, ConnectOriginate) {
+				found = append(found, n)
+			}
+		}
+		return found
+	}
+
+	generate := func(t *testing.T, bridge bool) (listeners, clusters []string) {
+		t.Helper()
+		test.SetForTest(t, &features.EnableAmbient, true)
+		test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+		test.SetForTest(t, &features.EnableSidecarAmbientBridge, bridge)
+
+		cg := NewConfigGenTest(t, TestOptions{Services: []*pilot_model.Service{svc}})
+		proxy := cg.SetupProxy(&pilot_model.Proxy{
+			Type:            pilot_model.Waypoint,
+			ConfigNamespace: "istio-system",
+			Labels: map[string]string{
+				label.GatewayManaged.Name: constants.ManagedGatewayEastWestControllerLabel,
+			},
+		})
+		var clusterNames []string
+		for name := range xdstest.ExtractClusters(cg.Clusters(proxy)) {
+			clusterNames = append(clusterNames, name)
+		}
+		return xdstest.ExtractListenerNames(cg.Listeners(proxy)), clusterNames
+	}
+
+	t.Run("disabled", func(t *testing.T) {
+		listeners, clusters := generate(t, false)
+		if got := bridgeArtifacts(listeners); len(got) > 0 {
+			t.Errorf("east-west gateway has bridge listeners with the feature disabled: %v", got)
+		}
+		if got := bridgeArtifacts(clusters); len(got) > 0 {
+			t.Errorf("east-west gateway has bridge clusters with the feature disabled: %v", got)
+		}
+	})
+
+	t.Run("enabled", func(t *testing.T) {
+		// The negative case above is only meaningful if these names appear at all when the
+		// feature is on - otherwise it would pass against a bridge that was never built.
+		listeners, clusters := generate(t, true)
+		if got := bridgeArtifacts(listeners); len(got) == 0 {
+			t.Errorf("east-west gateway has no bridge listeners with the feature enabled, so the disabled case proves nothing; got %v", listeners)
+		}
+		if got := bridgeArtifacts(clusters); len(got) == 0 {
+			t.Errorf("east-west gateway has no bridge clusters with the feature enabled, so the disabled case proves nothing; got %v", clusters)
+		}
+	})
+}
