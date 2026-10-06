@@ -417,12 +417,12 @@ func InstallIstioWithRevision(t framework.TestContext, cs cluster.Cluster,
 		err := h.UpgradeChart(BaseReleaseName, filepath.Join(ManifestsChartPath, BaseChart),
 			IstioNamespace, overrideValuesFile, Timeout)
 		if err != nil {
-			t.Fatalf("failed to upgrade istio %s chart", BaseChart)
+			t.Fatalf("failed to upgrade istio %s chart: %v", BaseChart, err)
 		}
 	} else {
 		err := h.InstallChart(BaseReleaseName, baseChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
-			t.Fatalf("failed to upgrade istio %s chart", BaseChart)
+			t.Fatalf("failed to install istio %s chart: %v", BaseChart, err)
 		}
 	}
 
