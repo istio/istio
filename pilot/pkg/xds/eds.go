@@ -227,7 +227,6 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			affected = affectedService(proxy, explicitlyUpdatedServices, clusterName)
 		}
 		if partialPush && changedAuthnNs.IsEmpty() && !affected {
-
 			// No relevant service or peer authentication changes affect this cluster, so skip recomputing it.
 			continue
 		}
