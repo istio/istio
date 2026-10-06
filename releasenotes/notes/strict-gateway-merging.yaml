@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue: []
+
+releaseNotes:
+  - |
+    **Improved** Added `PILOT_ENABLE_STRICT_GATEWAY_MERGING` to prevent cross-namespace merging
+    of Istio Gateways with managed GatewayAPI Gateways. When enabled, Istio Gateway
+    CRDs from different namespaces will not be merged with managed GatewayAPI Gateway proxies.
+    Unmanaged (manual deployment) GatewayAPI Gateways
+    are not affected. This is disabled by default in this release; set `PILOT_ENABLE_STRICT_GATEWAY_MERGING`
+    to `true` to enable.

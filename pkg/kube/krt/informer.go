@@ -216,8 +216,10 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		h.metadata = o.metadata
 	}
 
+	maybeRegisterCollectionForDebugging(h, o.debugger)
 	go func() {
 		defer c.ShutdownHandlers()
+		defer maybeUnregisterCollectionFromDebugger(h, o.debugger)
 		// First, wait for the informer to populate. We ignore handlers which have their own syncing
 		if !kube.WaitForCacheSync(o.name, o.stop, c.HasSyncedIgnoringHandlers) {
 			return
@@ -227,7 +229,6 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 
 		<-o.stop
 	}()
-	maybeRegisterCollectionForDebugging(h, o.debugger)
 	return h
 }
 
