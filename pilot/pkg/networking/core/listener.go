@@ -136,6 +136,17 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 		l = append(l, buildConnectOriginateListener(push, node, class))
 	}
 
+	if util.HBONEOriginationShimEnabled(node) {
+		class := istionetworking.ListenerClassSidecarInbound
+		if node.Type == model.Router {
+			class = istionetworking.ListenerClassGateway
+		}
+		if shim, err := buildConnectOriginateShimListener(push, node, class); err != nil {
+			log.Errorf("failed to build HBONE origination shim listener: %v", err)
+		} else {
+			l = append(l, shim)
+		}
+	}
 	return l
 }
 

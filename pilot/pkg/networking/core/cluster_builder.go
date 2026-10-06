@@ -138,6 +138,7 @@ type ClusterBuilder struct {
 	passThroughBindIPs []string            // Passthrough IPs to be used while building clusters.
 	supportsIPv4       bool                // Whether Proxy IPs has IPv4 address.
 	supportsIPv6       bool                // Whether Proxy IPs has IPv6 address.
+	hboneShim          bool                // Must also be included in clusterCache.
 	sendHbone          bool                // Does the proxy support HBONE
 	locality           *core.Locality      // Locality information of proxy.
 	proxyLabels        map[string]string   // Proxy labels.
@@ -164,6 +165,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		supportsIPv4:       proxy.SupportsIPv4(),
 		supportsIPv6:       proxy.SupportsIPv6(),
 		sendHbone:          features.EnableHBONESend || proxy.IsWaypointProxy(),
+		hboneShim:          util.HBONEOriginationShimEnabled(proxy),
 		locality:           proxy.Locality,
 		proxyLabels:        proxy.Labels,
 		proxyView:          proxy.GetView(),
