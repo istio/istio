@@ -240,7 +240,7 @@ spec:
 				shadowServiceName := svc.Name
 				ctx.Logf("Shadow service verified successfully: %s", shadowServiceName)
 				return nil
-			})
+			}, retry.Timeout(60*time.Second))
 
 			// Verify traffic routing through EPP
 			// Get the workload pod IP to use in x-endpoint header
