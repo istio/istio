@@ -89,6 +89,7 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 		node:               node,
 		push:               push,
 		connectionSettings: resolveConnectionSettings(node, push),
+		envoyFilterWrapper: push.EnvoyFilters(node),
 	}
 	builder.authnBuilder = authn.NewBuilder(push, node)
 	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node, node.Type == model.Waypoint)
@@ -184,7 +185,6 @@ func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking
 }
 
 func (lb *ListenerBuilder) patchListeners() {
-	lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node)
 	if lb.envoyFilterWrapper == nil {
 		return
 	}
