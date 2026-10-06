@@ -71,7 +71,8 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 	}(),
 }
 
-func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
+// LdsNeedsPush reports whether an update requires listener generation for Envoy or proxyless gRPC.
+func LdsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
@@ -110,7 +111,7 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 }
 
 func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !ldsNeedsPush(proxy, req) {
+	if !LdsNeedsPush(proxy, req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	listeners := l.ConfigGenerator.BuildListeners(proxy, req.Push)
