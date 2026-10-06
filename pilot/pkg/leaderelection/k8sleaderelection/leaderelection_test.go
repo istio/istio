@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/client-go/kubernetes/fake"
 	fakeclient "k8s.io/client-go/testing"
@@ -1319,5 +1321,91 @@ func testReleaseOnCancellation(t *testing.T, objectType string) {
 	case <-onRelease:
 	case <-time.After(1 * time.Second):
 		t.Fatal("the lock was not released")
+	}
+}
+
+// hangingOnceLock blocks its first Get until the context is canceled, then reports
+// the lock as not found so a later attempt can create the record and acquire.
+type hangingOnceLock struct {
+	getCalls atomic.Int32
+}
+
+func (l *hangingOnceLock) Get(ctx context.Context) (*rl.LeaderElectionRecord, []byte, error) {
+	if l.getCalls.Add(1) == 1 {
+		// A request that gets no response until it is canceled.
+		<-ctx.Done()
+		return nil, nil, ctx.Err()
+	}
+	return nil, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "leases"}, "test-lock")
+}
+
+func (l *hangingOnceLock) Create(ctx context.Context, ler rl.LeaderElectionRecord) error {
+	return nil
+}
+
+func (l *hangingOnceLock) Update(ctx context.Context, ler rl.LeaderElectionRecord) error {
+	return nil
+}
+
+func (l *hangingOnceLock) RecordEvent(string) {}
+
+func (l *hangingOnceLock) Identity() string { return "test-identity" }
+
+func (l *hangingOnceLock) Key() string { return "" }
+
+func (l *hangingOnceLock) Describe() string { return "test-lock" }
+
+// TestAcquireSurvivesHungAttempt verifies that a hung acquire attempt is abandoned
+// after RenewDeadline and retried, rather than parking the election permanently.
+func TestAcquireSurvivesHungAttempt(t *testing.T) {
+	const (
+		leaseDuration = 300 * time.Millisecond
+		renewDeadline = 100 * time.Millisecond
+		retryPeriod   = 20 * time.Millisecond
+	)
+
+	lock := &hangingOnceLock{}
+	lec := LeaderElectionConfig{
+		Lock:          lock,
+		LeaseDuration: leaseDuration,
+		RenewDeadline: renewDeadline,
+		RetryPeriod:   retryPeriod,
+		Callbacks: LeaderCallbacks{
+			OnStartedLeading: func(context.Context) {},
+			OnStoppedLeading: func() {},
+		},
+	}
+	le, err := NewLeaderElector(lec)
+	if err != nil {
+		t.Fatalf("NewLeaderElector() failed: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	type result struct {
+		ok       bool
+		duration time.Duration
+	}
+	resultCh := make(chan result, 1)
+	start := time.Now()
+	go func() {
+		ok := le.acquire(ctx)
+		resultCh <- result{ok: ok, duration: time.Since(start)}
+	}()
+
+	select {
+	case res := <-resultCh:
+		if !res.ok {
+			t.Fatalf("acquire() returned false; expected it to succeed after the hung attempt was abandoned")
+		}
+		// The first attempt must have hung for RenewDeadline, or this isn't exercising the bug.
+		if res.duration < renewDeadline {
+			t.Errorf("acquire() returned after %v, faster than RenewDeadline (%v); "+
+				"expected the hung attempt to be bounded by RenewDeadline before retrying", res.duration, renewDeadline)
+		}
+		t.Logf("acquire() succeeded after %v (getCalls=%d)", res.duration, lock.getCalls.Load())
+	case <-time.After(10 * time.Second):
+		t.Fatal("acquire() did not return within 10s; the hung attempt appears to have parked the election permanently")
 	}
 }
