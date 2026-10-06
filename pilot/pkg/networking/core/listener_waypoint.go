@@ -62,6 +62,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -804,6 +805,26 @@ func buildForwardInnerConnectListener(push *model.PushContext, proxy *model.Prox
 
 func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) *listener.Listener {
 	return buildConnectForwarder(push, proxy, class, ConnectOriginate, true)
+}
+
+func buildConnectOriginateShimListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) (*listener.Listener, error) {
+	l := buildConnectOriginateListener(push, proxy, class)
+	l.Name = util.HBONEOriginationShimListener
+	filters := l.FilterChains[0].Filters
+	terminal := filters[len(filters)-1]
+	tcpProxy := &tcp.TcpProxy{}
+	if err := terminal.GetTypedConfig().UnmarshalTo(tcpProxy); err != nil {
+		return nil, err
+	}
+	value, err := protomarshal.ToJSONMap(tcpProxy)
+	if err != nil {
+		return nil, err
+	}
+	terminal.Name = util.HBONEOriginationShimFilter
+	terminal.ConfigType = &listener.Filter_TypedConfig{TypedConfig: protoconv.TypedStructWithFields(
+		util.HBONEOriginationShimConfigType, map[string]any{"tcp_proxy": value},
+	)}
+	return l, nil
 }
 
 func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass,

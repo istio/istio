@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** an experimental `ENABLE_HBONE_ORIGINATION_SHIM` proxy metadata option
+  for custom waypoint and ingress gateway images containing the paired Istio
+  HBONE shim extensions. For eligible single-HBONE EDS traffic, CONNECT acceptance
+  gates upstream connection readiness so rejected CONNECTs can be retried using
+  `connect-failure`.

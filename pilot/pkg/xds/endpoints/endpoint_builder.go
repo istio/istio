@@ -72,6 +72,7 @@ type EndpointBuilder struct {
 	destinationRule        *model.ConsolidatedDestRule
 	service                *model.Service
 	clusterLocal           bool
+	hboneOriginationShim   bool
 	nodeType               model.NodeType
 	failoverPriorityLabels []byte
 
@@ -139,6 +140,7 @@ func NewCDSEndpointBuilder(
 
 	b.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(service, b.DestinationRule(), port, subsetName)
 	b.populateSubsetInfo()
+	b.populateHBONEOriginationShim()
 	b.populateFailoverPriorityLabels()
 	if features.EnableAmbientMultiNetwork {
 		b.populateAmbientServiceInfo()
@@ -166,10 +168,21 @@ func (b *EndpointBuilder) WithSubset(subset string) *EndpointBuilder {
 	subsetBuilder := *b
 	subsetBuilder.subsetName = subset
 	subsetBuilder.populateSubsetInfo()
+	subsetBuilder.populateHBONEOriginationShim()
 	subsetBuilder.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(
 		subsetBuilder.service, subsetBuilder.DestinationRule(), subsetBuilder.port, subsetBuilder.subsetName,
 	)
 	return &subsetBuilder
+}
+
+func (b *EndpointBuilder) populateHBONEOriginationShim() {
+	var policy *v1alpha3.TrafficPolicy
+	if dr := b.DestinationRule(); dr != nil {
+		policy = getSubsetTrafficPolicy(dr, &model.Port{Port: b.port}, b.subsetName)
+	}
+	b.hboneOriginationShim = !model.IsDNSSrvSubsetKey(b.clusterName) &&
+		(b.dir == model.TrafficDirectionOutbound || b.dir == model.TrafficDirectionInboundVIP) &&
+		util.UseHBONEOriginationShim(util.HBONEOriginationShimEnabled(b.proxy), b.service, policy)
 }
 
 func (b *EndpointBuilder) populateSubsetInfo() {
@@ -270,6 +283,8 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	if b == nil {
 		return
 	}
+	h.WriteString(strconv.FormatBool(b.hboneOriginationShim))
+	h.Write(Separator)
 	h.WriteString(b.clusterName)
 	h.Write(Separator)
 	h.WriteString(string(b.network))
@@ -856,6 +871,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		// Setup tunnel metadata so requests will go through the tunnel
 		target := ptr.NonEmptyOrDefault(waypoint, net.JoinHostPort(address, strconv.Itoa(port)))
 		innerAddressName := connectOriginate
+		if b.hboneOriginationShim {
+			innerAddressName = util.HBONEOriginationShimListener
+		}
 		if isEastWestGateway(b.proxy) {
 			innerAddressName = forwardInnerConnect
 		}
