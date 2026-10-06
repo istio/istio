@@ -271,6 +271,10 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 
 	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
 	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
+	if localCluster.cluster.GetType() == cluster.Cluster_EDS &&
+		util.UseHBONEOriginationShim(cb.hboneShim, svc, policy) {
+		localCluster.cluster.TransportSocket = util.WaypointHBONEOriginationShimTransportSocket()
+	}
 
 	cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
 	if disableBaggageDiscovery {
