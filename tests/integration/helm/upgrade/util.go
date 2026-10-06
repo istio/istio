@@ -24,11 +24,11 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -629,9 +629,11 @@ func checkNoPodsFromReleaseLine(t framework.TestContext, namespace, version stri
 		// and on Kubernetes 1.33+ native sidecars are auto-detected, which moves istio-proxy out
 		// of Spec.Containers. There Spec.Containers holds only the app image, which never carries
 		// the previous version, so checking it alone would pass whatever the pods run.
-		for _, c := range append(slices.Clone(p.Spec.InitContainers), p.Spec.Containers...) {
-			if strings.Contains(c.Image, minor) {
-				return fmt.Errorf("expected container image to not be from the %sx release line, got %q", minor, c.Image)
+		for _, cs := range [][]corev1.Container{p.Spec.InitContainers, p.Spec.Containers} {
+			for _, c := range cs {
+				if strings.Contains(c.Image, minor) {
+					return fmt.Errorf("expected container image to not be from the %sx release line, got %q", minor, c.Image)
+				}
 			}
 		}
 	}
