@@ -146,9 +146,11 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 			if !initialRequestsSent.Load() && req.TypeUrl == model.ListenerType {
 				// fire off an initial NDS request
 				if _, f := p.handlers[model.NameTableType]; f {
-					con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
-						TypeUrl: model.NameTableType,
-					})
+					req := &discovery.DeltaDiscoveryRequest{TypeUrl: model.NameTableType}
+					if p.ndsDelta != nil {
+						req.InitialResourceVersions = p.ndsDelta.initialResourceVersions()
+					}
+					con.sendDeltaRequest(req)
 				}
 				// fire off an initial PCDS request
 				if _, f := p.handlers[model.ProxyConfigType]; f {
@@ -204,9 +206,6 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
-	if !p.startDeltaResponseHandlers(con) {
-		return
-	}
 	forwardEnvoyCh := make(chan *discovery.DeltaDiscoveryResponse, 1)
 	for {
 		select {
@@ -220,8 +219,8 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 				"removes", len(resp.RemovedResources),
 			).Debugf("upstream response")
 			metrics.XdsProxyResponses.Increment()
-			if handler, found := p.deltaHandlers[resp.TypeUrl]; found {
-				active, err := p.applyDeltaResponse(con, handler, resp)
+			if resp.TypeUrl == model.NameTableType && p.ndsDelta != nil {
+				active, err := p.applyDeltaResponse(con, p.ndsDelta, resp)
 				if !active {
 					continue
 				}
@@ -291,21 +290,9 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 	}
 }
 
-func (p *XdsProxy) startDeltaResponseHandlers(con *ProxyConnection) bool {
-	p.connectedMutex.RLock()
-	defer p.connectedMutex.RUnlock()
-	if p.connected != con {
-		return false
-	}
-	for _, handler := range p.deltaHandlers {
-		handler.OnStreamStart()
-	}
-	return true
-}
-
 func (p *XdsProxy) applyDeltaResponse(
 	con *ProxyConnection,
-	handler DeltaResponseHandler,
+	handler *ndsDeltaHandler,
 	resp *discovery.DeltaDiscoveryResponse,
 ) (bool, error) {
 	p.connectedMutex.RLock()

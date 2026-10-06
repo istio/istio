@@ -118,7 +118,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 			key := model.ConfigKey{Kind: k, Name: name, Namespace: serviceNamespace}
 			assert.Equal(t, proxy.SidecarScope.DependsOnConfig(key, rootNamespace), false)
 			assert.Equal(t, proxy.PrevSidecarScope.DependsOnConfig(key, rootNamespace), true)
-			_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+			_, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 				Push: current.PushContext(), ConfigsUpdated: sets.New(key),
 			})
 			assert.Equal(t, needsPush, true)
@@ -129,7 +129,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 		proxy := &model.Proxy{Type: model.Router, ConfigNamespace: gatewayNamespace, Metadata: &model.NodeMetadata{}}
 		proxy.SetSidecarScope(old.PushContext())
 		for _, cfg := range []config.Config{destinationRule, peerAuthentication} {
-			_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+			_, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 				Push: old.PushContext(), ConfigsUpdated: sets.New(model.ConfigKey{
 					Kind: gvk.MustToKind(cfg.GroupVersionKind), Name: cfg.Name, Namespace: cfg.Namespace,
 				}),
@@ -150,7 +150,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 			{model.ConfigKey{Kind: kind.ServiceEntry, Name: serviceHost, Namespace: "unrelated"}, false},
 			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "other.example.com", Namespace: serviceNamespace}, false},
 		} {
-			filtered, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+			filtered, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 				Push: current.PushContext(), ConfigsUpdated: sets.New(tt.key),
 			})
 			assert.Equal(t, needsPush, tt.want, tt.key.String())
@@ -166,7 +166,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 			t.Run(k.String()+"/"+ns, func(t *testing.T) {
 				key := model.ConfigKey{Kind: k, Name: "policy", Namespace: ns}
 				req := &model.PushRequest{Push: current.PushContext(), ConfigsUpdated: sets.New(key)}
-				filtered, needsPush := DefaultProxyNeedsPush(proxy, req)
+				filtered, needsPush, _ := DefaultProxyNeedsPush(proxy, req)
 				want := ns != "unrelated"
 				assert.Equal(t, needsPush, want)
 				assert.Equal(t, filtered.ConfigsUpdated.Contains(key), want)
@@ -177,7 +177,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 
 	for _, k := range []kind.Kind{kind.DestinationRule, kind.PeerAuthentication, kind.VirtualService, kind.Gateway} {
 		t.Run(k.String(), func(t *testing.T) {
-			_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+			_, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 				Push: current.PushContext(), ConfigsUpdated: sets.New(model.ConfigKey{
 					Kind: k, Name: "unrelated", Namespace: "unrelated",
 				}),
@@ -193,7 +193,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 			req := &model.PushRequest{
 				Push: current.PushContext(), ConfigsUpdated: sets.New(serviceKey, filterKey), Forced: forced,
 			}
-			filtered, needsPush := DefaultProxyNeedsPush(proxy, req)
+			filtered, needsPush, _ := DefaultProxyNeedsPush(proxy, req)
 			assert.Equal(t, needsPush, true)
 			assert.Equal(t, filtered.ConfigsUpdated.Contains(serviceKey), true)
 			assert.Equal(t, filtered.ConfigsUpdated.Contains(filterKey), forced)
@@ -233,7 +233,7 @@ func TestGatewayVirtualServiceDependencies(t *testing.T) {
 				rootNamespace := current.PushContext().Mesh.RootNamespace
 				assert.Equal(t, proxy.SidecarScope.DependsOnConfig(key, rootNamespace), gateway == "b" && change == "rebound")
 				assert.Equal(t, proxy.PrevSidecarScope.DependsOnConfig(key, rootNamespace), gateway == "a")
-				filtered, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+				filtered, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 					Push: current.PushContext(), ConfigsUpdated: sets.New(key),
 				})
 				want := gateway == "a" || (gateway == "b" && change == "rebound")
@@ -328,12 +328,12 @@ func TestGatewaySidecarScopeReselection(t *testing.T) {
 				// Removing a gateway reselects the scope, but its previously imported VirtualServices
 				// must still be classified as dependencies through the previous scope.
 				assert.Equal(t, proxyDependentOnConfig(proxy, key, current.PushContext()), true)
-				filtered, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+				filtered, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 					Push: current.PushContext(), ConfigsUpdated: sets.New(key),
 				})
 				assert.Equal(t, needsPush, true)
 				assert.Equal(t, filtered.ConfigsUpdated.Contains(key), true)
-				_, needsPush = DefaultProxyNeedsPush(proxy, &model.PushRequest{
+				_, needsPush, _ = DefaultProxyNeedsPush(proxy, &model.PushRequest{
 					Push: current.PushContext(), ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Gateway, Name: "a", Namespace: "gateways"}),
 				})
 				assert.Equal(t, needsPush, true)
@@ -379,7 +379,7 @@ func TestGatewaySidecarScopeFromNoGateways(t *testing.T) {
 			baseScope := proxy.SidecarScope
 			assert.Equal(t, baseScope.DependsOnConfig(key, old.PushContext().Mesh.RootNamespace), false)
 			assert.Equal(t, len(proxy.SidecarScope.GatewayVirtualServices("gateways/a")), 0)
-			_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{Push: old.PushContext(), ConfigsUpdated: sets.New(key)})
+			_, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{Push: old.PushContext(), ConfigsUpdated: sets.New(key)})
 			assert.Equal(t, needsPush, pt.typ != model.Router)
 
 			// Creating the Gateway moves the proxy from no gateways to {a}. That alone must reselect
@@ -398,7 +398,7 @@ func TestGatewaySidecarScopeFromNoGateways(t *testing.T) {
 			assert.Equal(t, len(virtualServices), 1)
 			assert.Equal(t, virtualServices[0].Name, "a")
 			assert.Equal(t, proxyDependentOnConfig(proxy, key, current.PushContext()), true)
-			_, needsPush = DefaultProxyNeedsPush(proxy, &model.PushRequest{Push: current.PushContext(), ConfigsUpdated: sets.New(key)})
+			_, needsPush, _ = DefaultProxyNeedsPush(proxy, &model.PushRequest{Push: current.PushContext(), ConfigsUpdated: sets.New(key)})
 			assert.Equal(t, needsPush, true)
 		})
 	}

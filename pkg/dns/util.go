@@ -21,9 +21,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// FullSnapshotResourceName marks a named NDS response as an authoritative snapshot.
-const FullSnapshotResourceName = "istio.io/nds/full-snapshot"
-
 // GenerateAltHosts returns the DNS aliases for a Kubernetes name table entry.
 func GenerateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, proxyNamespace, proxyDomain string,
 	proxyDomainParts []string,

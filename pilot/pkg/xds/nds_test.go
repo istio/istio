@@ -31,8 +31,8 @@ import (
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	dnsutil "istio.io/istio/pkg/dns"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -135,7 +135,6 @@ func TestNDSDeltaWireFormat(t *testing.T) {
 		if len(response.Resources) == 0 {
 			t.Fatal("expected named NDS resources")
 		}
-		fullSnapshot := false
 		for _, resource := range response.Resources {
 			if resource.Name == "" {
 				t.Fatal("delta-capable agent received an unnamed full-table resource")
@@ -144,19 +143,9 @@ func TestNDSDeltaWireFormat(t *testing.T) {
 			if err := resource.Resource.UnmarshalTo(&table); err != nil {
 				t.Fatal(err)
 			}
-			if resource.Name == dnsutil.FullSnapshotResourceName {
-				fullSnapshot = true
-				if table.GetNameInfo() != nil || len(table.GetTable()) != 0 {
-					t.Fatalf("full-snapshot marker contains DNS entries: %v", &table)
-				}
-				continue
+			if table.GetTable()[resource.Name] == nil {
+				t.Fatalf("resource %q does not contain its own hostname: %v", resource.Name, &table)
 			}
-			if table.GetNameInfo() == nil || len(table.GetTable()) != 0 {
-				t.Fatalf("resource %q does not use the single-name NDS representation: %v", resource.Name, &table)
-			}
-		}
-		if !fullSnapshot {
-			t.Fatal("initial named response omitted the full-snapshot marker")
 		}
 	})
 
@@ -212,13 +201,13 @@ func TestNDSDeltaWireFormat(t *testing.T) {
 		if err := response.Resources[0].Resource.UnmarshalTo(&table); err != nil {
 			t.Fatal(err)
 		}
-		if len(table.GetTable()) == 0 || table.GetNameInfo() != nil {
+		if len(table.GetTable()) == 0 {
 			t.Fatalf("legacy response does not contain a full table: %v", &table)
 		}
 	})
 }
 
-func TestNDSDeltaStatePersistsAcrossPushes(t *testing.T) {
+func TestNDSDeltaIncrementalPushes(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addService := func(name, address string) {
 		s.MemRegistry.AddService(&model.Service{
@@ -234,7 +223,7 @@ func TestNDSDeltaStatePersistsAcrossPushes(t *testing.T) {
 		DeltaNDS:     true,
 		IstioVersion: "1.32.0",
 	})
-	assertGeneratorManaged := func() {
+	assertResourceNames := func(want ...string) {
 		t.Helper()
 		clients := s.Discovery.Clients()
 		if len(clients) != 1 {
@@ -244,20 +233,20 @@ func TestNDSDeltaStatePersistsAcrossPushes(t *testing.T) {
 		proxy.RLock()
 		watched, found := proxy.DeepCloneWatchedResourcesLocked()[v3.NameTableType]
 		proxy.RUnlock()
-		if !found || watched.GeneratorState == nil || len(watched.ResourceNames) != 0 {
-			t.Fatalf("named NDS did not manage its own membership: %+v", watched)
+		if !found || !watched.ResourceNames.Equals(sets.New(want...)) {
+			t.Fatalf("unexpected NDS resource names %v, want %v", watched.ResourceNames, want)
 		}
 	}
 	ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
-	assertGeneratorManaged()
+	assertResourceNames("a.example.com")
 
 	addService("b.example.com", "10.0.0.2")
 	response := ads.ExpectResponse()
 	if len(response.Resources) != 1 || response.Resources[0].Name != "b.example.com" {
-		t.Fatalf("incremental push did not retain the initial stream state: %v", response.Resources)
+		t.Fatalf("service add was not incremental: %v", response.Resources)
 	}
 	ads.Request(&discovery.DeltaDiscoveryRequest{ResponseNonce: response.Nonce})
-	assertGeneratorManaged()
+	assertResourceNames("a.example.com", "b.example.com")
 
 	addService("b.example.com", "10.0.0.3")
 	response = ads.ExpectResponse()
@@ -268,7 +257,7 @@ func TestNDSDeltaStatePersistsAcrossPushes(t *testing.T) {
 	if err := response.Resources[0].Resource.UnmarshalTo(&updated); err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff([]string{"10.0.0.3"}, updated.GetNameInfo().GetIps()); diff != "" {
+	if diff := cmp.Diff([]string{"10.0.0.3"}, updated.GetTable()["b.example.com"].GetIps()); diff != "" {
 		t.Fatalf("updated resource has unexpected addresses (-want +got):\n%s", diff)
 	}
 	ads.Request(&discovery.DeltaDiscoveryRequest{ResponseNonce: response.Nonce})
@@ -277,6 +266,32 @@ func TestNDSDeltaStatePersistsAcrossPushes(t *testing.T) {
 	response = ads.ExpectResponse()
 	if len(response.Resources) != 0 || !cmp.Equal(response.RemovedResources, []string{"b.example.com"}) {
 		t.Fatalf("service removal was not incremental: resources=%v removed=%v", response.Resources, response.RemovedResources)
+	}
+	ads.Request(&discovery.DeltaDiscoveryRequest{ResponseNonce: response.Nonce})
+	assertResourceNames("a.example.com")
+}
+
+func TestNDSDeltaReconnectRemovesStaleResources(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s.MemRegistry.AddService(&model.Service{
+		Hostname:       host.Name("a.example.com"),
+		DefaultAddress: "10.0.0.1",
+		Attributes:     model.ServiceAttributes{Namespace: "default"},
+	})
+	s.EnsureSynced(t)
+	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{
+		DNSCapture:   true,
+		DeltaNDS:     true,
+		IstioVersion: "1.32.0",
+	})
+	response := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+		InitialResourceVersions: map[string]string{"a.example.com": "", "stale.example.com": ""},
+	})
+	if len(response.Resources) != 1 || response.Resources[0].Name != "a.example.com" {
+		t.Fatalf("unexpected reconnect resources: %v", response.Resources)
+	}
+	if diff := cmp.Diff([]string{"stale.example.com"}, response.RemovedResources); diff != "" {
+		t.Fatalf("reconnect did not remove stale resources (-want +got):\n%s", diff)
 	}
 }
 
@@ -318,17 +333,9 @@ func TestNDSDeltaNackLifecycle(t *testing.T) {
 
 	s.Discovery.ConfigUpdate(&model.PushRequest{Forced: true})
 	response = ads.ExpectResponse()
-	got := sets.New[string]()
-	fullSnapshot := false
-	for _, resource := range response.Resources {
-		if resource.Name == dnsutil.FullSnapshotResourceName {
-			fullSnapshot = true
-			continue
-		}
-		got.Insert(resource.Name)
-	}
-	if !fullSnapshot {
-		t.Fatal("forced reconciliation omitted the full-snapshot marker")
+	got := sets.New(slices.Map(response.Resources, func(r *discovery.Resource) string { return r.Name })...)
+	if len(response.RemovedResources) != 0 {
+		t.Fatalf("forced reconciliation removed resources: %v", response.RemovedResources)
 	}
 	want := sets.New("a.example.com", "b.example.com", "c.example.com")
 	if !got.Equals(want) {

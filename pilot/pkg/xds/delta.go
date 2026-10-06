@@ -246,7 +246,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 	}
 }
 
-func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newResourceNames sets.String, generatorState any) error {
+func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newResourceNames sets.String) error {
 	sendResonse := func() error {
 		start := time.Now()
 		defer func() { xds.RecordSendTime(time.Since(start)) }()
@@ -263,7 +263,6 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newReso
 				if newResourceNames != nil {
 					wr.ResourceNames = newResourceNames
 				}
-				wr.GeneratorState = generatorState
 				wr.NonceSent = res.Nonce
 				wr.LastSendTime = time.Now()
 				return wr
@@ -514,13 +513,10 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		// Some types opt out of this and natively handle req.Delta
 		logFiltered = " filtered:" + strconv.Itoa(len(w.ResourceNames)-len(req.Delta.Subscribed))
 		w = &model.WatchedResource{
-			TypeUrl:        w.TypeUrl,
-			ResourceNames:  req.Delta.Subscribed,
-			GeneratorState: w.GeneratorState,
+			TypeUrl:       w.TypeUrl,
+			ResourceNames: req.Delta.Subscribed,
 		}
 	}
-	// BuildDeltaNameTable may update GeneratorState while DeepCloneWatchedResourcesLocked copies the published watch.
-	w = shallowCloneWatchedResourceForDeltaNDS(w)
 
 	var res model.Resources
 	var deletedRes model.DeletedResources
@@ -545,7 +541,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		Nonce:             nonce(req.Push.PushVersion),
 		Resources:         res,
 	}
-	if usedDelta || generatorManagesResourceNames(w) {
+	if usedDelta {
 		resp.RemovedResources = deletedRes
 	} else if !logdata.Incremental {
 		// similar to sotw
@@ -591,7 +587,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		info += logFiltered
 	}
 
-	if err := con.sendDelta(resp, newResourceNames, w.GeneratorState); err != nil {
+	if err := con.sendDelta(resp, newResourceNames); err != nil {
 		logger := deltaLog.Debugf
 		if recordSendError(w.TypeUrl, err) {
 			logger = deltaLog.Warnf
@@ -623,18 +619,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 	return nil
 }
 
-func shallowCloneWatchedResourceForDeltaNDS(w *model.WatchedResource) *model.WatchedResource {
-	if w.TypeUrl != v3.NameTableType {
-		return w
-	}
-	private := *w
-	return &private
-}
-
-func generatorManagesResourceNames(w *model.WatchedResource) bool {
-	return w.TypeUrl == v3.NameTableType && w.GeneratorState != nil
-}
-
 func resourceNamesSet(res model.Resources) sets.Set[string] {
 	return sets.New(slices.Map(res, func(r *discovery.Resource) string {
 		return r.Name
@@ -657,8 +641,8 @@ func neverRemoveDelta(url string) bool {
 // shouldSetWatchedResources indicates whether we should set the watched resources for a given type.
 // for some type like `Address` we customly handle it in the generator
 func shouldSetWatchedResources(w *model.WatchedResource) bool {
-	if requiresResourceNamesModification(w.TypeUrl) || generatorManagesResourceNames(w) {
-		// These generators manage resource membership directly.
+	if requiresResourceNamesModification(w.TypeUrl) {
+		// These handle it directly in the generator
 		return false
 	}
 	// Else fallback based on type

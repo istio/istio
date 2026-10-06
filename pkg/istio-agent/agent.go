@@ -617,12 +617,12 @@ func (a *Agent) isDNSServerEnabled() bool {
 // GetDNSTable builds DNS table used in debugging interface.
 func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 	if a.localDNSServer != nil {
-		nt, isExpandedNameTable := a.localDNSServer.NameTableSnapshot()
+		nt, resolved := a.localDNSServer.NameTableSnapshot()
 		if nt == nil {
 			return nil
 		}
 		nt = protomarshal.Clone(nt)
-		if isExpandedNameTable {
+		if resolved {
 			return nt
 		}
 		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, _ []string) {

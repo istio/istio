@@ -17,7 +17,6 @@ package server
 import (
 	"strings"
 
-	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -204,303 +203,64 @@ func addServiceToTable(out *dnsProto.NameTable, cfg Config, svc *model.Service) 
 	}
 }
 
-type expandedNameCandidate struct {
-	info   *dnsProto.NameTable_NameInfo
-	exact  bool
-	source string
-	owner  string
-}
-
-// DeltaNameTable retains the contributors to each materialized DNS name for one NDS stream.
-// It is independent of the legacy NameTable representation.
-// byService and servicesByName index owners; byName is the reverse contributor index.
-// addService and removeService must update all three together.
-type DeltaNameTable struct {
-	byService      map[string]sets.String
-	byName         map[string]*deltaNameState
-	servicesByName map[string][]*model.Service
-}
-
-type deltaNameState struct {
-	contributors map[string]expandedNameCandidate
-	winner       expandedNameCandidate
-	hasWinner    bool
-}
-
-// NewDeltaNameTable builds the initial materialized view for a Delta NDS stream.
-func NewDeltaNameTable(cfg Config) *DeltaNameTable {
-	state := &DeltaNameTable{
-		byService:      make(map[string]sets.String),
-		byName:         make(map[string]*deltaNameState),
-		servicesByName: make(map[string][]*model.Service),
-	}
-	aliases := newAliasExpansionContext(cfg.Node)
-	for owner, services := range serviceGroups(cfg, nil) {
-		state.addService(cfg, aliases, owner, services)
-	}
-	for _, name := range state.byName {
-		name.winner, name.hasWinner = preferredName(name.contributors)
-	}
-	return state
-}
-
-// Table returns the current materialized DNS resources. Entries are immutable while in the state.
-func (d *DeltaNameTable) Table() map[string]*dnsProto.NameTable_NameInfo {
-	table := make(map[string]*dnsProto.NameTable_NameInfo, len(d.byName))
-	for name, state := range d.byName {
-		if state.hasWinner {
-			table[name] = state.winner.info
-		}
-	}
-	return table
-}
-
-// Removed returns names present in previous but absent from d.
-func (d *DeltaNameTable) Removed(previous *DeltaNameTable) []string {
-	if previous == nil {
+// BuildNameTablesByHostname builds one NameTable per service hostname in the proxy's scope, holding the hostname,
+// any headless per-pod names it produces, and their aliases. If only is non-empty, other hostnames are skipped.
+// Colliding names across hostnames are left for the agent to resolve.
+func BuildNameTablesByHostname(cfg Config, only sets.String) map[string]*dnsProto.NameTable {
+	if cfg.Node == nil || cfg.Node.SidecarScope == nil {
 		return nil
 	}
-	removed := make([]string, 0)
-	for name := range previous.byName {
-		if _, found := d.byName[name]; !found {
-			removed = append(removed, name)
-		}
-	}
-	slices.Sort(removed)
-	return removed
-}
-
-// Update replaces changed contributions and returns only effective changes. Service-definition
-// updates reload their complete same-host group; endpoint-only updates reuse the retained group.
-func (d *DeltaNameTable) Update(cfg Config, hostnames, reloadServices sets.String) (map[string]*dnsProto.NameTable_NameInfo, []string) {
-	reloadServices = normalizedNames(reloadServices)
-	var currentServices map[string][]*model.Service
-	if len(reloadServices) > 0 {
-		currentServices = serviceGroups(cfg, reloadServices)
-	}
-	touched := sets.New[string]()
-	aliases := newAliasExpansionContext(cfg.Node)
-	// TODO(rudrakhp): Track endpoint-level contributions so endpoint churn rebuilds only changed names within a service.
-	for hostname := range hostnames {
-		owner := normalizeName(hostname)
-		services := d.servicesByName[owner]
-		if reloadServices.Contains(owner) {
-			services = currentServices[owner]
-		}
-		touched.Merge(d.removeService(owner))
-		if len(services) > 0 {
-			touched.Merge(d.addService(cfg, aliases, owner, services))
-		}
-	}
-
-	changed := make(map[string]*dnsProto.NameTable_NameInfo)
-	removed := make([]string, 0)
-	for name := range touched {
-		state := d.byName[name]
-		previous, hadPrevious := state.winner, state.hasWinner
-		current, found := preferredName(state.contributors)
-		switch {
-		case !found:
-			delete(d.byName, name)
-			if hadPrevious {
-				removed = append(removed, name)
-			}
-		default:
-			state.winner, state.hasWinner = current, true
-			if !hadPrevious || !proto.Equal(previous.info, current.info) {
-				changed[name] = current.info
-			}
-		}
-	}
-	slices.Sort(removed)
-	return changed, removed
-}
-
-func normalizedNames(names sets.String) sets.String {
-	out := sets.NewWithLength[string](len(names))
-	for name := range names {
-		out.Insert(normalizeName(name))
-	}
-	return out
-}
-
-func (d *DeltaNameTable) removeService(owner string) sets.String {
-	names := d.byService[owner]
-	for name := range names {
-		delete(d.byName[name].contributors, owner)
-	}
-	delete(d.byService, owner)
-	delete(d.servicesByName, owner)
-	return names
-}
-
-func (d *DeltaNameTable) addService(
-	cfg Config, aliases *aliasExpansionContext, owner string, services []*model.Service,
-) sets.String {
-	contributions := expandedNameContributions(cfg, aliases, services)
-	touched := sets.NewWithLength[string](len(contributions))
-	for name, candidate := range contributions {
-		candidate.owner = owner
-		touched.Insert(name)
-		state := d.byName[name]
-		if state == nil {
-			state = &deltaNameState{contributors: make(map[string]expandedNameCandidate)}
-			d.byName[name] = state
-		}
-		state.contributors[owner] = candidate
-	}
-	d.byService[owner] = touched
-	d.servicesByName[owner] = services
-	return touched
-}
-
-func serviceGroups(cfg Config, only sets.String) map[string][]*model.Service {
 	groups := make(map[string][]*model.Service)
-	if cfg.Node == nil || cfg.Node.SidecarScope == nil {
-		return groups
-	}
-	for _, listener := range cfg.Node.SidecarScope.EgressListeners {
-		for _, service := range listener.Services() {
-			owner := serviceOwner(service)
-			if owner == "" || (len(only) > 0 && !only.Contains(owner)) {
+	for _, el := range cfg.Node.SidecarScope.EgressListeners {
+		for _, svc := range el.Services() {
+			hostname := svc.Hostname.String()
+			if len(only) > 0 && !only.Contains(hostname) {
 				continue
 			}
-			groups[owner] = append(groups[owner], service)
+			groups[hostname] = append(groups[hostname], svc)
 		}
 	}
-	return groups
-}
-
-func expandedNameContributions(
-	cfg Config, aliases *aliasExpansionContext, services []*model.Service,
-) map[string]expandedNameCandidate {
-	return expandedNameCandidates(aliases, buildNameTableForServices(cfg, services))
-}
-
-func expandedNameCandidates(aliases *aliasExpansionContext, canonical *dnsProto.NameTable) map[string]expandedNameCandidate {
-	out := make(map[string]expandedNameCandidate)
-	for source, info := range canonical.GetTable() {
-		if info == nil {
+	aliases := newAliasContext(cfg.Node)
+	out := make(map[string]*dnsProto.NameTable, len(groups))
+	for hostname, services := range groups {
+		nt := buildNameTableForServices(cfg, services)
+		if len(nt.Table) == 0 {
 			continue
 		}
-		source = normalizeName(source)
-		canonicalInfo := canonicalNameInfo(info)
-		addCandidate := func(name string) {
-			candidate := expandedNameCandidate{
-				info:   canonicalInfo,
-				exact:  name == source,
-				source: source,
-				owner:  source,
-			}
-			if current, found := out[name]; !found || preferCandidate(candidate, current) {
-				out[name] = candidate
-			}
+		for name, info := range nt.Table {
+			info.Aliases = aliases.forEntry(name, info)
 		}
-		addCandidate(source)
-		for name := range aliases.aliasesForEntry(source, info) {
-			name = normalizeName(name)
-			if name != source {
-				addCandidate(name)
-			}
-		}
+		out[hostname] = nt
 	}
 	return out
 }
 
-func preferredName(candidates map[string]expandedNameCandidate) (expandedNameCandidate, bool) {
-	var preferred expandedNameCandidate
-	found := false
-	for _, candidate := range candidates {
-		if !found || preferCandidate(candidate, preferred) {
-			preferred = candidate
-			found = true
-		}
+// aliasContext holds the proxy's namespace and domain, parsed the same way as the agent's LocalDNSServer.
+type aliasContext struct {
+	proxyNamespace   string
+	proxyDomain      string
+	proxyDomainParts []string
+}
+
+func newAliasContext(node *model.Proxy) aliasContext {
+	ns := model.GetProxyConfigNamespace(node)
+	parts := strings.Split(strings.TrimSuffix(node.DNSDomain, "."), ".")
+	if parts[0] == ns {
+		parts = parts[1:]
 	}
-	return preferred, found
+	return aliasContext{proxyNamespace: ns, proxyDomain: strings.Join(parts, "."), proxyDomainParts: parts}
 }
 
-func serviceOwner(service *model.Service) string {
-	if service == nil {
-		return ""
-	}
-	return normalizeName(service.Hostname.String())
-}
-
-func canonicalNameInfo(in *dnsProto.NameTable_NameInfo) *dnsProto.NameTable_NameInfo {
-	out := cloneNameInfo(in)
-	slices.Sort(out.Ips)
-	return out
-}
-
-// ExpandNameTable materializes the semantic aliases from a canonical NameTable and resolves
-// collisions deterministically. If only is non-empty, only those final names are returned.
-func ExpandNameTable(cfg Config, canonical *dnsProto.NameTable, only sets.String) *dnsProto.NameTable {
-	candidates := expandedNameCandidates(newAliasExpansionContext(cfg.Node), canonical)
-	out := &dnsProto.NameTable{Table: make(map[string]*dnsProto.NameTable_NameInfo, len(candidates))}
-	for name, candidate := range candidates {
-		if len(only) > 0 && !only.Contains(name) {
-			continue
-		}
-		out.Table[name] = candidate.info
-	}
-	return out
-}
-
-type aliasExpansionContext struct {
-	node           *model.Proxy
-	initialized    bool
-	proxyNamespace string
-	proxyDomain    string
-	domainParts    []string
-}
-
-func newAliasExpansionContext(node *model.Proxy) *aliasExpansionContext {
-	return &aliasExpansionContext{node: node}
-}
-
-func (context *aliasExpansionContext) aliasesForEntry(hostname string, info *dnsProto.NameTable_NameInfo) sets.String {
+// forEntry returns the sorted aliases of a Kubernetes entry, excluding the name itself.
+func (c aliasContext) forEntry(name string, info *dnsProto.NameTable_NameInfo) []string {
 	if info.Registry != string(provider.Kubernetes) || info.Shortname == "" || info.Namespace == "" {
 		return nil
 	}
-	if !context.initialized {
-		context.proxyNamespace = model.GetProxyConfigNamespace(context.node)
-		context.domainParts = strings.Split(strings.TrimSuffix(context.node.DNSDomain, "."), ".")
-		if len(context.domainParts) > 0 && context.domainParts[0] == context.proxyNamespace {
-			context.domainParts = context.domainParts[1:]
+	var out []string
+	for alias := range dnsutil.GenerateAltHosts(name, info, c.proxyNamespace, c.proxyDomain, c.proxyDomainParts) {
+		if alias = strings.TrimSuffix(alias, "."); alias != name {
+			out = append(out, alias)
 		}
-		context.proxyDomain = strings.Join(context.domainParts, ".")
-		context.initialized = true
 	}
-	return dnsutil.GenerateAltHosts(
-		hostname, info, context.proxyNamespace, context.proxyDomain, context.domainParts,
-	)
-}
-
-func preferCandidate(candidate, current expandedNameCandidate) bool {
-	if candidate.exact != current.exact {
-		return candidate.exact
-	}
-	candidateKube := candidate.info.Registry == string(provider.Kubernetes)
-	currentKube := current.info.Registry == string(provider.Kubernetes)
-	if candidateKube != currentKube {
-		return candidateKube
-	}
-	if candidate.source != current.source {
-		return candidate.source < current.source
-	}
-	return candidate.owner < current.owner
-}
-
-func cloneNameInfo(in *dnsProto.NameTable_NameInfo) *dnsProto.NameTable_NameInfo {
-	return &dnsProto.NameTable_NameInfo{
-		Ips:       slices.Clone(in.Ips),
-		Registry:  in.Registry,
-		Shortname: in.Shortname,
-		Namespace: in.Namespace,
-		AltHosts:  slices.Clone(in.GetAltHosts()), //nolint:staticcheck
-	}
-}
-
-func normalizeName(name string) string {
-	return strings.ToLower(strings.TrimSuffix(name, "."))
+	return slices.Sort(out)
 }
