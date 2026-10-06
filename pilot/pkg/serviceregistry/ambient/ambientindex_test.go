@@ -1405,6 +1405,13 @@ func TestAmbientIndex_Policy(t *testing.T) {
 				s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 				[]string{"ns1/selector"})
 
+			// Pod with no labels
+			s.addPods(t, "127.0.0.2", "pod3", "sa1", nil, nil, true, corev1.PodRunning)
+			s.assertEvent(t, s.podXdsName("pod3"))
+			assert.Equal(t,
+				s.lookup(s.addrXdsName("127.0.0.2"))[0].Address.GetWorkload().AuthorizationPolicies,
+				nil)
+
 			// Pod not in policy
 			s.addPods(t, "127.0.0.2", "pod3", "sa1", map[string]string{"app": "not-a"}, nil, true, corev1.PodRunning)
 			s.assertEvent(t, s.podXdsName("pod3"))

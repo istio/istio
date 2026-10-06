@@ -95,6 +95,9 @@ func TestCRDWatcherMinimumVersion(t *testing.T) {
 		consts.BundleVersionAnnotation: "v1.0.0",
 	})
 	calls := atomic.NewInt32(0)
+	clienttest.MakeCRDWithAnnotations(t, c, gvr.TLSRoute, map[string]string{
+		consts.BundleVersionAnnotation: "v0.0.0-dev",
+	})
 
 	ctl := c.CrdWatcher()
 	// Created before informer runs: not ready yet
@@ -107,6 +110,10 @@ func TestCRDWatcherMinimumVersion(t *testing.T) {
 
 	// Still not ready
 	assert.Equal(t, calls.Load(), 0)
+	// Development bundles are always treated as new enough, regardless of the release minimum.
+	assert.Equal(t, ctl.KnownOrCallback(gvr.TLSRoute, func(s <-chan struct{}) {
+		t.Fatal("callback should not be called")
+	}), true)
 
 	// Upgrade it to v1.1, which is allowed
 	clienttest.MakeCRDWithAnnotations(t, c, gvr.GRPCRoute, map[string]string{
