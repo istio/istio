@@ -2503,7 +2503,7 @@ func validateGatewayNames(gatewayNames []string, gatewaySemantics bool) (errs Va
 					"using legacy gatewayName format %q; prefer the <namespace>/<name> format: %q", gatewayName, recommended)))
 			}
 			errs = AppendValidation(errs, agent.ValidateFQDN(gatewayName))
-			return errs
+			continue
 		}
 
 		if len(parts[0]) == 0 || len(parts[1]) == 0 {
