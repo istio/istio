@@ -28,7 +28,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.Full).
-		Setup(initVersions).
 		RequireSingleCluster().
 		Run()
 }
