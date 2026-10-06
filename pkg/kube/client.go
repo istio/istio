@@ -324,7 +324,7 @@ func NewErroringFakeClient(objects ...runtime.Object) CLIClient {
 	s := FakeIstioScheme.MustGet()
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
-	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
+	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(fakeDynamicScheme.MustGet(), nil)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
 	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)                     //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
 	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects) //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
@@ -393,7 +393,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	s := FakeIstioScheme.MustGet()
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
-	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
+	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(fakeDynamicScheme.MustGet(), nil)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
 	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)                     //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
 	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects) //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
@@ -1498,6 +1498,25 @@ var (
 	IstioScheme = istioScheme()
 	IstioCodec  = serializer.NewCodecFactory(IstioScheme)
 )
+
+// fakeDynamicScheme is the unstructured counterpart of FakeIstioScheme, which
+// dynamicfake.NewSimpleDynamicClient would otherwise rebuild for every fake client.
+// The fake dynamic client only reads its scheme, so all fake clients can share it.
+var fakeDynamicScheme = lazy.New(func() (*runtime.Scheme, error) {
+	s := FakeIstioScheme.MustGet()
+	us := runtime.NewScheme()
+	for gvk := range s.AllKnownTypes() {
+		if us.Recognizes(gvk) {
+			continue
+		}
+		if strings.HasSuffix(gvk.Kind, "List") {
+			us.AddKnownTypeWithName(gvk, &unstructured.UnstructuredList{})
+			continue
+		}
+		us.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+	}
+	return us, nil
+})
 
 // FakeIstioScheme is an IstioScheme that has List type registered.
 var FakeIstioScheme = lazy.New(func() (*runtime.Scheme, error) {
