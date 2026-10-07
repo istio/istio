@@ -16,35 +16,14 @@ package xds
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/istioctl/pkg/util/testutil"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/env"
 )
-
-func rootCertConfigMap(t *testing.T, ns, data string) *corev1.ConfigMap {
-	t.Helper()
-	if data == "" {
-		pem, err := os.ReadFile(filepath.Join(env.IstioSrc, "tests/testdata/certs/pilot/root-cert.pem"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		data = string(pem)
-	}
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: controller.CACertNamespaceConfigMap, Namespace: ns},
-		Data:       map[string]string{constants.CACertNamespaceConfigMapDataName: data},
-	}
-}
 
 func TestTLSConfig(t *testing.T) {
 	const ns = "istio-system"
@@ -59,13 +38,13 @@ func TestTLSConfig(t *testing.T) {
 		{
 			name:           "server name from authority",
 			opts:           clioptions.CentralControlPlaneOptions{XDSSAN: "istiod.istio-system.svc", Xds: "localhost:15012"},
-			objects:        []runtime.Object{rootCertConfigMap(t, ns, "")},
+			objects:        []runtime.Object{testutil.RootCertConfigMap(t, ns, "")},
 			wantServerName: "istiod.istio-system.svc",
 		},
 		{
 			name:           "server name from xds address",
 			opts:           clioptions.CentralControlPlaneOptions{Xds: "istiod.example.com:15012"},
-			objects:        []runtime.Object{rootCertConfigMap(t, ns, "")},
+			objects:        []runtime.Object{testutil.RootCertConfigMap(t, ns, "")},
 			wantServerName: "istiod.example.com",
 		},
 		{
@@ -82,13 +61,23 @@ func TestTLSConfig(t *testing.T) {
 		{
 			name:    "configmap in another namespace fails closed",
 			opts:    clioptions.CentralControlPlaneOptions{XDSSAN: "istiod.istio-system.svc"},
-			objects: []runtime.Object{rootCertConfigMap(t, "default", "")},
+			objects: []runtime.Object{testutil.RootCertConfigMap(t, "default", "")},
+			wantErr: true,
+		},
+		{
+			name: "missing root cert key fails closed",
+			opts: clioptions.CentralControlPlaneOptions{XDSSAN: "istiod.istio-system.svc"},
+			objects: []runtime.Object{func() runtime.Object {
+				cm := testutil.RootCertConfigMap(t, ns, "")
+				cm.Data = nil
+				return cm
+			}()},
 			wantErr: true,
 		},
 		{
 			name:    "invalid root cert fails closed",
 			opts:    clioptions.CentralControlPlaneOptions{XDSSAN: "istiod.istio-system.svc"},
-			objects: []runtime.Object{rootCertConfigMap(t, ns, "not a cert")},
+			objects: []runtime.Object{testutil.RootCertConfigMap(t, ns, "not a cert")},
 			wantErr: true,
 		},
 	}
