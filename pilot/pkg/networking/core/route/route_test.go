@@ -3705,3 +3705,69 @@ func TestInboundHTTPRoute(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDestinationCluster(t *testing.T) {
+	svc := func(name string, ports ...int) *model.Service {
+		s := &model.Service{Hostname: host.Name(name)}
+		for _, p := range ports {
+			s.Ports = append(s.Ports, &model.Port{Port: p, Protocol: protocol.TCP})
+		}
+		return s
+	}
+	alias := svc("alias.example.com", 443)
+	alias.Attributes.K8sAttributes.ExternalName = "concrete.example.com"
+	cases := []struct {
+		name        string
+		destination *networking.Destination
+		service     *model.Service
+		want        string
+	}{
+		{
+			name:        "destination port",
+			destination: &networking.Destination{Host: "foo.example.com", Port: &networking.PortSelector{Number: 8443}},
+			service:     svc("foo.example.com", 443),
+			want:        "outbound|8443||foo.example.com",
+		},
+		{
+			name:        "single service port",
+			destination: &networking.Destination{Host: "foo.example.com"},
+			service:     svc("foo.example.com", 443),
+			want:        "outbound|443||foo.example.com",
+		},
+		{
+			name:        "several service ports",
+			destination: &networking.Destination{Host: "foo.example.com"},
+			service:     svc("foo.example.com", 443, 8443),
+			want:        "outbound|80||foo.example.com",
+		},
+		{
+			name:        "no service",
+			destination: &networking.Destination{Host: "foo.example.com"},
+			want:        "outbound|80||foo.example.com",
+		},
+		{
+			name:        "subset",
+			destination: &networking.Destination{Host: "foo.example.com", Subset: "v1"},
+			service:     svc("foo.example.com", 443),
+			want:        "outbound|443|v1|foo.example.com",
+		},
+		{
+			name:        "ExternalName alias",
+			destination: &networking.Destination{Host: "alias.example.com"},
+			service:     alias,
+			want:        "outbound|443||concrete.example.com",
+		},
+		{
+			name:        "no host",
+			destination: &networking.Destination{},
+			want:        "UnknownService",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := route.GetDestinationCluster(tt.destination, tt.service, 80); got != tt.want {
+				t.Fatalf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

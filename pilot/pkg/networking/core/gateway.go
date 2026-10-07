@@ -1012,8 +1012,6 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 
 // withGatewaySNIDFPFilter inserts an SNI dynamic forward proxy filter before the TCP proxy when a passthrough
 // TLS route sends to a single wildcard DYNAMIC_DNS ServiceEntry, so Envoy resolves the upstream from the SNI.
-// Like waypoints, this is gated by ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: a shared gateway trusts the
-// client-provided SNI. Weighted routes are not supported, as one DNS cache cannot serve several destinations.
 func (lb *ListenerBuilder) withGatewaySNIDFPFilter(
 	filters []*listener.Filter, routes []*networking.RouteDestination, port *model.Port,
 ) []*listener.Filter {

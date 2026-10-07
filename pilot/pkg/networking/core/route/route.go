@@ -348,20 +348,23 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 	if service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
 		h = host.Name(service.Attributes.K8sAttributes.ExternalName)
 	}
-	port := listenerPort
+	// Do not return blackhole cluster for service==nil case as there is a legitimate use case for
+	// calling this function with nil service: to route to a pre-defined statically configured cluster
+	// declared as part of the bootstrap.
+	// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, h, GetDestinationPort(destination, service, listenerPort))
+}
+
+// GetDestinationPort returns the port of the destination cluster: the destination port if set, else the only
+// port of the service, else the listener port.
+func GetDestinationPort(destination *networking.Destination, service *model.Service, listenerPort int) int {
 	if destination.GetPort() != nil {
-		port = int(destination.GetPort().GetNumber())
-	} else if service != nil && len(service.Ports) == 1 {
-		// if service only has one port defined, use that as the port, otherwise use default listenerPort
-		port = service.Ports[0].Port
-
-		// Do not return blackhole cluster for service==nil case as there is a legitimate use case for
-		// calling this function with nil service: to route to a pre-defined statically configured cluster
-		// declared as part of the bootstrap.
-		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
+		return int(destination.GetPort().GetNumber())
 	}
-
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, h, port)
+	if service != nil && len(service.Ports) == 1 {
+		return service.Ports[0].Port
+	}
+	return listenerPort
 }
 
 type RouteOptions struct {

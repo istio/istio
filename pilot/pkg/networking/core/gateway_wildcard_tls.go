@@ -34,16 +34,8 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// gatewayWildcardTLSPrefix names the internal listener (and the cluster that sends to it) that serves an
-// ISTIO_MUTUAL gateway server routing to a wildcard DYNAMIC_DNS ServiceEntry.
-const gatewayWildcardTLSPrefix = "gateway_wildcard_tls|"
-
-// gatewayWildcardTLSTarget is a wildcard DYNAMIC_DNS destination of an ISTIO_MUTUAL gateway server.
-//
-// The application TLS is carried inside the mesh mTLS, so the real host is only visible after the gateway
-// terminates the mTLS. Like an ambient waypoint, the gateway terminates the mTLS on its listener, hands the peer
-// identity and original addresses to an internal listener, and the internal listener reads the inner SNI,
-// applies AuthorizationPolicy with filter-state principals, and resolves the host with SNI dynamic forward proxy.
+// gatewayWildcardTLSTarget is a wildcard DYNAMIC_DNS destination of an ISTIO_MUTUAL gateway server. As on a
+// waypoint, the real host is only visible on an internal listener, after the gateway terminates the mTLS.
 type gatewayWildcardTLSTarget struct {
 	service *model.Service
 	// port is the upstream port of the destination.
@@ -56,7 +48,7 @@ type gatewayWildcardTLSTarget struct {
 
 // name is the name of the internal listener, and of the cluster that sends to it.
 func (t gatewayWildcardTLSTarget) name() string {
-	return gatewayWildcardTLSPrefix + t.dfpCluster
+	return model.BuildSubsetKey(model.TrafficDirectionOutboundWildcardTLS, t.subset, t.service.Hostname, t.port)
 }
 
 // gatewayWildcardDestination returns the wildcard DYNAMIC_DNS service and upstream port when wildcard TLS is
@@ -72,10 +64,8 @@ func gatewayWildcardDestination(
 	if svc == nil || !svc.Hostname.IsWildCarded() || svc.Resolution != model.DynamicDNS {
 		return nil, 0
 	}
-	if p := routes[0].Destination.GetPort().GetNumber(); p != 0 {
-		return svc, int(p)
-	}
-	return svc, serverPort
+	// Must match the port of the destination cluster.
+	return svc, istio_route.GetDestinationPort(routes[0].Destination, svc, serverPort)
 }
 
 // gatewayWildcardTLSTargetForServer returns the target of an ISTIO_MUTUAL TLS server whose routes send to a
@@ -150,8 +140,8 @@ func (lb *ListenerBuilder) buildGatewayWildcardTLSFilters(target gatewayWildcard
 }
 
 // buildGatewayWildcardTLSInternalListener builds the internal listener of a target. It restores the original
-// addresses, reads the SNI of the application TLS, applies AuthorizationPolicy with the peer identity from filter
-// state, and resolves the SNI with the dynamic forward proxy.
+// addresses, reads the SNI of the application TLS, accepts only SNIs under the wildcard host, applies
+// AuthorizationPolicy with the peer identity from filter state, and resolves the SNI with the dynamic forward proxy.
 func (lb *ListenerBuilder) buildGatewayWildcardTLSInternalListener(target gatewayWildcardTLSTarget) *listener.Listener {
 	destinationRule := CastDestinationRule(lb.node.SidecarScope.DestinationRule(
 		model.TrafficDirectionOutbound, lb.node, target.service.Hostname).GetRule())
@@ -180,7 +170,12 @@ func (lb *ListenerBuilder) buildGatewayWildcardTLSInternalListener(target gatewa
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters:   []*listener.ListenerFilter{xdsfilters.OriginalDestination, xdsfilters.TLSInspector},
 		TrafficDirection:  core.TrafficDirection_OUTBOUND,
-		FilterChains:      []*listener.FilterChain{{Name: target.name(), Filters: filters}},
+		// As on sidecars, only SNIs under the wildcard host are forwarded.
+		FilterChains: []*listener.FilterChain{{
+			Name:             target.name(),
+			FilterChainMatch: &listener.FilterChainMatch{ServerNames: []string{string(target.service.Hostname)}},
+			Filters:          filters,
+		}},
 	}
 }
 

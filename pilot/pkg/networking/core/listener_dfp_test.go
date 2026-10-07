@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/slices"
@@ -294,16 +295,18 @@ func TestGatewayDynamicDNSFilters(t *testing.T) {
 
 func TestGatewaySNIDFPFilter(t *testing.T) {
 	route := func(host string, port uint32, weight int32) *networking.RouteDestination {
-		return &networking.RouteDestination{
-			Destination: &networking.Destination{Host: host, Port: &networking.PortSelector{Number: port}},
-			Weight:      weight,
+		d := &networking.RouteDestination{Destination: &networking.Destination{Host: host}, Weight: weight}
+		if port != 0 {
+			d.Destination.Port = &networking.PortSelector{Number: port}
 		}
+		return d
 	}
 	cases := []struct {
-		name     string
-		flag     bool
-		routes   []*networking.RouteDestination
-		wantPort uint32 // 0 means no SNI DFP filter expected
+		name       string
+		flag       bool
+		serverPort int // 443 if unset
+		routes     []*networking.RouteDestination
+		wantPort   uint32 // 0 means no SNI DFP filter expected
 	}{
 		{
 			name:     "wildcard DYNAMIC_DNS destination",
@@ -316,6 +319,13 @@ func TestGatewaySNIDFPFilter(t *testing.T) {
 			flag:     true,
 			routes:   []*networking.RouteDestination{route("*.wildcard.com", 8443, 0)},
 			wantPort: 8443,
+		},
+		{
+			name:       "no destination port, server port differs from ServiceEntry port",
+			flag:       true,
+			serverPort: 8443,
+			routes:     []*networking.RouteDestination{route("*.wildcard.com", 0, 0)},
+			wantPort:   443,
 		},
 		{
 			name:   "flag off",
@@ -344,7 +354,11 @@ func TestGatewaySNIDFPFilter(t *testing.T) {
 				Services: []*model.Service{wildcard, buildServiceWithPort("example.com", 443, protocol.TLS, time.Now())},
 			})
 			lb := ListenerBuilder{node: cg.SetupProxy(&model.Proxy{Type: model.Router}), push: cg.PushContext()}
-			port := &model.Port{Port: 443, Protocol: protocol.TLS}
+			serverPort := tt.serverPort
+			if serverPort == 0 {
+				serverPort = 443
+			}
+			port := &model.Port{Port: serverPort, Protocol: protocol.TLS}
 			base := lb.buildOutboundNetworkFilters(tt.routes, port, config.Meta{Name: "vs", Namespace: "default"}, false)
 
 			got := lb.withGatewaySNIDFPFilter(slices.Clone(base), tt.routes, port)
@@ -369,9 +383,7 @@ func TestGatewaySNIDFPFilter(t *testing.T) {
 }
 
 // TestGatewayMutualTLSWildcardDynamicDNS covers an ISTIO_MUTUAL gateway server whose TCP route sends to a wildcard
-// DYNAMIC_DNS ServiceEntry. The app's own TLS is carried inside the mesh mTLS, so the real host is only visible after
-// the mTLS is terminated. Like an ambient waypoint, the gateway must hand the caller identity and addresses to an
-// internal listener, which reads the inner SNI and applies AuthorizationPolicy with filter-state principals.
+// DYNAMIC_DNS ServiceEntry.
 func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 	serviceEntry := func(name, host string) config.Config {
 		return config.Config{
@@ -384,24 +396,27 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 			},
 		}
 	}
-	server := func(name, host string) *networking.Server {
+	server := func(name, host string, port uint32) *networking.Server {
 		return &networking.Server{
-			Port:  &networking.Port{Number: 443, Name: name, Protocol: "TLS"},
+			Port:  &networking.Port{Number: port, Name: name, Protocol: "TLS"},
 			Hosts: []string{host},
 			Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
 		}
 	}
-	gatewayRoute := func(name, host string) config.Config {
+	// destinationPort 0 leaves the route port unset.
+	gatewayRoute := func(name, host string, serverPort, destinationPort uint32) config.Config {
+		route := &networking.RouteDestination{Destination: &networking.Destination{Host: host}}
+		if destinationPort != 0 {
+			route.Destination.Port = &networking.PortSelector{Number: destinationPort}
+		}
 		return config.Config{
 			Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: name, Namespace: "istio-system"},
 			Spec: &networking.VirtualService{
 				Hosts:    []string{host},
 				Gateways: []string{"egressgateway"},
 				Tcp: []*networking.TCPRoute{{
-					Match: []*networking.L4MatchAttributes{{Port: 443, Gateways: []string{"egressgateway"}}},
-					Route: []*networking.RouteDestination{{
-						Destination: &networking.Destination{Host: host, Port: &networking.PortSelector{Number: 443}},
-					}},
+					Match: []*networking.L4MatchAttributes{{Port: serverPort, Gateways: []string{"egressgateway"}}},
+					Route: []*networking.RouteDestination{route},
 				}},
 			},
 		}
@@ -415,15 +430,22 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 	configs := []config.Config{
 		serviceEntry("wikipedia", "*.wikipedia.org"),
 		serviceEntry("github", "*.github.com"),
+		serviceEntry("example", "*.example.org"),
 		{
 			Meta: config.Meta{GroupVersionKind: gvk.Gateway, Name: "egressgateway", Namespace: "istio-system"},
 			Spec: &networking.Gateway{
 				Selector: map[string]string{"istio": "egressgateway"},
-				Servers:  []*networking.Server{server("tls-wikipedia", "*.wikipedia.org"), server("tls-github", "*.github.com")},
+				Servers: []*networking.Server{
+					server("tls-wikipedia", "*.wikipedia.org", 443),
+					server("tls-github", "*.github.com", 443),
+					// Server port differs from the ServiceEntry port; the route has no port.
+					server("tls-example", "*.example.org", 8443),
+				},
 			},
 		},
-		gatewayRoute("wikipedia", "*.wikipedia.org"),
-		gatewayRoute("github", "*.github.com"),
+		gatewayRoute("wikipedia", "*.wikipedia.org", 443, 443),
+		gatewayRoute("github", "*.github.com", 443, 443),
+		gatewayRoute("example", "*.example.org", 8443, 0),
 		{
 			Meta: config.Meta{GroupVersionKind: gvk.AuthorizationPolicy, Name: "egress-per-caller", Namespace: "istio-system"},
 			Spec: &security.AuthorizationPolicy{
@@ -452,21 +474,19 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 			xdstest.ValidateListeners(t, listeners)
 			xdstest.ValidateClusters(t, clusters)
 
-			for _, wildcard := range []string{"*.wikipedia.org", "*.github.com"} {
+			for _, wildcard := range []string{"*.wikipedia.org", "*.github.com", "*.example.org"} {
 				dfpCluster := "outbound|443||" + wildcard
 				outer := findMutualTLSChain(t, listeners, wildcard)
 				g.Expect(outer).NotTo(BeNil(), "ISTIO_MUTUAL chain for %s", wildcard)
 				outerTCP := xdstest.ExtractTCPProxy(t, outer)
 
 				if !enabled {
-					// Unchanged master behavior: straight to the DFP cluster, nothing to resolve the host from.
 					g.Expect(outerTCP.GetCluster()).To(Equal(dfpCluster))
 					g.Expect(filterNames(outer)).NotTo(ContainElement(wellknown.SNIDynamicForwardProxy))
 					continue
 				}
 
-				// Outer chain: no RBAC (the outer SNI is the mesh mTLS SNI, not the real host), and the caller identity
-				// and original addresses are handed to the internal listener once the mTLS handshake completes.
+				// Outer chain: no RBAC, hands off the caller identity and original addresses.
 				g.Expect(filterNames(outer)).NotTo(ContainElement(wellknown.RoleBasedAccessControl))
 				g.Expect(handedOffKeys(outer)).To(ContainElements(
 					"io.istio.peer_principal",
@@ -474,21 +494,25 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 					"envoy.filters.listener.original_dst.local_ip",
 				))
 
-				// The outer tcp_proxy targets an internal listener, not the DFP cluster.
 				g.Expect(outerTCP.GetCluster()).NotTo(Equal(dfpCluster))
 				internalName := internalListenerTarget(clusters, outerTCP.GetCluster())
 				g.Expect(internalName).NotTo(BeEmpty(), "cluster %s must point to an internal listener", outerTCP.GetCluster())
+				// The name follows the standard cluster key format, so tools such as istioctl can parse it.
+				dir, subset, hostname, port := model.ParseSubsetKey(internalName)
+				g.Expect(dir).To(Equal(model.TrafficDirectionOutboundWildcardTLS))
+				g.Expect(subset).To(BeEmpty())
+				g.Expect(hostname).To(Equal(host.Name(wildcard)))
+				g.Expect(port).To(Equal(443))
 				inner := xdstest.ExtractListener(internalName, listeners)
 				g.Expect(inner).NotTo(BeNil())
 				g.Expect(inner.GetInternalListener()).NotTo(BeNil())
 				g.Expect(xdstest.ExtractListenerFilters(inner)).To(HaveKey(wellknown.OriginalDestination))
 				g.Expect(xdstest.ExtractListenerFilters(inner)).To(HaveKey(wellknown.TLSInspector))
 
-				// Like the waypoint, the chain is selected by destination, not by SNI.
 				g.Expect(inner.FilterChains).To(HaveLen(1))
 				innerChain := inner.FilterChains[0]
+				g.Expect(innerChain.GetFilterChainMatch().GetServerNames()).To(ConsistOf(wildcard))
 
-				// RBAC, then SNI DFP, then tcp_proxy to the DFP cluster.
 				names := filterNames(innerChain)
 				rbacIdx := slices.Index(names, wellknown.RoleBasedAccessControl)
 				dfpIdx := slices.Index(names, wellknown.SNIDynamicForwardProxy)
@@ -497,8 +521,11 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 				g.Expect(dfpIdx).To(BeNumerically(">", rbacIdx), "inner filters %v", names)
 				g.Expect(tcpIdx).To(BeNumerically(">", dfpIdx), "inner filters %v", names)
 				g.Expect(xdstest.ExtractTCPProxy(t, innerChain).GetCluster()).To(Equal(dfpCluster))
+				var sniDFP snidfp.FilterConfig
+				g.Expect(innerChain.Filters[dfpIdx].GetTypedConfig().UnmarshalTo(&sniDFP)).To(Succeed())
+				g.Expect(sniDFP.GetPortValue()).To(Equal(uint32(443)))
 
-				// Principals come from filter state (no TLS peer on the internal hop); the host is the real inner SNI.
+				// Principals come from filter state; the host is the inner SNI.
 				rbacJSON := rbacFilterJSON(t, innerChain)
 				g.Expect(rbacJSON).To(ContainSubstring(`"key":"io.istio.peer_principal"`))
 				g.Expect(rbacJSON).To(ContainSubstring(`"requestedServerName"`))
