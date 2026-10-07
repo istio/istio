@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -3694,6 +3695,27 @@ func TestBuildDeltaClusters(t *testing.T) {
 		},
 	}
 
+	sidecarWithOtherNamespaceEgressHosts := &networking.Sidecar{
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{"baz/test.com"},
+			},
+		},
+	}
+
+	// The memory registry keys services by hostname, so same-hostname services in different
+	// namespaces are defined as ServiceEntries.
+	testServiceEntry := func(namespace string, port uint32) config.Config {
+		return config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Name: "test", Namespace: namespace},
+			Spec: &networking.ServiceEntry{
+				Hosts:      []string{"test.com"},
+				Ports:      []*networking.ServicePort{{Number: port, Name: "http", Protocol: "HTTP"}},
+				Resolution: networking.ServiceEntry_STATIC,
+			},
+		}
+	}
+
 	fooService := &model.Service{
 		Hostname: host.Name("foo.com"),
 		Ports: []*model.Port{
@@ -3825,10 +3847,15 @@ func TestBuildDeltaClusters(t *testing.T) {
 				ServicePort: &model.Port{Port: 8080},
 				Endpoint:    &model.IstioEndpoint{Addresses: []string{"127.0.0.1"}, ServicePortName: "8080", EndpointPort: 8080},
 			}},
-			watchedResourceNames: []string{"outbound|7070||test.com", "inbound|7070||", "inbound|8080||"},
-			usedDelta:            true,
-			removedClusters:      []string{"inbound|7070||", "outbound|7070||test.com"},
-			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster", "inbound|8080||", "outbound|8080||test.com"},
+			watchedResourceNames: []string{
+				"outbound|7070||test.com", "outbound|7070|subset-1|test.com", "outbound|7070|subset-2|test.com",
+				"outbound|8080||testnew.com", "inbound|7070||", "inbound|8080||",
+			},
+			usedDelta: true,
+			removedClusters: []string{
+				"inbound|7070||", "outbound|7070|subset-1|test.com", "outbound|7070|subset-2|test.com", "outbound|7070||test.com",
+			},
+			expectedClusters: []string{"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster", "inbound|8080||", "outbound|8080||test.com"},
 		},
 		{
 			name:     "destination rule with no subsets is updated",
@@ -4048,6 +4075,41 @@ func TestBuildDeltaClusters(t *testing.T) {
 			expectedClusters: []string{
 				"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
 				"outbound|8080||testnew.com",
+			},
+		},
+		{
+			name: "sidecar update selecting same hostname in another namespace",
+			prevConfigs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.Sidecar,
+						Name:             "default",
+						Namespace:        proxyNamespace,
+					},
+					Spec: sidecarWithEgressHosts,
+				},
+				testServiceEntry("bar", 8080),
+				testServiceEntry("baz", 9090),
+			},
+			configs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.Sidecar,
+						Name:             "default",
+						Namespace:        proxyNamespace,
+					},
+					Spec: sidecarWithOtherNamespaceEgressHosts,
+				},
+				testServiceEntry("bar", 8080),
+				testServiceEntry("baz", 9090),
+			},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.Sidecar, Name: "default", Namespace: proxyNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|8080||test.com"},
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
+				"outbound|9090||test.com",
 			},
 		},
 		{
@@ -4377,6 +4439,36 @@ func TestBuildDeltaClusters(t *testing.T) {
 	}
 }
 
+// TestBuildDeltaClustersSidecarDropsDynamicDNS verifies that clusters without a service hostname are
+// reconciled on scope changes, so a Sidecar overriding mesh ALLOW_ANY_DYNAMIC_DNS deletes the DFP cluster.
+func TestBuildDeltaClustersSidecarDropsDynamicDNS(t *testing.T) {
+	m := mesh.DefaultMeshConfig()
+	m.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{
+		Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS,
+	}
+	sidecar := config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Name: "default", Namespace: TestServiceNamespace},
+		Spec: &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY},
+		},
+	}
+	cg := NewConfigGenTest(t, TestOptions{MeshConfig: m})
+	proxy := cg.SetupProxy(&model.Proxy{IPAddresses: []string{"127.0.0.1"}, ConfigNamespace: TestServiceNamespace})
+	applyConfigDiff(t, cg, nil, []config.Config{sidecar})
+	pc := model.NewPushContext()
+	pc.InitContext(cg.env, nil, nil)
+	cg.env.SetPushContext(pc)
+	proxy.SetSidecarScope(cg.env.PushContext())
+
+	_, removed, delta := cg.DeltaClusters(proxy,
+		sets.New(model.ConfigKey{Kind: kind.Sidecar, Name: sidecar.Name, Namespace: sidecar.Namespace}),
+		&model.WatchedResource{ResourceNames: sets.New(
+			util.AllowAnyDynamicDNSCluster, util.BlackHoleCluster, util.PassthroughCluster, util.InboundPassthroughCluster,
+		)})
+	assert.Equal(t, delta, true)
+	assert.Equal(t, removed, []string{util.AllowAnyDynamicDNSCluster})
+}
+
 func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 	test.SetForTest(t, &features.EnableHBONESend, false)
@@ -4685,7 +4777,7 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 	}
 
 	// Wildcard DYNAMIC_DNS ServiceEntry fixtures, used to verify that the delta cluster path
-	// (deltaFromServices -> PushContext.ServiceAttachedToGateway) discriminates a wildcard host
+	// (BuildDeltaClusters -> PushContext.ServiceAttachedToGateway) discriminates a wildcard host
 	// named by a VirtualService route from a same-shaped wildcard host that is not, the same
 	// way the full-build path (PushContext.GatewayServices) does.
 	wildcardGatewayName := proxyNamespace + "/wildcard-gateway"
@@ -4821,10 +4913,15 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 			configs:  []config.Config{gatewayConfig, vsForTestService1},
 			configUpdated: sets.New(
 				model.ConfigKey{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}),
-			watchedResourceNames: []string{"outbound|7070||test.com"},
-			usedDelta:            true,
-			removedClusters:      []string{"outbound|7070||test.com"},
-			expectedClusters:     []string{"BlackHoleCluster", "outbound|8080||test.com"},
+			watchedResourceNames: []string{
+				"outbound|7070||test.com", "outbound|7070|subset-1|test.com", "outbound|7070|subset-2|test.com",
+				"outbound|8080||testnew.com",
+			},
+			usedDelta: true,
+			removedClusters: []string{
+				"outbound|7070|subset-1|test.com", "outbound|7070|subset-2|test.com", "outbound|7070||test.com",
+			},
+			expectedClusters: []string{"BlackHoleCluster", "outbound|8080||test.com"},
 		},
 		{
 			name:     "destination rule with no subsets is updated",
