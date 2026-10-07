@@ -1063,22 +1063,6 @@ func (ps *PushContext) GetTotalServiceCount() int {
 	return ps.ServiceIndex.count
 }
 
-// ServiceForHostname returns the service associated with a given hostname following SidecarScope
-func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Service {
-	if proxy != nil && proxy.SidecarScope != nil {
-		return proxy.SidecarScope.servicesByHostname[hostname]
-	}
-
-	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
-	// so the selection must be undefined.
-	for _, service := range ps.ServiceIndex.HostnameAndNamespace[hostname] {
-		return service
-	}
-
-	// No service found
-	return nil
-}
-
 // serviceExportTo returns the effective exportTo set for a service: the declared exportTo (or the
 // mesh default when unset), capped by the service's resolved Visibility when
 // MeshConfig.serviceEntryVisibility.applyToSidecars is enabled. This is the visibility-safe way to
@@ -2240,10 +2224,6 @@ func (ps *PushContext) TrafficExtensionsByName(proxy *Proxy, names []types.Names
 func (ps *PushContext) TrafficExtensionsByListenerInfo(proxy *Proxy, info ListenerInfo,
 	chainType FilterChainType,
 ) map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper {
-	if proxy == nil {
-		return nil
-	}
-
 	matchedFilters := make(map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper)
 	lookupInNamespaces := []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
 	for i := range info.Services {
@@ -2337,10 +2317,6 @@ type MergedEnvoyFilterWrapper struct {
 
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
 func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
-	// this should never happen
-	if proxy == nil {
-		return nil
-	}
 	var matchedEnvoyFilters []*EnvoyFilterWrapper
 	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
 	// First get all the filter configs from the config root namespace
@@ -2460,10 +2436,6 @@ type gatewayWithInstances struct {
 }
 
 func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
-	// this should never happen
-	if proxy == nil {
-		return nil
-	}
 	gatewayInstances := make([]gatewayWithInstances, 0)
 
 	var configs []config.Config

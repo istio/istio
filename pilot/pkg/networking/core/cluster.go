@@ -167,8 +167,8 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, pro
 ) ([]*model.Service, []string) {
 	var deletedClusters []string
 	var services []*model.Service
-	service := push.ServiceForHostname(proxy, host.Name(key.Name))
-	// push.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
+	service := proxy.SidecarScope.GetService(host.Name(key.Name))
+	// SidecarScope.GetService will return nil if the proxy doesn't care about the service OR it was deleted.
 	// we can cross-reference with WatchedResources to figure out which services were deleted.
 	if service == nil {
 		// We assume a service was deleted and delete all clusters for that service.
