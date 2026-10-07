@@ -130,11 +130,14 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		!strings.HasPrefix(tls.CredentialName, credentials.KubernetesConfigMapTypeURI) &&
 		tls.CredentialName != credentials.InvalidSecretTypeURI
 	if cb.sidecarProxy() && !opts.isDrWithSelector {
+		// We ignore the CaCertCredentialName for sidecar when the DestinationRule
+		// does not have a selector.
 		if privilegedCredentialLookup &&
 			(tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL) {
 			return nil, nil
 		}
 		if tls.CaCertCredentialName != "" {
+			log.Debugf("No DestinationRule workload selector present for cluster %v, ignoring caCertCredentialName and falling back to caCertificates file path.", opts.mutable.cluster.Name)
 			tls = tls.DeepCopy()
 			tls.CaCertCredentialName = ""
 		}

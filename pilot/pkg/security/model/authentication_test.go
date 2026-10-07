@@ -889,6 +889,37 @@ func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 			wantCertificate:  "kubernetes://client-cert",
 			wantValidationCA: "kubernetes://backend/backend-ca-cacert",
 		},
+		{
+			name: "simple TLS with only a CA credential",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "backend-ca",
+			},
+			wantCertificate:  "",
+			wantValidationCA: "kubernetes://backend-ca-cacert",
+		},
+		{
+			name: "simple TLS with only a CA ConfigMap credential",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "configmap://backend/backend-ca",
+			},
+			wantCertificate:  "",
+			wantValidationCA: "configmap://backend/backend-ca",
+		},
+		{
+			// The client certificate is served from the file paths by the caller, so no
+			// client certificate SDS config is expected here.
+			name: "mutual TLS with only a CA credential",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_MUTUAL,
+				CaCertCredentialName: "kubernetes://backend/backend-ca",
+				ClientCertificate:    "/etc/certs/cert-chain.pem",
+				PrivateKey:           "/etc/certs/key.pem",
+			},
+			wantCertificate:  "",
+			wantValidationCA: "kubernetes://backend/backend-ca-cacert",
+		},
 	}
 
 	for _, tt := range tests {

@@ -234,6 +234,11 @@ func constructSdsSecretConfig(maybeFileName string, fallbackName string, customF
 	return pm.ConstructSdsSecretConfig(model.GetOrDefault(maybeFileName, fallbackName))
 }
 
+// normalizeCaCertCredentialName appends the "-cacert" suffix that istiod uses
+// to distinguish a CA SDS resource. The suffix is used when looking up the
+// secret, but we fallback to the unsuffixed name. We do not append the
+// "-cacert" suffix given a few cases: The resource already contains the
+// prefix, is not a Kubernetes Secret, or is an invalid secret type.
 func normalizeCaCertCredentialName(name string) string {
 	if name == "" ||
 		strings.HasSuffix(name, SdsCaSuffix) ||
@@ -263,6 +268,9 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 
 	caCert := tlsOpts.CaCertCredentialName
 	if caCert == "" {
+		if tlsOpts.CredentialName == "" {
+			return
+		}
 		caCert = tlsOpts.CredentialName + SdsCaSuffix
 	} else {
 		caCert = normalizeCaCertCredentialName(caCert)

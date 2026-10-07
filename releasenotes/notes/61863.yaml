@@ -7,7 +7,7 @@ releaseNotes:
   - |
     **Added** support for `ClientTLSSettings.caCertCredentialName` in
     `DestinationRule`, allowing the Secret or ConfigMap containing the server
-    trust bundle to be configure independently from the client identity in
+    trust bundle to be configured independently from the client identity in
     `credentialName`. The field applies to gateways and to sidecars selected by
     the `DestinationRule`'s `workloadSelector`; other sidecars continue to use
     the configured certificate paths. Applies to `SIMPLE` and `MUTUAL` TLS
