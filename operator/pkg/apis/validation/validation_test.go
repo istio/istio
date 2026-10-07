@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -264,6 +265,7 @@ global:
     includeIPRanges: "1.1.0.0/16,2.2.0.0/16"
     excludeIPRanges: "3.3.0.0/16,4.4.0.0/16"
     excludeInboundPorts: "333,444"
+    includeOutboundPorts: "80,443,65535"
     clusterDomain: "my.domain"
     lifecycle:
       preStop:
@@ -343,6 +345,44 @@ global:
 			wantErrs: makeErrors([]string{`global.proxy.excludeInboundPorts : strconv.ParseInt: parsing "222x": invalid syntax`}),
 		},
 		{
+			desc: "EmptyIncludeOutboundPorts",
+			yamlStr: `
+global:
+  proxy:
+    includeOutboundPorts: ""
+`,
+		},
+		{
+			desc: "StarIncludeOutboundPorts",
+			yamlStr: `
+global:
+  proxy:
+    includeOutboundPorts: "*"
+`,
+		},
+		{
+			desc: "BadIncludeOutboundPortsRange",
+			yamlStr: `
+global:
+  proxy:
+    includeOutboundPorts: "-1,65536,80800"
+`,
+			wantErrs: makeErrors([]string{
+				`global.proxy.includeOutboundPorts : strconv.ParseUint: parsing "-1": invalid syntax`,
+				`global.proxy.includeOutboundPorts : strconv.ParseUint: parsing "65536": value out of range`,
+				`global.proxy.includeOutboundPorts : strconv.ParseUint: parsing "80800": value out of range`,
+			}),
+		},
+		{
+			desc: "BadIncludeOutboundPortsMalformed",
+			yamlStr: `
+global:
+  proxy:
+    includeOutboundPorts: "8080,not-a-port"
+`,
+			wantErrs: makeErrors([]string{`global.proxy.includeOutboundPorts : strconv.ParseUint: parsing "not-a-port": invalid syntax`}),
+		},
+		{
 			desc: "unknown field",
 			yamlStr: `
 global:
@@ -368,6 +408,51 @@ cni:
 			_, errs := validation.ParseAndValidateIstioOperator(values.MakeMap(m, "spec", "values"), nil)
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
 				t.Errorf("CheckValues(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.yamlStr, gotErr, wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateIncludeOutboundPortsConsistency(t *testing.T) {
+	cases := []struct {
+		name    string
+		ports   string
+		wantErr bool
+	}{
+		{name: "empty", ports: ""},
+		{name: "whitespace only", ports: "  "},
+		{name: "single port", ports: "8080"},
+		{name: "lower bound", ports: "0"},
+		{name: "upper bound", ports: "65535"},
+		{name: "port list", ports: "80,443,65535"},
+		{name: "whitespace between ports", ports: "80, 443"},
+		{name: "whitespace around ports", ports: " 80 , 443 "},
+		{name: "wildcard", ports: "*"},
+		{name: "padded wildcard", ports: " * ", wantErr: true},
+		{name: "wildcard in list", ports: "80,*", wantErr: true},
+		{name: "leading comma", ports: ",8080", wantErr: true},
+		{name: "trailing comma", ports: "8080,", wantErr: true},
+		{name: "empty list entry", ports: "8080,,9090", wantErr: true},
+		{name: "whitespace list entry", ports: "8080, ,9090", wantErr: true},
+		{name: "negative port", ports: "-1", wantErr: true},
+		{name: "positive sign", ports: "+80", wantErr: true},
+		{name: "above upper bound", ports: "65536", wantErr: true},
+		{name: "invalid default port", ports: "80800", wantErr: true},
+		{name: "overflow", ports: "18446744073709551616", wantErr: true},
+		{name: "malformed port", ports: "8080,not-a-port", wantErr: true},
+		{name: "port range", ports: "80-80", wantErr: true},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			yamlStr := fmt.Sprintf("global:\n  proxy:\n    includeOutboundPorts: %q\n", tt.ports)
+			m, err := values.MapFromYaml([]byte(yamlStr))
+			assert.NoError(t, err)
+			_, errs := validation.ParseAndValidateIstioOperator(values.MakeMap(m, "spec", "values"), nil)
+			if err := errs.ToError(); (err != nil) != tt.wantErr {
+				t.Errorf("installation validation error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if _, err := inject.NewValuesConfig(yamlStr); (err != nil) != tt.wantErr {
+				t.Errorf("injector validation error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

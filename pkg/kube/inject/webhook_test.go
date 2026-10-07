@@ -1433,6 +1433,69 @@ func defaultInstallPackageDir() string {
 	return filepath.Join(wd, "../../../manifests/")
 }
 
+func TestNewValuesConfigIncludeOutboundPorts(t *testing.T) {
+	cases := []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{name: "empty", value: ""},
+		{name: "single port", value: "8080"},
+		{name: "port list", value: "80,443,65535"},
+		{name: "zero", value: "0"},
+		{name: "wildcard", value: "*"},
+		{name: "above upper bound", value: "65536", wantErr: true},
+		{name: "invalid default port", value: "80800", wantErr: true},
+		{name: "negative port", value: "-1", wantErr: true},
+		{name: "malformed port", value: "8080,not-a-port", wantErr: true},
+		{name: "empty list entry", value: "8080,,9090", wantErr: true},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			values := fmt.Sprintf("global:\n  proxy:\n    includeOutboundPorts: %q\n", tt.value)
+			vc, err := NewValuesConfig(values)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewValuesConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				if !strings.Contains(err.Error(), "global.proxy.includeOutboundPorts") {
+					t.Fatalf("expected error identifying the invalid default port configuration, got: %v", err)
+				}
+				return
+			}
+			if got := vc.Struct().GetGlobal().GetProxy().GetIncludeOutboundPorts(); got != tt.value {
+				t.Fatalf("includeOutboundPorts = %q, want %q", got, tt.value)
+			}
+		})
+	}
+}
+
+func TestWebhookUpdateConfigIncludeOutboundPorts(t *testing.T) {
+	wh := &Webhook{}
+	oldConfig := &Config{Policy: InjectionPolicyEnabled}
+	oldValues := "global:\n  proxy:\n    includeOutboundPorts: \"8080\"\n"
+	if err := wh.updateConfig(oldConfig, oldValues); err != nil {
+		t.Fatal(err)
+	}
+
+	newConfig := &Config{Policy: InjectionPolicyDisabled}
+	invalidValues := "global:\n  proxy:\n    includeOutboundPorts: \"80800\"\n"
+	if err := wh.updateConfig(newConfig, invalidValues); err == nil {
+		t.Fatal("expected invalid default outbound port to be rejected")
+	}
+	if wh.Config != oldConfig || wh.valuesConfig.raw != oldValues {
+		t.Fatal("invalid update changed the previously accepted injection configuration")
+	}
+
+	newValues := "global:\n  proxy:\n    includeOutboundPorts: \"9090\"\n"
+	if err := wh.updateConfig(newConfig, newValues); err != nil {
+		t.Fatal(err)
+	}
+	if wh.Config != newConfig || wh.valuesConfig.raw != newValues {
+		t.Fatal("valid update did not replace the injection configuration")
+	}
+}
+
 func TestNewWebhookConfigParsingError(t *testing.T) {
 	// Create a watcher that returns valid sidecarConfig but invalid valuesConfig
 	faultyWatcher := &FaultyWatcher{
@@ -1451,6 +1514,25 @@ func TestNewWebhookConfigParsingError(t *testing.T) {
 	_, err := NewWebhook(whParams)
 	if err == nil || !strings.Contains(err.Error(), "failed to process webhook config") {
 		t.Fatalf("Expected error when creating webhook with faulty valuesConfig, but got: %v", err)
+	}
+}
+
+func TestNewWebhookConfigInvalidOutboundPorts(t *testing.T) {
+	watcher := &FaultyWatcher{
+		sidecarConfig: &Config{},
+		valuesConfig:  "global:\n  proxy:\n    includeOutboundPorts: \"80800\"\n",
+	}
+	_, err := NewWebhook(WebhookParameters{
+		Watcher: watcher,
+		Env: &model.Environment{
+			Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
+		},
+		Mux:          http.NewServeMux(),
+		MultiCluster: multicluster.NewFakeController(),
+	})
+	if err == nil || !strings.Contains(err.Error(), "failed to process webhook config") ||
+		!strings.Contains(err.Error(), "global.proxy.includeOutboundPorts") {
+		t.Fatalf("expected webhook creation to reject invalid default outbound ports, got: %v", err)
 	}
 }
 
