@@ -116,6 +116,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			servicePortClusters[string(svcHost)][port] = cluster
 		}
 	}
+	envoyFilterPatches := updates.Push.EnvoyFilters(proxy)
 	have := sets.String{}
 	servicesDiffed := false
 	for key := range updates.ConfigsUpdated {
@@ -129,13 +130,13 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		case kind.DestinationRule:
 			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, updates.Push, subsetClusters)
 		case kind.PeerAuthentication:
-			svcs = configgen.deltaFromPeerAuthentication(key, proxy, updates.Push)
+			svcs = configgen.deltaFromPeerAuthentication(key, proxy, updates.Push, envoyFilterPatches)
 		case kind.VirtualService, kind.Sidecar:
 			if servicesDiffed {
 				continue
 			}
 
-			svcs, deleted = configgen.deltaFromServiceDiff(proxy, updates.Push, serviceClusters, subsetClusters)
+			svcs, deleted = configgen.deltaFromServiceDiff(proxy, updates.Push, envoyFilterPatches, serviceClusters, subsetClusters)
 			servicesDiffed = true
 		}
 		// Service and Destination Rule can select the same service. So we need to dedup the services.
@@ -147,7 +148,6 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 		deletedClusters.InsertAll(deleted...)
 	}
-	envoyFilterPatches := updates.Push.EnvoyFilters(proxy)
 	clusters, log := configgen.buildClusters(proxy, updates, services, envoyFilterPatches)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
 	// When clusters are rebuilt, we rebuild the subset clusters as well. So, we know what
@@ -247,6 +247,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(
 func (configgen *ConfigGeneratorImpl) deltaFromServiceDiff(
 	proxy *model.Proxy,
 	push *model.PushContext,
+	envoyFilterPatches *model.MergedEnvoyFilterWrapper,
 	serviceClusters map[string]sets.String,
 	subsetClusters map[string]sets.String,
 ) ([]*model.Service, []string) {
@@ -260,7 +261,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromServiceDiff(
 
 	var allServices map[host.Name]*model.Service
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		svcs := push.GatewayServices(proxy, nil)
+		svcs := push.GatewayServices(proxy, envoyFilterPatches)
 		allServices = make(map[host.Name]*model.Service, len(svcs))
 		for _, svc := range svcs {
 			allServices[svc.Hostname] = svc
@@ -296,12 +297,13 @@ func (configgen *ConfigGeneratorImpl) deltaFromPeerAuthentication(
 	key model.ConfigKey,
 	proxy *model.Proxy,
 	push *model.PushContext,
+	envoyFilterPatches *model.MergedEnvoyFilterWrapper,
 ) []*model.Service {
 	var services []*model.Service
 
 	var allServices []*model.Service
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		allServices = push.GatewayServices(proxy, nil)
+		allServices = push.GatewayServices(proxy, envoyFilterPatches)
 	} else {
 		allServices = proxy.SidecarScope.Services()
 	}
