@@ -1063,22 +1063,6 @@ func (ps *PushContext) GetTotalServiceCount() int {
 	return ps.ServiceIndex.count
 }
 
-// ServiceForHostname returns the service associated with a given hostname following SidecarScope
-func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Service {
-	if proxy != nil && proxy.SidecarScope != nil {
-		return proxy.SidecarScope.servicesByHostname[hostname]
-	}
-
-	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
-	// so the selection must be undefined.
-	for _, service := range ps.ServiceIndex.HostnameAndNamespace[hostname] {
-		return service
-	}
-
-	// No service found
-	return nil
-}
-
 // serviceExportTo returns the effective exportTo set for a service: the declared exportTo (or the
 // mesh default when unset), capped by the service's resolved Visibility when
 // MeshConfig.serviceEntryVisibility.applyToSidecars is enabled. This is the visibility-safe way to

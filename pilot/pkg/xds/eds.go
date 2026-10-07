@@ -232,7 +232,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		}
 
 		dir, subsetName, hostname, port := parseClusterName(clusterName, proxy)
-		svc := req.Push.ServiceForHostname(proxy, hostname)
+		svc := proxy.SidecarScope.GetService(hostname)
 
 		if svc == nil && isSelfDiscoveryCluster {
 			// The self-discovery local_cluster represents the proxy's own service, which may be outside
