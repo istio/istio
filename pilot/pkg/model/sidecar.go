@@ -195,7 +195,8 @@ type SidecarScope struct {
 	// be forwarded.
 	OutboundTrafficPolicy *networking.OutboundTrafficPolicy
 
-	// Set of known configs this sidecar depends on.
+	// Set of known configs this sidecar depends on. Service and DestinationRule dependencies are
+	// answered from servicesByHostname and destinationRulesByNames instead.
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
 	configDependencies sets.Set[ConfigHash]
@@ -408,7 +409,15 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 		return serviceMatchingVirtualServicePorts(s, ports)
 	}
 
-	servicesAdded := make(map[host.Name]sidecarServiceIndex)
+	imported := 0
+	for _, ilw := range sc.EgressListeners {
+		imported += len(ilw.services)
+	}
+	servicesAdded := make(map[host.Name]sidecarServiceIndex, imported)
+	sc.services = make([]*Service, 0, imported)
+	if len(sc.servicesByHostname) == 0 {
+		sc.servicesByHostname = make(map[host.Name]*Service, imported)
+	}
 	for _, ilw := range sc.EgressListeners {
 		// First add the explicitly requested services, which take priority
 		for _, s := range ilw.services {
@@ -494,30 +503,10 @@ func (sc *SidecarScope) selectDestinationRules(ps *PushContext, configNamespace 
 			sc.destinationRules[s.Hostname] = drList
 			for _, dr := range drList {
 				for _, key := range dr.from {
-					sc.AddConfigDependencies(ConfigKey{
-						Kind:      kind.DestinationRule,
-						Name:      key.Name,
-						Namespace: key.Namespace,
-					}.HashCode())
-
 					sc.destinationRulesByNames[key] = dr.rule
 				}
 			}
 		}
-		sc.AddConfigDependencies(
-			ConfigKey{
-				Kind:      kind.ServiceEntry,
-				Name:      string(s.Hostname),
-				Namespace: s.Attributes.Namespace,
-			}.HashCode(),
-			// we do not directly depend on endpoints, but this is needed
-			// to only filter service endpoint updates for services we care about
-			ConfigKey{
-				Kind:      kind.Endpoints,
-				Name:      string(s.Hostname),
-				Namespace: s.Attributes.Namespace,
-			}.HashCode(),
-		)
 	}
 }
 
@@ -722,6 +711,19 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 		return true
 	}
 
+	switch config.Kind {
+	case kind.ServiceEntry, kind.Endpoints:
+		// Both are keyed by service hostname and namespace.
+		if svc := sc.servicesByHostname[host.Name(config.Name)]; svc != nil && svc.Attributes.Namespace == config.Namespace {
+			return true
+		}
+	case kind.DestinationRule:
+		if _, f := sc.destinationRulesByNames[types.NamespacedName{Name: config.Name, Namespace: config.Namespace}]; f {
+			return true
+		}
+	}
+
+	// Dependencies added through AddConfigDependencies still apply.
 	hash := config.HashCode()
 	return sc.configDependencies.Contains(hash) || sc.gatewayConfigDependencies.Contains(hash)
 }

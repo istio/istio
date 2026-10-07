@@ -3297,6 +3297,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 	allContains := func(ns string, contains bool) map[ConfigKey]bool {
 		return map[ConfigKey]bool{
 			{kind.ServiceEntry, svcName, ns}:   contains,
+			{kind.Endpoints, svcName, ns}:      contains,
 			{kind.VirtualService, vsName, ns}:  contains,
 			{kind.DestinationRule, drName, ns}: contains,
 		}
