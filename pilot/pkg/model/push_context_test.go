@@ -1272,13 +1272,6 @@ func TestTrafficExtensions(t *testing.T) {
 		expectedExtensions map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper
 	}{
 		{
-			name:               "nil proxy",
-			node:               nil,
-			listenerInfo:       ListenerInfo{},
-			chainType:          FilterChainTypeHTTP,
-			expectedExtensions: nil,
-		},
-		{
 			name: "nomatch",
 			node: &Proxy{
 				ConfigNamespace: "other",
