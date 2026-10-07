@@ -90,6 +90,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	updatedSubsets := sets.New[host.Name]()
 	var services []*model.Service
 	have := sets.New[host.Name]()
+	envoyFilterPatches := updates.Push.EnvoyFilters(proxy)
 	var scopedServices map[host.Name]*model.Service
 	scopeChanged := false
 	for key := range updates.ConfigsUpdated {
@@ -108,7 +109,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 				updatedSubsets.Insert(svc.Hostname)
 			}
 		case kind.PeerAuthentication:
-			svcs = configgen.deltaFromPeerAuthentication(key, proxy, updates.Push)
+			svcs = configgen.deltaFromPeerAuthentication(key, proxy, updates.Push, envoyFilterPatches)
 		case kind.VirtualService, kind.Sidecar:
 			if scopeChanged || proxy.PrevSidecarScope == nil {
 				continue
@@ -119,7 +120,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			if filtersGatewayClusters(proxy) {
 				// Gateway services depend on push context state that the previous scope does not
 				// capture, so they are reconciled against watched cluster names instead.
-				scopedServices = gatewayServicesByHostname(proxy, updates.Push)
+				scopedServices = gatewayServicesByHostname(proxy, updates.Push, envoyFilterPatches)
 			} else {
 				var updated []host.Name
 				svcs, updated = deltaFromSidecarScopeDiff(proxy)
@@ -173,7 +174,6 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			services = append(services, svc)
 		}
 	}
-	envoyFilterPatches := updates.Push.EnvoyFilters(proxy)
 	clusters, log := configgen.buildClusters(proxy, updates, services, envoyFilterPatches)
 	// A watched cluster is deleted only if it was selected for reconciliation and not rebuilt.
 	for _, c := range clusters {
@@ -269,8 +269,12 @@ func deltaFromSidecarScopeDiff(proxy *model.Proxy) ([]*model.Service, []host.Nam
 // gatewayServicesByHostname returns the services visible to a gateway with filtered cluster config,
 // for reconciliation with watched cluster names. Services without watched clusters need their
 // clusters built, while watched services that are no longer visible need their clusters deleted.
-func gatewayServicesByHostname(proxy *model.Proxy, push *model.PushContext) map[host.Name]*model.Service {
-	svcs := push.GatewayServices(proxy, nil)
+func gatewayServicesByHostname(
+	proxy *model.Proxy,
+	push *model.PushContext,
+	envoyFilterPatches *model.MergedEnvoyFilterWrapper,
+) map[host.Name]*model.Service {
+	svcs := push.GatewayServices(proxy, envoyFilterPatches)
 	services := make(map[host.Name]*model.Service, len(svcs))
 	for _, svc := range svcs {
 		services[svc.Hostname] = svc
@@ -286,12 +290,13 @@ func (configgen *ConfigGeneratorImpl) deltaFromPeerAuthentication(
 	key model.ConfigKey,
 	proxy *model.Proxy,
 	push *model.PushContext,
+	envoyFilterPatches *model.MergedEnvoyFilterWrapper,
 ) []*model.Service {
 	var services []*model.Service
 
 	var allServices []*model.Service
 	if filtersGatewayClusters(proxy) {
-		allServices = push.GatewayServices(proxy, nil)
+		allServices = push.GatewayServices(proxy, envoyFilterPatches)
 	} else {
 		allServices = proxy.SidecarScope.Services()
 	}
