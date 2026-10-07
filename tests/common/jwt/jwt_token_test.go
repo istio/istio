@@ -102,8 +102,8 @@ func TestSampleJwtToken(t *testing.T) {
 			},
 		},
 		{
-			name:  "TokenExpired",
-			token: TokenExpired,
+			name:  "TokenIssuer1Expired",
+			token: TokenIssuer1Expired,
 			wantClaims: map[string]any{
 				"groups": []any{"group-1"},
 				"iss":    "test-issuer-1@istio.io",
