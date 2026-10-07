@@ -1210,10 +1210,10 @@ func (p *precomputedNetworkFilters) getOrBuild(key networkFiltersKey, build func
 	return p.lb.copyFilters(filters)
 }
 
-// copyFilters returns a new slice, as EnvoyFilter patches add and replace filters in it. Patches
-// also modify filters in place, so filters are cloned if any EnvoyFilter selects the proxy.
+// copyFilters returns a new slice, as EnvoyFilter patches add and replace filters in it. NETWORK_FILTER
+// patches also modify filters in place, so filters are cloned if the proxy has any.
 func (lb *ListenerBuilder) copyFilters(filters []*listener.Filter) []*listener.Filter {
-	if lb.envoyFilterWrapper == nil {
+	if lb.envoyFilterWrapper == nil || len(lb.envoyFilterWrapper.Patches[networking.EnvoyFilter_NETWORK_FILTER]) == 0 {
 		return slices.Clone(filters)
 	}
 	return slices.Map(filters, protomarshal.Clone[*listener.Filter])

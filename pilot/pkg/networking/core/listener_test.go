@@ -1349,25 +1349,28 @@ func TestHeadlessFilterChainDuplicateEndpoints(t *testing.T) {
 	}
 }
 
-// headlessTestEnvoyFilters applies to the test proxy, so built filters may be patched in place.
-func headlessTestEnvoyFilters() []config.Config {
+// headlessTestEnvoyFilters returns an EnvoyFilter patching applyTo for the test proxy.
+func headlessTestEnvoyFilters(applyTo networking.EnvoyFilter_ApplyTo) []config.Config {
 	return getEnvoyFilterConfigs([]*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
-		ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+		ApplyTo: applyTo,
 		Match:   &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_SIDECAR_OUTBOUND},
 		Patch:   &networking.EnvoyFilter_Patch{Operation: networking.EnvoyFilter_Patch_MERGE, Value: buildPatchStruct(`{}`)},
 	}})
 }
 
-// Listeners share filters unless an EnvoyFilter, which may mutate them, selects the proxy.
+// Listeners share filters unless NETWORK_FILTER patches, which may mutate them, apply to the proxy.
 func TestPrecomputedNetworkFiltersListenerIsolation(t *testing.T) {
 	test.SetForTest(t, &features.EnableHeadlessFilterChainListener, false)
 	for _, p := range []protocol.Instance{protocol.TCP, protocol.TLS} {
-		for _, envoyFilters := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/envoyfilters=%t", p, envoyFilters), func(t *testing.T) {
+		for _, applyTo := range []networking.EnvoyFilter_ApplyTo{
+			networking.EnvoyFilter_INVALID, networking.EnvoyFilter_HTTP_FILTER, networking.EnvoyFilter_NETWORK_FILTER,
+		} {
+			t.Run(fmt.Sprintf("%s/envoyfilter=%s", p, applyTo), func(t *testing.T) {
 				var configs []config.Config
-				if envoyFilters {
-					configs = headlessTestEnvoyFilters()
+				if applyTo != networking.EnvoyFilter_INVALID {
+					configs = headlessTestEnvoyFilters(applyTo)
 				}
+				cloned := applyTo == networking.EnvoyFilter_NETWORK_FILTER
 				h := headlessTestService("headless.test", p, 0)
 				listeners := headlessTestListeners(t, []*model.Service{h}, []*model.ServiceInstance{
 					buildServiceInstance(h, "10.0.0.2"), buildServiceInstance(h, "10.0.0.3"),
@@ -1378,9 +1381,9 @@ func TestPrecomputedNetworkFiltersListenerIsolation(t *testing.T) {
 					t.Fatal("listeners share a filter slice")
 				}
 				for i := range f1 {
-					assert.Equal(t, f1[i] == f2[i], !envoyFilters)
+					assert.Equal(t, f1[i] == f2[i], !cloned)
 				}
-				if envoyFilters {
+				if cloned {
 					before := protomarshal.Clone(f2[0])
 					f1[0].Name = "mutated"
 					f1[0].GetTypedConfig().Value[0] ^= 1
@@ -1420,7 +1423,7 @@ func TestPrecomputedNetworkFiltersChainIsolation(t *testing.T) {
 func testPrecomputedNetworkFiltersChainIsolation(t *testing.T, envoyFilters bool) {
 	configs := []config.Config{}
 	if envoyFilters {
-		configs = headlessTestEnvoyFilters()
+		configs = headlessTestEnvoyFilters(networking.EnvoyFilter_NETWORK_FILTER)
 	}
 	h := headlessTestService("headless.test", protocol.TLS, 0)
 	vs := config.Config{
@@ -1527,7 +1530,9 @@ func TestPrecomputedNetworkFilters(t *testing.T) {
 			shared := opts
 			lb := &ListenerBuilder{}
 			if tc.envoyFilters {
-				lb.envoyFilterWrapper = &model.MergedEnvoyFilterWrapper{}
+				lb.envoyFilterWrapper = &model.MergedEnvoyFilterWrapper{Patches: map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper{
+					networking.EnvoyFilter_NETWORK_FILTER: {{}},
+				}}
 			}
 			shared.precomputedNetworkFilters = &precomputedNetworkFilters{lb: lb, filters: map[networkFiltersKey][]*listener.Filter{}}
 			var previous []*filterChainOpts
