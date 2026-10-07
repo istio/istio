@@ -12,22 +12,158 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package inject
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	securityv1 "github.com/openshift/api/security/v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
+)
+
+var sccGVR = schema.GroupVersionResource{
+	Group:    "security.openshift.io",
+	Version:  "v1",
+	Resource: "securitycontextconstraints",
+}
+
+// sccProbeTimeout bounds the constructor-time API probe so a hung API server cannot hold cluster startup.
+const sccProbeTimeout = 5 * time.Second
+
+type SCCClient struct {
+	informer kclient.Untyped
+}
+
+// NewSCCClient performs a quick List() on SecurityContextConstraint to figure out if the cluster is running OpenShift.
+// We use a short timeout so that we don't block BuildMultiClusterComponent().
+func NewSCCClient(c kube.Client) *SCCClient {
+	ctx, cancel := context.WithTimeout(context.Background(), sccProbeTimeout)
+	defer cancel()
+	_, err := c.Dynamic().Resource(sccGVR).List(ctx, metav1.ListOptions{Limit: 1})
+	switch {
+	case apierrors.IsNotFound(err):
+		log.Infof("securitycontextconstraints API not present (%v), disabling SCC-based proxy UID/GID resolution", err)
+		return &SCCClient{}
+	case apierrors.IsForbidden(err):
+		log.Warnf("istiod lacks RBAC to list securitycontextconstraints (%v), disabling SCC-based proxy UID/GID resolution. "+
+			"If you update permissions later, you will have to restart istiod to enable it", err)
+		return &SCCClient{}
+	case err != nil:
+		// A transient error must not permanently disable resolution; proceed and let the informer sync.
+		log.Warnf("failed to probe securitycontextconstraints API (%v), enabling SCC-based proxy UID/GID resolution", err)
+	}
+	return &SCCClient{informer: kclient.NewDynamic(c, sccGVR, kclient.Filter{})}
+}
+
+func (s *SCCClient) Close() {
+	if s.informer != nil {
+		s.informer.ShutdownHandlers()
+	}
+}
+
+// HasSynced reports whether the SCC informer has synced or `true` in case there's no informer (see NewSCCClient())
+func (s *SCCClient) HasSynced() bool {
+	if s.informer == nil {
+		return true
+	}
+	return s.informer.HasSynced()
+}
+
+func (s *SCCClient) get(name string) (*securityv1.SecurityContextConstraints, bool) {
+	if s.informer == nil {
+		return nil, false
+	}
+	obj := s.informer.Get(name, "")
+	if controllers.IsNil(obj) {
+		return nil, false
+	}
+	return toSCC(obj)
+}
+
+func toSCC(obj controllers.Object) (*securityv1.SecurityContextConstraints, bool) {
+	u, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		return nil, false
+	}
+	var scc securityv1.SecurityContextConstraints
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, &scc); err != nil {
+		log.Warnf("failed to convert SecurityContextConstraints %q: %v", u.GetName(), err)
+		return nil, false
+	}
+	return &scc, true
+}
+
+// getSCCProxyIDs resolves the proxy UID/GID from the SCC named in pod's SCC annotation. If the
+// namespace's preallocated range is a subset of (or equal to) what the SCC allows, the SCC agrees
+// with the namespace and nil is returned.
+func getSCCProxyIDs(sccs *SCCClient, ns *corev1.Namespace, pod *corev1.Pod) (uid, gid *int64) {
+	if sccs == nil {
+		return nil, nil
+	}
+	name := pod.Annotations[securityv1.ValidatedSCCAnnotation]
+	if name == "" {
+		return nil, nil
+	}
+	scc, ok := sccs.get(name)
+	if !ok {
+		return nil, nil
+	}
+
+	// Only MustRunAsRange is handled: MustRunAs pins every container to one fixed UID, which would
+	// collide with the app container instead of giving the proxy a distinct one.
+	if sccMin, sccMax := scc.RunAsUser.UIDRangeMin, scc.RunAsUser.UIDRangeMax; scc.RunAsUser.Type == securityv1.RunAsUserStrategyMustRunAsRange {
+		// If the SCC doesn't declare its own range, it defers to the namespace, so the
+		// namespace's range is trivially a subset and there is nothing to override.
+		isSubset := sccMin == nil || sccMax == nil
+		if !isSubset && ns != nil {
+			if nsMin, nsMax, err := getPreallocatedUIDRange(ns); err == nil {
+				isSubset = *nsMin >= *sccMin && *nsMax <= *sccMax
+			}
+		}
+		if !isSubset {
+			// A single-UID range means the app container gets this exact UID; giving it to the
+			// proxy too would collide, same as isSidecarUserMatchingAppUser guards against.
+			if *sccMin == *sccMax {
+				log.Warnf("SCC %q has a single-value UID range (%d); refusing to assign it to the "+
+					"sidecar to avoid matching the app container's UID", name, *sccMax)
+			} else {
+				uid = sccMax
+			}
+		}
+	}
+	if scc.SupplementalGroups.Type == securityv1.SupplementalGroupsStrategyMustRunAs && len(scc.SupplementalGroups.Ranges) > 0 {
+		sccRange := scc.SupplementalGroups.Ranges[0]
+		isSubset := false
+		if ns != nil {
+			if nsGroups, err := getPreallocatedSupplementalGroups(ns); err == nil && len(nsGroups) > 0 {
+				isSubset = nsGroups[0].Min >= sccRange.Min && nsGroups[0].Max <= sccRange.Max
+			}
+		}
+		if !isSubset {
+			maxGID := sccRange.Max
+			gid = &maxGID
+		}
+	}
+	return uid, gid
+}
+
 // Functions below were copied from
 // https://github.com/openshift/apiserver-library-go/blob/c22aa58bb57416b9f9f190957d07c9e7669c26df/pkg/securitycontextconstraints/sccmatching/matcher.go
 // These functions are not exported, and, if they were, when imported bring k8s.io/kubernetes as dependency, which is problematic
 // License is Apache 2.0: https://github.com/openshift/apiserver-library-go/blob/c22aa58bb57416b9f9f190957d07c9e7669c26df/LICENSE
-
-package inject
-
-import (
-	"fmt"
-	"strings"
-
-	securityv1 "github.com/openshift/api/security/v1"
-	corev1 "k8s.io/api/core/v1"
-
-	"istio.io/istio/pkg/log"
-)
 
 // getPreallocatedUIDRange retrieves the annotated value from the namespace, splits it to make
 // the min/max and formats the data into the necessary types for the strategy options.
