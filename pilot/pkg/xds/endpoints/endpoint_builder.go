@@ -95,7 +95,7 @@ type EndpointBuilder struct {
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
 	dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 
-	svc := push.ServiceForHostname(proxy, hostname)
+	svc := proxy.SidecarScope.GetService(hostname)
 	var dr *model.ConsolidatedDestRule
 	if svc != nil {
 		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
