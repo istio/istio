@@ -113,6 +113,6 @@ if [[ -z "${DRY_RUN:-}" ]]; then
     AWS_REGION="$(echo "${CF_CREDENTIALS}" | jq -r '.region' | tr -d '\n')" \
     AWS_SESSION_TOKEN="$(echo "${CF_CREDENTIALS}" | jq -r '.session_token' | tr -d '\n')" \
     release-builder publish --release "${WORK_DIR}/out" \
-      --s3bucket "${R2_BUCKET}" --s3aliases "${TAG},${NEXT_VERSION}-dev,latest" --s3-base-endpoint "${ENDPOINT}" \
-      --dockerhub "${DOCKER_PUSH_HUB}" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
+      --s3bucket "${R2_BUCKET}" --s3aliases "${TAG},${NEXT_VERSION}-dev" --s3-base-endpoint "${ENDPOINT}" \
+      --dockerhub "${DOCKER_PUSH_HUB}" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev"
 fi
