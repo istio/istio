@@ -65,7 +65,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
 	// In Sotw, we care about all services.
 	var services []*model.Service
-	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+	if filtersGatewayClusters(proxy) {
 		services = req.Push.GatewayServices(proxy, envoyFilterPatches)
 	} else {
 		services = proxy.SidecarScope.Services()
@@ -84,122 +84,129 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		return cl, nil, lg, false
 	}
 
-	deletedClusters := sets.New[string]()
+	// Resolve affected services before scanning watched clusters. New services and subsets
+	// may not have watched cluster names yet, so cluster generation remains service based.
+	updatedServices := sets.New[host.Name]()
+	updatedSubsets := sets.New[host.Name]()
 	var services []*model.Service
-	// Holds clusters per service, keyed by hostname.
-	serviceClusters := make(map[string]sets.String)
-	// Holds service ports, keyed by hostname.Inner map port and its cluster name.
-	// This is mainly used when service is updated and a port has been removed.
-	servicePortClusters := make(map[string]map[int]string)
-	// Holds subset clusters per service, keyed by hostname.
-	subsetClusters := make(map[string]sets.String)
-
-	for cluster := range watched.ResourceNames {
-		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-		// check with the name of our service (cluster names are in the format outbound|<port>|<subset>|<hostname>).
-		dir, subset, svcHost, port := model.ParseSubsetKey(cluster)
-		// Inbound clusters don't have svchost in its format. So don't add it to serviceClusters.
-		if dir == model.TrafficDirectionInbound {
-			// Append all inbound clusters because in both stow/delta we always build all inbound clusters.
-			// In reality, the delta building is only for outbound clusters. We need to revisit here once we support delta for inbound.
-			// So deletedClusters.Difference(builtClusters) would give us the correct deleted inbound clusters.
-			deletedClusters.Insert(cluster)
-		} else {
-			if subset == "" {
-				sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
-			} else {
-				sets.InsertOrNew(subsetClusters, string(svcHost), cluster)
-			}
-			if servicePortClusters[string(svcHost)] == nil {
-				servicePortClusters[string(svcHost)] = make(map[int]string)
-			}
-			servicePortClusters[string(svcHost)][port] = cluster
-		}
-	}
-	have := sets.String{}
-	servicesDiffed := false
+	have := sets.New[host.Name]()
+	var scopedServices map[host.Name]*model.Service
+	scopeChanged := false
 	for key := range updates.ConfigsUpdated {
-		// deleted clusters for this config.
-		var deleted []string
 		var svcs []*model.Service
 		switch key.Kind {
 		case kind.ServiceEntry:
-			svcs, deleted = configgen.deltaFromServices(key, proxy, updates.Push, serviceClusters,
-				servicePortClusters, subsetClusters)
+			if service, reconcile := configgen.deltaFromServices(key, proxy, updates.Push); reconcile {
+				updatedServices.Insert(host.Name(key.Name))
+				if service != nil {
+					svcs = append(svcs, service)
+				}
+			}
 		case kind.DestinationRule:
-			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, updates.Push, subsetClusters)
+			svcs = configgen.deltaFromDestinationRules(key, proxy, updates.Push)
+			for _, svc := range svcs {
+				updatedSubsets.Insert(svc.Hostname)
+			}
 		case kind.PeerAuthentication:
 			svcs = configgen.deltaFromPeerAuthentication(key, proxy, updates.Push)
 		case kind.VirtualService, kind.Sidecar:
-			if servicesDiffed {
+			if scopeChanged || proxy.PrevSidecarScope == nil {
 				continue
 			}
-
-			svcs, deleted = configgen.deltaFromServiceDiff(proxy, updates.Push, serviceClusters, subsetClusters)
-			servicesDiffed = true
+			// The visible service set is diffed once per push. PrevSidecarScope is only nil in tests
+			// where the proxy's sidecar scope was never recomputed.
+			scopeChanged = true
+			if filtersGatewayClusters(proxy) {
+				// Gateway services depend on push context state that the previous scope does not
+				// capture, so they are reconciled against watched cluster names instead.
+				scopedServices = gatewayServicesByHostname(proxy, updates.Push)
+			} else {
+				var updated []host.Name
+				svcs, updated = deltaFromSidecarScopeDiff(proxy)
+				updatedServices.InsertAll(updated...)
+			}
 		}
 		// Service and Destination Rule can select the same service. So we need to dedup the services.
 		for _, svc := range svcs {
-			if !have.InsertContains(svc.Hostname.String()) {
+			if !have.InsertContains(svc.Hostname) {
 				services = append(services, svc)
 			}
 		}
+	}
 
-		deletedClusters.InsertAll(deleted...)
+	deletedClusters := sets.New[string]()
+	var watchedServices sets.Set[host.Name]
+	if scopedServices != nil {
+		watchedServices = sets.NewWithLength[host.Name](len(scopedServices))
+	}
+	for cluster := range watched.ResourceNames {
+		// Fast path: most watched clusters belong to services unaffected by this push.
+		// Inbound and default clusters have no hostname, so they always take the full parse.
+		if scopedServices == nil {
+			if h := host.Name(model.ParseSubsetKeyHostname(cluster)); h != "" &&
+				!updatedServices.Contains(h) && !updatedSubsets.Contains(h) {
+				continue
+			}
+		}
+		dir, subset, svcHost, _ := model.ParseSubsetKey(cluster)
+		if dir == model.TrafficDirectionInbound || (svcHost == "" && scopeChanged) {
+			// Inbound clusters are always rebuilt, and scope changes also reconcile default clusters
+			// without a hostname, such as the dynamic DNS cluster.
+			deletedClusters.Insert(cluster)
+			continue
+		}
+		if updatedServices.Contains(svcHost) || (subset != "" && updatedSubsets.Contains(svcHost)) {
+			// Service changes reconcile all clusters, including every subset of a
+			// removed port. DestinationRule changes reconcile only subset clusters.
+			deletedClusters.Insert(cluster)
+		}
+		if scopedServices != nil {
+			if _, present := scopedServices[svcHost]; !present {
+				deletedClusters.Insert(cluster)
+			} else if subset == "" {
+				watchedServices.Insert(svcHost)
+			}
+		}
+	}
+	for hostname, svc := range scopedServices {
+		if !watchedServices.Contains(hostname) && !have.InsertContains(hostname) {
+			services = append(services, svc)
+		}
 	}
 	envoyFilterPatches := updates.Push.EnvoyFilters(proxy)
 	clusters, log := configgen.buildClusters(proxy, updates, services, envoyFilterPatches)
-	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
-	// When clusters are rebuilt, we rebuild the subset clusters as well. So, we know what
-	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
-	builtClusters := sets.NewWithLength[string](len(clusters))
+	// A watched cluster is deleted only if it was selected for reconciliation and not rebuilt.
 	for _, c := range clusters {
-		builtClusters.Insert(c.Name)
+		deletedClusters.Delete(c.Name)
 	}
-	// Remove anything we built from the deleted list
-	deletedClusters = deletedClusters.DifferenceInPlace(builtClusters)
 	return clusters, sets.SortedList(deletedClusters), log, true
 }
 
-// deltaFromServices computes the delta clusters from the updated services.
-func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
-	serviceClusters map[string]sets.String, servicePortClusters map[string]map[int]string, subsetClusters map[string]sets.String,
-) ([]*model.Service, []string) {
-	var deletedClusters []string
-	var services []*model.Service
+// deltaFromServices resolves the service updated by a ServiceEntry change. It returns the service whose
+// clusters need to be built, if any, and whether the watched clusters for its hostname need reconciliation.
+func (configgen *ConfigGeneratorImpl) deltaFromServices(
+	key model.ConfigKey,
+	proxy *model.Proxy,
+	push *model.PushContext,
+) (*model.Service, bool) {
 	service := proxy.SidecarScope.GetService(host.Name(key.Name))
-	// SidecarScope.GetService will return nil if the proxy doesn't care about the service OR it was deleted.
-	// we can cross-reference with WatchedResources to figure out which services were deleted.
 	if service == nil {
-		// We assume a service was deleted and delete all clusters for that service.
-		deletedClusters = append(deletedClusters, serviceClusters[key.Name].UnsortedList()...)
-		deletedClusters = append(deletedClusters, subsetClusters[key.Name].UnsortedList()...)
-	} else {
-		if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-			if !push.ServiceAttachedToGateway(key.Name, key.Namespace, proxy) {
-				return services, deletedClusters
-			}
-		}
-		// Service exists. If the service update has port change, we need to the corresponding port clusters.
-		services = append(services, service)
-		for port, cluster := range servicePortClusters[service.Hostname.String()] {
-			// if this service port is removed, we can conclude that it is a removed cluster.
-			if _, exists := service.Ports.GetByPort(port); !exists {
-				deletedClusters = append(deletedClusters, cluster)
-			}
-		}
+		// The service was deleted or is no longer visible to this proxy.
+		return nil, true
 	}
-	return services, deletedClusters
+	if filtersGatewayClusters(proxy) && !push.ServiceAttachedToGateway(key.Name, key.Namespace, proxy) {
+		// Filtered gateways only build clusters for services their routes reference.
+		return nil, false
+	}
+	return service, true
 }
 
-// deltaFromDestinationRules computes the delta clusters from the updated destination rules.
+// deltaFromDestinationRules resolves services affected by updated destination rules.
 func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(
 	updatedDr model.ConfigKey,
 	proxy *model.Proxy,
 	push *model.PushContext,
-	subsetClusters map[string]sets.String,
-) ([]*model.Service, []string) {
-	var deletedClusters []string
+) []*model.Service {
 	var services []*model.Service
 	cfg := proxy.SidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
 	if cfg == nil {
@@ -207,7 +214,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(
 		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
 		if prevCfg == nil {
 			log.Debugf("Prev DestinationRule form PrevSidecarScope is missing for %s/%s", updatedDr.Namespace, updatedDr.Name)
-			return nil, nil
+			return nil
 		}
 		dr := prevCfg.Spec.(*networking.DestinationRule)
 		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
@@ -225,67 +232,50 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(
 		}
 	}
 
-	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+	if filtersGatewayClusters(proxy) {
 		services = slices.FilterInPlace(services, func(s *model.Service) bool {
 			return push.ServiceAttachedToGateway(string(s.Hostname), s.Attributes.Namespace, proxy)
 		})
 	}
 
-	// Remove all matched service subsets. When we rebuild clusters, we will rebuild the subset clusters as well.
-	// We can reconcile the actual subsets that are needed when we rebuild the clusters.
-	for _, matchedSvc := range services {
-		if subsetClusters[matchedSvc.Hostname.String()] != nil {
-			deletedClusters = append(deletedClusters, subsetClusters[matchedSvc.Hostname.String()].UnsortedList()...)
-		}
-	}
-	return services, deletedClusters
+	return services
 }
 
-// deltaFromServiceDiff computes the delta clusters by diffing the current
-// and previous SidecarScope services. Newly added services need their clusters built, and
-// services that were removed need their clusters deleted.
-func (configgen *ConfigGeneratorImpl) deltaFromServiceDiff(
-	proxy *model.Proxy,
-	push *model.PushContext,
-	serviceClusters map[string]sets.String,
-	subsetClusters map[string]sets.String,
-) ([]*model.Service, []string) {
-	var deletedClusters []string
-	var services []*model.Service
-
-	// this case should never really happen except in tests, this means the proxy never had sidecar scope recomputed
-	if proxy.PrevSidecarScope == nil {
-		return services, deletedClusters
-	}
-
-	var allServices map[host.Name]*model.Service
-	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		svcs := push.GatewayServices(proxy, nil)
-		allServices = make(map[host.Name]*model.Service, len(svcs))
-		for _, svc := range svcs {
-			allServices[svc.Hostname] = svc
-		}
-	} else {
-		allServices = proxy.SidecarScope.ServicesByHostname()
-	}
-
-	for _, service := range allServices {
-		if _, ok := serviceClusters[service.Hostname.String()]; !ok {
-			// this is a service we don't currently have and we should
-			services = append(services, service)
+// deltaFromSidecarScopeDiff diffs the services visible through the previous and current SidecarScope.
+// It returns the services that need their clusters built, and the hostnames whose watched clusters
+// need reconciliation because the service is no longer visible or now resolves to another namespace.
+func deltaFromSidecarScopeDiff(proxy *model.Proxy) ([]*model.Service, []host.Name) {
+	var built []*model.Service
+	var reconciled []host.Name
+	prev := proxy.PrevSidecarScope.ServicesByHostname()
+	current := proxy.SidecarScope.ServicesByHostname()
+	for hostname, svc := range current {
+		prevSvc, found := prev[hostname]
+		if !found {
+			built = append(built, svc)
+		} else if prevSvc.Attributes.Namespace != svc.Attributes.Namespace {
+			built = append(built, svc)
+			reconciled = append(reconciled, hostname)
 		}
 	}
-
-	for h, clusters := range serviceClusters {
-		hostname := host.Name(h)
-		if _, ok := allServices[hostname]; !ok {
-			// a service we had is no longer present, we have to delete it
-			deletedClusters = append(deletedClusters, clusters.UnsortedList()...)
-			deletedClusters = append(deletedClusters, subsetClusters[h].UnsortedList()...)
+	for hostname := range prev {
+		if _, found := current[hostname]; !found {
+			reconciled = append(reconciled, hostname)
 		}
 	}
+	return built, reconciled
+}
 
-	return services, deletedClusters
+// gatewayServicesByHostname returns the services visible to a gateway with filtered cluster config,
+// for reconciliation with watched cluster names. Services without watched clusters need their
+// clusters built, while watched services that are no longer visible need their clusters deleted.
+func gatewayServicesByHostname(proxy *model.Proxy, push *model.PushContext) map[host.Name]*model.Service {
+	svcs := push.GatewayServices(proxy, nil)
+	services := make(map[host.Name]*model.Service, len(svcs))
+	for _, svc := range svcs {
+		services[svc.Hostname] = svc
+	}
+	return services
 }
 
 // deltaFromPeerAuthentication computes the delta clusters when a PeerAuthentication changes.
@@ -300,7 +290,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromPeerAuthentication(
 	var services []*model.Service
 
 	var allServices []*model.Service
-	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+	if filtersGatewayClusters(proxy) {
 		allServices = push.GatewayServices(proxy, nil)
 	} else {
 		allServices = proxy.SidecarScope.Services()
@@ -353,7 +343,8 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches, wps.orderedServices)
 		outboundServices := filterWaypointOutboundServices(
-			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services)
+			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services,
+		)
 		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
 		// to the Kubernetes API server), include services referenced by those gateway servers.
 		if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil {
@@ -409,6 +400,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		return resources, model.DefaultXdsLogDetails
 	}
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
+}
+
+// filtersGatewayClusters reports whether the proxy only gets clusters for services its gateways reference.
+func filtersGatewayClusters(proxy *model.Proxy) bool {
+	return features.FilterGatewayClusterConfig && proxy.Type == model.Router
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
@@ -668,7 +664,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			var lbEndpoints []*endpoint.LocalityLbEndpoints
 			var endpointBuilder *endpoints.EndpointBuilder
 			if service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB {
-				endpointBuilder = endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push,
+				endpointBuilder = endpoints.NewCDSEndpointBuilder(
+					proxy, cb.req.Push,
 					clusterName, model.TrafficDirectionOutbound, "", service.Hostname, port.Port,
 					service, destRule,
 				)
