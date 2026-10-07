@@ -57,7 +57,7 @@ func newServer(handleFunc func(http.ResponseWriter, *http.Request) bool) *http.S
 		Handler:   handler,
 		Protocols: protocols,
 		HTTP2: &http.HTTP2Config{
-			SendPingTimeout: 10 * time.Minute,
+			SendPingTimeout: 10 * time.Minute, // TODO: much larger to support long-lived connections
 		},
 	}
 }
@@ -86,22 +86,23 @@ func handleDoubleConnect(w http.ResponseWriter, r *http.Request, tlsConfig *tls.
 	defer cancel()
 
 	innerServer := newServer(handleConnect)
+	serve := innerServer.Serve
 	if tlsConfig != nil {
 		innerServer.TLSConfig = tlsConfig
+		serve = func(l net.Listener) error { return innerServer.ServeTLS(l, "", "") }
 	} else {
 		log.Info("Using plaintext for inner HBONE server")
 	}
 
 	dialer, listener := connutil.DialerListener(128)
 	go func() {
-		err := innerServer.ServeTLS(listener, "", "")
-		if err != nil {
+		if err := serve(listener); err != nil {
 			log.Errorf("failed to start intermediate http server: %v", err)
 		}
 	}()
 
 	defer func() {
-		if innerServer.Shutdown(ctx) != nil {
+		if err := innerServer.Shutdown(ctx); err != nil {
 			log.Errorf("failed to shutdown inner server: %v", err)
 		}
 	}()
