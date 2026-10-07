@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -51,12 +52,11 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, setupConfig)).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{
-			// Two sidecar clients with their own identities, plus the default out-of-mesh "external" echo, which is
-			// the wildcard target.
+			// Two sidecar clients with their own identities. The default "external" echo is the wildcard target.
 			Configs: func() []echo.Config {
 				return []echo.Config{
 					{Service: "client", ServiceAccount: true},
-					{Service: "other-client", ServiceAccount: true},
+					{Service: "other-client", ServiceAccount: true, Ports: echo.Ports{ports.GRPC, ports.HTTPS}},
 				}
 			},
 		})).

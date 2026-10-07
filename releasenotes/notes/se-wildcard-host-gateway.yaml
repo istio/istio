@@ -12,8 +12,8 @@ releaseNotes:
     - A `Gateway` server with `tls.mode: ISTIO_MUTUAL` and a `VirtualService` `tcp` route with a single destination whose host is
       the wildcard host. The sidecar sends the application TLS to the gateway inside Istio mTLS. Like an ambient waypoint, the
       gateway terminates the mTLS, reads the SNI of the application TLS, and applies `AuthorizationPolicy` after that, so
-      `source.principals` is the caller identity and `connection.sni` is the real host. For these servers, `AuthorizationPolicy`
-      is not applied on the mTLS connection itself. As on waypoints, use `remoteIpBlocks` (not `ipBlocks`) to match the client
+      `source.principals` is the caller identity and `connection.sni` is the real host. Only SNIs under the wildcard host are
+      forwarded. For these servers, `AuthorizationPolicy` is not applied on the mTLS connection itself. As on waypoints, use `remoteIpBlocks` (not `ipBlocks`) to match the client
       address.
     Weighted routes to the wildcard host are not supported.
     This feature is alpha. It is possible to spoof SNI for TLS connections that match the wildcard host. E.g. a client connecting to

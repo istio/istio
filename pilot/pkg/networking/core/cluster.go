@@ -140,6 +140,11 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		watchedServices = sets.NewWithLength[host.Name](len(scopedServices))
 	}
 	for cluster := range watched.ResourceNames {
+		// Gateway wildcard TLS internal clusters are rebuilt on every push, so the ones not rebuilt are deleted.
+		if strings.HasPrefix(cluster, string(model.TrafficDirectionOutboundWildcardTLS)+"|") {
+			deletedClusters.Insert(cluster)
+			continue
+		}
 		// Fast path: most watched clusters belong to services unaffected by this push.
 		// Inbound and default clusters have no hostname, so they always take the full parse.
 		if scopedServices == nil {

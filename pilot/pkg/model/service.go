@@ -305,6 +305,8 @@ const (
 	TrafficDirectionInbound TrafficDirection = "inbound"
 	// TrafficDirectionInboundVIP indicates inbound traffic for vip
 	TrafficDirectionInboundVIP TrafficDirection = "inbound-vip"
+	// TrafficDirectionOutboundWildcardTLS indicates the internal cluster of a gateway wildcard TLS destination
+	TrafficDirectionOutboundWildcardTLS TrafficDirection = "outbound-wildcard-tls"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
 
