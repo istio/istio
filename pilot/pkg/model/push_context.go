@@ -2224,10 +2224,6 @@ func (ps *PushContext) TrafficExtensionsByName(proxy *Proxy, names []types.Names
 func (ps *PushContext) TrafficExtensionsByListenerInfo(proxy *Proxy, info ListenerInfo,
 	chainType FilterChainType,
 ) map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper {
-	if proxy == nil {
-		return nil
-	}
-
 	matchedFilters := make(map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper)
 	lookupInNamespaces := []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
 	for i := range info.Services {
@@ -2321,10 +2317,6 @@ type MergedEnvoyFilterWrapper struct {
 
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
 func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
-	// this should never happen
-	if proxy == nil {
-		return nil
-	}
 	var matchedEnvoyFilters []*EnvoyFilterWrapper
 	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
 	// First get all the filter configs from the config root namespace
@@ -2444,10 +2436,6 @@ type gatewayWithInstances struct {
 }
 
 func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
-	// this should never happen
-	if proxy == nil {
-		return nil
-	}
 	gatewayInstances := make([]gatewayWithInstances, 0)
 
 	var configs []config.Config
