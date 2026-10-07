@@ -535,6 +535,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			lb := &ListenerBuilder{
 				node:                    tt.proxy,
 				push:                    cg.PushContext(),
+				envoyFilterWrapper:      cg.PushContext().EnvoyFilters(tt.proxy),
 				gatewayListeners:        tt.fields.GatewayListeners,
 				inboundListeners:        tt.fields.InboundListeners,
 				outboundListeners:       tt.fields.OutboundListeners,
