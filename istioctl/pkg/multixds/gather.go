@@ -98,10 +98,10 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 	}
 
 	responses := []*discovery.DiscoveryResponse{}
-	xdsOpts := clioptions.CentralControlPlaneOptions{
-		XDSSAN:  makeSan(istioNamespace, kubeClient.Revision()),
-		CertDir: centralOpts.CertDir,
-		Timeout: centralOpts.Timeout,
+	// keep --insecure, --plaintext, --authority etc. Xds is set per pod below.
+	xdsOpts := centralOpts
+	if xdsOpts.XDSSAN == "" {
+		xdsOpts.XDSSAN = makeSan(istioNamespace, kubeClient.Revision())
 	}
 	dialOpts, err := xds.DialOptions(xdsOpts, istioNamespace, tokenServiceAccount, kubeClient)
 	if err != nil {
@@ -183,9 +183,9 @@ func mergeShards(responses map[string]*discovery.DiscoveryResponse) (*discovery.
 	return &retval, nil
 }
 
-// defaultSan sets the expected istiod SAN when dialing an IP or localhost address,
+// setDefaultSan sets the expected istiod SAN when dialing an IP or localhost address,
 // since istiod certificates only contain DNS SANs. An explicit --authority wins.
-func defaultSan(centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.CLIClient) {
+func setDefaultSan(centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.CLIClient) {
 	if centralOpts.XDSSAN != "" || centralOpts.Plaintext || centralOpts.InsecureSkipVerify {
 		return
 	}
@@ -267,7 +267,7 @@ func MultiRequestAndProcessXds(all bool, dr *discovery.DiscoveryRequest, central
 		serviceAccount = tokenServiceAccount
 	}
 	if centralOpts.Xds != "" {
-		defaultSan(&centralOpts, istioNamespace, kubeClient)
+		setDefaultSan(&centralOpts, istioNamespace, kubeClient)
 		dialOpts, err := xds.DialOptions(centralOpts, ns, serviceAccount, kubeClient)
 		if err != nil {
 			return nil, err
@@ -291,7 +291,7 @@ func MultiRequestAndProcessXds(all bool, dr *discovery.DiscoveryRequest, central
 				centralOpts.Xds = addr.host
 				centralOpts.GCPProject = addr.gcpProject
 				centralOpts.IstiodAddr = addr.istiod
-				defaultSan(&centralOpts, istioNamespace, kubeClient)
+				setDefaultSan(&centralOpts, istioNamespace, kubeClient)
 				dialOpts, err := xds.DialOptions(centralOpts, istioNamespace, tokenServiceAccount, kubeClient)
 				if err != nil {
 					return nil, err

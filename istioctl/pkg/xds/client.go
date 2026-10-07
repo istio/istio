@@ -127,7 +127,12 @@ func tlsConfig(ctx context.Context, opts clioptions.CentralControlPlaneOptions, 
 			return nil, fmt.Errorf("failed to read the XDS root cert from configmap %s/%s (use --cert-dir, or --insecure to skip verification): %w",
 				ns, controller.CACertNamespaceConfigMap, err)
 		}
-		cfg.XDSRootCA = []byte(cm.Data[constants.CACertNamespaceConfigMapDataName])
+		root := cm.Data[constants.CACertNamespaceConfigMapDataName]
+		if root == "" {
+			return nil, fmt.Errorf("configmap %s/%s has no %s (use --cert-dir, or --insecure to skip verification)",
+				ns, controller.CACertNamespaceConfigMap, constants.CACertNamespaceConfigMapDataName)
+		}
+		cfg.XDSRootCA = []byte(root)
 	}
 	return adsc.TLSConfig(cfg)
 }
