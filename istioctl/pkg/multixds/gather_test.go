@@ -15,9 +15,18 @@
 package multixds
 
 import (
+	"context"
 	"testing"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/grpc"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/util/testutil"
+	"istio.io/istio/istioctl/pkg/xds"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -37,7 +46,7 @@ func TestMakeSan(t *testing.T) {
 	}
 }
 
-func TestDefaultSan(t *testing.T) {
+func TestSetDefaultSan(t *testing.T) {
 	cases := []struct {
 		name string
 		opts clioptions.CentralControlPlaneOptions
@@ -53,9 +62,60 @@ func TestDefaultSan(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			defaultSan(&c.opts, "istio-system", kube.NewFakeClient())
+			setDefaultSan(&c.opts, "istio-system", kube.NewFakeClient())
 			if c.opts.XDSSAN != c.want {
 				t.Errorf("XDSSAN = %q, want %q", c.opts.XDSSAN, c.want)
+			}
+		})
+	}
+}
+
+func TestQueryEachShardKeepsOptions(t *testing.T) {
+	cases := []struct {
+		name     string
+		opts     clioptions.CentralControlPlaneOptions
+		wantSan  string
+		insecure bool
+	}{
+		{"default san", clioptions.CentralControlPlaneOptions{}, "istiod.istio-system.svc", false},
+		{"authority kept", clioptions.CentralControlPlaneOptions{XDSSAN: "custom.san"}, "custom.san", false},
+		{"insecure kept", clioptions.CentralControlPlaneOptions{InsecureSkipVerify: true}, "istiod.istio-system.svc", true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var got clioptions.CentralControlPlaneOptions
+			GetXdsResponse = func(_ *discovery.DiscoveryRequest, _ string, _ string, opts clioptions.CentralControlPlaneOptions, _ []grpc.DialOption,
+			) (*discovery.DiscoveryResponse, error) {
+				got = opts
+				return &discovery.DiscoveryResponse{}, nil
+			}
+			defer func() { GetXdsResponse = xds.GetXdsResponse }()
+
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{IstioNamespace: "istio-system"})
+			client, err := ctx.CLIClient()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "istiod", Namespace: "istio-system", Labels: map[string]string{"app": "istiod"}},
+				Status:     corev1.PodStatus{Phase: corev1.PodRunning},
+			}, metav1.CreateOptions{}); err != nil {
+				t.Fatal(err)
+			}
+			if !c.insecure {
+				if _, err := client.Kube().CoreV1().ConfigMaps("istio-system").Create(context.TODO(),
+					testutil.RootCertConfigMap(t, "istio-system", ""), metav1.CreateOptions{}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := queryEachShard(true, &discovery.DiscoveryRequest{}, "istio-system", client, c.opts); err != nil {
+				t.Fatal(err)
+			}
+			if got.XDSSAN != c.wantSan {
+				t.Errorf("XDSSAN = %q, want %q", got.XDSSAN, c.wantSan)
+			}
+			if got.InsecureSkipVerify != c.insecure {
+				t.Errorf("InsecureSkipVerify = %v, want %v", got.InsecureSkipVerify, c.insecure)
 			}
 		})
 	}
