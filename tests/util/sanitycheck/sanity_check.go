@@ -61,7 +61,7 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 		}
 		// not really needed from Istio POV, but the test will add the `istio-proxy` container if we don't tell it not to.
 		subsetConfig = []echo.SubsetConfig{{
-			Annotations: map[string]string{label.SidecarInject.Name: "false"},
+			Labels: map[string]string{label.SidecarInject.Name: "false"},
 		}}
 	}
 	testNs := namespace.NewOrFail(t, nsConfig)
