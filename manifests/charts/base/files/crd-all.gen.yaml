@@ -18406,6 +18406,11 @@ spec:
                         minLength: 1
                         type: string
                       type: array
+                    failedStatusMetadataKey:
+                      description: If set, a verification failure is written to the
+                        filter's dynamic metadata under this key, such that failures
+                        are always observable regardless of the `presence` value.
+                      type: string
                     forwardOriginalToken:
                       description: If set to true, the original token will be kept
                         for the upstream request.
@@ -18487,14 +18492,22 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    outputPayloadToMetadata:
+                      description: This field specifies the key under which the payload
+                        of a successfully verified JWT is stored in the request's
+                        dynamic metadata.
+                      maxLength: 64
+                      pattern: ^[-_A-Za-z0-9]+$
+                      type: string
                     presence:
                       description: |-
-                        Configures whether the JWT token must be present in the request.
+                        Configures how strictly the JWT token is required.
 
-                        Valid Options: OPTIONAL, REQUIRED
+                        Valid Options: OPTIONAL, REQUIRED, PERMISSIVE
                       enum:
                       - OPTIONAL
                       - REQUIRED
+                      - PERMISSIVE
                       type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated
@@ -18704,6 +18717,11 @@ spec:
                         minLength: 1
                         type: string
                       type: array
+                    failedStatusMetadataKey:
+                      description: If set, a verification failure is written to the
+                        filter's dynamic metadata under this key, such that failures
+                        are always observable regardless of the `presence` value.
+                      type: string
                     forwardOriginalToken:
                       description: If set to true, the original token will be kept
                         for the upstream request.
@@ -18785,14 +18803,22 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    outputPayloadToMetadata:
+                      description: This field specifies the key under which the payload
+                        of a successfully verified JWT is stored in the request's
+                        dynamic metadata.
+                      maxLength: 64
+                      pattern: ^[-_A-Za-z0-9]+$
+                      type: string
                     presence:
                       description: |-
-                        Configures whether the JWT token must be present in the request.
+                        Configures how strictly the JWT token is required.
 
-                        Valid Options: OPTIONAL, REQUIRED
+                        Valid Options: OPTIONAL, REQUIRED, PERMISSIVE
                       enum:
                       - OPTIONAL
                       - REQUIRED
+                      - PERMISSIVE
                       type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated

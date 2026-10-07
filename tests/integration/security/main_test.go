@@ -62,6 +62,15 @@ meshConfig:
   defaultConfig:
     gatewayTopology:
       numTrustedProxies: 1 # Needed for X-Forwarded-For (See https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/)
+  extensionProviders:
+  - name: jwt-failure-log
+    envoyFileAccessLog:
+      path: /dev/stdout
+      logFormat:
+        labels:
+          path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+          issuer1: "%DYNAMIC_METADATA(envoy.filters.http.jwt_authn:jwt-failed-status/test-issuer-1)%"
+          issuer2: "%DYNAMIC_METADATA(envoy.filters.http.jwt_authn:jwt-failed-status/test-issuer-2)%"
 `
 		})).
 		// Create namespaces first. This way, echo can correctly configure egress to all namespaces.

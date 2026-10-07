@@ -109,7 +109,7 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 							opts.HTTP.Path = "/"
 							opts.HTTP.Headers = headers.New().
 								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
-								WithAuthz(jwt.TokenExpired).
+								WithAuthz(jwt.TokenIssuer1Expired).
 								Build()
 							opts.Check = check.Status(http.StatusUnauthorized)
 						},

@@ -142,8 +142,9 @@ func (a policyApplier) InboundMTLSSettings(
 
 // convertToEnvoyJwtConfig converts a list of JWT rules into Envoy JWT filter config to enforce it.
 // Each rule is expected corresponding to one JWT issuer (provider).
-// The filter rejects requests with invalid tokens. Missing tokens are allowed unless a rule has
-// presence set to REQUIRED, in which case that token must be present and valid.
+// Each rule's presence decides what it rejects. REQUIRED rejects missing or invalid
+// tokens. OPTIONAL (the default) rejects invalid tokens but allows missing ones.
+// PERMISSIVE rejects neither.
 func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContext, clearRouteCache bool) *envoy_jwt.JwtAuthentication {
 	if len(jwtRules) == 0 {
 		return nil
@@ -151,7 +152,8 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 
 	providers := map[string]*envoy_jwt.JwtProvider{}
 	// Each element of innerAndList is the per-provider requirement: a bare ProviderName when
-	// presence is REQUIRED, or OR{provider, allow_missing} otherwise. Multiple entries are ANDed.
+	// presence is REQUIRED, OR{provider, allow_missing} when OPTIONAL, or
+	// OR{provider, allow_missing_or_failed} when PERMISSIVE. Multiple entries are ANDed.
 	innerAndList := []*envoy_jwt.JwtRequirement{}
 
 	// Optional providers are added here so the final requirement can OR them with the AND list.
@@ -175,6 +177,12 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 				SpaceDelimitedClaims: buildSpaceDelimitedClaims(jwtRule.SpaceDelimitedClaims),
 			},
 			ClearRouteCache: clearRouteCache,
+		}
+
+		// failedStatusMetadataKey is per rule, so that failures can be recorded
+		// separately without overwriting each other.
+		if failedStatusKey := jwtRule.GetFailedStatusMetadataKey(); failedStatusKey != "" {
+			provider.FailedStatusInMetadata = failedStatusKey
 		}
 
 		for _, claimAndHeader := range jwtRule.OutputClaimToHeaders {
@@ -265,6 +273,21 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			hasRequired = true
 			// REQUIRED providers must be present and valid; no allow_missing wrapper.
 			innerAndList = append(innerAndList, providerRequirement)
+		} else if jwtRule.GetPresence() == v1beta1.JWTRule_PERMISSIVE {
+			innerAndList = append(innerAndList, &envoy_jwt.JwtRequirement{
+				RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+					RequiresAny: &envoy_jwt.JwtRequirementOrList{
+						Requirements: []*envoy_jwt.JwtRequirement{
+							providerRequirement,
+							{
+								RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+									AllowMissingOrFailed: &emptypb.Empty{},
+								},
+							},
+						},
+					},
+				},
+			})
 		} else {
 			innerAndList = append(innerAndList, &envoy_jwt.JwtRequirement{
 				RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
@@ -280,7 +303,11 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 					},
 				},
 			})
-			// Only optional providers participate in the outer OR shortcut.
+			// The outer OR shortcut lets the request pass when one OPTIONAL provider
+			// has a valid token, alongside other OPTIONAL or PERMISSIVE providers that
+			// may or may not have valid tokens. Only OPTIONAL providers join the
+			// shortcut, and it is used only when there is more than one rule and no
+			// REQUIRED provider.
 			outterOrList = append(outterOrList, &envoy_jwt.JwtRequirement{
 				RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
 					ProviderName: name,
@@ -289,8 +316,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		}
 	}
 
-	// If there is only one provider, use its requirement directly (either a bare
-	// ProviderName when presence=REQUIRED, or OR{provider, allow_missing} otherwise).
+	// If there is only one requirement, use it directly.
 	if len(innerAndList) == 1 {
 		return &envoy_jwt.JwtAuthentication{
 			Rules: []*envoy_jwt.RequirementRule{
@@ -311,7 +337,8 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 	}
 
 	// Build the AND requirement over all providers. For REQUIRED providers the
-	// entry is a bare ProviderName; for OPTIONAL ones it is OR{provider, allow_missing}.
+	// entry is a bare ProviderName; for OPTIONAL ones it is OR{provider, allow_missing};
+	// for PERMISSIVE ones it is OR{provider, allow_missing_or_failed}.
 	andRequirement := &envoy_jwt.JwtRequirement{
 		RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
 			RequiresAll: &envoy_jwt.JwtRequirementAndList{

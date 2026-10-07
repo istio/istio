@@ -4303,7 +4303,7 @@ spec:
 		"Authorization": {"Bearer " + jwt.TokenIssuer1WithNestedClaims1},
 	}
 	headersWithInvalidToken := map[string][]string{
-		"Authorization": {"Bearer " + jwt.TokenExpired},
+		"Authorization": {"Bearer " + jwt.TokenIssuer1Expired},
 	}
 	headersWithNoToken := map[string][]string{"Host": {"foo.bar"}}
 	headersWithNoTokenButSameHeader := map[string][]string{
