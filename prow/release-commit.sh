@@ -37,7 +37,7 @@ docker run --rm --privileged "${DOCKER_HUB}/qemu-user-static" --reset -p yes
 export ISTIO_DOCKER_QEMU=true
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=ec2b94de533d501409769d345685a4e0e2561edb
+BUILDER_SHA=65e103e064c0973e7734bd254313c019b9892069
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
