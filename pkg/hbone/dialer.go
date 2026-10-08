@@ -21,14 +21,13 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/net/http2"
 	"golang.org/x/net/proxy"
 
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -50,34 +49,74 @@ type Dialer interface {
 
 // NewDialer creates a Dialer that proxies connections over HBONE to the configured proxy.
 func NewDialer(cfg Config) Dialer {
-	var transport *http2.Transport
-
-	if cfg.TLS != nil {
-		transport = &http2.Transport{
-			TLSClientConfig: cfg.TLS,
-		}
-	} else {
-		transport = &http2.Transport{
-			// For h2c
-			AllowHTTP: true,
-			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
-				d := net.Dialer{}
-				if cfg.Timeout != nil {
-					d.Timeout = *cfg.Timeout
-				}
-				return d.Dial(network, addr)
-			},
-		}
-	}
 	return &dialer{
 		cfg:       cfg,
-		transport: transport,
+		transport: newTransport(cfg),
 	}
+}
+
+// newTransport builds the transport used to send CONNECT to an HBONE proxy reached over TCP.
+// It is shared by the single dialer and the outer leg of the double dialer.
+func newTransport(cfg Config) *http.Transport {
+	// HBONE is always HTTP/2: h2 over TLS, or h2c with prior knowledge when TLS is not
+	// configured. http/1.1 is never advertised, as HBONE peers cannot speak it.
+	//
+	// The protocol has to be selected explicitly: net/http does not auto-enable HTTP/2 for
+	// transports with a custom TLSClientConfig or DialContext, and we set both.
+	protocols := new(http.Protocols)
+	var tlsConfig *tls.Config
+	if cfg.TLS != nil {
+		protocols.SetHTTP2(true)
+		// Clone, as net/http writes the adjusted ALPN list back into TLSClientConfig.
+		// x/net/http2 cloned before doing so, and callers may share the config with other
+		// transports.
+		tlsConfig = cfg.TLS.Clone()
+	} else {
+		protocols.SetUnencryptedHTTP2(true)
+	}
+	return &http.Transport{
+		Protocols:       protocols,
+		TLSClientConfig: tlsConfig,
+		// Must be DialContext, not DialTLSContext: net/http only consults the latter for
+		// https:// URLs, so the h2c transport would silently use the default dialer instead.
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			d := net.Dialer{}
+			if cfg.Timeout != nil {
+				d.Timeout = *cfg.Timeout
+			}
+			return d.DialContext(ctx, network, addr)
+		},
+	}
+}
+
+// H2ClientTLSConfig returns a copy of cfg suitable for an HTTP/2 client connection to addr.
+// net/http applies this fixup itself for connections it dials, but not for ones handed to it
+// by a DialTLSContext. Without it ALPN never selects "h2" and net/http silently falls back to
+// HTTP/1.1 framing.
+func H2ClientTLSConfig(cfg *tls.Config, addr string) *tls.Config {
+	out := cfg.Clone()
+	if !slices.Contains(out.NextProtos, "h2") {
+		out.NextProtos = append([]string{"h2"}, out.NextProtos...)
+	}
+	if out.ServerName == "" {
+		out.ServerName = hostFromAddr(addr)
+	}
+	return out
+}
+
+// hostFromAddr strips the port from a host:port address. IPv6 hosts are returned unbracketed,
+// as that is the form tls.Config.ServerName is matched against.
+func hostFromAddr(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	return host
 }
 
 type dialer struct {
 	cfg       Config
-	transport *http2.Transport
+	transport *http.Transport
 }
 
 // DialContext connects to `address` via the HBONE proxy.
@@ -98,7 +137,7 @@ func (d dialer) Dial(network, address string) (c net.Conn, err error) {
 	return d.DialContext(context.Background(), network, address)
 }
 
-func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http2.Transport, shouldCopy bool) (*http.Response, io.WriteCloser, error) {
+func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http.Transport, shouldCopy bool) (*http.Response, io.WriteCloser, error) {
 	t0 := time.Now()
 
 	url := "http://" + req.ProxyAddress
@@ -176,12 +215,6 @@ func tlsDial(ctx context.Context, netDialer Dialer, network, addr string, config
 		return nil, err
 	}
 
-	colonPos := strings.LastIndex(addr, ":")
-	if colonPos == -1 {
-		colonPos = len(addr)
-	}
-	hostname := addr[:colonPos]
-
 	if config == nil {
 		config = &tls.Config{MinVersion: tls.VersionTLS12}
 	}
@@ -190,7 +223,7 @@ func tlsDial(ctx context.Context, netDialer Dialer, network, addr string, config
 	if config.ServerName == "" {
 		// Make a copy to avoid polluting argument or default.
 		c := config.Clone()
-		c.ServerName = hostname
+		c.ServerName = hostFromAddr(addr)
 		config = c
 	}
 
