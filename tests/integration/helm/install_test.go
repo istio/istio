@@ -17,12 +17,15 @@
 package helm
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/helm"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util/sanitycheck"
 )
 
@@ -80,10 +84,33 @@ spec:
 			req, _ := klabels.NewRequirement(label.IoK8sNetworkingGatewayGatewayName.Name, selection.Equals, []string{"sample"})
 			selector.Add(*req)
 			VerifyPodReady(t, t.Clusters().Default(), "default", selector.String())
+			verifyLeaseOwnedByIstiod(t, revision)
 			if !t.Settings().NoCleanup {
 				t.ConfigIstio().Eval("default", nil, fmt.Sprint(sampleGateway)).DeleteOrFail(t)
 			}
 		}, revision))
+}
+
+// verifyLeaseOwnedByIstiod checks that the per-revision Leases are owned by the revision's istiod Deployment,
+// so they are garbage collected when the revision is removed.
+func verifyLeaseOwnedByIstiod(t framework.TestContext, revision string) {
+	t.Helper()
+	cs := t.Clusters().Default()
+	ns := DefaultNamespaceConfig.Get(IstiodReleaseName)
+	for _, name := range []string{"istio-gateway-deployment-" + revision, "istio-gateway-status-leader-" + revision} {
+		retry.UntilSuccessOrFail(t, func() error {
+			lease, err := cs.Kube().CoordinationV1().Leases(ns).Get(context.TODO(), name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			for _, o := range lease.OwnerReferences {
+				if o.Kind == "Deployment" && o.Name == "istiod-"+revision {
+					return nil
+				}
+			}
+			return fmt.Errorf("lease %s/%s has no ownerReference to Deployment istiod-%s: %v", ns, name, revision, lease.OwnerReferences)
+		}, retry.Timeout(time.Minute))
+	}
 }
 
 // TestAmbientInstall tests Istio ambient profile installation using Helm

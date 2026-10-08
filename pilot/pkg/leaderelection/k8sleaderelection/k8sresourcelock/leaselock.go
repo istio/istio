@@ -34,7 +34,10 @@ type LeaseLock struct {
 	LeaseMeta  metav1.ObjectMeta
 	Client     coordinationv1client.LeasesGetter
 	LockConfig ResourceLockConfig
-	lease      *coordinationv1.Lease
+	// OwnerReferences, if set, are applied to the Lease on creation, and to an existing Lease on update.
+	// This lets the Kubernetes garbage collector remove the Lease once the owner is gone.
+	OwnerReferences []metav1.OwnerReference
+	lease           *coordinationv1.Lease
 }
 
 // Get returns the election record from a Lease spec
@@ -57,8 +60,9 @@ func (ll *LeaseLock) Create(ctx context.Context, ler LeaderElectionRecord) error
 	var err error
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ll.LeaseMeta.Name,
-			Namespace: ll.LeaseMeta.Namespace,
+			Name:            ll.LeaseMeta.Name,
+			Namespace:       ll.LeaseMeta.Namespace,
+			OwnerReferences: ll.OwnerReferences,
 		},
 		Spec: LeaderElectionRecordToLeaseSpec(&ler),
 	}
@@ -87,6 +91,9 @@ func (ll *LeaseLock) Update(ctx context.Context, ler LeaderElectionRecord) error
 	}
 	ll.lease.Spec = LeaderElectionRecordToLeaseSpec(&ler)
 	ensureHolderKey(ler, ll.lease)
+	if len(ll.OwnerReferences) > 0 {
+		ll.lease.OwnerReferences = ll.OwnerReferences
+	}
 
 	lease, err := ll.Client.Leases(ll.LeaseMeta.Namespace).Update(ctx, ll.lease, metav1.UpdateOptions{})
 	if err != nil {
