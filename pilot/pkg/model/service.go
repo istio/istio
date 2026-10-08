@@ -2054,6 +2054,7 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 	}
+	usedAutoAllocatedIPs := false
 	if len(addresses) == 0 && nodeUsesAutoallocatedIPs(node) {
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
@@ -2061,8 +2062,10 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 		if s.AutoAllocatedIPv6Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv6Address)
 		}
+		usedAutoAllocatedIPs = true
 	}
-	if (!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual {
+	skipFilter := usedAutoAllocatedIPs && node.Type == Waypoint
+	if !skipFilter && ((!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual) {
 		addresses = netutil.FilterAddressesByIPFamily(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 	}
 	if len(addresses) > 0 {
