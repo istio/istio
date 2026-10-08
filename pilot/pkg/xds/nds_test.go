@@ -187,6 +187,21 @@ func TestNDSDeltaWireFormat(t *testing.T) {
 		}
 	})
 
+	t.Run("legacy allocator agent receives unnamed full table", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableIPAutoallocate, false)
+		s := newServer(t)
+		ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{
+			DNSCapture:      true,
+			DNSAutoAllocate: true,
+			DeltaNDS:        true,
+			IstioVersion:    "1.32.0",
+		})
+		response := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+		if len(response.Resources) != 1 || response.Resources[0].Name != "" {
+			t.Fatalf("legacy allocator agent selected named resources: %v", response.Resources)
+		}
+	})
+
 	t.Run("legacy agent receives unnamed full table", func(t *testing.T) {
 		s := newServer(t)
 		ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{

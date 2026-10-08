@@ -62,14 +62,14 @@ func TestWorkloadSubscriberNeedsAddressPush(t *testing.T) {
 					AddressesUpdated: sets.New(addr),
 					ConfigsUpdated:   sets.New(model.ConfigKey{Kind: kind.Address, Name: addr}),
 				}
-				filtered, needsPush, _ := DefaultProxyNeedsPush(proxy, req)
+				filtered, needsPush := DefaultProxyNeedsPush(proxy, req)
 				assert.Equal(t, needsPush, subscribed)
 				assert.Equal(t, len(filtered.ConfigsUpdated), 0)
 				assert.Equal(t, filtered.AddressesUpdated, sets.New(addr))
 				assert.Equal(t, req.ConfigsUpdated, sets.New(model.ConfigKey{Kind: kind.Address, Name: addr}))
 
 				req.AddressesUpdated = nil
-				_, needsPush, _ = DefaultProxyNeedsPush(proxy, req)
+				_, needsPush = DefaultProxyNeedsPush(proxy, req)
 				assert.Equal(t, needsPush, false)
 			})
 		}
@@ -118,7 +118,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 			key := model.ConfigKey{Kind: k, Name: name, Namespace: serviceNamespace}
 			assert.Equal(t, proxy.SidecarScope.DependsOnConfig(key, rootNamespace), false)
 			assert.Equal(t, proxy.PrevSidecarScope.DependsOnConfig(key, rootNamespace), true)
-			_, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+			_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 				Push: current.PushContext(), ConfigsUpdated: sets.New(key),
 			})
 			assert.Equal(t, needsPush, true)
@@ -129,7 +129,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 		proxy := &model.Proxy{Type: model.Router, ConfigNamespace: gatewayNamespace, Metadata: &model.NodeMetadata{}}
 		proxy.SetSidecarScope(old.PushContext())
 		for _, cfg := range []config.Config{destinationRule, peerAuthentication} {
-			_, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+			_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 				Push: old.PushContext(), ConfigsUpdated: sets.New(model.ConfigKey{
 					Kind: gvk.MustToKind(cfg.GroupVersionKind), Name: cfg.Name, Namespace: cfg.Namespace,
 				}),
@@ -150,7 +150,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 			{model.ConfigKey{Kind: kind.ServiceEntry, Name: serviceHost, Namespace: "unrelated"}, false},
 			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "other.example.com", Namespace: serviceNamespace}, false},
 		} {
-			filtered, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+			filtered, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 				Push: current.PushContext(), ConfigsUpdated: sets.New(tt.key),
 			})
 			assert.Equal(t, needsPush, tt.want, tt.key.String())
@@ -166,7 +166,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 			t.Run(k.String()+"/"+ns, func(t *testing.T) {
 				key := model.ConfigKey{Kind: k, Name: "policy", Namespace: ns}
 				req := &model.PushRequest{Push: current.PushContext(), ConfigsUpdated: sets.New(key)}
-				filtered, needsPush, _ := DefaultProxyNeedsPush(proxy, req)
+				filtered, needsPush := DefaultProxyNeedsPush(proxy, req)
 				want := ns != "unrelated"
 				assert.Equal(t, needsPush, want)
 				assert.Equal(t, filtered.ConfigsUpdated.Contains(key), want)
@@ -177,7 +177,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 
 	for _, k := range []kind.Kind{kind.DestinationRule, kind.PeerAuthentication, kind.VirtualService, kind.Gateway} {
 		t.Run(k.String(), func(t *testing.T) {
-			_, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+			_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 				Push: current.PushContext(), ConfigsUpdated: sets.New(model.ConfigKey{
 					Kind: k, Name: "unrelated", Namespace: "unrelated",
 				}),
@@ -193,7 +193,7 @@ func TestGatewayScopeDependencies(t *testing.T) {
 			req := &model.PushRequest{
 				Push: current.PushContext(), ConfigsUpdated: sets.New(serviceKey, filterKey), Forced: forced,
 			}
-			filtered, needsPush, _ := DefaultProxyNeedsPush(proxy, req)
+			filtered, needsPush := DefaultProxyNeedsPush(proxy, req)
 			assert.Equal(t, needsPush, true)
 			assert.Equal(t, filtered.ConfigsUpdated.Contains(serviceKey), true)
 			assert.Equal(t, filtered.ConfigsUpdated.Contains(filterKey), forced)
@@ -233,7 +233,7 @@ func TestGatewayVirtualServiceDependencies(t *testing.T) {
 				rootNamespace := current.PushContext().Mesh.RootNamespace
 				assert.Equal(t, proxy.SidecarScope.DependsOnConfig(key, rootNamespace), gateway == "b" && change == "rebound")
 				assert.Equal(t, proxy.PrevSidecarScope.DependsOnConfig(key, rootNamespace), gateway == "a")
-				filtered, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+				filtered, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 					Push: current.PushContext(), ConfigsUpdated: sets.New(key),
 				})
 				want := gateway == "a" || (gateway == "b" && change == "rebound")
@@ -328,12 +328,12 @@ func TestGatewaySidecarScopeReselection(t *testing.T) {
 				// Removing a gateway reselects the scope, but its previously imported VirtualServices
 				// must still be classified as dependencies through the previous scope.
 				assert.Equal(t, proxyDependentOnConfig(proxy, key, current.PushContext()), true)
-				filtered, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+				filtered, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
 					Push: current.PushContext(), ConfigsUpdated: sets.New(key),
 				})
 				assert.Equal(t, needsPush, true)
 				assert.Equal(t, filtered.ConfigsUpdated.Contains(key), true)
-				_, needsPush, _ = DefaultProxyNeedsPush(proxy, &model.PushRequest{
+				_, needsPush = DefaultProxyNeedsPush(proxy, &model.PushRequest{
 					Push: current.PushContext(), ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Gateway, Name: "a", Namespace: "gateways"}),
 				})
 				assert.Equal(t, needsPush, true)
@@ -379,7 +379,7 @@ func TestGatewaySidecarScopeFromNoGateways(t *testing.T) {
 			baseScope := proxy.SidecarScope
 			assert.Equal(t, baseScope.DependsOnConfig(key, old.PushContext().Mesh.RootNamespace), false)
 			assert.Equal(t, len(proxy.SidecarScope.GatewayVirtualServices("gateways/a")), 0)
-			_, needsPush, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{Push: old.PushContext(), ConfigsUpdated: sets.New(key)})
+			_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{Push: old.PushContext(), ConfigsUpdated: sets.New(key)})
 			assert.Equal(t, needsPush, pt.typ != model.Router)
 
 			// Creating the Gateway moves the proxy from no gateways to {a}. That alone must reselect
@@ -398,7 +398,7 @@ func TestGatewaySidecarScopeFromNoGateways(t *testing.T) {
 			assert.Equal(t, len(virtualServices), 1)
 			assert.Equal(t, virtualServices[0].Name, "a")
 			assert.Equal(t, proxyDependentOnConfig(proxy, key, current.PushContext()), true)
-			_, needsPush, _ = DefaultProxyNeedsPush(proxy, &model.PushRequest{Push: current.PushContext(), ConfigsUpdated: sets.New(key)})
+			_, needsPush = DefaultProxyNeedsPush(proxy, &model.PushRequest{Push: current.PushContext(), ConfigsUpdated: sets.New(key)})
 			assert.Equal(t, needsPush, true)
 		})
 	}
@@ -715,7 +715,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			cg.PushContext().Mesh.RootNamespace = nsRoot
-			newReq, got, _ := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext(), Forced: tt.forced})
+			newReq, got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext(), Forced: tt.forced})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
 			}
@@ -869,7 +869,7 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			newReq, got, _ := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
+			newReq, got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
 			}
@@ -885,7 +885,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	gateway.MergedGateway.ContainsAutoPassthroughGateways = true
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			newReq, push, _ := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
+			newReq, push := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
 			if !push {
 				t.Fatalf("Got needs push = %v, expected %v", push, true)
 			}
@@ -1025,7 +1025,7 @@ func TestProxyNeedsPushServiceTargets(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			newReq, got, _ := DefaultProxyNeedsPush(newSidecar(tt.selfDiscovery), &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
+			newReq, got := DefaultProxyNeedsPush(newSidecar(tt.selfDiscovery), &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
 			}
@@ -1033,82 +1033,6 @@ func TestProxyNeedsPushServiceTargets(t *testing.T) {
 				t.Fatalf("Got configs updated = %v, expected %v", newReq.ConfigsUpdated, tt.wantConfigs)
 			}
 		})
-	}
-}
-
-func TestDeltaNDSForcesLegacyAllocationRebuild(t *testing.T) {
-	test.SetForTest(t, &features.EnableIPAutoallocate, false)
-	push := core.NewConfigGenTest(t, core.TestOptions{}).PushContext()
-	visibleDNSName := model.ConfigKey{Kind: kind.DNSName, Name: "db.default.svc.cluster.local", Namespace: "default"}
-	filteredServiceEntry := model.ConfigKey{Kind: kind.ServiceEntry, Name: "external.example.com", Namespace: "other"}
-	proxy := &model.Proxy{
-		Type:             model.SidecarProxy,
-		Metadata:         &model.NodeMetadata{DeltaNDS: true, IstioVersion: "1.32.0", DNSCapture: true, DNSAutoAllocate: true},
-		SidecarScope:     &model.SidecarScope{Name: "restricted", Namespace: "default"},
-		WatchedResources: map[string]*model.WatchedResource{},
-	}
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-	proxy.SidecarScope.AddConfigDependencies(visibleDNSName.HashCode())
-	proxy.NewWatchedResource(v3.NameTableType, nil)
-	server := &DiscoveryServer{ProxyNeedsPush: DefaultProxyNeedsPush}
-	request := func(configs sets.Set[model.ConfigKey], reasons ...model.TriggerReason) *model.PushRequest {
-		return &model.PushRequest{
-			Push:           push,
-			ConfigsUpdated: configs,
-			Reason:         model.NewReasonStats(reasons...),
-		}
-	}
-
-	original := request(sets.New(filteredServiceEntry), model.ConfigUpdate)
-	filtered, needsPush, serviceEntryFiltered := DefaultProxyNeedsPush(proxy, original)
-	if needsPush || filtered.Forced || !serviceEntryFiltered {
-		t.Fatalf("shared filtering result: needsPush=%v serviceEntryFiltered=%v request=%+v", needsPush, serviceEntryFiltered, filtered)
-	}
-	filtered, needsPush = server.deltaProxyNeedsPush(proxy, original)
-	if !needsPush || !filtered.Forced || len(filtered.ConfigsUpdated) != 0 {
-		t.Fatalf("Delta NDS did not force filtered ServiceEntry reconciliation: request=%+v", filtered)
-	}
-
-	original = request(sets.New(filteredServiceEntry, visibleDNSName), model.ConfigUpdate)
-	filtered, needsPush = server.deltaProxyNeedsPush(proxy, original)
-	if !needsPush || !filtered.Forced || !filtered.ConfigsUpdated.Equals(sets.New(visibleDNSName)) {
-		t.Fatalf("Delta NDS lost mixed-update reconciliation: request=%+v", filtered)
-	}
-
-	original = request(sets.New(filteredServiceEntry), model.HeadlessEndpointUpdate, model.EndpointUpdate)
-	filtered, needsPush = server.deltaProxyNeedsPush(proxy, original)
-	if needsPush || filtered.Forced {
-		t.Fatalf("endpoint-only update requested a legacy allocation rebuild: request=%+v", filtered)
-	}
-
-	proxy.DeleteWatchedResource(v3.NameTableType)
-	original = request(sets.New(filteredServiceEntry), model.ConfigUpdate)
-	filtered, needsPush = server.deltaProxyNeedsPush(proxy, original)
-	if needsPush || filtered.Forced {
-		t.Fatalf("Delta stream without an NDS subscription was forced: request=%+v", filtered)
-	}
-	proxy.NewWatchedResource(v3.NameTableType, nil)
-
-	proxy.Metadata.DeltaNDS = false
-	filtered, needsPush = server.deltaProxyNeedsPush(proxy, original)
-	if needsPush || filtered.Forced {
-		t.Fatalf("proxy without Delta NDS was forced: request=%+v", filtered)
-	}
-
-	proxy.Metadata.DeltaNDS = true
-	proxy.Metadata.IstioVersion = "1.31.0"
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-	filtered, needsPush = server.deltaProxyNeedsPush(proxy, original)
-	if needsPush || filtered.Forced {
-		t.Fatalf("proxy without Delta NDS version support was forced: request=%+v", filtered)
-	}
-
-	proxy.Metadata.IstioVersion = "1.32.0"
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-	proxy.Metadata.DNSAutoAllocate = false
-	filtered, needsPush = server.deltaProxyNeedsPush(proxy, original)
-	if needsPush || filtered.Forced {
-		t.Fatalf("proxy that does not consume legacy allocations was forced: request=%+v", filtered)
 	}
 }
 

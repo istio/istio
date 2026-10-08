@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
-	networkingcore "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -158,7 +157,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		s.computeProxyState(con.proxy, pushRequest)
 	}
 
-	pushRequest, needsPush := s.deltaProxyNeedsPush(con.proxy, pushRequest)
+	pushRequest, needsPush := s.ProxyNeedsPush(con.proxy, pushRequest)
 	if !needsPush {
 		deltaLog.Debugf("Skipping push to %v, no updates required", con.ID())
 		return nil
@@ -175,22 +174,6 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
-}
-
-func (s *DiscoveryServer) deltaProxyNeedsPush(proxy *model.Proxy, request *model.PushRequest) (*model.PushRequest, bool) {
-	request, needsPush, serviceEntryFiltered := s.ProxyNeedsPush(proxy, request)
-	// A filtered ServiceEntry change may reassign legacy auto-allocated IPs of services still in scope.
-	if serviceEntryFiltered && deltaNDSAndLegacyIPAllocationEnabled(proxy, request) {
-		request.Forced = true
-		needsPush = true
-	}
-	return request, needsPush
-}
-
-func deltaNDSAndLegacyIPAllocationEnabled(proxy *model.Proxy, request *model.PushRequest) bool {
-	return !features.EnableIPAutoallocate && supportsDeltaNDS(proxy) && proxy.GetWatchedResource(v3.NameTableType) != nil &&
-		proxy.Metadata != nil && bool(proxy.Metadata.DNSCapture) && bool(proxy.Metadata.DNSAutoAllocate) &&
-		!networkingcore.IsHeadlessEndpointOnly(request.Reason)
 }
 
 func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {

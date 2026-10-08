@@ -20,17 +20,11 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/config/schema/kind"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	dnsServer "istio.io/istio/pkg/dns/server"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-)
-
-var deltaAwareNdsConfigs = sets.New(
-	kind.ServiceEntry,
-	kind.DNSName,
 )
 
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
@@ -40,20 +34,21 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 	return dnsServer.BuildNameTable(nameTableConfig(node, push))
 }
 
-// BuildDeltaNameTable returns one NDS resource per service hostname, named by that hostname, and the removed
-// hostnames. Full pushes leave removals to the xDS server, which diffs against the resources previously sent.
+// BuildNameTables returns one NDS resource per service hostname in the proxy's scope, named by that hostname.
+func (configgen *ConfigGeneratorImpl) BuildNameTables(node *model.Proxy, push *model.PushContext) []*discovery.Resource {
+	return toPerHostResources(dnsServer.BuildNameTablesByHostname(nameTableConfig(node, push), nil))
+}
+
+// BuildDeltaNameTable returns the NDS resources of the hostnames updated by a partial push, and the previously sent
+// hostnames that no longer produce any name.
 func (configgen *ConfigGeneratorImpl) BuildDeltaNameTable(proxy *model.Proxy, updates *model.PushRequest,
 	watched *model.WatchedResource,
-) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
-	cfg := nameTableConfig(proxy, updates.Push)
-	if requiresFullPush(proxy, updates, watched) {
-		return toPerHostResources(dnsServer.BuildNameTablesByHostname(cfg, nil)), nil, model.DefaultXdsLogDetails, false
-	}
+) ([]*discovery.Resource, []string) {
 	hostnames := sets.NewWithLength[string](len(updates.ConfigsUpdated))
 	for key := range updates.ConfigsUpdated {
 		hostnames.Insert(key.Name)
 	}
-	tables := dnsServer.BuildNameTablesByHostname(cfg, hostnames)
+	tables := dnsServer.BuildNameTablesByHostname(nameTableConfig(proxy, updates.Push), hostnames)
 	var removed []string
 	for hostname := range hostnames {
 		if _, found := tables[hostname]; !found && watched.ResourceNames.Contains(hostname) {
@@ -61,32 +56,9 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaNameTable(proxy *model.Proxy, up
 		}
 	}
 	if len(tables) == 0 && len(removed) == 0 {
-		return nil, nil, model.XdsLogDetails{Incremental: true}, true
+		return nil, nil
 	}
-	slices.Sort(removed)
-	return toPerHostResources(tables), removed, model.XdsLogDetails{Incremental: true}, true
-}
-
-// IsHeadlessEndpointOnly reports whether a push contains only headless endpoint churn.
-// EndpointUpdate may be coalesced with HeadlessEndpointUpdate; any other reason may indicate a service-definition change.
-func IsHeadlessEndpointOnly(reasons model.ReasonStats) bool {
-	if !reasons.Has(model.HeadlessEndpointUpdate) {
-		return false
-	}
-	for reason := range reasons {
-		if reason != model.HeadlessEndpointUpdate && reason != model.EndpointUpdate {
-			return false
-		}
-	}
-	return true
-}
-
-// legacyAutoAllocationRequiresFullRebuild reports whether a push can reassign addresses outside its changed services.
-func legacyAutoAllocationRequiresFullRebuild(updates *model.PushRequest) bool {
-	// ServiceEntry definition changes can make the legacy allocator move unrelated addresses.
-	return !features.EnableIPAutoallocate &&
-		model.HasConfigsOfKind(updates.ConfigsUpdated, kind.ServiceEntry) &&
-		!IsHeadlessEndpointOnly(updates.Reason)
+	return toPerHostResources(tables), slices.Sort(removed)
 }
 
 func nameTableConfig(node *model.Proxy, push *model.PushContext) dnsServer.Config {
@@ -95,22 +67,6 @@ func nameTableConfig(node *model.Proxy, push *model.PushContext) dnsServer.Confi
 		Push:                        push,
 		MulticlusterHeadlessEnabled: features.MulticlusterHeadlessEnabled,
 	}
-}
-
-// requiresFullPush reports whether Delta NDS must send all resources instead of an incremental update.
-func requiresFullPush(proxy *model.Proxy, updates *model.PushRequest, watched *model.WatchedResource) bool {
-	if updates == nil || updates.Forced || len(updates.ConfigsUpdated) == 0 || watched == nil || proxy.SidecarScope == nil {
-		return true
-	}
-	if legacyAutoAllocationRequiresFullRebuild(updates) {
-		return true
-	}
-	for config := range updates.ConfigsUpdated {
-		if !deltaAwareNdsConfigs.Contains(config.Kind) {
-			return true
-		}
-	}
-	return false
 }
 
 func toPerHostResources(tables map[string]*dnsProto.NameTable) []*discovery.Resource {
