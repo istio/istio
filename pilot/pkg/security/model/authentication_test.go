@@ -908,6 +908,17 @@ func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 			wantValidationCA: "configmap://backend/backend-ca",
 		},
 		{
+			// With no credential socket and no SDS extension provider we fall back to resolving
+			// the name as a Kubernetes Secret, which requires the "-cacert" suffix.
+			name: "simple TLS with an sds:// CA credential falling back to ADS",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "sds://backend-ca",
+			},
+			wantCertificate:  "",
+			wantValidationCA: "kubernetes://backend-ca-cacert",
+		},
+		{
 			// The client certificate is served from the file paths by the caller, so no
 			// client certificate SDS config is expected here.
 			name: "mutual TLS with only a CA credential",

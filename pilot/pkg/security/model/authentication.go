@@ -65,6 +65,24 @@ var SDSAdsConfig = &core.ConfigSource{
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
 // from certificates referenced by credentialName in DestinationRule or Gateway.
 func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bool, push *model.PushContext) *tls.SdsSecretConfig {
+	return constructSdsSecretConfigForCredential(name, credentialSocketExist, push, false)
+}
+
+// ConstructSdsSecretConfigForCredential constructs SDS secret configuration
+// that holds a CA certificate referenced by caCertCredentialName in
+// DestinationRule or Gateway.
+//
+// This differs for "sds://" names. The "-cacert" suffix is never appended to
+// them, because the resource name is sent verbatim to the external SDS server.
+// If no external SDS server is reachable we fall back to resolving the name as
+// a Kubernetes Secret via istiod, and at that point the suffix is what tells
+// istiod to serve the CA rather than the certificate and key, so it has to be
+// restored.
+func ConstructSdsSecretConfigForCaCredential(name string, credentialSocketExist bool, push *model.PushContext) *tls.SdsSecretConfig {
+	return constructSdsSecretConfigForCredential(name, credentialSocketExist, push, true)
+}
+
+func constructSdsSecretConfigForCredential(name string, credentialSocketExist bool, push *model.PushContext, isCA bool) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
@@ -108,6 +126,9 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 		}
 		// No UDS socket or extension provider — fall back to ADS (Kubernetes Secret via istiod)
 		name = resourceName
+		if isCA {
+			name = normalizeCaCertCredentialName(name)
+		}
 	}
 
 	return &tls.SdsSecretConfig{
@@ -291,7 +312,7 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 			DefaultValidationContext: defaultValidationContext,
-			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(
+			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCaCredential(
 				caCert, credentialSocketExist, nil),
 		},
 	}
