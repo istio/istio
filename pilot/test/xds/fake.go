@@ -408,7 +408,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		syncFns = append(syncFns, ambientIdx.HasSynced)
 	}
 	kubelib.WaitForCacheSync("fake", stop, syncFns...)
-	cg.ServiceEntryRegistry.ResyncEDS()
 
 	// Send an update. This ensures that even if there are no configs provided, the push context is
 	// initialized.
