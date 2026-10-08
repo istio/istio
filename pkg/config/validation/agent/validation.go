@@ -278,7 +278,7 @@ func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
 	return ValidateProxyAddress(strings.Replace(d.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
 }
 
-// validateConfigMapCredential confines a configmap:// credential reference to the namespace of
+// validateConfigMapCredential ensures a configmap:// credential reference matches the namespace of
 // the configuration that references it. An empty configNamespace means the caller has no namespace
 // context (for example ProxyConfig on the agent), in which case the reference cannot be resolved
 // safely and is rejected.
@@ -327,8 +327,7 @@ func ValidateTLS(configNamespace string, settings *networking.ClientTLSSettings)
 		}
 	}
 
-	// These apply whether or not CredentialName is also set, so they must precede the early
-	// return below.
+	// This validation for caCertCredentialName must precede the early return below.
 	if settings.CaCertCredentialName != "" {
 		if settings.Mode != networking.ClientTLSSettings_SIMPLE && settings.Mode != networking.ClientTLSSettings_MUTUAL {
 			errs = AppendErrors(errs, fmt.Errorf("caCertCredentialName is only supported for SIMPLE and MUTUAL TLS modes"))
