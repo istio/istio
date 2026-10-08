@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2026-09-30T19-03-01
+BASE_VERSION ?= 1.32-2026-10-08T19-03-14
 ISTIO_BASE_REGISTRY ?= docker.io/istio
 
 export GO111MODULE ?= on
