@@ -206,7 +206,7 @@ func TestDelayedClientWithRegisteredType(t *testing.T) {
 	kubeclient.Register[*oldistionetclient.DestinationRule](
 		gvr.DestinationRule_v1beta1,
 		gvk.DestinationRule_v1beta1.Kubernetes(),
-		func(c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error) {
+		func(ctx context.Context, c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error) {
 			// HACK: we can't  use clienttest.NewWriter with the old struct
 			return &oldistionetclient.DestinationRuleList{
 				Items: []*oldistionetclient.DestinationRule{{
@@ -214,8 +214,8 @@ func TestDelayedClientWithRegisteredType(t *testing.T) {
 				}},
 			}, nil
 		},
-		func(c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1alpha3().DestinationRules(namespace).Watch(context.Background(), o)
+		func(ctx context.Context, c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1alpha3().DestinationRules(namespace).Watch(ctx, o)
 		},
 		func(c kubeclient.ClientGetter, namespace string) kubetypes.WriteAPI[*oldistionetclient.DestinationRule] {
 			return c.Istio().NetworkingV1alpha3().DestinationRules(namespace)
@@ -390,6 +390,49 @@ func TestShutdown(t *testing.T) {
 	tester.Update(obj1)
 	tracker.Empty()
 	removeTracker.Empty()
+}
+
+// TestDelayedShutdownHandler ensures removing one handler from a delayed client removes only that handler,
+// whether it was added before or after the real informer existed.
+func TestDelayedShutdownHandler(t *testing.T) {
+	for _, crdReadyFirst := range []bool{true, false} {
+		t.Run(fmt.Sprintf("crdReadyBeforeHandlers=%v", crdReadyFirst), func(t *testing.T) {
+			c := kube.NewFakeClient()
+			if crdReadyFirst {
+				clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+				c.RunAndWait(test.NewStop(t))
+			}
+			wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+			keep := assert.NewTracker[string](t)
+			remove := assert.NewTracker[string](t)
+			wasm.AddEventHandler(clienttest.TrackerHandler(keep))
+			removeReg := wasm.AddEventHandler(clienttest.TrackerHandler(remove))
+			c.RunAndWait(test.NewStop(t))
+			if !crdReadyFirst {
+				clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+			}
+			wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+			wt.Create(&istioclient.WasmPlugin{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "default"}})
+			keep.WaitOrdered("add/a")
+			remove.WaitOrdered("add/a")
+
+			// Shutdown one, the other should still get events
+			wasm.ShutdownHandler(removeReg)
+			wt.Create(&istioclient.WasmPlugin{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "default"}})
+			keep.WaitOrdered("add/b")
+			remove.Empty()
+
+			// Late handler should still sync and get events
+			late := assert.NewTracker[string](t)
+			lateReg := wasm.AddEventHandler(clienttest.TrackerHandler(late))
+			assert.EventuallyEqual(t, lateReg.HasSynced, true)
+			late.WaitUnordered("add/a", "add/b")
+			wt.Create(&istioclient.WasmPlugin{ObjectMeta: metav1.ObjectMeta{Name: "c", Namespace: "default"}})
+			keep.WaitOrdered("add/c")
+			late.WaitOrdered("add/c")
+			remove.Empty()
+		})
+	}
 }
 
 func TestErrorHandler(t *testing.T) {

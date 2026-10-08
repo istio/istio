@@ -2938,3 +2938,124 @@ func TestFilterChainMatchTransportSocket(t *testing.T) {
 		})
 	}
 }
+
+// A failed source decode retains Value but leaves TypedConfig nil. Check that
+// each filter caller preserves its existing fallback, including name handling.
+func TestFilterMergeUndecodedSource(t *testing.T) {
+	for _, operation := range []networking.EnvoyFilter_Patch_Operation{
+		networking.EnvoyFilter_Patch_MERGE,
+		networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+	} {
+		for _, applyTo := range []networking.EnvoyFilter_ApplyTo{
+			networking.EnvoyFilter_NETWORK_FILTER,
+			networking.EnvoyFilter_HTTP_FILTER,
+			networking.EnvoyFilter_LISTENER_FILTER,
+		} {
+			t.Run(operation.String()+"/"+applyTo.String(), func(t *testing.T) {
+				originalConfig := protoconv.MessageToAny(&structpb.Struct{})
+				invalidConfig := protoconv.MessageToAny(&structpb.Struct{})
+				invalidConfig.Value = []byte{0xff}
+				if _, err := invalidConfig.UnmarshalNew(); err == nil {
+					t.Fatal("expected malformed patch config to fail decoding")
+				}
+				patch := &model.EnvoyFilterConfigPatchWrapper{
+					ApplyTo:   applyTo,
+					Operation: operation,
+					Match:     &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY},
+				}
+				patches := map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper{applyTo: {patch}}
+				var got, want proto.Message
+				switch applyTo {
+				case networking.EnvoyFilter_NETWORK_FILTER:
+					filter := &listener.Filter{
+						Name:       "original",
+						ConfigType: &listener.Filter_TypedConfig{TypedConfig: originalConfig},
+					}
+					wantFilter := proto.Clone(filter).(*listener.Filter)
+					wantFilter.Name = "patched"
+					patch.Value = &listener.Filter{
+						Name:       "patched",
+						ConfigType: &listener.Filter_TypedConfig{TypedConfig: invalidConfig},
+					}
+					patchNetworkFilter(networking.EnvoyFilter_GATEWAY, patches, &listener.Listener{}, &listener.FilterChain{}, filter)
+					got, want = filter, wantFilter
+				case networking.EnvoyFilter_HTTP_FILTER:
+					filter := &hcm.HttpFilter{
+						Name:       "original",
+						ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: originalConfig},
+					}
+					wantFilter := proto.Clone(filter).(*hcm.HttpFilter)
+					wantFilter.Name = "patched"
+					patch.Value = &hcm.HttpFilter{
+						Name:       "patched",
+						ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: invalidConfig},
+					}
+					mergeHTTPFilter(networking.EnvoyFilter_GATEWAY, patches, &listener.Listener{}, &listener.FilterChain{}, &listener.Filter{}, filter)
+					got, want = filter, wantFilter
+				case networking.EnvoyFilter_LISTENER_FILTER:
+					filter := &listener.ListenerFilter{
+						Name:       "original",
+						ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: originalConfig},
+					}
+					// The existing listener-filter fallback leaves the destination name unchanged.
+					want = proto.Clone(filter)
+					patch.Value = &listener.ListenerFilter{
+						Name:       "patched",
+						ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: invalidConfig},
+					}
+					if !mergeListenerFilter(patch, filter) {
+						t.Fatal("expected listener-filter patch to be handled")
+					}
+					got = filter
+				}
+				if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+					t.Errorf("unexpected fallback (-want +got):\n%s", diff)
+				}
+			})
+		}
+	}
+}
+
+func TestFilterChainMergeUndecodedTransportSocket(t *testing.T) {
+	for _, operation := range []networking.EnvoyFilter_Patch_Operation{
+		networking.EnvoyFilter_Patch_MERGE,
+		networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+	} {
+		t.Run(operation.String(), func(t *testing.T) {
+			fc := &listener.FilterChain{
+				Name: "original",
+				TransportSocket: &core.TransportSocket{
+					Name: "envoy.transport_sockets.tls",
+					ConfigType: &core.TransportSocket_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{}),
+					},
+				},
+			}
+			want := proto.Clone(fc)
+			invalidConfig := protoconv.MessageToAny(&tls.DownstreamTlsContext{})
+			invalidConfig.Value = []byte{0xff}
+			patch := &model.EnvoyFilterConfigPatchWrapper{
+				ApplyTo:   networking.EnvoyFilter_FILTER_CHAIN,
+				Operation: operation,
+				Match:     &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY},
+				Value: &listener.FilterChain{
+					Name: "patched",
+					TransportSocket: &core.TransportSocket{
+						Name:       fc.TransportSocket.Name,
+						ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: invalidConfig},
+					},
+				},
+			}
+			if merged, err := mergeTransportSocketListener(fc, patch); merged || err == nil {
+				t.Fatalf("expected merge failure, got merged=%v, err=%v", merged, err)
+			}
+			patchFilterChain(networking.EnvoyFilter_GATEWAY,
+				map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper{
+					networking.EnvoyFilter_FILTER_CHAIN: {patch},
+				}, &listener.Listener{}, fc)
+			if diff := cmp.Diff(want, fc, protocmp.Transform()); diff != "" {
+				t.Errorf("failed merge should skip the entire filter-chain patch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

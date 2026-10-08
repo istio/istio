@@ -77,6 +77,18 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	filtered := false
 	needsPush := false
 	for config := range req.ConfigsUpdated {
+		if config.Kind == kind.AuthorizationPolicy && proxy.Type == model.Router &&
+			features.EnableGatewayAPIHTTPRouteAuth {
+			// An AuthorizationPolicy can target an HTTPRoute, attaching RBAC config to individual
+			// routes, so RDS must be regenerated. Waypoints carry routes inline in LDS.
+			//
+			// This cannot be narrowed to "a route-targeted policy exists": deleting the last one
+			// must also regenerate RDS, and by then it is gone from the new PushContext.
+			relevantUpdates.Insert(config)
+			needsPush = true
+			continue
+		}
+
 		if config.Kind == kind.Gateway {
 			if proxy.Type == model.Router || proxy.IsAmbientEastWestGateway() {
 				relevantUpdates.Insert(config)
@@ -102,6 +114,12 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	}
 
 	return req, needsPush
+}
+
+// RdsNeedsPush reports whether an update requires route generation for Envoy or proxyless gRPC.
+func RdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	_, needsPush := rdsNeedsPush(req, proxy)
+	return needsPush
 }
 
 func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

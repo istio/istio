@@ -107,10 +107,10 @@ type clusterWrapper struct {
 	// isDFPCluster indicates whether the cluster is a dynamic forward proxy cluster
 	isDFPCluster bool
 
-	// dnsWrappedLocalityLbEndpoints are the locality lb endpoints wrapped with IstioEndpoints.
-	// It is used to do failover priority label match with proxy labels.
+	// dnsWrappedLocalityLbEndpoints are the locality lb endpoints wrapped with IstioEndpoints, one
+	// entry per locality group. It is used to do failover priority label match with proxy labels.
 	// Only used for DNS type of clusters.
-	dnsWrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
+	dnsWrappedLocalityLbEndpoints []*loadbalancer.WrappedLocalityLbEndpoints
 }
 
 // metadataCerts hosts client certificate related metadata specified in proxy metadata.
@@ -455,7 +455,7 @@ func applyBaggageMetadataDiscovery(c *cluster.Cluster) {
 }
 
 func addDisableBaggageDiscoveryMetadata(c *cluster.Cluster) {
-	if features.EnableAmbientBaggage {
+	if features.EnableAmbientBaggage && !features.EnableAmbientTLSProxyHTTPMetrics {
 		if c.Metadata == nil {
 			c.Metadata = &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{},

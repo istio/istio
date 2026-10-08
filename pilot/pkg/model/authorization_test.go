@@ -19,16 +19,20 @@ import (
 	"reflect"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -562,4 +566,231 @@ func (fs *authzFakeStore) Update(config.Config) (string, error) {
 
 func (fs *authzFakeStore) UpdateStatus(config.Config) (string, error) {
 	return "not implemented", nil
+}
+
+func httpRouteTargetRefPolicy(action authpb.AuthorizationPolicy_Action, routeName string) *authpb.AuthorizationPolicy {
+	return &authpb.AuthorizationPolicy{
+		Action: action,
+		TargetRef: &selectorpb.PolicyTargetReference{
+			Group: gvk.HTTPRoute.Group,
+			Kind:  gvk.HTTPRoute.Kind,
+			Name:  routeName,
+		},
+	}
+}
+
+func TestListAuthorizationPoliciesForHTTPRoute(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
+	allowRouteA := httpRouteTargetRefPolicy(authpb.AuthorizationPolicy_ALLOW, "route-a")
+	denyRouteA := httpRouteTargetRefPolicy(authpb.AuthorizationPolicy_DENY, "route-a")
+	allowRouteB := httpRouteTargetRefPolicy(authpb.AuthorizationPolicy_ALLOW, "route-b")
+	// AUDIT is not a valid action for an HTTPRoute targetRef and must not be indexed.
+	auditRouteA := httpRouteTargetRefPolicy(authpb.AuthorizationPolicy_AUDIT, "route-a")
+	// A workload-wide policy must never show up in the route index.
+	workloadWide := &authpb.AuthorizationPolicy{Action: authpb.AuthorizationPolicy_ALLOW}
+
+	configs := []config.Config{
+		newConfig("allow-a", "foo", allowRouteA),
+		newConfig("deny-a", "foo", denyRouteA),
+		newConfig("allow-b", "foo", allowRouteB),
+		newConfig("audit-a", "foo", auditRouteA),
+		newConfig("workload-wide", "foo", workloadWide),
+		// Same route name in a different namespace must be a distinct key.
+		newConfig("allow-a-other-ns", "bar", allowRouteA),
+	}
+	authzPolicies := createFakeAuthorizationPolicies(configs)
+
+	cases := []struct {
+		name      string
+		route     types.NamespacedName
+		wantAllow []string
+		wantDeny  []string
+	}{
+		{
+			name:      "allow and deny targeting the route",
+			route:     types.NamespacedName{Name: "route-a", Namespace: "foo"},
+			wantAllow: []string{"allow-a"},
+			wantDeny:  []string{"deny-a"},
+		},
+		{
+			name:      "only allow targeting the route",
+			route:     types.NamespacedName{Name: "route-b", Namespace: "foo"},
+			wantAllow: []string{"allow-b"},
+		},
+		{
+			name:      "route in another namespace is a distinct key",
+			route:     types.NamespacedName{Name: "route-a", Namespace: "bar"},
+			wantAllow: []string{"allow-a-other-ns"},
+		},
+		{
+			name:  "unknown route has no policies",
+			route: types.NamespacedName{Name: "missing", Namespace: "foo"},
+		},
+		{
+			name:  "zero value route has no policies",
+			route: types.NamespacedName{},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := authzPolicies.ListAuthorizationPoliciesForHTTPRoute(tc.route)
+			assertPolicyNames(t, "allow", got.Allow, tc.wantAllow)
+			assertPolicyNames(t, "deny", got.Deny, tc.wantDeny)
+			// Only ALLOW/DENY are valid for HTTPRoute targetRefs.
+			if len(got.Audit) != 0 {
+				t.Errorf("expected no audit policies, got %d", len(got.Audit))
+			}
+			if len(got.Custom) != 0 {
+				t.Errorf("expected no custom policies, got %d", len(got.Custom))
+			}
+		})
+	}
+}
+
+func assertPolicyNames(t *testing.T, action string, got []AuthorizationPolicy, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s: got %d policies, want %d", action, len(got), len(want))
+	}
+	for i, name := range want {
+		if got[i].Name != name {
+			t.Errorf("%s[%d]: got %q, want %q", action, i, got[i].Name, name)
+		}
+	}
+}
+
+func TestIndexHTTPRoutePoliciesFeatureGate(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, false)
+	configs := []config.Config{
+		newConfig("allow-a", "foo", httpRouteTargetRefPolicy(authpb.AuthorizationPolicy_ALLOW, "route-a")),
+	}
+	got := createFakeAuthorizationPolicies(configs).
+		ListAuthorizationPoliciesForHTTPRoute(types.NamespacedName{Name: "route-a", Namespace: "foo"})
+	if len(got.Allow) != 0 || len(got.Deny) != 0 {
+		t.Errorf("expected empty route index when the feature is disabled, got allow=%d deny=%d", len(got.Allow), len(got.Deny))
+	}
+}
+
+// The index must match on exact name, exact namespace and the HTTPRoute group/kind only.
+// Each case here corresponds to a guard in indexHTTPRoutePolicies; deleting any one of them
+// must fail this test.
+func TestIndexHTTPRoutePoliciesRejectsNonMatchingTargets(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
+
+	targeted := func(ref *selectorpb.PolicyTargetReference) *authpb.AuthorizationPolicy {
+		return &authpb.AuthorizationPolicy{
+			Action:    authpb.AuthorizationPolicy_ALLOW,
+			TargetRef: ref,
+			Rules:     []*authpb.Rule{{}},
+		}
+	}
+
+	cases := []struct {
+		name string
+		ref  *selectorpb.PolicyTargetReference
+	}{
+		{
+			name: "other namespace explicitly targeted",
+			ref: &selectorpb.PolicyTargetReference{
+				Group: gvk.HTTPRoute.Group, Kind: gvk.HTTPRoute.Kind,
+				Name: "route-a", Namespace: "bar",
+			},
+		},
+		{
+			name: "service of the same name",
+			ref:  &selectorpb.PolicyTargetReference{Group: "", Kind: "Service", Name: "route-a"},
+		},
+		{
+			name: "grpcroute of the same name",
+			ref: &selectorpb.PolicyTargetReference{
+				Group: gvk.HTTPRoute.Group, Kind: "GRPCRoute", Name: "route-a",
+			},
+		},
+		{
+			name: "right kind in the wrong group",
+			ref: &selectorpb.PolicyTargetReference{
+				Group: "networking.istio.io", Kind: gvk.HTTPRoute.Kind, Name: "route-a",
+			},
+		},
+		{
+			name: "empty name",
+			ref: &selectorpb.PolicyTargetReference{
+				Group: gvk.HTTPRoute.Group, Kind: gvk.HTTPRoute.Kind, Name: "",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			policies := createFakeAuthorizationPolicies([]config.Config{
+				newConfig("policy", "foo", targeted(tc.ref)),
+			})
+			// Neither the authoring namespace nor the referenced namespace may pick it up.
+			for _, key := range []types.NamespacedName{
+				{Name: "route-a", Namespace: "foo"},
+				{Name: "route-a", Namespace: "bar"},
+			} {
+				got := policies.ListAuthorizationPoliciesForHTTPRoute(key)
+				if len(got.Allow)+len(got.Deny) != 0 {
+					t.Errorf("policy was indexed under %s: allow=%d deny=%d", key, len(got.Allow), len(got.Deny))
+				}
+			}
+		})
+	}
+}
+
+// Guards the positive case, so the negative test above cannot pass by indexing nothing.
+func TestIndexHTTPRoutePoliciesMatchesOwnNamespace(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
+	for _, ns := range []string{"", "foo"} {
+		policies := createFakeAuthorizationPolicies([]config.Config{
+			newConfig("policy", "foo", &authpb.AuthorizationPolicy{
+				Action: authpb.AuthorizationPolicy_ALLOW,
+				TargetRef: &selectorpb.PolicyTargetReference{
+					Group: gvk.HTTPRoute.Group, Kind: gvk.HTTPRoute.Kind,
+					Name: "route-a", Namespace: ns,
+				},
+				Rules: []*authpb.Rule{{}},
+			}),
+		})
+		got := policies.ListAuthorizationPoliciesForHTTPRoute(types.NamespacedName{Name: "route-a", Namespace: "foo"})
+		if len(got.Allow) != 1 {
+			t.Errorf("targetRef namespace %q: got %d allow policies, want 1", ns, len(got.Allow))
+		}
+	}
+}
+
+// A policy that targets an HTTPRoute must apply at route scope only. Mixing an HTTPRoute
+// targetRef with a Gateway targetRef previously applied the same policy workload-wide as well,
+// which for ALLOW widens access across every route on the gateway.
+func TestHTTPRouteTargetedPolicyDoesNotAttachWorkloadWide(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
+
+	mixed := &authpb.AuthorizationPolicy{
+		Action: authpb.AuthorizationPolicy_ALLOW,
+		TargetRefs: []*selectorpb.PolicyTargetReference{
+			{Group: gvk.KubernetesGateway.Group, Kind: gvk.KubernetesGateway.Kind, Name: "gw"},
+			{Group: gvk.HTTPRoute.Group, Kind: gvk.HTTPRoute.Kind, Name: "route-a"},
+		},
+		Rules: []*authpb.Rule{{}},
+	}
+	policies := createFakeAuthorizationPolicies([]config.Config{newConfig("mixed", "foo", mixed)})
+
+	// Route scope: still indexed, so the test cannot pass by the policy vanishing entirely.
+	got := policies.ListAuthorizationPoliciesForHTTPRoute(types.NamespacedName{Name: "route-a", Namespace: "foo"})
+	if len(got.Allow) != 1 {
+		t.Fatalf("route scope: got %d allow policies, want 1", len(got.Allow))
+	}
+
+	// Workload scope: must not attach.
+	opts := WorkloadPolicyMatcher{
+		WorkloadNamespace: "foo",
+		WorkloadLabels:    labels.Instance{label.IoK8sNetworkingGatewayGatewayName.Name: "gw"},
+		RootNamespace:     "istio-config",
+	}
+	workload := policies.ListAuthorizationPolicies(opts)
+	if len(workload.Allow) != 0 {
+		t.Errorf("policy attached workload-wide: got %d allow policies, want 0", len(workload.Allow))
+	}
 }

@@ -176,55 +176,66 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaHTTPRoutes(node *model.Proxy, re
 }
 
 // affectedRouteNames returns the subset of watched route names whose built content can change
-// because of the given config updates.
+// because of the given config updates. shouldUseDeltaRoutes guarantees cfgs only contains
+// VirtualService/ServiceEntry kinds here, so the updated names/hosts are resolved once up front
+// and checked against each route with a single egress-listener resolution, rather than
+// re-resolving the egress listener and re-scanning cfgs for every watched route.
 func affectedRouteNames(node *model.Proxy, cfgs sets.Set[model.ConfigKey], watched sets.String) sets.String {
+	updatedVirtualServices := sets.New[string]()
+	updatedHosts := sets.New[host.Name]()
+	for key := range cfgs {
+		switch key.Kind {
+		case kind.VirtualService:
+			updatedVirtualServices.Insert(key.Namespace + "/" + key.Name)
+		case kind.ServiceEntry:
+			updatedHosts.Insert(host.Name(key.Name))
+		}
+	}
+
 	affected := sets.New[string]()
 	for routeName := range watched {
-		for key := range cfgs {
-			if routeAffectedByConfig(node, routeName, key) {
-				affected.Insert(routeName)
-				break
-			}
+		if routeAffectedByUpdates(node, routeName, updatedVirtualServices, updatedHosts) {
+			affected.Insert(routeName)
 		}
 	}
 	return affected
 }
 
-// routeAffectedByConfig reports whether the route config identified by routeName can be affected
-// by the given config update. Both the current and previous SidecarScopes are checked: a deleted
-// or retargeted config may be absent from the current scope but still need to remove configuration
-// Envoy has already received. When the current egress listener backing routeName cannot be
-// resolved, it conservatively reports the route as affected.
-func routeAffectedByConfig(node *model.Proxy, routeName string, key model.ConfigKey) bool {
+// routeAffectedByUpdates reports whether the route config identified by routeName can be affected
+// by the given updated VirtualServices/hosts. Both the current and previous SidecarScopes are
+// checked: a deleted or retargeted config may be absent from the current scope but still need to
+// remove configuration Envoy has already received. When the current egress listener backing
+// routeName cannot be resolved, it conservatively reports the route as affected.
+func routeAffectedByUpdates(node *model.Proxy, routeName string, updatedVirtualServices sets.String, updatedHosts sets.Set[host.Name]) bool {
 	listenerPort, _, _ := extractListenerPort(routeName)
 	egressListener := node.SidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
 	if egressListener == nil {
 		return true
 	}
-	if egressListenerAffectedByConfig(egressListener, key) {
+	if egressListenerAffectedByUpdates(egressListener, updatedVirtualServices, updatedHosts) {
 		return true
 	}
 	if node.PrevSidecarScope == nil {
 		return false
 	}
 	previousEgressListener := node.PrevSidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
-	return previousEgressListener != nil && egressListenerAffectedByConfig(previousEgressListener, key)
+	return previousEgressListener != nil && egressListenerAffectedByUpdates(previousEgressListener, updatedVirtualServices, updatedHosts)
 }
 
-func egressListenerAffectedByConfig(egressListener *model.IstioEgressListenerWrapper, key model.ConfigKey) bool {
-	switch key.Kind {
-	case kind.VirtualService:
+func egressListenerAffectedByUpdates(egressListener *model.IstioEgressListenerWrapper, updatedVirtualServices sets.String, updatedHosts sets.Set[host.Name]) bool {
+	if len(updatedVirtualServices) > 0 {
 		for _, vs := range egressListener.VirtualServices() {
-			if vs.Name == key.Name && vs.Namespace == key.Namespace {
+			if updatedVirtualServices.Contains(vs.Namespace + "/" + vs.Name) {
 				return true
 			}
 		}
-		return false
-	case kind.ServiceEntry:
-		return egressListenerHasHost(egressListener, host.Name(key.Name))
-	default:
-		return true
 	}
+	for hostname := range updatedHosts {
+		if egressListenerHasHost(egressListener, hostname) {
+			return true
+		}
+	}
+	return false
 }
 
 func egressListenerHasHost(egressListener *model.IstioEgressListenerWrapper, hostname host.Name) bool {
@@ -245,9 +256,27 @@ func egressListenerHasHost(egressListener *model.IstioEgressListenerWrapper, hos
 // can change because of the given config updates, for a Router (gateway) proxy. Route names are
 // keyed by the gateway(s) whose Servers are bound to that route (node.MergedGateway.ServersByRouteName),
 // mirroring how buildGatewayHTTPRouteConfig resolves a route name to the VirtualServices it builds from.
+//
+// Whether each gateway is affected by cfgs is resolved once per gateway up front, since the same
+// handful of gateways typically back many routes -- re-running VirtualServicesForGateway for every
+// (route, config) pair would otherwise repeat the same lookup for every route a gateway serves.
 func affectedGatewayRouteNames(node *model.Proxy, push *model.PushContext, cfgs sets.Set[model.ConfigKey], watched sets.String) sets.String {
-	affected := sets.New[string]()
 	merged := node.MergedGateway
+	allGatewayNames := sets.New[string]()
+	for _, gatewayName := range merged.GatewayNameForServer {
+		allGatewayNames.Insert(gatewayName)
+	}
+	affectedGateways := sets.New[string]()
+	for gatewayName := range allGatewayNames {
+		for key := range cfgs {
+			if gatewayAffectedByConfig(push, node.ConfigNamespace, gatewayName, key) {
+				affectedGateways.Insert(gatewayName)
+				break
+			}
+		}
+	}
+
+	affected := sets.New[string]()
 	for routeName := range watched {
 		servers, ok := merged.ServersByRouteName[routeName]
 		if !ok {
@@ -258,12 +287,8 @@ func affectedGatewayRouteNames(node *model.Proxy, push *model.PushContext, cfgs 
 			affected.Insert(routeName)
 			continue
 		}
-		gatewayNames := sets.New[string]()
 		for _, server := range servers {
-			gatewayNames.Insert(merged.GatewayNameForServer[server])
-		}
-		for key := range cfgs {
-			if gatewayRouteAffectedByConfig(push, node.ConfigNamespace, gatewayNames, key) {
+			if affectedGateways.Contains(merged.GatewayNameForServer[server]) {
 				affected.Insert(routeName)
 				break
 			}
@@ -272,33 +297,29 @@ func affectedGatewayRouteNames(node *model.Proxy, push *model.PushContext, cfgs 
 	return affected
 }
 
-// gatewayRouteAffectedByConfig reports whether a gateway route bound to the given set of gateway
-// names (formatted "namespace/name", matching MergedGateway.GatewayNameForServer) can be affected
-// by the given config update.
-func gatewayRouteAffectedByConfig(push *model.PushContext, proxyNamespace string, gatewayNames sets.String, key model.ConfigKey) bool {
+// gatewayAffectedByConfig reports whether the gateway identified by gatewayName (formatted
+// "namespace/name", matching MergedGateway.GatewayNameForServer) can be affected by the given
+// config update.
+func gatewayAffectedByConfig(push *model.PushContext, proxyNamespace string, gatewayName string, key model.ConfigKey) bool {
 	switch key.Kind {
 	case kind.Gateway:
-		return gatewayNames.Contains(key.Namespace + "/" + key.Name)
+		return gatewayName == key.Namespace+"/"+key.Name
 	case kind.VirtualService:
-		for gatewayName := range gatewayNames {
-			for _, vs := range push.VirtualServicesForGateway(proxyNamespace, gatewayName) {
-				if vs.Name == key.Name && vs.Namespace == key.Namespace {
-					return true
-				}
+		for _, vs := range push.VirtualServicesForGateway(proxyNamespace, gatewayName) {
+			if vs.Name == key.Name && vs.Namespace == key.Namespace {
+				return true
 			}
 		}
 		return false
 	case kind.ServiceEntry:
-		for gatewayName := range gatewayNames {
-			for _, vs := range push.VirtualServicesForGateway(proxyNamespace, gatewayName) {
-				vsSpec, ok := vs.Spec.(*networking.VirtualService)
-				if !ok {
-					continue
-				}
-				for destHost := range model.VirtualServiceDestinationHosts(vsSpec) {
-					if host.Name(destHost).Matches(host.Name(key.Name)) {
-						return true
-					}
+		for _, vs := range push.VirtualServicesForGateway(proxyNamespace, gatewayName) {
+			vsSpec, ok := vs.Spec.(*networking.VirtualService)
+			if !ok {
+				continue
+			}
+			for destHost := range model.VirtualServiceDestinationHosts(vsSpec) {
+				if host.Name(destHost).Matches(host.Name(key.Name)) {
+					return true
 				}
 			}
 		}
@@ -563,7 +584,11 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	var routeCache *istio_route.Cache
-	if listenerPort > 0 && features.EnableRDSCaching {
+	// EnableRDSCaching only guards adding entries to the cache; xdsCache.Get/Add below still go through the
+	// shared cache implementation, which is a no-op unless EnableXDSCaching is also on. Check both here so the
+	// cache-key computation and lookup are skipped entirely when caching is disabled, rather than doing the work
+	// and then discarding it.
+	if listenerPort > 0 && features.EnableXDSCaching && features.EnableRDSCaching {
 		// sort services, ensure that routeCache calculation result is stable
 		services = make([]*model.Service, 0, len(servicesByName))
 		for _, svc := range servicesByName {
@@ -585,6 +610,12 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			VirtualServices: virtualServices,
 			EnvoyFilterKeys: efKeys,
 		}
+		// Compute a conservative dependency set before building route protos. This lets a cache hit
+		// skip VirtualHost and Route construction entirely.
+		routeCache.DestinationRules = istio_route.DestinationRuleDependencies(push, node, virtualServices, services)
+		if resource := xdsCache.Get(routeCache); resource != nil && !features.EnableUnsafeAssertions {
+			return nil, resource, routeCache
+		}
 	}
 
 	// This is hack to keep consistent with previous behavior.
@@ -595,16 +626,9 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 	mostSpecificWildcardVsIndex := egressListener.MostSpecificWildcardVirtualServiceIndex()
 	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push,
+	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(node, push,
 		servicesByName, virtualServices, listenerPort, mostSpecificWildcardVsIndex,
 	)
-
-	if features.EnableRDSCaching {
-		resource := xdsCache.Get(routeCache)
-		if resource != nil && !features.EnableUnsafeAssertions {
-			return nil, resource, routeCache
-		}
-	}
 
 	vHostPortMap := make(map[int][]*route.VirtualHost)
 	vhosts := sets.String{}

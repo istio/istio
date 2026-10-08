@@ -105,6 +105,8 @@ func fetchResourceFilter(filters string) []resourceFilterConfig {
 
 type filterFunction = func(obj any) bool
 
+const gatewayAPIDevelopmentVersion = "v0.0.0-dev"
+
 // unionFilter can be used to establish multiple object filters on CRD types.
 // We can use it for cases where we care about filtering out a CRD for a specific
 // version, or a specific group.
@@ -180,6 +182,11 @@ func minimumVersionFilter(t any) bool {
 	if !f {
 		log.Errorf("CRD %v expected to have a %v annotation, but none found; ignoring", crd.Name, consts.BundleVersion)
 		return false
+	}
+	// Development Gateway API bundles use this sentinel version. They may contain changes newer
+	// than the latest released bundle, so they always satisfy the minimum version requirement.
+	if bv == gatewayAPIDevelopmentVersion {
+		return true
 	}
 	fv, err := semver.NewVersion(bv)
 	if err != nil {

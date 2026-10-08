@@ -157,10 +157,11 @@ type sidecarIndex struct {
 	// for all services in the mesh. This will be used if there is no sidecar specified in root namespace.
 	// These are lazy-loaded. Access protected by derivedSidecarMutex.
 	defaultSidecarsByNamespace map[string]*SidecarScope
-	// sidecarsForGatewayByNamespace contains the default sidecar for gateways and waypoints,
-	// These are *always* computed from DefaultSidecarScopeForGateway.
+	// Scopes of routers and waypoints. A key without gateways holds the namespace scope of the proxy
+	// type, computed from DefaultSidecarScopeForGateway or DefaultSidecarScopeForWaypoint. Routers and
+	// ambient east-west gateways with merged gateways get a gateway-specific scope layered on it.
 	// These are lazy-loaded. Access protected by derivedSidecarMutex.
-	sidecarsForGatewayByNamespace map[string]*SidecarScope
+	sidecarsForGatewaysByGatewayScope map[GatewayScopeKey]*SidecarScope
 
 	// mutex to protect derived sidecars i.e. not specified by user.
 	derivedSidecarMutex *sync.RWMutex
@@ -168,11 +169,11 @@ type sidecarIndex struct {
 
 func newSidecarIndex() sidecarIndex {
 	return sidecarIndex{
-		sidecarsByNamespace:           map[string][]*SidecarScope{},
-		meshRootSidecarsByNamespace:   map[string]*SidecarScope{},
-		defaultSidecarsByNamespace:    map[string]*SidecarScope{},
-		sidecarsForGatewayByNamespace: map[string]*SidecarScope{},
-		derivedSidecarMutex:           &sync.RWMutex{},
+		sidecarsByNamespace:               map[string][]*SidecarScope{},
+		meshRootSidecarsByNamespace:       map[string]*SidecarScope{},
+		defaultSidecarsByNamespace:        map[string]*SidecarScope{},
+		sidecarsForGatewaysByGatewayScope: map[GatewayScopeKey]*SidecarScope{},
+		derivedSidecarMutex:               &sync.RWMutex{},
 	}
 }
 
@@ -898,7 +899,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy, patches *MergedEnvoyFilterW
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
 	if proxy.MergedGateway != nil {
-		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
+		for _, gw := range proxy.MergedGateway.GatewayNames {
 			hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
 		}
 	}
@@ -935,7 +936,7 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, namespace strin
 	if gw.ContainsAutoPassthroughGateways {
 		return true
 	}
-	for _, g := range gw.GatewayNameForServer {
+	for _, g := range gw.GatewayNames {
 		if hosts := ps.virtualServiceIndex.destinationsByGateway[g]; hosts != nil {
 			if hosts.Contains(hostname) {
 				return true
@@ -1073,22 +1074,6 @@ func (ps *PushContext) GetTotalServiceCount() int {
 	return ps.ServiceIndex.count
 }
 
-// ServiceForHostname returns the service associated with a given hostname following SidecarScope
-func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Service {
-	if proxy != nil && proxy.SidecarScope != nil {
-		return proxy.SidecarScope.servicesByHostname[hostname]
-	}
-
-	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
-	// so the selection must be undefined.
-	for _, service := range ps.ServiceIndex.HostnameAndNamespace[hostname] {
-		return service
-	}
-
-	// No service found
-	return nil
-}
-
 // serviceExportTo returns the effective exportTo set for a service: the declared exportTo (or the
 // mesh default when unset), capped by the service's resolved Visibility when
 // MeshConfig.serviceEntryVisibility.applyToSidecars is enabled. This is the visibility-safe way to
@@ -1138,14 +1123,8 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 		exportToSet.Contains(visibility.Instance(namespace))
 }
 
-// VirtualServicesForGateway lists all virtual services bound to the specified gateways
-// This replaces store.VirtualServices. Used only by the gateways
-// Sidecars use the egressListener.VirtualServices().
-//
-// Note that for generating the imported virtual services of sidecar egress
-// listener, we don't call this function to copy configs for performance issues.
-// Instead, we pass the virtualServiceIndex directly into SelectVirtualServices
-// function.
+// VirtualServicesForGateway lists all virtual services bound to the specified gateway as visible from
+// proxyNamespace.
 func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string) []*config.Config {
 	name := types.NamespacedName{
 		Namespace: proxyNamespace,
@@ -1203,19 +1182,7 @@ func (ps *PushContext) doGetSidecarScope(proxy *Proxy, workloadLabels labels.Ins
 		ps.sidecarIndex.derivedSidecarMutex.Lock()
 		defer ps.sidecarIndex.derivedSidecarMutex.Unlock()
 
-		// Gateways always use default sidecar scope.
-		if sc, f := ps.sidecarIndex.defaultSidecarsByNamespace[proxy.ConfigNamespace]; f {
-			return sc
-		}
-
-		if sc, f := ps.sidecarIndex.sidecarsForGatewayByNamespace[proxy.ConfigNamespace]; f {
-			return sc
-		}
-
-		// We need to compute this namespace
-		computed := DefaultSidecarScopeForGateway(ps, proxy.ConfigNamespace)
-		ps.sidecarIndex.sidecarsForGatewayByNamespace[proxy.ConfigNamespace] = computed
-		return computed
+		return ps.gatewayScope(proxy)
 	case SidecarProxy:
 		if hasSidecar {
 			for _, wrapper := range sidecars {
@@ -1266,6 +1233,36 @@ func (ps *PushContext) doGetSidecarScope(proxy *Proxy, workloadLabels labels.Ins
 	return nil
 }
 
+// gatewayScope returns the namespace scope of a router or waypoint, extended with the VirtualServices
+// bound to the merged gateways of routers and ambient east-west gateways. Callers must hold derivedSidecarMutex.
+func (ps *PushContext) gatewayScope(proxy *Proxy) *SidecarScope {
+	scopes := ps.sidecarIndex.sidecarsForGatewaysByGatewayScope
+	baseKey := GatewayScopeKey{ProxyType: proxy.Type, Namespace: proxy.ConfigNamespace}
+	base, found := scopes[baseKey]
+	if !found {
+		if proxy.Type == Waypoint {
+			base = DefaultSidecarScopeForWaypoint(ps, proxy.ConfigNamespace)
+		} else {
+			base = DefaultSidecarScopeForGateway(ps, proxy.ConfigNamespace)
+		}
+		scopes[baseKey] = base
+	}
+	if proxy.Type == Waypoint && !proxy.IsAmbientEastWestGateway() {
+		return base
+	}
+	gateways := proxy.MergedGateway.GetGatewayNames()
+	if len(gateways) == 0 {
+		return base
+	}
+	key := proxy.MergedGateway.GatewayScopeKey
+	if sc, found := scopes[key]; found {
+		return sc
+	}
+	computed := gatewaySidecarScope(ps, base, gateways)
+	scopes[key] = computed
+	return computed
+}
+
 // destinationRule returns a destination rule for a service name in a given namespace.
 func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) []*ConsolidatedDestRule {
 	if service == nil {
@@ -1284,7 +1281,8 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	if proxyNameSpace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.destinationRuleIndex.namespaceLocal[proxyNameSpace] != nil {
-			if _, drs, ok := MostSpecificHostMatch(service.Hostname,
+			if _, drs, ok := MostSpecificHostMatch(
+				service.Hostname,
 				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].specificDestRules,
 				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].wildcardDestRules,
 			); ok {
@@ -1295,7 +1293,8 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 		// If this is a namespace local DR in the same namespace, this must be meant for this proxy, so we do not
 		// need to worry about overriding other DRs with *.local type rules here. If we ignore this, then exportTo=. in
 		// root namespace would always be ignored
-		if _, drs, ok := MostSpecificHostMatch(service.Hostname,
+		if _, drs, ok := MostSpecificHostMatch(
+			service.Hostname,
 			ps.destinationRuleIndex.rootNamespaceLocal.specificDestRules,
 			ps.destinationRuleIndex.rootNamespaceLocal.wildcardDestRules,
 		); ok {
@@ -1337,7 +1336,8 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*ConsolidatedDestRule {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
-		if _, drs, ok := MostSpecificHostMatch(hostname,
+		if _, drs, ok := MostSpecificHostMatch(
+			hostname,
 			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].specificDestRules,
 			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].wildcardDestRules,
 		); ok {
@@ -2235,10 +2235,6 @@ func (ps *PushContext) TrafficExtensionsByName(proxy *Proxy, names []types.Names
 func (ps *PushContext) TrafficExtensionsByListenerInfo(proxy *Proxy, info ListenerInfo,
 	chainType FilterChainType,
 ) map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper {
-	if proxy == nil {
-		return nil
-	}
-
 	matchedFilters := make(map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper)
 	lookupInNamespaces := []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
 	for i := range info.Services {
@@ -2332,10 +2328,6 @@ type MergedEnvoyFilterWrapper struct {
 
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
 func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
-	// this should never happen
-	if proxy == nil {
-		return nil
-	}
 	var matchedEnvoyFilters []*EnvoyFilterWrapper
 	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
 	// First get all the filter configs from the config root namespace
@@ -2455,10 +2447,6 @@ type gatewayWithInstances struct {
 }
 
 func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
-	// this should never happen
-	if proxy == nil {
-		return nil
-	}
 	gatewayInstances := make([]gatewayWithInstances, 0)
 
 	var configs []config.Config
@@ -2713,13 +2701,13 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 
 // WorkloadsForWaypoint returns all workloads associated with a given waypoint identified by it's WaypointKey
 // Used when calculating the workloads which should be configured for a specific waypoint proxy
-func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []WorkloadInfo {
+func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []*WorkloadInfo {
 	return ps.ambientIndex.WorkloadsForWaypoint(key)
 }
 
 // ServicesForWaypoint returns all services associated with a given waypoint identified by it's WaypointKey
 // Used when calculating the services which should be configured for a specific waypoint proxy
-func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
+func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []*ServiceInfo {
 	return ps.ambientIndex.ServicesForWaypoint(key)
 }
 

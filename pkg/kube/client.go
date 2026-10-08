@@ -324,7 +324,7 @@ func NewErroringFakeClient(objects ...runtime.Object) CLIClient {
 	s := FakeIstioScheme.MustGet()
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
-	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
+	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(fakeDynamicScheme.MustGet(), nil)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
 	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)                     //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
 	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects) //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
@@ -393,7 +393,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	s := FakeIstioScheme.MustGet()
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
-	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
+	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(fakeDynamicScheme.MustGet(), nil)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
 	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)                     //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
 	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects) //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
@@ -554,6 +554,9 @@ type client struct {
 
 	// http is a client for HTTP requests
 	http *http.Client
+
+	// restHTTPClient is the HTTP client the Kubernetes clientsets share.
+	restHTTPClient *http.Client
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -572,7 +575,16 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 		opt(&c)
 	}
 
-	c.restClient, err = clientFactory.RESTClient()
+	// Share the factory's connection pool. The copy keeps a timeout set by a ClientOption.
+	sharedHTTPClient, err := clientFactory.HTTPClient()
+	if err != nil {
+		return nil, err
+	}
+	httpClient := *sharedHTTPClient
+	httpClient.Timeout = c.config.Timeout
+	c.restHTTPClient = &httpClient
+
+	c.restClient, err = rest.RESTClientForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
@@ -588,37 +600,37 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 
 	c.informerFactory = informerfactory.NewSharedInformerFactory()
 
-	c.kube, err = kubernetes.NewForConfig(c.config)
+	c.kube, err = kubernetes.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.metadata, err = metadata.NewForConfig(c.config)
+	c.metadata, err = metadata.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.dynamic, err = dynamic.NewForConfig(c.config)
+	c.dynamic, err = dynamic.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.istio, err = istioclient.NewForConfig(c.config)
+	c.istio, err = istioclient.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.gatewayapi, err = gatewayapiclient.NewForConfig(c.config)
+	c.gatewayapi, err = gatewayapiclient.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.gatewayapiinference, err = gatewayapiinferenceclient.NewForConfig(c.config)
+	c.gatewayapiinference, err = gatewayapiinferenceclient.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	c.extSet, err = kubeExtClient.NewForConfig(c.config)
+	c.extSet, err = kubeExtClient.NewForConfigAndClient(c.config, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
@@ -638,7 +650,9 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 			restConfig.Timeout = time.Second * 5
 		}
 
-		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		versionHTTPClient := httpClient
+		versionHTTPClient.Timeout = restConfig.Timeout
+		kubeClient, err := kubernetes.NewForConfigAndClient(restConfig, &versionHTTPClient)
 		if err == nil {
 			clientWithTimeout = kubeClient
 		}
@@ -1484,6 +1498,25 @@ var (
 	IstioScheme = istioScheme()
 	IstioCodec  = serializer.NewCodecFactory(IstioScheme)
 )
+
+// fakeDynamicScheme is the unstructured counterpart of FakeIstioScheme, which
+// dynamicfake.NewSimpleDynamicClient would otherwise rebuild for every fake client.
+// The fake dynamic client only reads its scheme, so all fake clients can share it.
+var fakeDynamicScheme = lazy.New(func() (*runtime.Scheme, error) {
+	s := FakeIstioScheme.MustGet()
+	us := runtime.NewScheme()
+	for gvk := range s.AllKnownTypes() {
+		if us.Recognizes(gvk) {
+			continue
+		}
+		if strings.HasSuffix(gvk.Kind, "List") {
+			us.AddKnownTypeWithName(gvk, &unstructured.UnstructuredList{})
+			continue
+		}
+		us.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+	}
+	return us, nil
+})
 
 // FakeIstioScheme is an IstioScheme that has List type registered.
 var FakeIstioScheme = lazy.New(func() (*runtime.Scheme, error) {

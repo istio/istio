@@ -31,10 +31,12 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	api "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/validation/agent"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -1244,8 +1246,10 @@ func TestValidateHTTPStatus(t *testing.T) {
 	}{
 		{-100, false},
 		{0, false},
+		{199, false},
 		{200, true},
-		{600, true},
+		{599, true},
+		{600, false},
 		{601, false},
 	}
 
@@ -2525,6 +2529,35 @@ func TestValidateVirtualService(t *testing.T) {
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"*/gateway"},
 			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "bad gateway after mesh", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"mesh", "ns1/b@dgateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "bad gateway after FQDN gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"gateway.example.com", "ns1/b@dgateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false, warning: true},
+		{name: "bad http match gateway after mesh", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Match: []*networking.HTTPMatchRequest{{
+					Gateways: []string{"mesh", "ns1/b@dgateway"},
+				}},
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
@@ -8833,6 +8866,180 @@ func TestValidateHTTPHeaderValue(t *testing.T) {
 				assert.NoError(t, got)
 			} else {
 				assert.Error(t, got)
+			}
+		})
+	}
+}
+
+func TestValidateAuthorizationPolicyHTTPRouteTargetRef(t *testing.T) {
+	httpRouteRef := func() *api.PolicyTargetReference {
+		return &api.PolicyTargetReference{
+			Group: gvk.HTTPRoute.Group,
+			Kind:  gvk.HTTPRoute.Kind,
+			Name:  "route",
+		}
+	}
+
+	cases := []struct {
+		name    string
+		enabled bool
+		in      *security_beta.AuthorizationPolicy
+		valid   bool
+	}{
+		{
+			name:    "disabled rejects targetRef",
+			enabled: false,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRef: httpRouteRef(),
+				Action:    security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: false,
+		},
+		{
+			name:    "disabled rejects targetRefs",
+			enabled: false,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRefs: []*api.PolicyTargetReference{httpRouteRef()},
+				Action:     security_beta.AuthorizationPolicy_DENY,
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name:    "disabled still accepts Service targetRef",
+			enabled: false,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.Service.Group,
+					Kind:  gvk.Service.Kind,
+					Name:  "svc",
+				},
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: true,
+		},
+		{
+			name:    "enabled accepts ALLOW",
+			enabled: true,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRef: httpRouteRef(),
+				Action:    security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: true,
+		},
+		{
+			name:    "enabled accepts DENY via targetRefs",
+			enabled: true,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRefs: []*api.PolicyTargetReference{httpRouteRef()},
+				Action:     security_beta.AuthorizationPolicy_DENY,
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+		{
+			name:    "enabled rejects AUDIT",
+			enabled: true,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRef: httpRouteRef(),
+				Action:    security_beta.AuthorizationPolicy_AUDIT,
+				Rules:     []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name:    "enabled rejects cross namespace targetRef",
+			enabled: true,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRef: &api.PolicyTargetReference{
+					Group:     gvk.HTTPRoute.Group,
+					Kind:      gvk.HTTPRoute.Kind,
+					Name:      "route",
+					Namespace: "other",
+				},
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, c.enabled)
+			_, err := ValidateAuthorizationPolicy(config.Config{
+				Meta: config.Meta{Name: "name", Namespace: "namespace"},
+				Spec: c.in,
+			})
+			if (err == nil) != c.valid {
+				t.Fatalf("got error %v, want valid=%v", err, c.valid)
+			}
+		})
+	}
+}
+
+func TestValidateAuthorizationPolicyMixedHTTPRouteTargetRefs(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
+	httpRouteRef := func(name string) *api.PolicyTargetReference {
+		return &api.PolicyTargetReference{Group: gvk.HTTPRoute.Group, Kind: gvk.HTTPRoute.Kind, Name: name}
+	}
+	gatewayRef := &api.PolicyTargetReference{
+		Group: gvk.KubernetesGateway.Group, Kind: gvk.KubernetesGateway.Kind, Name: "gw",
+	}
+
+	cases := []struct {
+		name  string
+		in    *security_beta.AuthorizationPolicy
+		valid bool
+	}{
+		{
+			name: "httproute only",
+			in: &security_beta.AuthorizationPolicy{
+				Action:     security_beta.AuthorizationPolicy_ALLOW,
+				TargetRefs: []*api.PolicyTargetReference{httpRouteRef("route-a")},
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+		{
+			name: "two httproutes",
+			in: &security_beta.AuthorizationPolicy{
+				Action:     security_beta.AuthorizationPolicy_ALLOW,
+				TargetRefs: []*api.PolicyTargetReference{httpRouteRef("route-a"), httpRouteRef("route-b")},
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+		{
+			name: "httproute mixed with gateway",
+			in: &security_beta.AuthorizationPolicy{
+				Action:     security_beta.AuthorizationPolicy_ALLOW,
+				TargetRefs: []*api.PolicyTargetReference{gatewayRef, httpRouteRef("route-a")},
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name: "gateway only is unaffected",
+			in: &security_beta.AuthorizationPolicy{
+				Action:     security_beta.AuthorizationPolicy_ALLOW,
+				TargetRefs: []*api.PolicyTargetReference{gatewayRef},
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ValidateAuthorizationPolicy(config.Config{
+				Meta: config.Meta{Name: "foo", Namespace: "bar"},
+				Spec: tc.in,
+			})
+			if (err == nil) != tc.valid {
+				t.Errorf("got err=%v, want valid=%v", err, tc.valid)
+			}
+			if !tc.valid && err != nil && !strings.Contains(err.Error(), "must not be combined") {
+				t.Errorf("rejected for the wrong reason: %v", err)
 			}
 		})
 	}

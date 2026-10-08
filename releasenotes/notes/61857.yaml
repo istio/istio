@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61857
+releaseNotes:
+- |
+  **Fixed** a `panic` in istiod when generating a `STRICT_DNS`/`LOGICAL_DNS` cluster for a
+  `ServiceEntry` with `resolution: DNS` whose `endpoints` span more than one `locality`, combined
+  with a `DestinationRule` that sets `trafficPolicy.loadBalancer.localityLbSetting.failoverPriority`.
+  Previously, istiod would crash and enter a crash loop as soon as an affected proxy connected,
+  preventing any configuration from being pushed.

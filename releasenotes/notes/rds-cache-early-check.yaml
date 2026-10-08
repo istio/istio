@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Improved** performance of sidecar RDS generation by checking the RDS cache before building the
+    `VirtualHostWrapper`/route protos, so a cache hit no longer pays the cost of route generation.
+    To make this possible, the RDS cache key is now computed from a conservative superset of the
+    `DestinationRule`s that could influence the route (rather than only the exact set used by the
+    final, filtered build). As a result, some unrelated `DestinationRule` changes — particularly
+    those with wildcard hosts — may now trigger an RDS cache invalidation (and an extra push) that
+    would previously have been avoided. This does not affect correctness, only the frequency of
+    otherwise-unnecessary cache invalidations.

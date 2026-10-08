@@ -85,6 +85,9 @@ updates:
       - dependency-name: "github.com/moby/buildkit"
       - dependency-name: "github.com/quic-go/quic-go"
       - dependency-name: "golang.org/x/*"
+      - dependency-name: "cloud.google.com/go/compute/metadata"
+      - dependency-name: "github.com/prometheus/common"
+      - dependency-name: "go.opentelemetry.io/proto/otlp"
     groups:
       all-dependencies:
         patterns:
@@ -99,6 +102,9 @@ updates:
           - "github.com/moby/buildkit"
           - "github.com/quic-go/quic-go"
           - "golang.org/x/*"
+          - "cloud.google.com/go/compute/metadata"
+          - "github.com/prometheus/common"
+          - "go.opentelemetry.io/proto/otlp"
 
   - package-ecosystem: "gomod"
     directories:
@@ -122,6 +128,9 @@ updates:
       - dependency-name: "github.com/quic-go/quic-go"
       - dependency-name: "golang.org/x/*"
       - dependency-name: "github.com/docker/cli"
+      - dependency-name: "cloud.google.com/go/compute/metadata"
+      - dependency-name: "github.com/prometheus/common"
+      - dependency-name: "go.opentelemetry.io/proto/otlp"
     groups:
       all-dependencies:
         patterns:
@@ -138,6 +147,9 @@ updates:
           - "github.com/quic-go/quic-go"
           - "golang.org/x/*"
           - "github.com/docker/cli"
+          - "cloud.google.com/go/compute/metadata"
+          - "github.com/prometheus/common"
+          - "go.opentelemetry.io/proto/otlp"
 
   # Ignore all dependency updates in samples/
   # We do not care about the dependencies in the samples/ directory as they are not meant

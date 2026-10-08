@@ -4,20 +4,20 @@
     "name": "PROXY_REPO_SHA",
     "repoName": "proxy",
     "file": "",
-    "lastStableSHA": "ab026d54039e86b89778dcdf6883d5053a6d3cf5"
+    "lastStableSHA": "249d0b9d4ec934b374d9d29cda0eb1fa5ae563c6"
   },
   {
     "_comment": "",
     "name": "ZTUNNEL_REPO_SHA",
     "repoName": "ztunnel",
     "file": "",
-    "lastStableSHA": "db40ece85ffc98b493ed75da18e1f2a276f4d452"
+    "lastStableSHA": "5346383a870df7ffe5d997c24fe2e7749357b543"
   },
   {
     "_comment": "",
     "name": "AGENTGATEWAY_IMAGE",
     "repoName": "agentgateway",
     "file": "",
-    "lastStableSHA": "v1.5.0"
+    "lastStableSHA": "v1.6.0"
   }
 ]

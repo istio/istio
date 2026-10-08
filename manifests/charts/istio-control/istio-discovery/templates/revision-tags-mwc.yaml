@@ -59,6 +59,9 @@ metadata:
 {{ toYaml $.Values.sidecarInjectorWebhookAnnotations | indent 4 }}
 {{- end }}
 webhooks:
+{{- /* Case 1: namespace selector matches and object doesn't disable. */}}
+{{- /* In pod precedence mode, this case excludes pods with explicit istio.io/rev so Case 2 can handle them. */}}
+{{- /* If both revision and legacy selectors are present, legacy selector (istio-injection) takes precedence. */}}
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.namespace.") ) }}
   namespaceSelector:
     matchExpressions:
@@ -74,11 +77,19 @@ webhooks:
       operator: NotIn
       values:
       - "false"
+    {{- if eq $.Values.sidecarInjectorWebhook.revisionLabelPrecedence "pod" }}
+    - key: istio.io/rev
+      operator: DoesNotExist
+    {{- end }}
+{{- /* Case 2: namespace is not revision-selected, but object selects our revision (and doesn't disable). */}}
+{{- /* In namespace precedence mode, this only applies when namespace has no istio.io/rev label. */}}
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.object.") ) }}
   namespaceSelector:
     matchExpressions:
+    {{- if eq $.Values.sidecarInjectorWebhook.revisionLabelPrecedence "namespace" }}
     - key: istio.io/rev
       operator: DoesNotExist
+    {{- end }}
     - key: istio-injection
       operator: DoesNotExist
   objectSelector:

@@ -167,8 +167,8 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, pro
 ) ([]*model.Service, []string) {
 	var deletedClusters []string
 	var services []*model.Service
-	service := push.ServiceForHostname(proxy, host.Name(key.Name))
-	// push.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
+	service := proxy.SidecarScope.GetService(host.Name(key.Name))
+	// SidecarScope.GetService will return nil if the proxy doesn't care about the service OR it was deleted.
 	// we can cross-reference with WatchedResources to figure out which services were deleted.
 	if service == nil {
 		// We assume a service was deleted and delete all clusters for that service.
@@ -357,7 +357,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
 		// to the Kubernetes API server), include services referenced by those gateway servers.
 		if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil {
-			outboundServices = appendGatewayReferencedServices(req.Push, proxy, outboundServices, services)
+			outboundServices = appendGatewayReferencedServices(proxy, outboundServices, services)
 		}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, outboundServices)
 		cacheStats = cacheStats.merge(cs)
@@ -433,16 +433,17 @@ func deltaAwareConfigTypes(cfgs sets.Set[model.ConfigKey], rootNamespace string)
 // services that are referenced by the gateway's VirtualServices (e.g., TLS passthrough backends).
 // This ensures that the required outbound clusters exist for non-HBONE traffic the E/W gateway routes.
 // Note: we do NOT rely on ServiceAttachedToGateway / destinationsByGateway because those are only
-// populated when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG=true. Instead we read VirtualServices directly.
-func appendGatewayReferencedServices(push *model.PushContext, proxy *model.Proxy, existing []*model.Service, allServices []*model.Service) []*model.Service {
+// populated when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG=true. Instead we read the gateway VirtualServices
+// from the proxy's scope, the same source the TLS/TCP listener filters are built from.
+func appendGatewayReferencedServices(proxy *model.Proxy, existing []*model.Service, allServices []*model.Service) []*model.Service {
 	if proxy.MergedGateway == nil {
 		return existing
 	}
 
 	// Collect all destination hostnames referenced by TLS/TCP routes on this gateway's VirtualServices.
 	gwHosts := sets.New[string]()
-	for _, gwName := range proxy.MergedGateway.GatewayNameForServer {
-		for _, vs := range push.VirtualServicesForGateway(proxy.ConfigNamespace, gwName) {
+	for _, gwName := range proxy.MergedGateway.GatewayNames {
+		for _, vs := range proxy.SidecarScope.GatewayVirtualServices(gwName) {
 			rule := vs.Spec.(*networking.VirtualService)
 			for _, tls := range rule.Tls {
 				for _, route := range tls.Route {
@@ -530,18 +531,22 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
 			var lbEndpoints []*endpoint.LocalityLbEndpoints
-			var dnsWrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
+			var dnsWrappedLocalityLbEndpoints []*loadbalancer.WrappedLocalityLbEndpoints
 			if clusterKey.endpointBuilder != nil {
-				// This is set only for DNS clusters.
-				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
-				if len(lbEndpoints) > 0 {
-					istioEndpoints := clusterKey.endpointBuilder.IstioEndpoints()
-					dnsWrappedLocalityLbEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
-						IstioEndpoints: istioEndpoints,
-						// For DNS clusters, we only have one locality lb endpoint
-						// with multiple LbEndpoints.
-						LocalityLbEndpoints: lbEndpoints[0],
-					}
+				// This is set only for DNS clusters. The ServiceEntry's endpoints may span more than
+				// one locality, so build one wrapper per locality group, each pairing that group's
+				// LocalityLbEndpoints with only the IstioEndpoints that produced it (see #61857 - mixing
+				// endpoints across locality groups causes an out-of-range index in failover priority
+				// computation).
+				localityEndpoints := clusterKey.endpointBuilder.FromServiceEndpointsByLocality()
+				lbEndpoints = make([]*endpoint.LocalityLbEndpoints, 0, len(localityEndpoints))
+				dnsWrappedLocalityLbEndpoints = make([]*loadbalancer.WrappedLocalityLbEndpoints, 0, len(localityEndpoints))
+				for _, le := range localityEndpoints {
+					lbEndpoints = append(lbEndpoints, le.LbEndpoints())
+					dnsWrappedLocalityLbEndpoints = append(dnsWrappedLocalityLbEndpoints, &loadbalancer.WrappedLocalityLbEndpoints{
+						IstioEndpoints:      le.IstioEndpoints(),
+						LocalityLbEndpoints: le.LbEndpoints(),
+					})
 				}
 			}
 

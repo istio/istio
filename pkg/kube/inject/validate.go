@@ -47,6 +47,7 @@ var (
 		annotation.SidecarTrafficExcludeOutboundIPRanges.Name:     ValidateExcludeIPRanges,
 		annotation.SidecarTrafficIncludeInboundPorts.Name:         ValidateIncludeInboundPorts,
 		annotation.SidecarTrafficExcludeInboundPorts.Name:         ValidateExcludeInboundPorts,
+		annotation.SidecarTrafficIncludeOutboundPorts.Name:        ValidateIncludeOutboundPorts,
 		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
 		annotation.SidecarTrafficExcludeInterfaces.Name:           ValidateExcludeInterfaces,
 		annotation.SidecarTrafficKubevirtInterfaces.Name:          ValidateExcludeInterfaces,
@@ -128,6 +129,14 @@ func ValidateIncludeInboundPorts(ports string) error {
 // ValidateExcludeInboundPorts validates the excludeInboundPorts parameter
 func ValidateExcludeInboundPorts(ports string) error {
 	return validatePortList("excludeInboundPorts", ports)
+}
+
+// ValidateIncludeOutboundPorts validates the includeOutboundPorts parameter
+func ValidateIncludeOutboundPorts(ports string) error {
+	if ports != "*" {
+		return validatePortList("includeOutboundPorts", ports)
+	}
+	return nil
 }
 
 // ValidateExcludeOutboundPorts validates the excludeOutboundPorts parameter

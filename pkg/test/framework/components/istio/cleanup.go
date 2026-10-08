@@ -199,10 +199,13 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 			}
 		}
 
-		// We deleted all resources, but don't report cleanup finished until all Istio pods
-		// in the system namespace have actually terminated.
+		// Wait for this installation's pods and services to terminate. Other revisions
+		// may be tracked separately and will be cleaned up later by the framework.
 		cleanErr := retry.UntilSuccess(func() error {
 			label := "app.kubernetes.io/part-of=istio"
+			if i.primaryIOP.spec != nil && i.primaryIOP.spec.Revision != "" {
+				label += ",istio.io/rev=" + i.primaryIOP.spec.Revision
+			}
 
 			fetchPodFunc := kube2.NewPodFetch(c, i.cfg.SystemNamespace, label)
 

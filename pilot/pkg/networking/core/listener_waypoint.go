@@ -108,7 +108,7 @@ func xfccIncludeClientIdentityEnabled(node *model.Proxy) bool {
 }
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
-	return lb.push.ServiceForHostname(lb.node, name)
+	return lb.node.SidecarScope.GetService(name)
 }
 
 func (lb *ListenerBuilder) buildEastWestTLSPassthroughListeners() []*listener.Listener {
@@ -385,7 +385,7 @@ func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) (host.Name, b
 }
 
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
-func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	isAmbientEastWestGateway := isAmbientEastWestGateway(lb.node)
 	ipMatcher := &matcher.IPMatcher{}
 	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{
@@ -870,6 +870,35 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 	return l
 }
 
+func buildSetTLSFilterExchangeHTTPFilter() *hcm.HttpFilter {
+	setTLSFilterExchange := &sfs.Config{
+		OnRequestHeaders: []*sfsvalue.FilterStateValue{{
+			Key: &sfsvalue.FilterStateValue_ObjectKey{
+				ObjectKey: "istio.peer_metadata.enable_tls_filter_exchange",
+			},
+			FactoryKey: "envoy.bool",
+			Value: &sfsvalue.FilterStateValue_FormatString{
+				FormatString: &core.SubstitutionFormatString{
+					Format: &core.SubstitutionFormatString_TextFormatSource{
+						TextFormatSource: &core.DataSource{
+							Specifier: &core.DataSource_InlineString{
+								InlineString: "true",
+							},
+						},
+					},
+				},
+			},
+			SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+		}},
+	}
+	return &hcm.HttpFilter{
+		Name: "set_tls_filter_exchange",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(setTLSFilterExchange),
+		},
+	}
+}
+
 // buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.
 // Authn/authz filters are prepended. Telemetry filters are appended.
 func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*hcm.HttpFilter, post []*hcm.HttpFilter) {
@@ -888,6 +917,9 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 		model.ListenerInfo{Class: cls}.WithService(svc),
 		model.FilterChainTypeHTTP,
 	)
+	if features.EnableAmbientMultiNetwork && features.EnableAmbientTLSProxyHTTPMetrics {
+		pre = append(pre, buildSetTLSFilterExchangeHTTPFilter())
+	}
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	// TODO policies here will need to be different per-chain (service attached)
 	// If the waypoint has opted in via annotation, synthesize XFCC from the
@@ -999,7 +1031,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 
 		if len(routes) == 1 {
 			route := routes[0]
-			service := lb.push.ServiceForHostname(lb.node, host.Name(route.Destination.Host))
+			service := lb.node.SidecarScope.GetService(host.Name(route.Destination.Host))
 			clusterName := lb.getWaypointDestinationCluster(route.Destination, service, fcc.port.Port)
 			tcpProxy.ClusterSpecifier = &tcp.TcpProxy_Cluster{Cluster: clusterName}
 		} else if len(routes) > 1 {
@@ -1007,7 +1039,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 				WeightedClusters: &tcp.TcpProxy_WeightedCluster{},
 			}
 			for _, route := range routes {
-				service := lb.push.ServiceForHostname(lb.node, host.Name(route.Destination.Host))
+				service := lb.node.SidecarScope.GetService(host.Name(route.Destination.Host))
 				if route.Weight > 0 {
 					clusterName := lb.getWaypointDestinationCluster(route.Destination, service, fcc.port.Port)
 					clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp.TcpProxy_WeightedCluster_ClusterWeight{

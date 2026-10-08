@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/route"
 	"istio.io/istio/pilot/pkg/networking/core/tunnelingconfig"
+	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -368,7 +369,7 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 		// If we find no service for the namespace of virtualService or the selected service is not visible to the proxy node,
 		// we should fallback to pick one service which is visible to the ConfigNamespace of node.
 		if service == nil {
-			service = push.ServiceForHostname(node, hostname)
+			service = node.SidecarScope.GetService(hostname)
 		}
 		nameToServiceMap[hostname] = service
 	}
@@ -431,19 +432,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	isH3DiscoveryNeeded := merged.HTTP3AdvertisingRoutes.Contains(routeName)
 
 	gatewayRoutes := make(map[string]map[string][]*route.Route)
-	gatewayVirtualServices := make(map[string][]*config.Config)
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
+
+	var perRouteAuthz *authz.PerRouteBuilder
+	if features.EnableGatewayAPIHTTPRouteAuth {
+		perRouteAuthz = authz.NewPerRouteBuilder(push, node)
+	}
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		port := int(server.Port.Number)
 
-		var virtualServices []*config.Config
-		var exists bool
-
-		if virtualServices, exists = gatewayVirtualServices[gatewayName]; !exists {
-			virtualServices = push.VirtualServicesForGateway(node.ConfigNamespace, gatewayName)
-			gatewayVirtualServices[gatewayName] = virtualServices
-		}
+		virtualServices := node.SidecarScope.GatewayVirtualServices(gatewayName)
 
 		for _, virtualService := range virtualServices {
 			virtualServiceHosts := host.NewNames(virtualService.Spec.(*networking.VirtualService).Hosts)
@@ -486,6 +485,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						return hashByDestination[destination]
 					},
 					InferencePoolExtensionRefs: infPoolConfigs,
+				}
+				if perRouteAuthz != nil {
+					opts.BuildPerRouteAuthConfig = perRouteAuthz.Build
 				}
 				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, *virtualService, port, sets.New(gatewayName), opts)
 				if err != nil {
@@ -867,7 +869,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		gatewayServerHosts.Insert(host.Name(hostname))
 	}
 
-	virtualServices := lb.push.VirtualServicesForGateway(lb.node.ConfigNamespace, gatewayName)
+	virtualServices := lb.node.SidecarScope.GatewayVirtualServices(gatewayName)
 	if len(virtualServices) == 0 {
 		log.Warnf("no virtual service bound to gateway: %v", gatewayName)
 	}
@@ -938,7 +940,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 		filterChains = append(filterChains, builtAutoPassthroughFilterChains(lb.push, lb.node, lb.node.MergedGateway.TLSServerInfo[server].SNIHosts)...)
 	} else {
-		virtualServices := lb.push.VirtualServicesForGateway(lb.node.ConfigNamespace, gatewayName)
+		virtualServices := lb.node.SidecarScope.GatewayVirtualServices(gatewayName)
 		for _, v := range virtualServices {
 			vsvc := v.Spec.(*networking.VirtualService)
 			// We have two cases here:
