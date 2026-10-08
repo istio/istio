@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62125
+releaseNotes:
+- |
+  **Fixed** a regression that prevented WDS pushes from skipping debouncing by adding
+  the `PILOT_ENABLE_WDS_DEBOUNCE` environment variable, enabled by default.
+  Set it to `false` to allow WDS pushes to skip debouncing independently of EDS pushes.
