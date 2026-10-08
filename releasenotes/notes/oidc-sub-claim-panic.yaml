@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** a panic in istiod when the OIDC/JWT authenticator received a token with a malformed
+  `sub` claim. The subject is now validated to have exactly the
+  `system:serviceaccount:<namespace>:<serviceaccount>` form before use.
+
+  **Credit**: This issue was reported by Kaizhe Huang.
