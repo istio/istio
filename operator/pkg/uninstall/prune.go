@@ -17,6 +17,7 @@ package uninstall
 import (
 	"context"
 	"fmt"
+	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +25,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/component"
@@ -75,23 +77,107 @@ func NamespacedResources() []schema.GroupVersionKind {
 		{Group: "policy", Version: "v1", Kind: "PodDisruptionBudget"},
 		{Group: "autoscaling", Version: "v2", Kind: "HorizontalPodAutoscaler"},
 		gvk.EnvoyFilter.Kubernetes(),
-		{Group: "coordination.k8s.io", Version: "v1", Kind: "Lease"},
 	}
 	return res
 }
 
-// DeleteObjectsList removed resources that are in the slice of UnstructuredList.
+// UninstallNamespacedResources adds Leases to the namespaced resource types removed by uninstall.
+func UninstallNamespacedResources() []schema.GroupVersionKind {
+	return append(NamespacedResources(), gvk.Lease.Kubernetes())
+}
+
+// DeleteObjectsList removes resources in objectsList.
 func DeleteObjectsList(c kube.CLIClient, dryRun bool, log clog.Logger, objectsList []*unstructured.UnstructuredList) error {
 	var errs util.Errors
+	var pods, leases []*unstructured.Unstructured
 	for _, ul := range objectsList {
-		for _, o := range ul.Items {
-			if err := DeleteResource(c, dryRun, log, &o); err != nil {
+		for i := range ul.Items {
+			o := &ul.Items[i]
+			switch o.GroupVersionKind() {
+			case gvk.Lease.Kubernetes():
+				leases = append(leases, o)
+				// Delete the Lease after the Pods stop, or a running leader can recreate it.
+				continue
+			case gvk.Pod.Kubernetes():
+				pods = append(pods, o)
+			}
+			if err := DeleteResource(c, dryRun, log, o); err != nil {
 				errs = append(errs, err)
 			}
 		}
 	}
+	if !dryRun && len(leases) > 0 {
+		if err := waitForPodsDeleted(c, pods, leases); err != nil {
+			errs = append(errs, err)
+			return errs.ToError()
+		}
+	}
+	for _, lease := range leases {
+		if err := DeleteResource(c, dryRun, log, lease); err != nil {
+			errs = append(errs, err)
+		}
+	}
 
 	return errs.ToError()
+}
+
+// waitForPodsDeleted waits for selected Pods and replacements that could recreate a selected Lease.
+func waitForPodsDeleted(c kube.CLIClient, pods, leases []*unstructured.Unstructured) error {
+	const (
+		pollInterval = time.Second
+		timeout      = time.Minute
+	)
+	type podListTarget struct {
+		namespace string
+		selector  string
+	}
+	targets := make(map[podListTarget]struct{})
+	for _, lease := range leases {
+		labels := lease.GetLabels()
+		revision, componentName := labels[label.IoIstioRev.Name], labels[manifest.IstioComponentLabel]
+		if revision == "" || componentName == "" {
+			continue
+		}
+		selector := klabels.Set(map[string]string{
+			label.IoIstioRev.Name:        revision,
+			manifest.IstioComponentLabel: componentName,
+		}).AsSelectorPreValidated().String()
+		targets[podListTarget{namespace: lease.GetNamespace(), selector: selector}] = struct{}{}
+	}
+	if len(pods) == 0 && len(targets) == 0 {
+		return nil
+	}
+	err := wait.PollUntilContextTimeout(context.Background(), pollInterval, timeout, true, func(ctx context.Context) (bool, error) {
+		for _, pod := range pods {
+			client, err := c.DynamicClientFor(pod.GroupVersionKind(), pod, "")
+			if err != nil {
+				return false, err
+			}
+			if _, err := client.Get(ctx, pod.GetName(), metav1.GetOptions{}); err == nil {
+				return false, nil
+			} else if !kerrors.IsNotFound(err) {
+				return false, err
+			}
+		}
+		for target := range targets {
+			client, err := c.DynamicClientFor(gvk.Pod.Kubernetes(), nil, target.namespace)
+			if err != nil {
+				return false, err
+			}
+			remaining, err := client.List(ctx, metav1.ListOptions{LabelSelector: target.selector})
+			if err != nil {
+				return false, err
+			}
+			if len(remaining.Items) > 0 {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("waiting for pods to terminate before deleting leases: %w", err)
+	}
+	return nil
 }
 
 // GetPrunedResources get the list of resources to be removed
@@ -114,7 +200,7 @@ func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision stri
 		labels[manifest.OwningResourceNamespace] = iopNamespace
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
-	resources := NamespacedResources()
+	resources := UninstallNamespacedResources()
 	gvkList := append(resources, ClusterCPResources...)
 	if includeClusterResources {
 		gvkList = append(resources, AllClusterResources...)

@@ -51,7 +51,10 @@ const (
 	revisionNotFound = "could not find target revision"
 )
 
-var allGVKs = append(uninstall.NamespacedResources(), uninstall.ClusterCPResources...)
+var (
+	allGVKs             = append(uninstall.UninstallNamespacedResources(), uninstall.ClusterCPResources...)
+	manifestManagedGVKs = append(uninstall.NamespacedResources(), uninstall.ClusterCPResources...)
+)
 
 func TestUninstallByRevision(t *testing.T) {
 	framework.
@@ -168,7 +171,7 @@ spec:
 			istioCtl.InvokeOrFail(t, []string{"uninstall", "-f=" + customFileName, "-r=" + canaryRevision, "--skip-confirmation"})
 
 			// Check no resources from the custom file exist
-			checkCPResourcesUninstalled(t, t.Clusters().Default(), allGVKs,
+			checkCPResourcesUninstalled(t, t.Clusters().Default(), manifestManagedGVKs,
 				fmt.Sprintf("%s=%s", manifest.IstioComponentLabel, component.PilotComponentName), true)
 		})
 }
