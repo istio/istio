@@ -1181,6 +1181,6 @@ func ShouldCreateDoubleHBONEResources(p *Proxy) bool {
 	// that flag has been ignored for waypoints when generating endpoint/cluster discovery
 	// information.
 	return features.EnableAmbientMultiNetwork &&
-		(IsIngressGateway(p) && features.EnableAmbientIngressMultiNetwork && isHBONESendEnabled) ||
-		(IsWaypointProxy(p) && features.EnableAmbientWaypointMultiNetwork)
+		((IsIngressGateway(p) && features.EnableAmbientIngressMultiNetwork && isHBONESendEnabled) ||
+			(IsWaypointProxy(p) && features.EnableAmbientWaypointMultiNetwork))
 }
