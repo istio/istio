@@ -259,7 +259,11 @@ func readSignedCsr(client clientset.Interface, csr string, watchTimeout time.Dur
 	for {
 		select {
 		case r := <-watcher.ResultChan():
-			reqSigned := r.Object.(*cert.CertificateSigningRequest)
+			reqSigned, ok := r.Object.(*cert.CertificateSigningRequest)
+			if !ok {
+				log.Debugf("watch event for CSR %v received non-CSR object (type %T), continuing", csr, r.Object)
+				continue
+			}
 			if reqSigned.Status.Certificate != nil {
 				return reqSigned.Status.Certificate, nil
 			}
