@@ -4776,6 +4776,20 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 		},
 	}
 
+	// EnvoyFilter applied to the gateway that opts testnew.com in via the referenced-services
+	// annotation, as done for ext_proc/ext_authz targets that no route points at.
+	envoyFilterReferencingTestService2 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.EnvoyFilter,
+			Name:             "referenced-services",
+			Namespace:        proxyNamespace,
+			Annotations:      map[string]string{"envoyfilter.istio.io/referenced-services": "testnew.com"},
+		},
+		Spec: &networking.EnvoyFilter{
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"istio": "ingressgateway"}},
+		},
+	}
+
 	// Wildcard DYNAMIC_DNS ServiceEntry fixtures, used to verify that the delta cluster path
 	// (BuildDeltaClusters -> PushContext.ServiceAttachedToGateway) discriminates a wildcard host
 	// named by a VirtualService route from a same-shaped wildcard host that is not, the same
@@ -5232,6 +5246,69 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 			removedClusters:      []string{"outbound|8080||test.com"},
 			expectedClusters: []string{
 				"BlackHoleCluster",
+			},
+		},
+		{
+			name:     "virtual service updated keeps envoyfilter referenced service",
+			services: []*model.Service{testService1, testService2},
+			prevConfigs: []config.Config{gatewayConfig, envoyFilterReferencingTestService2, {
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test-virtualservice",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: virtualServiceOriginal,
+			}},
+			configs: []config.Config{gatewayConfig, envoyFilterReferencingTestService2, {
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test-virtualservice",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: virtualServiceSubsetDestination,
+			}},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.VirtualService, Name: "test-virtualservice", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com", "outbound|8080||testnew.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster",
+			},
+		},
+		{
+			name:     "virtual service removed keeps envoyfilter referenced service",
+			services: []*model.Service{testService1, testService2},
+			prevConfigs: []config.Config{gatewayConfig, envoyFilterReferencingTestService2, {
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test-virtualservice",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: virtualServiceOriginal,
+			}},
+			configs: []config.Config{gatewayConfig, envoyFilterReferencingTestService2},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.VirtualService, Name: "test-virtualservice", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com", "outbound|8080||testnew.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|8080||test.com"},
+			expectedClusters: []string{
+				"BlackHoleCluster",
+			},
+		},
+		{
+			name:     "peer authentication update rebuilds envoyfilter referenced service",
+			services: []*model.Service{testService1, testService2},
+			configs:  []config.Config{gatewayConfig, envoyFilterReferencingTestService2, vsForTestService1},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.PeerAuthentication, Name: "test.com", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com", "outbound|8080||testnew.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster",
+				"outbound|8080||test.com", "outbound|8080||testnew.com",
 			},
 		},
 		{
