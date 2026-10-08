@@ -137,7 +137,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			return nil, nil
 		}
 		if tls.CaCertCredentialName != "" {
-			log.Debugf("No DestinationRule workload selector present for cluster %v, ignoring caCertCredentialName and falling back to caCertificates file path.", opts.mutable.cluster.Name)
+			log.Debugf("No DestinationRule workload selector present for cluster %v, ignoring caCertCredentialName "+
+				"and falling back to caCertificates file path.", opts.mutable.cluster.Name)
 			tls = tls.DeepCopy()
 			tls.CaCertCredentialName = ""
 		}
