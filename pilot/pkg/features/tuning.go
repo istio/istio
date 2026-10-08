@@ -96,6 +96,13 @@ var (
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	).Get()
 
+	EnableWDSDebounce = env.Register(
+		"PILOT_ENABLE_WDS_DEBOUNCE",
+		true,
+		"If enabled, Pilot will include WDS pushes in the push debouncing, configured by PILOT_DEBOUNCE_AFTER and PILOT_DEBOUNCE_MAX."+
+			" WDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
+	).Get()
+
 	ConvertSidecarScopeConcurrency = env.Register(
 		"PILOT_CONVERT_SIDECAR_SCOPE_CONCURRENCY",
 		1,
