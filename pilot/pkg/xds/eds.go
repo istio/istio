@@ -18,8 +18,8 @@ import (
 	"fmt"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"k8s.io/apimachinery/pkg/types"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -193,19 +193,22 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	partialPush bool,
 ) (model.Resources, model.XdsLogDetails) {
 	var edsUpdatedServices sets.Set[string]
-	var changedDrs sets.Set[types.NamespacedName]
+	var explicitlyUpdatedServices sets.Set[string]
 	var changedAuthnNs sets.Set[string]
 
 	if partialPush {
 		edsUpdatedServices = sets.New[string]()
-		changedDrs = sets.New[types.NamespacedName]()
+		explicitlyUpdatedServices = sets.New[string]()
 		changedAuthnNs = sets.New[string]()
 		for cfg := range req.ConfigsUpdated {
 			switch cfg.Kind {
 			case kind.DestinationRule:
-				changedDrs.Insert(types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace})
+				for _, svc := range servicesAffectedByDestinationRule(proxy, req.Push, cfg) {
+					edsUpdatedServices.Insert(svc.Hostname.String())
+				}
 			case kind.ServiceEntry, kind.Endpoints:
 				edsUpdatedServices.Insert(cfg.Name)
+				explicitlyUpdatedServices.Insert(cfg.Name)
 			case kind.PeerAuthentication:
 				changedAuthnNs.Insert(cfg.Namespace)
 			}
@@ -218,17 +221,19 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 	for clusterName := range w.ResourceNames {
 		affected := affectedService(proxy, edsUpdatedServices, clusterName)
-		if partialPush && changedDrs.IsEmpty() && changedAuthnNs.IsEmpty() &&
-			!affected {
-
-			// Cluster was not updated and no changes to destination rules or peer authentication policies, skip recomputing.
+		isSelfDiscoveryCluster := clusterName == util.SelfDiscoveryCluster
+		if isSelfDiscoveryCluster {
+			// DestinationRules do not affect the self-discovery local cluster.
+			affected = affectedService(proxy, explicitlyUpdatedServices, clusterName)
+		}
+		if partialPush && changedAuthnNs.IsEmpty() && !affected {
+			// No relevant service or peer authentication changes affect this cluster, so skip recomputing it.
 			continue
 		}
 
 		dir, subsetName, hostname, port := parseClusterName(clusterName, proxy)
 		svc := req.Push.ServiceForHostname(proxy, hostname)
 
-		isSelfDiscoveryCluster := clusterName == util.SelfDiscoveryCluster
 		if svc == nil && isSelfDiscoveryCluster {
 			// The self-discovery local_cluster represents the proxy's own service, which may be outside
 			// the proxy's egress scope. Fall back to the global service index, scoped to the local
@@ -242,16 +247,14 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 		}
 
-		// if we can do a partial push, check if the cluster is affected by the changed destination rules or peer authentication policies
-		// to avoid recomputing the cluster if it is not affected
+		// If no service or destination rule update affects this cluster, check peer authentication before recomputing.
 		if partialPush && svc != nil && !affected {
-			// local cluster is unaffected by authn or DR changes
+			// The local cluster is unaffected by these policy changes.
 			if isSelfDiscoveryCluster {
 				continue
 			}
 
-			if !clusterAffectedByChangedAuthn(svc, changedAuthnNs, req.Push.Mesh.RootNamespace) &&
-				!clusterAffectedByChangedDrs(proxy, dr, hostname, changedDrs) {
+			if !clusterAffectedByChangedAuthn(svc, changedAuthnNs, req.Push.Mesh.RootNamespace) {
 				continue
 			}
 		}
@@ -315,32 +318,46 @@ func affectedService(proxy *model.Proxy, edsUpdatedServices sets.Set[string], cl
 	return edsUpdatedServices.Contains(model.ParseSubsetKeyHostname(clusterName))
 }
 
-// clusterAffectedByChangedDrs checks if the service is affected by the changed destination rules
-func clusterAffectedByChangedDrs(
+// servicesAffectedByDestinationRule returns services matching the current or previous host of a changed rule.
+func servicesAffectedByDestinationRule(
 	proxy *model.Proxy,
-	currentDr *model.ConsolidatedDestRule,
-	hostname host.Name,
-	changedDrs sets.Set[types.NamespacedName],
-) bool {
-	if changedDrs.IsEmpty() {
-		return false
+	push *model.PushContext,
+	updatedDr model.ConfigKey,
+) []*model.Service {
+	if proxy.SidecarScope == nil {
+		return nil
 	}
 
-	if currentDr != nil {
-		if slices.ContainsFunc(currentDr.GetFrom(), changedDrs.Contains) {
-			return true
+	var services []*model.Service
+	cfg := proxy.SidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
+	if cfg == nil {
+		// The rule was deleted. Resolve its old host against the current service scope.
+		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
+		if prevCfg == nil {
+			return nil
 		}
-	}
-
-	if proxy.PrevSidecarScope != nil {
-		if dr := proxy.PrevSidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, hostname); dr != nil {
-			if slices.ContainsFunc(dr.GetFrom(), changedDrs.Contains) {
-				return true
+		prevDr := prevCfg.Spec.(*networking.DestinationRule)
+		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(prevDr.Host))...)
+	} else {
+		dr := cfg.Spec.(*networking.DestinationRule)
+		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
+		// If the host changed, include services matched by the rule before the update.
+		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
+		if prevCfg != nil {
+			prevDr := prevCfg.Spec.(*networking.DestinationRule)
+			if dr.Host != prevDr.Host {
+				services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(prevDr.Host))...)
 			}
 		}
 	}
 
-	return false
+	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+		services = slices.FilterInPlace(services, func(s *model.Service) bool {
+			return push.ServiceAttachedToGateway(string(s.Hostname), s.Attributes.Namespace, proxy)
+		})
+	}
+
+	return services
 }
 
 // clusterAffectedByChangedAuthn checks if the service is affected by the changed peer authentication policies
