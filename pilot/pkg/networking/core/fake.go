@@ -248,8 +248,6 @@ func (f *ConfigGenTest) Run() {
 	retry.UntilOrFail(f.t, f.store.HasSynced, retry.Delay(time.Millisecond))
 	retry.UntilOrFail(f.t, f.Registry.HasSynced, retry.Delay(time.Millisecond))
 	retry.UntilOrFail(f.t, f.virtualServiceController.HasSynced, retry.Delay(time.Millisecond))
-
-	f.ServiceEntryRegistry.ResyncEDS()
 }
 
 // SetupProxy initializes a proxy for the current environment. This should generally be used when creating
