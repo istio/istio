@@ -56,7 +56,7 @@ func backendToServiceEntry(domainSuffix string) krt.TransformationSingle[config.
 		se := &networking.ServiceEntry{
 			Hosts: []string{host},
 			Ports: []*networking.ServicePort{{
-				Number:   uint32(backend.Port.Port),
+				Number:   uint32(backend.Port.Number),
 				Protocol: protocol,
 				Name:     protocol,
 			}},
