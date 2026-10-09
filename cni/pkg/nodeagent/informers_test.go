@@ -1281,7 +1281,7 @@ func TestInformerEnrolledPodProbeIPSetReassertedWhenIPReappears(t *testing.T) {
 	client := kube.NewFakeClient(ns, pod)
 	fs := &fakeServer{}
 	fs.On("SyncHostProbeIPSet", mock.IsType(pod), util.GetPodIPsIfPresent(pod)).Once().Return(nil)
-	fs.On("ReconcileEnrolledPod", mock.Anything, mock.IsType(pod)).Once().Return(nil)
+	fs.On("ReconcileEnrollment", mock.Anything, mock.IsType([]*corev1.Pod{})).Once().Return(nil)
 
 	handlers := setupHandlersWithFakeDataplane(ctx, client, fs)
 
@@ -1329,7 +1329,7 @@ func TestInformerEnrolledPodEnrollmentReconciledWhenIPChanges(t *testing.T) {
 	client := kube.NewFakeClient(ns, pod)
 	fs := &fakeServer{}
 	fs.On("SyncHostProbeIPSet", mock.IsType(pod), util.GetPodIPsIfPresent(pod)).Once().Return(nil)
-	fs.On("ReconcileEnrolledPod", mock.Anything, mock.IsType(pod)).Once().Return(nil)
+	fs.On("ReconcileEnrollment", mock.Anything, mock.IsType([]*corev1.Pod{})).Once().Return(nil)
 
 	handlers := setupHandlersWithFakeDataplane(ctx, client, fs)
 
@@ -1343,6 +1343,50 @@ func TestInformerEnrolledPodEnrollmentReconciledWhenIPChanges(t *testing.T) {
 		New:   pod,
 	}))
 
+	fs.AssertExpectations(t)
+}
+
+// The periodic enrollment check covers every enrolled pod on the node. A failed check is left to
+// the next one rather than retried by the queue.
+func TestInformerEnrollmentCheckReconcilesEnrolledPods(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	enrolled := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "enrolled",
+			Namespace:   "test",
+			Annotations: map[string]string{annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled},
+		},
+		Spec:   corev1.PodSpec{NodeName: NodeName},
+		Status: corev1.PodStatus{PodIP: "11.1.1.12"},
+	}
+	notEnrolled := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "not-enrolled",
+			Namespace: "test",
+		},
+		Spec:   corev1.PodSpec{NodeName: NodeName},
+		Status: corev1.PodStatus{PodIP: "11.1.1.13"},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
+		},
+	}
+
+	client := kube.NewFakeClient(ns, enrolled, notEnrolled)
+	fs := &fakeServer{}
+	fs.On("ReconcileEnrollment", mock.Anything, mock.MatchedBy(func(pods []*corev1.Pod) bool {
+		return len(pods) == 1 && pods[0].Name == enrolled.Name
+	})).Once().Return(errors.New("ztunnel not connected"))
+
+	handlers := setupHandlersWithFakeDataplane(ctx, client, fs)
+
+	assert.NoError(t, handlers.reconcile(enrollmentCheck{}))
 	fs.AssertExpectations(t)
 }
 

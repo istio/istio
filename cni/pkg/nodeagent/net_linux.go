@@ -75,12 +75,6 @@ func (s *NetServer) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) 
 	return errors.Join(consErr...)
 }
 
-// ReconcileEnrolledPod re-enrolls one pod if it no longer runs in the network namespace this agent
-// enrolled it in.
-func (s *NetServer) ReconcileEnrolledPod(ctx context.Context, pod *corev1.Pod) error {
-	return s.ReconcileEnrollment(ctx, []*corev1.Pod{pod})
-}
-
 // ReconcileEnrollment re-enrolls every pod that no longer runs in the network namespace this agent
 // enrolled it in. Such a pod keeps its UID, so neither the informer nor the CNI plugin reports it,
 // while its redirection rules and its ztunnel proxy stay behind in a network namespace that is gone -

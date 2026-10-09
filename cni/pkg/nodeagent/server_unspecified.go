@@ -47,10 +47,6 @@ func (*meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, is
 	return errNotImplemented
 }
 
-func (*meshDataplane) ReconcileEnrolledPod(ctx context.Context, pod *corev1.Pod) error {
-	return errNotImplemented
-}
-
 func (*meshDataplane) ReconcileEnrollment(ctx context.Context, ambientPods []*corev1.Pod) error {
 	return errNotImplemented
 }

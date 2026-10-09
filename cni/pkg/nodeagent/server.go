@@ -47,17 +47,17 @@ type MeshDataplane interface {
 	AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error
 	RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error
 
-	// ReconcileEnrolledPod checks that one already-enrolled pod still runs in the network namespace
-	// this agent enrolled it in, and re-enrolls it if it does not. A pod keeps its UID when its
-	// sandbox is replaced, so such a pod produces no add or delete event, and its redirection rules
-	// and its ztunnel proxy stay behind in the network namespace that is already gone. The informer
-	// calls this when the pod IPs change, which is the observable side of a replaced sandbox.
-	ReconcileEnrolledPod(ctx context.Context, pod *corev1.Pod) error
-
-	// ReconcileEnrollment runs the same check over every pod that should be enrolled, and also
-	// re-asserts the host probe ipset against that set. It is the backstop for the drift the
-	// informer cannot see: a network namespace replaced without a pod IP change, and an add that
-	// never reached this agent.
+	// ReconcileEnrollment checks that each of the given already-enrolled pods still runs in the
+	// network namespace this agent enrolled it in, and re-enrolls the ones that do not. A pod keeps
+	// its UID when its sandbox is replaced, so such a pod produces no add or delete event, and its
+	// redirection rules and its ztunnel proxy stay behind in the network namespace that is already
+	// gone. The informer runs it for a pod whose IPs changed, which is the observable side of a
+	// replaced sandbox, and periodically for all enrolled pods as the backstop for the drift no pod
+	// update reports: a network namespace replaced without a pod IP change, and an add that never
+	// reached this agent.
+	//
+	// The host probe ipset is left alone. Pod adds and removals keep it, and pruning it against the
+	// informer's view of enrolled pods would race adds that view has not caught up with yet.
 	ReconcileEnrollment(ctx context.Context, ambientPods []*corev1.Pod) error
 
 	// SyncHostProbeIPSet ensures an already-enrolled pod's probe IPs are present in the
@@ -134,28 +134,9 @@ func (s *Server) Start() {
 	// Start accepting ztunnel connections
 	// (and send current snapshot when we get one)
 	s.dataplane.Start(s.ctx)
-	if ReconcileEnrollmentInterval > 0 {
-		go s.reconcileEnrollment(ReconcileEnrollmentInterval)
-	}
 	// Everything (informer handlers, snapshot, zt server) ready to go
 	log.Info("CNI ambient server marking ready")
 	s.Ready()
-}
-
-func (s *Server) reconcileEnrollment(interval time.Duration) {
-	log.Infof("reconciling ambient enrollment every %v", interval)
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		case <-ticker.C:
-			if err := s.dataplane.ReconcileEnrollment(s.ctx, s.handlers.GetActiveAmbientPodSnapshot()); err != nil {
-				log.Errorf("failed to reconcile ambient enrollment: %v", err)
-			}
-		}
-	}
 }
 
 func (s *Server) Stop(skipCleanup bool) {
