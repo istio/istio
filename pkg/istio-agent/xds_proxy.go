@@ -636,7 +636,8 @@ func (h *ndsDeltaHandler) Handle(resources []*discovery.Resource, removed []stri
 		h.dnsServer.UpdateLookupTable(&table)
 		return nil
 	}
-	// Unmarshal everything first so a rejected response leaves the accepted state intact.
+	// Unmarshal everything first so a rejected response leaves the accepted state intact. Istiod does not resend the
+	// rejected hostnames, so they stay stale until they change again or the stream reconnects.
 	updated := make(map[string]*dnsProto.NameTable, len(resources))
 	for _, resource := range resources {
 		var table dnsProto.NameTable

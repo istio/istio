@@ -156,10 +156,11 @@ func (idx *nameIndex) add(resource string, nt *dnsProto.NameTable, dirty sets.St
 	idx.resources[resource] = offers
 }
 
+// winner returns the preferred candidate with addresses; like the legacy path, entries without valid IPs never claim a name.
 func (idx *nameIndex) winner(name string) *nameCandidate {
 	var best *nameCandidate
 	for _, c := range idx.candidates[name] {
-		if best == nil || c.preferredTo(best) {
+		if c.entry.hasAddresses() && (best == nil || c.preferredTo(best)) {
 			best = c
 		}
 	}
@@ -167,7 +168,7 @@ func (idx *nameIndex) winner(name string) *nameCandidate {
 }
 
 func (idx *nameIndex) record(name string) nameRecord {
-	if w := idx.winner(name); w != nil && w.entry.hasAddresses() {
+	if w := idx.winner(name); w != nil {
 		r := nameRecord{name: name, found: true}
 		if len(w.entry.ipv4) > 0 {
 			r.a = a(name, w.entry.ipv4)
@@ -179,7 +180,7 @@ func (idx *nameIndex) record(name string) nameRecord {
 	}
 	// Unlike the legacy path, a search-expanded name never shadows a name sent by Istiod.
 	if base, ok := strings.CutSuffix(name, idx.search); idx.search != "" && ok && !strings.HasSuffix(base, idx.search) {
-		if w := idx.winner(base); w != nil && w.entry.hasAddresses() {
+		if idx.winner(base) != nil {
 			return nameRecord{name: name, found: true, cname: cname(name, base)}
 		}
 	}
@@ -190,7 +191,9 @@ func (idx *nameIndex) record(name string) nameRecord {
 func (idx *nameIndex) nameTable() *dnsProto.NameTable {
 	out := &dnsProto.NameTable{Table: make(map[string]*dnsProto.NameTable_NameInfo, len(idx.candidates))}
 	for name := range idx.candidates {
-		out.Table[strings.TrimSuffix(name, ".")] = idx.winner(name).entry.info
+		if w := idx.winner(name); w != nil {
+			out.Table[strings.TrimSuffix(name, ".")] = w.entry.info
+		}
 	}
 	return out
 }

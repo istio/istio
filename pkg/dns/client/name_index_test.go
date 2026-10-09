@@ -162,6 +162,14 @@ func TestNameIndexWinners(t *testing.T) {
 			},
 		},
 		{
+			name: "candidates without valid IPs do not hide others",
+			resources: map[string]*dnsProto.NameTable{
+				"a.example.com": {Table: map[string]*dnsProto.NameTable_NameInfo{"x.example.com": info("10.0.0.0/8", "Kubernetes")}},
+				"b.example.com": {Table: map[string]*dnsProto.NameTable_NameInfo{"x.example.com": info("192.0.2.1", "External")}},
+			},
+			want: map[string]string{"x.example.com": "192.0.2.1"},
+		},
+		{
 			name: "names are normalized",
 			resources: map[string]*dnsProto.NameTable{
 				"A.Example.com": {Table: map[string]*dnsProto.NameTable_NameInfo{"A.Example.com.": info("192.0.2.1", "External")}},
@@ -198,7 +206,11 @@ func referenceTable(searchNamespaces []string, resources map[string]*dnsProto.Na
 			if info == nil {
 				continue
 			}
-			entry := &nameEntry{info: info}
+			ipv4, ipv6 := netutil.ParseIPsSplitToV4V6(info.Ips)
+			entry := &nameEntry{info: info, ipv4: ipv4, ipv6: ipv6}
+			if !entry.hasAddresses() {
+				continue
+			}
 			offer(&nameCandidate{name: normalizeName(source), entry: entry, exact: true, resource: resource, source: source})
 			for _, alias := range info.Aliases {
 				offer(&nameCandidate{name: normalizeName(alias), entry: entry, resource: resource, source: source})
@@ -209,10 +221,7 @@ func referenceTable(searchNamespaces []string, resources map[string]*dnsProto.Na
 	names := map[string]*dnsProto.NameTable_NameInfo{}
 	for name, c := range winners {
 		names[strings.TrimSuffix(name, ".")] = c.entry.info
-		ipv4, ipv6 := netutil.ParseIPsSplitToV4V6(c.entry.info.Ips)
-		if len(ipv4) > 0 || len(ipv6) > 0 {
-			lt.buildDNSAnswers(sets.New(name), ipv4, ipv6, nil)
-		}
+		lt.buildDNSAnswers(sets.New(name), c.entry.ipv4, c.entry.ipv6, nil)
 	}
 	if len(searchNamespaces) > 0 {
 		search := strings.TrimSuffix(strings.ToLower(searchNamespaces[0]), ".") + "."
