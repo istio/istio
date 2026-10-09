@@ -148,7 +148,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 				if _, f := p.handlers[model.NameTableType]; f {
 					req := &discovery.DeltaDiscoveryRequest{TypeUrl: model.NameTableType}
 					if p.ndsDelta != nil {
-						req.InitialResourceVersions = p.ndsDelta.initialResourceVersions()
+						req.InitialResourceVersions = p.ndsDelta.initialResourceVersions(con)
 					}
 					con.sendDeltaRequest(req)
 				}
@@ -220,7 +220,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 			).Debugf("upstream response")
 			metrics.XdsProxyResponses.Increment()
 			if resp.TypeUrl == model.NameTableType && p.ndsDelta != nil {
-				active, err := p.applyDeltaResponse(con, p.ndsDelta, resp)
+				active, err := p.ndsDelta.Handle(con, resp.Resources, resp.RemovedResources)
 				if !active {
 					continue
 				}
@@ -244,10 +244,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 					// This assumes internal types are always singleton
 					break
 				}
-				active, err := p.handleResponseForActiveStream(con, h, resp.Resources[0].Resource)
-				if !active {
-					continue
-				}
+				err := h(resp.Resources[0].Resource)
 				var errorResp *google_rpc.Status
 				if err != nil {
 					errorResp = &google_rpc.Status{
@@ -288,19 +285,6 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 			return
 		}
 	}
-}
-
-func (p *XdsProxy) applyDeltaResponse(
-	con *ProxyConnection,
-	handler *ndsDeltaHandler,
-	resp *discovery.DeltaDiscoveryResponse,
-) (bool, error) {
-	p.connectedMutex.RLock()
-	defer p.connectedMutex.RUnlock()
-	if p.connected != con {
-		return false, nil
-	}
-	return true, handler.Handle(resp.Resources, resp.RemovedResources)
 }
 
 func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse, forward func(resp *discovery.DeltaDiscoveryResponse)) {

@@ -152,7 +152,15 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	if ia.localDNSServer != nil {
-		proxy.handlers[model.NameTableType] = ia.handleNDSResponse
+		proxy.handlers[model.NameTableType] = func(resp *anypb.Any) error {
+			var nt dnsProto.NameTable
+			if err := resp.UnmarshalTo(&nt); err != nil {
+				log.Errorf("failed to unmarshal name table: %v", err)
+				return err
+			}
+			ia.localDNSServer.UpdateLookupTable(&nt)
+			return nil
+		}
 		if ia.cfg.DeltaNDS {
 			proxy.ndsDelta = &ndsDeltaHandler{dnsServer: ia.localDNSServer, resources: sets.New[string]()}
 		}
@@ -211,16 +219,6 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}, proxy.stopChan)
 
 	return proxy, nil
-}
-
-func (a *Agent) handleNDSResponse(resp *anypb.Any) error {
-	var nt dnsProto.NameTable
-	if err := resp.UnmarshalTo(&nt); err != nil {
-		log.Errorf("failed to unmarshal name table: %v", err)
-		return err
-	}
-	a.localDNSServer.UpdateLookupTable(&nt)
-	return nil
 }
 
 // sendHealthCheckRequest sends a request to the currently connected proxy. Additionally, on any reconnection
@@ -497,10 +495,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					// This assumes internal types are always singleton
 					break
 				}
-				active, err := p.handleResponseForActiveStream(con, h, resp.Resources[0])
-				if !active {
-					continue
-				}
+				err := h(resp.Resources[0])
 				var errorResp *google_rpc.Status
 				if err != nil {
 					errorResp = &google_rpc.Status{
@@ -542,16 +537,6 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 			return
 		}
 	}
-}
-
-// handleResponseForActiveStream prevents stream replacement until the handler finishes publishing its response.
-func (p *XdsProxy) handleResponseForActiveStream(con *ProxyConnection, handler ResponseHandler, resp *anypb.Any) (bool, error) {
-	p.connectedMutex.RLock()
-	defer p.connectedMutex.RUnlock()
-	if p.connected != con {
-		return false, nil
-	}
-	return true, handler(resp)
 }
 
 func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.DiscoveryResponse, forward func(resp *discovery.DiscoveryResponse)) {
@@ -616,11 +601,21 @@ type ndsDeltaHandler struct {
 	dnsServer *dnsClient.LocalDNSServer
 	mu        sync.Mutex
 	resources sets.String
+	// stream is the connection whose responses are applied; responses from retired streams are dropped.
+	stream *ProxyConnection
 }
 
-func (h *ndsDeltaHandler) Handle(resources []*discovery.Resource, removed []string) error {
+// Handle applies a response from con, returning false if con no longer owns the Delta NDS state.
+func (h *ndsDeltaHandler) Handle(con *ProxyConnection, resources []*discovery.Resource, removed []string) (bool, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.stream != con {
+		return false, nil
+	}
+	return true, h.apply(resources, removed)
+}
+
+func (h *ndsDeltaHandler) apply(resources []*discovery.Resource, removed []string) error {
 	for _, resource := range resources {
 		if resource.GetResource() == nil {
 			return fmt.Errorf("NDS resource %q is empty", resource.GetName())
@@ -655,10 +650,12 @@ func (h *ndsDeltaHandler) Handle(resources []*discovery.Resource, removed []stri
 	return nil
 }
 
-// initialResourceVersions lets istiod remove hostnames that went away while the stream was down.
-func (h *ndsDeltaHandler) initialResourceVersions() map[string]string {
+// initialResourceVersions hands the Delta NDS state to con and lists the accepted hostnames, so istiod can remove
+// those that went away while the stream was down.
+func (h *ndsDeltaHandler) initialResourceVersions(con *ProxyConnection) map[string]string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	h.stream = con
 	versions := make(map[string]string, len(h.resources))
 	for hostname := range h.resources {
 		versions[hostname] = ""

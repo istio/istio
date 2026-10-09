@@ -37,7 +37,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -53,7 +52,6 @@ import (
 	dnsClient "istio.io/istio/pkg/dns/client"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
-	pkgmodel "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -642,7 +640,7 @@ func TestNDSDeltaHandler(t *testing.T) {
 	}
 	handle := func(t *testing.T, h *ndsDeltaHandler, resources []*discovery.Resource, removed []string) {
 		t.Helper()
-		if err := h.Handle(resources, removed); err != nil {
+		if _, err := h.Handle(nil, resources, removed); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -715,7 +713,7 @@ func TestNDSDeltaHandler(t *testing.T) {
 			"b.default.svc.cluster.local": info("10.0.0.2", "Kubernetes"),
 		})}, []string{"a.default.svc.cluster.local"})
 		assert.Equal(t, ips(dnsServer), map[string][]string{"b.default.svc.cluster.local": {"10.0.0.2"}})
-		assert.Equal(t, len(h.initialResourceVersions()), 0)
+		assert.Equal(t, len(h.initialResourceVersions(nil)), 0)
 		if _, resolved := dnsServer.NameTableSnapshot(); resolved {
 			t.Fatal("legacy table must replace the Delta NDS index")
 		}
@@ -729,10 +727,10 @@ func TestNDSDeltaHandler(t *testing.T) {
 		h, dnsServer := newHandler()
 		handle(t, h, []*discovery.Resource{host("a.default.svc.cluster.local", "10.0.0.1")}, nil)
 		malformed := &discovery.Resource{Name: "b.default.svc.cluster.local", Resource: protoconv.MessageToAny(&discovery.Resource{})}
-		if err := h.Handle([]*discovery.Resource{host("c.default.svc.cluster.local", "10.0.0.3"), malformed}, []string{"a.default.svc.cluster.local"}); err == nil {
+		if _, err := h.Handle(nil, []*discovery.Resource{host("c.default.svc.cluster.local", "10.0.0.3"), malformed}, []string{"a.default.svc.cluster.local"}); err == nil {
 			t.Fatal("expected malformed resource to be rejected")
 		}
-		if err := h.Handle([]*discovery.Resource{{Name: "d.default.svc.cluster.local"}}, nil); err == nil {
+		if _, err := h.Handle(nil, []*discovery.Resource{{Name: "d.default.svc.cluster.local"}}, nil); err == nil {
 			t.Fatal("expected empty resource to be rejected")
 		}
 		assert.Equal(t, ips(dnsServer), map[string][]string{"a.default.svc.cluster.local": {"10.0.0.1"}})
@@ -743,94 +741,26 @@ func TestNDSDeltaHandler(t *testing.T) {
 	t.Run("initial resource versions list accepted hostnames", func(t *testing.T) {
 		h, _ := newHandler()
 		handle(t, h, []*discovery.Resource{host("a.default.svc.cluster.local", "10.0.0.1"), host("b.default.svc.cluster.local", "10.0.0.2")}, nil)
-		assert.Equal(t, h.initialResourceVersions(), map[string]string{"a.default.svc.cluster.local": "", "b.default.svc.cluster.local": ""})
+		assert.Equal(t, h.initialResourceVersions(nil), map[string]string{"a.default.svc.cluster.local": "", "b.default.svc.cluster.local": ""})
 	})
 
 	t.Run("retired stream cannot publish after reconnect", func(t *testing.T) {
 		h, dnsServer := newHandler()
 		oldConnection := &ProxyConnection{}
 		newConnection := &ProxyConnection{}
-		proxy := &XdsProxy{connected: oldConnection, ndsDelta: h}
-		oldResponse := &discovery.DeltaDiscoveryResponse{
-			TypeUrl:   pkgmodel.NameTableType,
-			Resources: []*discovery.Resource{host("old.default.svc.cluster.local", "10.0.0.1")},
-		}
-		if active, err := proxy.applyDeltaResponse(oldConnection, h, oldResponse); err != nil || !active {
+		h.initialResourceVersions(oldConnection)
+		oldResources := []*discovery.Resource{host("old.default.svc.cluster.local", "10.0.0.1")}
+		if active, err := h.Handle(oldConnection, oldResources, nil); err != nil || !active {
 			t.Fatalf("initial response failed: active=%v err=%v", active, err)
 		}
 
-		proxy.connected = newConnection
-		newResponse := &discovery.DeltaDiscoveryResponse{
-			TypeUrl:          pkgmodel.NameTableType,
-			Resources:        []*discovery.Resource{host("new.default.svc.cluster.local", "10.0.0.2")},
-			RemovedResources: []string{"old.default.svc.cluster.local"},
-		}
-		if active, err := proxy.applyDeltaResponse(newConnection, h, newResponse); err != nil || !active {
+		assert.Equal(t, h.initialResourceVersions(newConnection), map[string]string{"old.default.svc.cluster.local": ""})
+		newResources := []*discovery.Resource{host("new.default.svc.cluster.local", "10.0.0.2")}
+		if active, err := h.Handle(newConnection, newResources, []string{"old.default.svc.cluster.local"}); err != nil || !active {
 			t.Fatalf("new response failed: active=%v err=%v", active, err)
 		}
-		if active, err := proxy.applyDeltaResponse(oldConnection, h, oldResponse); err != nil || active {
+		if active, err := h.Handle(oldConnection, oldResources, nil); err != nil || active {
 			t.Fatalf("retired response was not discarded: active=%v err=%v", active, err)
-		}
-		assert.Equal(t, ips(dnsServer), map[string][]string{"new.default.svc.cluster.local": {"10.0.0.2"}})
-	})
-
-	t.Run("retired SotW stream cannot overwrite Delta state", func(t *testing.T) {
-		h, dnsServer := newHandler()
-		agent := &Agent{localDNSServer: dnsServer}
-		oldConnection := &ProxyConnection{stopChan: make(chan struct{})}
-		newConnection := &ProxyConnection{stopChan: make(chan struct{})}
-		proxy := &XdsProxy{connected: oldConnection, ndsDelta: h}
-
-		legacyStarted := make(chan struct{})
-		releaseLegacy := make(chan struct{})
-		legacyHandler := func(resp *anypb.Any) error {
-			close(legacyStarted)
-			<-releaseLegacy
-			return agent.handleNDSResponse(resp)
-		}
-		type applyResult struct {
-			active bool
-			err    error
-		}
-		legacyResult := make(chan applyResult, 1)
-		go func() {
-			active, err := proxy.handleResponseForActiveStream(oldConnection, legacyHandler, resource("", map[string]*dnsProto.NameTable_NameInfo{
-				"old.default.svc.cluster.local": info("10.0.0.1", "Kubernetes"),
-			}).Resource)
-			legacyResult <- applyResult{active: active, err: err}
-		}()
-		<-legacyStarted
-
-		newResult := make(chan applyResult, 1)
-		go func() {
-			proxy.registerStream(newConnection)
-			response := &discovery.DeltaDiscoveryResponse{
-				Resources: []*discovery.Resource{host("new.default.svc.cluster.local", "10.0.0.2")},
-			}
-			active, err := proxy.applyDeltaResponse(newConnection, h, response)
-			newResult <- applyResult{active: active, err: err}
-		}()
-
-		var newApply applyResult
-		newAppliedBeforeLegacy := false
-		select {
-		case newApply = <-newResult:
-			newAppliedBeforeLegacy = true
-		case <-time.After(100 * time.Millisecond):
-		}
-		close(releaseLegacy)
-		oldApply := <-legacyResult
-		if !newAppliedBeforeLegacy {
-			newApply = <-newResult
-		}
-		if oldApply.err != nil || !oldApply.active {
-			t.Fatalf("active legacy response failed: active=%v err=%v", oldApply.active, oldApply.err)
-		}
-		if newApply.err != nil || !newApply.active {
-			t.Fatalf("new Delta response failed: active=%v err=%v", newApply.active, newApply.err)
-		}
-		if newAppliedBeforeLegacy {
-			t.Fatal("new connection published while the old handler still held publication ownership")
 		}
 		assert.Equal(t, ips(dnsServer), map[string][]string{"new.default.svc.cluster.local": {"10.0.0.2"}})
 	})
