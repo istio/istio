@@ -215,11 +215,11 @@ func TestPreSignTTLCap(t *testing.T) {
 	}
 
 	cases := []struct {
-		name             string
+		name                 string
 		maxRAWorkloadCertTTL time.Duration
-		requested        time.Duration
-		wantErr          bool
-		wantTTL          time.Duration
+		requested            time.Duration
+		wantErr              bool
+		wantTTL              time.Duration
 	}{
 		{
 			name:      "zero requested uses default",
@@ -242,22 +242,22 @@ func TestPreSignTTLCap(t *testing.T) {
 			wantErr:   true,
 		},
 		{
-			name:             "custom cap respected when set",
+			name:                 "custom cap respected when set",
 			maxRAWorkloadCertTTL: 12 * time.Hour,
-			requested:        24 * time.Hour,
-			wantErr:          true,
+			requested:            24 * time.Hour,
+			wantErr:              true,
 		},
 		{
-			name:             "custom cap allows request below it",
+			name:                 "custom cap allows request below it",
 			maxRAWorkloadCertTTL: 72 * time.Hour,
-			requested:        60 * time.Hour,
-			wantTTL:          60 * time.Hour,
+			requested:            60 * time.Hour,
+			wantTTL:              60 * time.Hour,
 		},
 		{
-			name:             "custom cap bounded by MaxCertTTL",
+			name:                 "custom cap bounded by MaxCertTTL",
 			maxRAWorkloadCertTTL: 200 * 24 * time.Hour,
-			requested:        91 * 24 * time.Hour,
-			wantErr:          true,
+			requested:            91 * 24 * time.Hour,
+			wantErr:              true,
 		},
 	}
 
