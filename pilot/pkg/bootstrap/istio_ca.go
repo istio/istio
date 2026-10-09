@@ -643,16 +643,16 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 		return nil, fmt.Errorf("kubeClient is nil")
 	}
 	raOpts := &ra.IstioRAOptions{
-		ExternalCAType:   opts.ExternalCAType,
-		DefaultCertTTL:   workloadCertTTL.Get(),
-		MaxCertTTL:       maxWorkloadCertTTL.Get(),
+		ExternalCAType:       opts.ExternalCAType,
+		DefaultCertTTL:       workloadCertTTL.Get(),
+		MaxCertTTL:           maxWorkloadCertTTL.Get(),
 		MaxRAWorkloadCertTTL: maxRAWorkloadCertTTL.Get(),
-		CaSigner:         opts.ExternalCASigner,
-		CaCertFile:       caCertFile,
-		VerifyAppendCA:   true,
-		K8sClient:        s.kubeClient.Kube(),
-		TrustDomain:      opts.TrustDomain,
-		CertSignerDomain: opts.CertSignerDomain,
+		CaSigner:             opts.ExternalCASigner,
+		CaCertFile:           caCertFile,
+		VerifyAppendCA:       true,
+		K8sClient:            s.kubeClient.Kube(),
+		TrustDomain:          opts.TrustDomain,
+		CertSignerDomain:     opts.CertSignerDomain,
 	}
 	raServer, err := ra.NewIstioRA(raOpts)
 	if err != nil {
