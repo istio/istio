@@ -3392,6 +3392,62 @@ func TestContainsEgressDependencies(t *testing.T) {
 	}
 }
 
+func TestSameHostnameServiceDependencies(t *testing.T) {
+	const svcName = "foo.example.com"
+	ps := NewPushContext()
+	ps.Mesh = mesh.DefaultMeshConfig()
+	for _, ns := range []string{"a", "b"} {
+		ps.AddPublicServices([]*Service{{
+			Hostname: svcName,
+			Ports: PortList{
+				{Name: "http", Port: 80, Protocol: protocol.HTTP},
+				{Name: "http-alt", Port: 9000, Protocol: protocol.HTTP},
+			},
+			Attributes: ServiceAttributes{Namespace: ns, ServiceRegistry: provider.External},
+		}})
+	}
+	dependsOn := func(sc *SidecarScope, ns string, want bool) {
+		t.Helper()
+		for _, k := range []kind.Kind{kind.ServiceEntry, kind.Endpoints} {
+			key := ConfigKey{Kind: k, Name: svcName, Namespace: ns}
+			if got := sc.DependsOnConfig(key, ps.Mesh.RootNamespace); got != want {
+				t.Errorf("DependsOnConfig(%v) = %v, want %v", key, got, want)
+			}
+		}
+	}
+
+	// A single listener keeps one namespace per hostname, so the other namespace is not a dependency.
+	defaultScope := convertToSidecarScope(ps, nil, "default")
+	if features.EnableLazySidecarEvaluation {
+		defaultScope.initFunc()
+	}
+	winner := defaultScope.GetService(svcName).Attributes.Namespace
+	loser := map[string]string{"a": "b", "b": "a"}[winner]
+	dependsOn(defaultScope, winner, true)
+	dependsOn(defaultScope, loser, false)
+
+	// Each listener imports the hostname from a different namespace.
+	cfg := &config.Config{
+		Meta: config.Meta{Name: "foo", Namespace: "default"},
+		Spec: &networking.Sidecar{Egress: []*networking.IstioEgressListener{
+			{Port: &networking.SidecarPort{Number: 80, Protocol: "HTTP", Name: "http"}, Hosts: []string{"a/*"}},
+			{Port: &networking.SidecarPort{Number: 9000, Protocol: "HTTP", Name: "http-alt"}, Hosts: []string{"b/*"}},
+		}},
+	}
+	sidecarScope := convertToSidecarScope(ps, cfg, "default")
+	if features.EnableLazySidecarEvaluation {
+		sidecarScope.initFunc()
+	}
+	if got := sidecarScope.GetService(svcName).Attributes.Namespace; got != "a" {
+		t.Fatalf("expected namespace a to win, got %q", got)
+	}
+
+	// Only namespace a wins servicesByHostname, but the b listener still uses b's service.
+	for ns, want := range map[string]bool{"a": true, "b": true, "c": false} {
+		dependsOn(sidecarScope, ns, want)
+	}
+}
+
 func TestRootNsSidecarDependencies(t *testing.T) {
 	cases := []struct {
 		name   string

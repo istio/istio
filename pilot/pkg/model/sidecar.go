@@ -720,8 +720,15 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	switch config.Kind {
 	case kind.ServiceEntry, kind.Endpoints:
 		// Both are keyed by service hostname and namespace.
-		if svc := sc.servicesByHostname[host.Name(config.Name)]; svc != nil && svc.Attributes.Namespace == config.Namespace {
+		hostname := host.Name(config.Name)
+		if svc := sc.servicesByHostname[hostname]; svc != nil && svc.Attributes.Namespace == config.Namespace {
 			return true
+		}
+		// Per-listener consumers (LDS, NDS) use every egress listener service of a hostname, not just the winner above.
+		for _, svc := range sc.servicesByEgressHostname[hostname] {
+			if svc.Attributes.Namespace == config.Namespace {
+				return true
+			}
 		}
 	case kind.DestinationRule:
 		if _, f := sc.destinationRulesByNames[types.NamespacedName{Name: config.Name, Namespace: config.Namespace}]; f {
