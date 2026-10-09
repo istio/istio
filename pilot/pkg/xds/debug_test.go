@@ -388,6 +388,42 @@ func TestDebugProxyNamespaceRestriction(t *testing.T) {
 	}
 }
 
+func TestConfigDumpExactProxyID(t *testing.T) {
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	s.ConnectADS().WithID("sidecar~10.0.0.1~bar-7d9f8b-x2k9q.default~default.svc.cluster.local").
+		RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+	s.ConnectADS().WithID("sidecar~10.0.0.2~foo-5c6d7e-abcde.default~default.svc.cluster.local").
+		RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+
+	var barConID string
+	for _, c := range s.Discovery.Clients() {
+		if c.Proxy().ID == "bar-7d9f8b-x2k9q.default" {
+			barConID = c.ID()
+		}
+	}
+	if barConID == "" {
+		t.Fatal("bar connection not found")
+	}
+
+	tests := []struct {
+		proxyID  string
+		wantCode int
+	}{
+		{proxyID: "bar-7d9f8b-x2k9q.default", wantCode: 200},
+		{proxyID: barConID, wantCode: 200},
+		{proxyID: "bar", wantCode: 404},
+		{proxyID: "bar-7d9f8b", wantCode: 404},
+		{proxyID: "bar-7d9f8b-x2k9q", wantCode: 404},
+		{proxyID: "default", wantCode: 404},
+		{proxyID: "-", wantCode: 404},
+	}
+	for _, tt := range tests {
+		t.Run(tt.proxyID, func(t *testing.T) {
+			getConfigDump(t, s.Discovery, tt.proxyID, tt.wantCode)
+		})
+	}
+}
+
 // TestStatusGenRequiresAuth verifies that StatusGen (XDS debug/syncz and config_dump)
 // requires authentication. This prevents unauthenticated access on plaintext port 15010.
 func TestStatusGenRequiresAuth(t *testing.T) {

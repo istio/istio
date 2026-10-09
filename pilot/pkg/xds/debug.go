@@ -1011,9 +1011,10 @@ func cloneProxy(proxy *model.Proxy) *model.Proxy {
 	return out
 }
 
+// getProxyConnection requires an exact proxy ID (pod.namespace) or connection ID, partial matches would expose sibling proxies.
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 	for _, con := range s.Clients() {
-		if strings.Contains(con.ID(), proxyID) {
+		if con.proxy.ID == proxyID || con.ID() == proxyID {
 			out := *con
 			out.proxy = cloneProxy(con.proxy)
 			return &out
