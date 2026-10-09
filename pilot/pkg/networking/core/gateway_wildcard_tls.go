@@ -127,7 +127,9 @@ func (lb *ListenerBuilder) buildGatewayWildcardTLSFilters(target gatewayWildcard
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       target.dfpCluster,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: target.name()},
-		IdleTimeout:      parseDuration(lb.node.Metadata.IdleTimeout),
+		// The internal listener applies the idle timeout, as on waypoints. A timeout here could close the connection
+		// before the one configured for the destination.
+		IdleTimeout: istio_route.Notimeout,
 		// The peer identity is only known once the downstream TLS handshake completes. No application data is
 		// read before then, so no early data needs to be buffered.
 		UpstreamConnectMode: tcp.UpstreamConnectMode_ON_DOWNSTREAM_TLS_HANDSHAKE,
