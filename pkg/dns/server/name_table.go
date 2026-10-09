@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	dnsutil "istio.io/istio/pkg/dns"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/slices"
@@ -210,16 +211,7 @@ func BuildNameTablesByHostname(cfg Config, only sets.String) map[string]*dnsProt
 	if cfg.Node == nil || cfg.Node.SidecarScope == nil {
 		return nil
 	}
-	groups := make(map[string][]*model.Service)
-	for _, el := range cfg.Node.SidecarScope.EgressListeners {
-		for _, svc := range el.Services() {
-			hostname := svc.Hostname.String()
-			if len(only) > 0 && !only.Contains(hostname) {
-				continue
-			}
-			groups[hostname] = append(groups[hostname], svc)
-		}
-	}
+	groups := egressServiceGroups(cfg.Node.SidecarScope, only)
 	aliases := newAliasContext(cfg.Node)
 	out := make(map[string]*dnsProto.NameTable, len(groups))
 	for hostname, services := range groups {
@@ -233,6 +225,27 @@ func BuildNameTablesByHostname(cfg Config, only sets.String) map[string]*dnsProt
 		out[hostname] = nt
 	}
 	return out
+}
+
+// egressServiceGroups returns the egress listener services per hostname, limited to only if it is non-empty.
+func egressServiceGroups(scope *model.SidecarScope, only sets.String) map[string][]*model.Service {
+	if len(only) > 0 {
+		groups := make(map[string][]*model.Service, len(only))
+		for hostname := range only {
+			if services := scope.ServicesForEgressHostname(host.Name(hostname)); len(services) > 0 {
+				groups[hostname] = services
+			}
+		}
+		return groups
+	}
+	groups := make(map[string][]*model.Service)
+	for _, el := range scope.EgressListeners {
+		for _, svc := range el.Services() {
+			hostname := svc.Hostname.String()
+			groups[hostname] = append(groups[hostname], svc)
+		}
+	}
+	return groups
 }
 
 // aliasContext holds the proxy's namespace and domain, parsed the same way as the agent's LocalDNSServer.
