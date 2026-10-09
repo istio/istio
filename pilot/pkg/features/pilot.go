@@ -334,7 +334,7 @@ var (
 
 	EnableStrictGatewayMerging = env.Register(
 		"PILOT_ENABLE_STRICT_GATEWAY_MERGING",
-		true,
+		false,
 		"If enabled, managed GatewayAPI Gateways will not be merged with Istio Gateways from different namespaces.").Get()
 
 	EnableNativeSidecars = func() NativeSidecarMode {
