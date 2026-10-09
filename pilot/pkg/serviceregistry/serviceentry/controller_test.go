@@ -86,6 +86,7 @@ func deleteConfigs(configs []*config.Config, store model.ConfigStore, t testing.
 
 type Event = xdsfake.Event
 
+// nolint: unparam
 func makeWorkloadEntryInstanceWithServiceAccount(cfg *config.Config, workloadName string, addresses []string, port int,
 	svcPort *networking.ServicePort, svcLabels map[string]string, serviceAccount string,
 ) *WorkloadServiceInstance {
