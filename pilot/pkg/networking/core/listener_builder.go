@@ -488,8 +488,14 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
-		// Separate RBAC filters which can be overriden by per-route configuration, so they can be placed later in the filter chain. 
-		rbacFilters, routeOverrideableRBACFilters := authz.PartitionRouteOverrideableRBACFilters(lb.authzBuilder.BuildHTTP(httpOpts.class))
+
+		// Separate RBAC filters which can be overriden by per-route configuration,
+		// so they can be placed later in the filter chain. Per-route ALLOW/DENY
+		// configuration must have an RBAC filter to override, thus when no
+		// listener-scoped ALLOW or DENY RBAC filters exist, we have to create an
+		// empty RBAC filter to allow per-route overrides.
+		rbacFilters, routeOverridableRBACFilters := authz.PartitionRouteOverridableRBACFilters(
+			lb.node, httpOpts.class, lb.authzBuilder.BuildHTTP(httpOpts.class))
 		filters = append(filters, rbacFilters...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_STATS)
@@ -502,8 +508,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		}
 		// Filters which rely on the route remaining unchanged need to be placed
 		// last, in case another filter in the chain clears the routing cache.
-		filters = append(filters, authzFiltersWithPerRouteOverrides...)
-		filters = append(filters, authz.RouteAnchorFilters(lb.node, httpOpts.class, authzFiltersWithPerRouteOverrides)...)
+		filters = append(filters, routeOverridableRBACFilters...)
 	}
 
 	if httpOpts.protocol == protocol.GRPCWeb {
