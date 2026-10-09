@@ -489,11 +489,11 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
 
-		// Separate RBAC filters which can be overriden by per-route configuration,
-		// so they can be placed later in the filter chain. Per-route ALLOW/DENY
-		// configuration must have an RBAC filter to override, thus when no
-		// listener-scoped ALLOW or DENY RBAC filters exist, we have to create an
-		// empty RBAC filter to allow per-route overrides.
+		// Separate RBAC filters which can be overridden by per-route configuration,
+		// so they are ran after filters which may clear the route cache. Per-route
+		// ALLOW/DENY configuration must have an RBAC filter to override, thus when
+		// no listener-scoped ALLOW or DENY RBAC filters exist, we have to create
+		// an empty RBAC filter to allow per-route overrides.
 		rbacFilters, routeOverridableRBACFilters := authz.PartitionRouteOverridableRBACFilters(
 			lb.node, httpOpts.class, lb.authzBuilder.BuildHTTP(httpOpts.class))
 		filters = append(filters, rbacFilters...)

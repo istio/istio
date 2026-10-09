@@ -132,16 +132,17 @@ func PartitionRouteOverridableRBACFilters(
 	class networking.ListenerClass,
 	built []*hcm.HttpFilter,
 ) (workload, routeOverridable []*hcm.HttpFilter) {
+	if !features.EnableGatewayAPIHTTPRouteAuth || proxy == nil || proxy.Type != model.Router ||
+		class == networking.ListenerClassSidecarOutbound {
+		return built, nil
+	}
+
 	for _, f := range built {
 		if f.GetName() == builder.RBACFilterNameAllow {
 			routeOverridable = append(routeOverridable, f)
 			continue
 		}
 		workload = append(workload, f)
-	}
-	if !features.EnableGatewayAPIHTTPRouteAuth || proxy == nil || proxy.Type != model.Router ||
-		class == networking.ListenerClassSidecarOutbound {
-		return workload, routeOverridable
 	}
 
 	hasAllowFilter := len(routeOverridable) > 0
