@@ -159,9 +159,6 @@ func ApplyRetries(rule *gatewayv1.HTTPRouteRule, route *api.Route) error {
 	if rule == nil || rule.Retry == nil {
 		return nil
 	}
-	if a := rule.Retry.Attempts; a != nil && *a == 0 {
-		return nil
-	}
 	if route.TrafficPolicies == nil {
 		route.TrafficPolicies = []*api.TrafficPolicySpec{}
 	}
@@ -176,9 +173,7 @@ func ApplyRetries(rule *gatewayv1.HTTPRouteRule, route *api.Route) error {
 			tpRetry.Backoff = durationpb.New(d)
 		}
 	}
-	if rule.Retry.Attempts != nil {
-		tpRetry.Attempts = int32(*rule.Retry.Attempts) //nolint:gosec // G115: kubebuilder validation ensures 0 <= value, safe for int32
-	}
+	tpRetry.Attempts = int32(ptr.NonEmptyOrDefault(rule.Retry.Attempts, 1)) //nolint:gosec // G115: kubebuilder validation ensures a positive value, safe for int32
 	route.TrafficPolicies = append(route.TrafficPolicies, &api.TrafficPolicySpec{
 		Kind: &api.TrafficPolicySpec_Retry{
 			Retry: tpRetry,
