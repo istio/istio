@@ -370,7 +370,7 @@ func SetWaypointForNamespace(t framework.TestContext, ns namespace.Instance, way
 	for _, c := range t.AllClusters() {
 		oldNs, err := c.Kube().CoreV1().Namespaces().Get(t.Context(), ns.Name(), metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("error getting namespace %s: %w", ns.Name(), err)
+			t.Fatalf("error getting namespace %s: %v", ns.Name(), err)
 		}
 		oldLabels := oldNs.ObjectMeta.GetLabels()
 		if oldLabels == nil {
@@ -395,7 +395,7 @@ func SetWaypointForNamespace(t framework.TestContext, ns namespace.Instance, way
 		}
 
 		if err = doLabel(newLabels); err != nil {
-			t.Fatalf("error updating namespace %s: %w", ns.Name(), err)
+			t.Fatalf("error updating namespace %s: %v", ns.Name(), err)
 		}
 		t.Cleanup(func() {
 			if err := doLabel(oldLabels); err != nil {
