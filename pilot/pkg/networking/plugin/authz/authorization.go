@@ -124,14 +124,14 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	return b.httpFilters
 }
 
-// PartitionRouteOverridableRBACFilters separates workload-only RBAC filters from filters supporting
-// per-route overrides, adding missing empty ALLOW and DENY filters on supported gateways.
+// PartitionRouteOverridableRBACFilters separates listener-level RBAC filters according to whether
+// their configuration supports per-route overrides, adding missing empty ALLOW and DENY filters on supported gateways.
 // Filters supporting per-route overrides must be placed after filters that can clear the route cache.
 func PartitionRouteOverridableRBACFilters(
 	proxy *model.Proxy,
 	class networking.ListenerClass,
 	built []*hcm.HttpFilter,
-) (workload, routeOverridable []*hcm.HttpFilter) {
+) (nonRouteOverridableRBACFilters, routeOverridableRBACFilters []*hcm.HttpFilter) {
 	if !features.EnableGatewayAPIHTTPRouteAuth || proxy == nil || proxy.Type != model.Router ||
 		class == networking.ListenerClassSidecarOutbound {
 		return built, nil
@@ -139,22 +139,22 @@ func PartitionRouteOverridableRBACFilters(
 
 	for _, f := range built {
 		if f.GetName() == builder.RBACFilterNameAllow {
-			routeOverridable = append(routeOverridable, f)
+			routeOverridableRBACFilters = append(routeOverridableRBACFilters, f)
 			continue
 		}
-		workload = append(workload, f)
+		nonRouteOverridableRBACFilters = append(nonRouteOverridableRBACFilters, f)
 	}
 
-	hasAllowFilter := len(routeOverridable) > 0
-	routeOverridable = append(routeOverridable, emptyRBACFilter(builder.RBACFilterNameRouteDeny))
+	hasAllowFilter := len(routeOverridableRBACFilters) > 0
+	routeOverridableRBACFilters = append(routeOverridableRBACFilters, emptyRBACFilter(builder.RBACFilterNameRouteDeny))
 	// RBACPerRoute ALLOW configuration overrides the workload's ALLOW RBAC
 	// filter rather than chaining an additional filter after it (as we do for
 	// DENY policy). That workload RBAC filter must exist, even when the workload
 	// had no ALLOW policy to produce the RBAC filter.
 	if !hasAllowFilter {
-		routeOverridable = append(routeOverridable, emptyRBACFilter(builder.RBACFilterNameAllow))
+		routeOverridableRBACFilters = append(routeOverridableRBACFilters, emptyRBACFilter(builder.RBACFilterNameAllow))
 	}
-	return workload, routeOverridable
+	return nonRouteOverridableRBACFilters, routeOverridableRBACFilters
 }
 
 func emptyRBACFilter(name string) *hcm.HttpFilter {
