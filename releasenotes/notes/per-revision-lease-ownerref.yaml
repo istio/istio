@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 61155
+  - 59968
+releaseNotes:
+  - |
+    **Fixed** per-revision leader election Leases (`istio-gateway-deployment-<revision>` and `istio-gateway-status-leader-<revision>`) being left behind when a revision is removed. istiod now sets an `ownerReference` on these Leases to the revision's `istiod-<revision>` Deployment, so they are garbage collected when that Deployment is removed by any tool (for example `helm uninstall` or a Helm upgrade that drops the revision).
