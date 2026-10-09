@@ -306,12 +306,13 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 	var lbEndpoints []*endpoint.LocalityLbEndpoints
 
-	isPassthrough := subset.GetTrafficPolicy().GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH
+	usePassthrough := !opts.waypointRouted &&
+		subset.GetTrafficPolicy().GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH
 	clusterType := opts.mutable.cluster.GetType()
-	if isPassthrough {
+	if usePassthrough {
 		clusterType = cluster.Cluster_ORIGINAL_DST
 	}
-	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
+	if !(usePassthrough || clusterType == cluster.Cluster_EDS) {
 		lbEndpoints = endpointBuilder.WithSubset(subset.Name).FromServiceEndpoints()
 	}
 
@@ -343,7 +344,9 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	// basis in buildCluster, so we can just insert without a copy.
 	subsetCluster.cluster.Metadata = util.AddConfigInfoMetadata(subsetCluster.cluster.Metadata, destRule.Meta)
 	util.AddSubsetToMetadata(subsetCluster.cluster.Metadata, subset.Name)
-	subsetCluster.cluster.Metadata = util.AddALPNOverrideToMetadata(subsetCluster.cluster.Metadata, opts.policy.GetTls().GetMode())
+	if !opts.waypointRouted {
+		subsetCluster.cluster.Metadata = util.AddALPNOverrideToMetadata(subsetCluster.cluster.Metadata, opts.policy.GetTls().GetMode())
+	}
 	return subsetCluster.build()
 }
 
@@ -351,6 +354,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 // It returns the subset clusters if any created as it applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode ClusterMode, service *model.Service,
 	port *model.Port, eb *endpoints.EndpointBuilder, destRule *config.Config, serviceAccounts []string,
+	waypointRouted bool,
 ) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
@@ -368,6 +372,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		direction:                 model.TrafficDirectionOutbound,
 		credentialSocketExist:     cb.credentialSocketExist,
 		fileCredentialSocketExist: cb.fileCredentialSocketExist,
+		waypointRouted:            waypointRouted,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -412,7 +417,9 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 
 	if destRule != nil {
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
-		mc.cluster.Metadata = util.AddALPNOverrideToMetadata(mc.cluster.Metadata, opts.policy.GetTls().GetMode())
+		if !waypointRouted {
+			mc.cluster.Metadata = util.AddALPNOverrideToMetadata(mc.cluster.Metadata, opts.policy.GetTls().GetMode())
+		}
 	}
 
 	// DFP clusters don't support subsets - skip subset cluster creation
