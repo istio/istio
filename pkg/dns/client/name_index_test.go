@@ -99,8 +99,12 @@ func TestApplyNameTables(t *testing.T) {
 
 	// Removals reveal shadowed candidates and search-expanded names in place.
 	h.ApplyNameTables(nil, []string{"productpage", "details.ns1.ns1.svc.cluster.local", "*.wildcard.com"})
-	if h.lookupTable.Load().(*LookupTable) != lt {
-		t.Fatal("incremental update must reuse the published table")
+	prev := lt
+	if lt = h.lookupTable.Load().(*LookupTable); lt == prev {
+		t.Fatal("incremental update must publish a new table")
+	}
+	if got := lookupString(t, prev, "productpage."); got != "192.0.2.1" {
+		t.Fatalf("incremental update modified the previously published table: productpage. = %q", got)
 	}
 	check(map[string]string{
 		"productpage.":                       "10.0.0.1",
@@ -108,6 +112,7 @@ func TestApplyNameTables(t *testing.T) {
 		"foo.wildcard.com.":                  "",
 	})
 
+	h.ResetNameIndex()
 	h.UpdateLookupTable(&dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{"a.example.com": external("192.0.2.4")}})
 	if _, resolved := h.NameTableSnapshot(); resolved {
 		t.Fatal("legacy table must not be reported as resolved")

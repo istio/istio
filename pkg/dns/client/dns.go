@@ -45,8 +45,11 @@ var log = istiolog.RegisterScope("dns", "Istio DNS proxy")
 type LocalDNSServer struct {
 	// Holds the pointer to the DNS lookup table
 	lookupTable atomic.Value
-	// updateMu serializes lookup table updates. nameIndex is set while the table is built from Delta NDS resources.
-	updateMu  sync.Mutex
+
+	// nameTable holds the original NameTable, for debugging
+	nameTable atomic.Value
+	// nameIndex builds the lookup table from Delta NDS resources; indexMu guards it.
+	indexMu   sync.Mutex
 	nameIndex *nameIndex
 
 	dnsProxies []*dnsProxy
@@ -67,9 +70,6 @@ type LocalDNSServer struct {
 
 // LookupTable is borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
 type LookupTable struct {
-	// mu guards the maps below, which are updated in place for Delta NDS. Legacy tables are never written once published.
-	mu sync.RWMutex
-
 	// This table will be first looked up to see if the host is something that we got a Nametable entry for
 	// (i.e. came from istiod's service registry). If it is, then we will be able to confidently return
 	// NXDOMAIN errors for AAAA records for such hosts when only A records exist (or vice versa). If the
@@ -85,8 +85,6 @@ type LookupTable struct {
 	// The cname records here (comprised of different variants of the hosts above,
 	// expanded by the search namespaces) pointing to the actual host.
 	cname map[string][]dns.RR
-	// nameTable holds the original NameTable, for debugging
-	nameTable *dnsProto.NameTable
 }
 
 const (
@@ -222,42 +220,42 @@ func (h *LocalDNSServer) StartDNS() {
 
 func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 	lookupTable := &LookupTable{
-		allHosts:  sets.String{},
-		name4:     map[string][]dns.RR{},
-		name6:     map[string][]dns.RR{},
-		cname:     map[string][]dns.RR{},
-		nameTable: nt,
+		allHosts: sets.String{},
+		name4:    map[string][]dns.RR{},
+		name6:    map[string][]dns.RR{},
+		cname:    map[string][]dns.RR{},
 	}
 	h.BuildAlternateHosts(nt, lookupTable.buildDNSAnswers)
-	h.updateMu.Lock()
-	defer h.updateMu.Unlock()
-	h.nameIndex = nil
-	// Publish lookup and debug state together so readers cannot observe different table versions.
 	h.lookupTable.Store(lookupTable)
+	h.nameTable.Store(nt)
 	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
 
 // ApplyNameTables applies Delta NDS resources, keyed by service hostname, and removed hostnames to the lookup table.
 // Istiod sends every name and alias each hostname produces, so names claimed by several resources are resolved here.
-// Only the names affected by the change are recomputed, and readers observe the whole change at once.
+// Only the names affected by the change are recomputed. Like UpdateLookupTable, the changes are applied to a copy
+// that is then published, so queries never wait for an update.
 func (h *LocalDNSServer) ApplyNameTables(updated map[string]*dnsProto.NameTable, removed []string) {
-	h.updateMu.Lock()
-	defer h.updateMu.Unlock()
-	idx := h.nameIndex
-	if idx == nil {
-		idx = newNameIndex(h.searchNamespaces)
-	}
-	records := idx.apply(updated, removed)
-	idx.table.mu.Lock()
-	for _, r := range records {
-		idx.table.set(r)
-	}
-	idx.table.mu.Unlock()
+	h.indexMu.Lock()
+	defer h.indexMu.Unlock()
 	if h.nameIndex == nil {
-		h.nameIndex = idx
-		h.lookupTable.Store(idx.table)
+		h.nameIndex = newNameIndex(h.searchNamespaces)
 	}
+	lookupTable := h.nameIndex.table.clone()
+	records := h.nameIndex.apply(updated, removed)
+	for _, r := range records {
+		lookupTable.set(r)
+	}
+	h.nameIndex.table = lookupTable
+	h.lookupTable.Store(lookupTable)
 	log.Debugf("updated %d names from %d resources, %d removed", len(records), len(updated), len(removed))
+}
+
+// ResetNameIndex drops the Delta NDS state so that a legacy table can replace it.
+func (h *LocalDNSServer) ResetNameIndex() {
+	h.indexMu.Lock()
+	defer h.indexMu.Unlock()
+	h.nameIndex = nil
 }
 
 // BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and
@@ -382,16 +380,16 @@ func (h *LocalDNSServer) NameTable() *dnsProto.NameTable {
 
 // NameTableSnapshot returns the current table and whether it already holds every final name.
 func (h *LocalDNSServer) NameTableSnapshot() (table *dnsProto.NameTable, resolved bool) {
-	h.updateMu.Lock()
-	defer h.updateMu.Unlock()
+	h.indexMu.Lock()
+	defer h.indexMu.Unlock()
 	if h.nameIndex != nil {
 		return h.nameIndex.nameTable(), true
 	}
-	lt := h.lookupTable.Load()
+	lt := h.nameTable.Load()
 	if lt == nil {
 		return nil, false
 	}
-	return lt.(*LookupTable).nameTable, false
+	return lt.(*dnsProto.NameTable), false
 }
 
 // Inspired by https://github.com/coredns/coredns/blob/master/plugin/loadbalance/loadbalance.go
@@ -554,8 +552,6 @@ func serverFailure(req *dns.Msg) *dns.Msg {
 // If it is not part of the registry, return nil so that caller queries upstream. If it is part
 // of registry, we will look it up in one of our tables, failing which we will return NXDOMAIN.
 func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, bool) {
-	table.mu.RLock()
-	defer table.mu.RUnlock()
 	question := string(host.Name(hostname))
 	wildcard := false
 	// First check if host exists in all hosts.

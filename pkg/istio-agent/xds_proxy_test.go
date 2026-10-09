@@ -716,6 +716,13 @@ func TestNDSDeltaHandler(t *testing.T) {
 		})}, []string{"a.default.svc.cluster.local"})
 		assert.Equal(t, ips(dnsServer), map[string][]string{"b.default.svc.cluster.local": {"10.0.0.2"}})
 		assert.Equal(t, len(h.initialResourceVersions()), 0)
+		if _, resolved := dnsServer.NameTableSnapshot(); resolved {
+			t.Fatal("legacy table must replace the Delta NDS index")
+		}
+
+		// Later resources start from an empty index, so names from before the legacy table do not return.
+		handle(t, h, []*discovery.Resource{host("c.default.svc.cluster.local", "10.0.0.3")}, nil)
+		assert.Equal(t, ips(dnsServer), map[string][]string{"c.default.svc.cluster.local": {"10.0.0.3"}})
 	})
 
 	t.Run("rejected response retains accepted state", func(t *testing.T) {

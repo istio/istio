@@ -22,13 +22,14 @@ import (
 
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // nameIndex holds every candidate for each name offered by Delta NDS resources, so that an update only recomputes
-// the names it touches. It is only accessed by the writer; DNS queries read the LookupTable it maintains.
+// the names it touches. It is only accessed by the writer; DNS queries read the LookupTable it last published.
 type nameIndex struct {
 	table *LookupTable
 	// search is the first search namespace with a trailing dot, or empty.
@@ -198,7 +199,17 @@ func (idx *nameIndex) nameTable() *dnsProto.NameTable {
 	return out
 }
 
-// set applies a record; the caller holds table.mu for writing.
+// clone returns a copy of the table that can be updated without affecting readers; the records are shared.
+func (table *LookupTable) clone() *LookupTable {
+	return &LookupTable{
+		allHosts: maps.Clone(table.allHosts),
+		name4:    maps.Clone(table.name4),
+		name6:    maps.Clone(table.name6),
+		cname:    maps.Clone(table.cname),
+	}
+}
+
+// set applies a record to a table that is not yet published.
 func (table *LookupTable) set(r nameRecord) {
 	if !r.found {
 		table.allHosts.Delete(r.name)

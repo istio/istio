@@ -633,6 +633,7 @@ func (h *ndsDeltaHandler) Handle(resources []*discovery.Resource, removed []stri
 			return err
 		}
 		h.resources = sets.New[string]()
+		h.dnsServer.ResetNameIndex()
 		h.dnsServer.UpdateLookupTable(&table)
 		return nil
 	}
