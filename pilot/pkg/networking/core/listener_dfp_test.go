@@ -28,6 +28,7 @@ import (
 	snidfp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
@@ -530,6 +531,103 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 				g.Expect(rbacJSON).To(ContainSubstring(`"key":"io.istio.peer_principal"`))
 				g.Expect(rbacJSON).To(ContainSubstring(`"requestedServerName"`))
 				g.Expect(rbacJSON).NotTo(ContainSubstring(`"authenticated"`))
+			}
+		})
+	}
+}
+
+func TestGatewayMutualTLSWildcardIdleTimeout(t *testing.T) {
+	const wildcard = "*.wikipedia.org"
+	configs := []config.Config{
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Name: "wikipedia", Namespace: "istio-system"},
+			Spec: &networking.ServiceEntry{
+				Hosts:      []string{wildcard},
+				Ports:      []*networking.ServicePort{{Number: 443, Name: "tls", Protocol: "TLS"}},
+				Location:   networking.ServiceEntry_MESH_EXTERNAL,
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+		},
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.Gateway, Name: "egressgateway", Namespace: "istio-system"},
+			Spec: &networking.Gateway{
+				Selector: map[string]string{"istio": "egressgateway"},
+				Servers: []*networking.Server{{
+					Port:  &networking.Port{Number: 443, Name: "tls-wikipedia", Protocol: "TLS"},
+					Hosts: []string{wildcard},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+				}},
+			},
+		},
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "wikipedia", Namespace: "istio-system"},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{wildcard},
+				Gateways: []string{"egressgateway"},
+				Tcp: []*networking.TCPRoute{{
+					Match: []*networking.L4MatchAttributes{{Port: 443, Gateways: []string{"egressgateway"}}},
+					Route: []*networking.RouteDestination{{Destination: &networking.Destination{Host: wildcard, Port: &networking.PortSelector{Number: 443}}}},
+				}},
+			},
+		},
+	}
+	destinationRule := config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.DestinationRule, Name: "wikipedia", Namespace: "istio-system"},
+		Spec: &networking.DestinationRule{
+			Host: wildcard,
+			TrafficPolicy: &networking.TrafficPolicy{ConnectionPool: &networking.ConnectionPoolSettings{
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{IdleTimeout: durationpb.New(2 * time.Hour)},
+			}},
+		},
+	}
+
+	// The internal listener owns the idle timeout, as the waypoint does. The gateway chain has none, so it cannot
+	// close the connection before the timeout set for the external host.
+	cases := []struct {
+		name            string
+		destinationRule bool
+		metadataTimeout string
+		// innerIdleTimeout 0 means unset, so Envoy applies its default.
+		innerIdleTimeout time.Duration
+	}{
+		{name: "destination rule", destinationRule: true, innerIdleTimeout: 2 * time.Hour},
+		{name: "proxy metadata", metadataTimeout: "3h", innerIdleTimeout: 3 * time.Hour},
+		{name: "default"},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+			cfgs := configs
+			if tt.destinationRule {
+				cfgs = append(slices.Clone(configs), destinationRule)
+			}
+			cg := NewConfigGenTest(t, TestOptions{Configs: cfgs})
+			proxy := cg.SetupProxy(&model.Proxy{
+				Type:   model.Router,
+				Labels: map[string]string{"istio": "egressgateway"},
+				Metadata: &model.NodeMetadata{
+					Labels:      map[string]string{"istio": "egressgateway"},
+					Namespace:   "istio-system",
+					IdleTimeout: tt.metadataTimeout,
+				},
+			})
+			listeners := cg.Listeners(proxy)
+			clusters := cg.Clusters(proxy)
+
+			outer := findMutualTLSChain(t, listeners, wildcard)
+			g.Expect(outer).NotTo(BeNil())
+			outerTCP := xdstest.ExtractTCPProxy(t, outer)
+			g.Expect(outerTCP.GetIdleTimeout()).NotTo(BeNil())
+			g.Expect(outerTCP.GetIdleTimeout().AsDuration()).To(BeZero())
+
+			inner := xdstest.ExtractListener(internalListenerTarget(clusters, outerTCP.GetCluster()), listeners)
+			g.Expect(inner).NotTo(BeNil())
+			innerIdleTimeout := xdstest.ExtractTCPProxy(t, inner.FilterChains[0]).GetIdleTimeout()
+			if tt.innerIdleTimeout == 0 {
+				g.Expect(innerIdleTimeout).To(BeNil())
+			} else {
+				g.Expect(innerIdleTimeout.AsDuration()).To(Equal(tt.innerIdleTimeout))
 			}
 		})
 	}
