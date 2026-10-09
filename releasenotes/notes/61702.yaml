@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** stale host probe address-set entries and cached AWS branch ENI rules
+    remaining after an ambient pod was removed with missing or incomplete IP addresses in its status.
