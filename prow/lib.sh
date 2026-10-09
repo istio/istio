@@ -127,7 +127,7 @@ function build_images() {
     # We run tests across all VM types only in postsubmit
     nonDistrolessTargets+="docker.app_sidecar_ubuntu_bionic docker.app_sidecar_debian_12 docker.app_sidecar_rockylinux_9 "
   fi
-  # shellcheck disable=SC2050
+  # shellcheck disable=SC2050,SC2160
   if [[ "${SELECT_TEST}" == test.integration.ambient.kube* || "${SELECT_TEST}" == "test.integration.kube"  || "${SELECT_TEST}" == "test.integration.helm.kube" || true ]]; then
     targets+="docker.ztunnel "
   fi
