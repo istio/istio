@@ -15,10 +15,8 @@ package bootstrap
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -26,7 +24,6 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"golang.org/x/net/http2"
 	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -547,17 +544,11 @@ func TestMultiplex(t *testing.T) {
 		resp.Body.Close()
 	})
 	t.Run("h2", func(t *testing.T) {
+		// Speak h2c (HTTP/2 over cleartext) only, so we are sure the server really serves HTTP/2.
+		protocols := &http.Protocols{}
+		protocols.SetUnencryptedHTTP2(true)
 		c := http.Client{
-			Transport: &http2.Transport{
-				// Golang doesn't have first class support for h2c, so we provide some workarounds
-				// See https://www.mailgun.com/blog/http-2-cleartext-h2c-client-example-go/
-				// So http2.Transport doesn't complain the URL scheme isn't 'https'
-				AllowHTTP: true,
-				// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
-				DialTLSContext: func(_ context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-					return net.Dial(network, addr)
-				},
-			},
+			Transport: &http.Transport{Protocols: protocols},
 		}
 		defer c.CloseIdleConnections()
 

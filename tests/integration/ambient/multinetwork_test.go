@@ -365,13 +365,13 @@ func scaleDeploymentOrFail(t framework.TestContext, c cluster.Cluster, namespace
 
 	s, err := c.Kube().AppsV1().Deployments(namespace).GetScale(t.Context(), name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("failed to find deployment %s in namespace %s: %w", name, namespace, err)
+		t.Fatalf("failed to find deployment %s in namespace %s: %v", name, namespace, err)
 	}
 
 	s.Spec.Replicas = scale
 	_, err = c.Kube().AppsV1().Deployments(namespace).UpdateScale(t.Context(), name, s, metav1.UpdateOptions{})
 	if err != nil {
-		t.Fatalf("failed to scale deployment %s in namespace %s to %d replicas: %w", name, namespace, scale, err)
+		t.Fatalf("failed to scale deployment %s in namespace %s to %d replicas: %v", name, namespace, scale, err)
 	}
 
 	retry.UntilSuccessOrFail(t, func() error {
