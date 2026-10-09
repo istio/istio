@@ -21,6 +21,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"path"
 	"regexp"
@@ -2932,6 +2933,12 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 		for _, address := range serviceEntry.Addresses {
 			cidrFound = cidrFound || strings.Contains(address, "/")
 			errs = AppendValidation(errs, agent.ValidateIPSubnet(address))
+			if isBroadAddress(address) {
+				errs = AppendValidation(errs, WrapWarning(fmt.Errorf(
+					"address %s is a catch-all or very broad CIDR; with resolution NONE it applies to all workloads "+
+						"matching exportTo and can bypass outboundTrafficPolicy REGISTRY_ONLY; "+
+						"consider a narrower CIDR and exportTo: [\".\"]", address)))
+			}
 		}
 
 		if cidrFound {
@@ -3428,4 +3435,21 @@ func validateWasmPluginMatch(selectors []*extensions.WasmPlugin_TrafficSelector)
 		}
 	}
 	return nil
+}
+
+// isBroadAddress returns true for catch-all addresses (0.0.0.0, ::) and for CIDRs that are very broad:
+// shorter than /8, or with an unspecified network (0.0.0.0/N), which the listener builder treats as match-all.
+func isBroadAddress(address string) bool {
+	if addr, err := netip.ParseAddr(address); err == nil {
+		return addr.Unmap().IsUnspecified()
+	}
+	prefix, err := netip.ParsePrefix(address)
+	if err != nil {
+		return false
+	}
+	if prefix.Bits() < 8 {
+		return true
+	}
+	addr := prefix.Masked().Addr().Unmap()
+	return addr.IsUnspecified() && prefix.Bits() < addr.BitLen()
 }
