@@ -376,6 +376,11 @@ func TestReconcileEnrollmentReEnrollsPodWhoseNetnsWasReplaced(t *testing.T) {
 
 	assert.NoError(t, netServer.ReconcileEnrollment(ctx, []*corev1.Pod{pod}))
 	assert.Equal(t, 1, ztunnelServer.addedPods.Load())
+
+	cached := podNsMap.Get(podUID)
+	for _, netns := range finder.opened {
+		assert.Equal(t, netns != cached, netns.closed.Load())
+	}
 }
 
 func TestConstructInitialSnap(t *testing.T) {
