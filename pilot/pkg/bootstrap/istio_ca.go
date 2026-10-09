@@ -649,7 +649,7 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 		ExternalCAType:   opts.ExternalCAType,
 		DefaultCertTTL:   workloadCertTTL.Get(),
 		MaxCertTTL:       maxWorkloadCertTTL.Get(),
-		MaxClientCertTTL: maxRAWorkloadCertTTL.Get(),
+		MaxRAWorkloadCertTTL: maxRAWorkloadCertTTL.Get(),
 		CaSigner:         opts.ExternalCASigner,
 		CaCertFile:       caCertFile,
 		VerifyAppendCA:   true,
