@@ -88,10 +88,6 @@ func (s *NetServer) ReconcileEnrollment(ctx context.Context, ambientPods []*core
 
 	var errs []error
 	for uid, found := range running {
-		pod, isAmbient := podsByUID[types.UID(uid)]
-		if !isAmbient || found.Netns == nil {
-			continue
-		}
 		enrolled := s.currentPodSnapshot.Get(uid)
 		sameNetns := enrolled != nil && enrolled.Inode() == found.Netns.Inode()
 		found.Netns.Close()
@@ -99,6 +95,7 @@ func (s *NetServer) ReconcileEnrollment(ctx context.Context, ambientPods []*core
 			continue
 		}
 
+		pod := podsByUID[types.UID(uid)]
 		log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 		log.Warn("pod is no longer in the network namespace it was enrolled in, re-enrolling it")
 		s.currentPodSnapshot.Take(uid)
