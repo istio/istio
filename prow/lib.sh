@@ -122,11 +122,13 @@ function build_images() {
   nonDistrolessTargets="docker.app docker.app_sidecar_ubuntu_noble docker.ext-authz "
   # TEMPORARY: forced to true so presubmit also builds all VM images and ztunnel, to validate
   # postsubmit/full-labeled tests on this PR. Revert this block before merging.
-  if [[ "true" == "true" ]]; then
+  # shellcheck disable=SC2050
+  if true; then
     # We run tests across all VM types only in postsubmit
     nonDistrolessTargets+="docker.app_sidecar_ubuntu_bionic docker.app_sidecar_debian_12 docker.app_sidecar_rockylinux_9 "
   fi
-  if [[ "${SELECT_TEST}" == test.integration.ambient.kube* || "${SELECT_TEST}" == "test.integration.kube"  || "${SELECT_TEST}" == "test.integration.helm.kube" || "true" == "true" ]]; then
+  # shellcheck disable=SC2050
+  if [[ "${SELECT_TEST}" == test.integration.ambient.kube* || "${SELECT_TEST}" == "test.integration.kube"  || "${SELECT_TEST}" == "test.integration.helm.kube" || true ]]; then
     targets+="docker.ztunnel "
   fi
   targets+="docker.install-cni "
