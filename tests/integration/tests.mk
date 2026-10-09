@@ -47,7 +47,9 @@ endif
 _INTEGRATION_TEST_SELECT := $(TEST_SELECT)
 _INTEGRATION_TEST_ENVIRONMENT_SELECT := $(TEST_SELECT)
 _INTEGRATION_TEST_MULTICLUSTER_SELECT := $(TEST_SELECT)
-ifneq ($(JOB_TYPE),postsubmit)
+# TEMPORARY: disabled so presubmit runs also include postsubmit/full/multicluster-labeled tests,
+# to validate them on this PR. Revert this block (restore `ifneq ($(JOB_TYPE),postsubmit)`) before merging.
+ifneq (postsubmit,postsubmit)
 	_INTEGRATION_TEST_SELECT := $(_INTEGRATION_TEST_SELECT),-postsubmit
 	_INTEGRATION_TEST_ENVIRONMENT_SELECT := $(_INTEGRATION_TEST_ENVIRONMENT_SELECT),-postsubmit,-full,-multicluster
 	_INTEGRATION_TEST_MULTICLUSTER_SELECT := $(_INTEGRATION_TEST_MULTICLUSTER_SELECT),-postsubmit,-full
