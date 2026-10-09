@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62027
+releaseNotes:
+- |
+  **Fixed** the `ResolvedRefs` route condition for a `Hostname` backendRef. Each parent Gateway now reports
+  whether the host is exported to that Gateway's namespace, where its pods run. A ServiceEntry host defined in
+  another namespace and exported to the Gateway's namespace now resolves. A host that is not exported to the
+  Gateway's namespace now reports `BackendNotFound`, even when it is defined in the route's namespace.
+  A ListenerSet parent uses the namespace of its parent Gateway. A mesh parent uses the route's namespace.

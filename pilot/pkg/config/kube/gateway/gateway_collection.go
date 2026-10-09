@@ -235,6 +235,7 @@ func ListenerSetCollection(
 					SectionName:      l.Name,
 					Port:             l.Port,
 					Protocol:         l.Protocol,
+					GatewayNamespace: parentGwObj.Namespace,
 				}
 
 				res := ListenerSet{
@@ -401,6 +402,7 @@ func GatewayCollection(
 				SectionName:      l.Name,
 				Port:             l.Port,
 				Protocol:         l.Protocol,
+				GatewayNamespace: obj.Namespace,
 			}
 
 			res := Gateway{
