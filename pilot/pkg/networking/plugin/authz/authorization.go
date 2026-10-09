@@ -129,7 +129,7 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 // that are evaluated at the workload scope and those that contain per-route
 // configuration. Used to build the filter chain in the correct order when
 // accounting for Envoy's route cache clearing risk.
-func PartitionRouteScopedFilters(built []*hcm.HttpFilter) (workload, routeScoped []*hcm.HttpFilter) {
+func PartitionRouteOverridableRBACFilters(built []*hcm.HttpFilter) (workload, routeScoped []*hcm.HttpFilter) {
 	for _, f := range built {
 		if f.GetName() == builder.RBACFilterNameAllow {
 			routeScoped = append(routeScoped, f)
@@ -141,7 +141,7 @@ func PartitionRouteScopedFilters(built []*hcm.HttpFilter) (workload, routeScoped
 }
 
 // RouteAnchorFilters returns the RBAC filters a route override needs to attach to, beyond those
-// the workload's own policies already produced in built. They carry no rules and enforce nothing
+// the workload's own policies already produced in 'built'. They carry no rules and enforce nothing
 // until a route overrides one via typed_per_filter_config.
 //
 // They do not depend on which policies exist, so listener generation never has to resolve which
@@ -157,9 +157,13 @@ func RouteAnchorFilters(proxy *model.Proxy, class networking.ListenerClass, buil
 		return nil
 	}
 	out := []*hcm.HttpFilter{routeAnchorFilter(builder.RBACRouteAnchorNameDeny)}
-	// Route ALLOW merges into the workload's ALLOW filter rather than chaining after it, so that
-	// filter must exist even when the workload has no ALLOW policy to produce one.
+	// RBACPerRoute ALLOW configuration overrides the workload's ALLOW RBAC
+	// filter rather than chaining an additional filter after it (as we do for
+	// DENY policy). That workload RBAC filter must exist, even when the workload
+	// had no ALLOW policy to produce the RBAC filter.
 	if !slices.ContainsFunc(built, func(f *hcm.HttpFilter) bool { return f.GetName() == builder.RBACFilterNameAllow }) {
+		// Workload-level ALLOW policy did not exist, we create an empty RBAC
+		// filter for our per-route configuration to override.
 		out = append(out, routeAnchorFilter(builder.RBACFilterNameAllow))
 	}
 	return out
