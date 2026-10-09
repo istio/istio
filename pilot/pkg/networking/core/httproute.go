@@ -222,7 +222,9 @@ func routeAffectedByUpdates(node *model.Proxy, routeName string, updatedVirtualS
 	return previousEgressListener != nil && egressListenerAffectedByUpdates(previousEgressListener, updatedVirtualServices, updatedHosts)
 }
 
-func egressListenerAffectedByUpdates(egressListener *model.IstioEgressListenerWrapper, updatedVirtualServices sets.String, updatedHosts sets.Set[host.Name]) bool {
+func egressListenerAffectedByUpdates(egressListener *model.IstioEgressListenerWrapper,
+	updatedVirtualServices sets.String, updatedHosts sets.Set[host.Name],
+) bool {
 	if len(updatedVirtualServices) > 0 {
 		for _, vs := range egressListener.VirtualServices() {
 			if updatedVirtualServices.Contains(vs.Namespace + "/" + vs.Name) {
