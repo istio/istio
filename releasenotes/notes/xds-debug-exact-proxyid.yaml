@@ -6,4 +6,4 @@ releaseNotes:
 - |
   **Fixed** istiod debug endpoints (`/debug/config_dump`, `/debug/edsz`, and the XDS `istio.io/debug/config_dump` type) matching `proxyID` as a substring, which let a caller read the config of other proxies in its own namespace by passing a partial ID. `proxyID` must now be the exact `<pod>.<namespace>` (or full connection ID); short forms such as `proxyID=istio-ingressgateway` no longer match.
 
-  **Credit**: This issue was reported by REPORTER_NAME.
+  **Credit**: This issue was reported by 박현범.
