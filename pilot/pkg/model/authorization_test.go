@@ -72,6 +72,14 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		Namespace: "bar",
 	}
 
+	policyWithListenerSetRef := protomarshal.Clone(policy)
+	policyWithListenerSetRef.TargetRef = &selectorpb.PolicyTargetReference{
+		Group:     gvk.ListenerSet.Group,
+		Kind:      gvk.ListenerSet.Kind,
+		Name:      "my-listenerset",
+		Namespace: "bar",
+	}
+
 	policyWithServiceRef := protomarshal.Clone(policy)
 	policyWithServiceRef.TargetRef = &selectorpb.PolicyTargetReference{
 		Group:     gvk.Service.Group,
@@ -277,6 +285,18 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 					Namespace: "bar",
 					Spec:      policyWithTargetRef,
 				},
+			},
+		},
+		{
+			name: "targetRef listenerset never matches the workload",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+				WorkloadLabels: labels.Instance{
+					label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
+				},
+			},
+			configs: []config.Config{
+				newConfig("authz-1", "bar", policyWithListenerSetRef),
 			},
 		},
 		{
@@ -644,6 +664,69 @@ func TestListAuthorizationPoliciesForHTTPRoute(t *testing.T) {
 			if len(got.Custom) != 0 {
 				t.Errorf("expected no custom policies, got %d", len(got.Custom))
 			}
+		})
+	}
+}
+
+func listenerSetTargetRefPolicy(action authpb.AuthorizationPolicy_Action, names ...string) *authpb.AuthorizationPolicy {
+	p := &authpb.AuthorizationPolicy{Action: action}
+	for _, name := range names {
+		p.TargetRefs = append(p.TargetRefs, &selectorpb.PolicyTargetReference{
+			Group: gvk.ListenerSet.Group,
+			Kind:  gvk.ListenerSet.Kind,
+			Name:  name,
+		})
+	}
+	return p
+}
+
+func TestListAuthorizationPoliciesForListenerSet(t *testing.T) {
+	configs := []config.Config{
+		newConfig("allow-a", "foo", listenerSetTargetRefPolicy(authpb.AuthorizationPolicy_ALLOW, "ls-a")),
+		newConfig("deny-a", "foo", listenerSetTargetRefPolicy(authpb.AuthorizationPolicy_DENY, "ls-a")),
+		newConfig("audit-a", "foo", listenerSetTargetRefPolicy(authpb.AuthorizationPolicy_AUDIT, "ls-a")),
+		newConfig("allow-a-and-b", "foo", listenerSetTargetRefPolicy(authpb.AuthorizationPolicy_ALLOW, "ls-a", "ls-b")),
+		newConfig("workload-wide", "foo", &authpb.AuthorizationPolicy{Action: authpb.AuthorizationPolicy_ALLOW}),
+		newConfig("allow-a-other-ns", "bar", listenerSetTargetRefPolicy(authpb.AuthorizationPolicy_ALLOW, "ls-a")),
+	}
+	authzPolicies := createFakeAuthorizationPolicies(configs)
+
+	cases := []struct {
+		name      string
+		ls        types.NamespacedName
+		wantAllow []string
+		wantDeny  []string
+		wantAudit []string
+	}{
+		{
+			name:      "all actions targeting the listenerset",
+			ls:        types.NamespacedName{Name: "ls-a", Namespace: "foo"},
+			wantAllow: []string{"allow-a", "allow-a-and-b"},
+			wantDeny:  []string{"deny-a"},
+			wantAudit: []string{"audit-a"},
+		},
+		{
+			name:      "second targetRef is indexed",
+			ls:        types.NamespacedName{Name: "ls-b", Namespace: "foo"},
+			wantAllow: []string{"allow-a-and-b"},
+		},
+		{
+			name:      "listenerset in another namespace is a distinct key",
+			ls:        types.NamespacedName{Name: "ls-a", Namespace: "bar"},
+			wantAllow: []string{"allow-a-other-ns"},
+		},
+		{
+			name: "zero value listenerset has no policies",
+			ls:   types.NamespacedName{},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := authzPolicies.ListAuthorizationPoliciesForListenerSet(tc.ls)
+			assertPolicyNames(t, "allow", got.Allow, tc.wantAllow)
+			assertPolicyNames(t, "deny", got.Deny, tc.wantDeny)
+			assertPolicyNames(t, "audit", got.Audit, tc.wantAudit)
 		})
 	}
 }

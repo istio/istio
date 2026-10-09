@@ -18,6 +18,8 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -81,6 +83,8 @@ type MergedGateway struct {
 
 	// GatewayScopeKey identifies the gateway-specific SidecarScope for this proxy and gateway set.
 	GatewayScopeKey GatewayScopeKey
+
+	ListenerSetForServer map[*networking.Server]types.NamespacedName
 
 	// ServersByRouteName maps from port names to virtual hosts
 	// Used for RDS. No two port names share same port except for HTTPS
@@ -208,6 +212,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
 	gatewayNames := sets.New[string]()
+	listenerSetForServer := make(map[*networking.Server]types.NamespacedName)
 	verifiedCertificateReferences := sets.New[string]()
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
@@ -250,8 +255,11 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 
 			gwKind := gvk.KubernetesGateway
-			if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.ListenerSet.Kind+"/") {
+			if rest, ok := strings.CutPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.ListenerSet.Kind+"/"); ok {
 				gwKind = gvk.ListenerSet
+				if lsName, _, found := strings.Cut(rest, "/"); found {
+					listenerSetForServer[s] = types.NamespacedName{Namespace: gatewayConfig.Namespace, Name: lsName}
+				}
 			}
 			lookupNamespace := ""
 			configAndProxyAllowed := false
@@ -495,6 +503,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		GatewayNameForServer:            gatewayNameForServer,
 		GatewayNames:                    sortedGatewayNames,
 		GatewayScopeKey:                 NewGatewayScopeKey(proxy.Type, proxy.ConfigNamespace, sortedGatewayNames),
+		ListenerSetForServer:            listenerSetForServer,
 		TLSServerInfo:                   tlsServerInfo,
 		ServersByRouteName:              serversByRouteName,
 		HTTP3AdvertisingRoutes:          http3AdvertisingRoutes,
