@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/util/istiomultierror"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 // NetworkGateway is the gateway of a network
@@ -49,6 +50,9 @@ type NetworkGateway struct {
 	HBONEPort uint32
 	// ServiceAccount the gateway runs as
 	ServiceAccount types.NamespacedName
+	// Locality of the gateway, read from topology.istio.io/locality (or the legacy
+	// istio-locality label) on the gateway. Nil if no locality label is set.
+	Locality *workloadapi.Locality
 }
 
 type NetworkGatewaysWatcher interface {
