@@ -65,6 +65,24 @@ var SDSAdsConfig = &core.ConfigSource{
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
 // from certificates referenced by credentialName in DestinationRule or Gateway.
 func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bool, push *model.PushContext) *tls.SdsSecretConfig {
+	return constructSdsSecretConfigForCredential(name, credentialSocketExist, push, false)
+}
+
+// ConstructSdsSecretConfigForCredential constructs SDS secret configuration
+// that holds a CA certificate referenced by caCertCredentialName in
+// DestinationRule or Gateway.
+//
+// This differs for "sds://" names. The "-cacert" suffix is never appended to
+// them, because the resource name is sent verbatim to the external SDS server.
+// If no external SDS server is reachable we fall back to resolving the name as
+// a Kubernetes Secret via istiod, and at that point the suffix is what tells
+// istiod to serve the CA rather than the certificate and key, so it has to be
+// restored.
+func ConstructSdsSecretConfigForCaCredential(name string, credentialSocketExist bool, push *model.PushContext) *tls.SdsSecretConfig {
+	return constructSdsSecretConfigForCredential(name, credentialSocketExist, push, true)
+}
+
+func constructSdsSecretConfigForCredential(name string, credentialSocketExist bool, push *model.PushContext, isCA bool) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
@@ -108,6 +126,9 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 		}
 		// No UDS socket or extension provider — fall back to ADS (Kubernetes Secret via istiod)
 		name = resourceName
+		if isCA {
+			name = normalizeCaCertCredentialName(name)
+		}
 	}
 
 	return &tls.SdsSecretConfig{
@@ -234,11 +255,27 @@ func constructSdsSecretConfig(maybeFileName string, fallbackName string, customF
 	return pm.ConstructSdsSecretConfig(model.GetOrDefault(maybeFileName, fallbackName))
 }
 
+// normalizeCaCertCredentialName appends the "-cacert" suffix that istiod uses
+// to distinguish a CA SDS resource. The suffix is used when looking up the
+// secret, but we fallback to the unsuffixed name. We do not append the
+// "-cacert" suffix given a few cases: The resource already contains the
+// prefix, is not a Kubernetes Secret, or is an invalid secret type.
+func normalizeCaCertCredentialName(name string) string {
+	if name == "" ||
+		strings.HasSuffix(name, SdsCaSuffix) ||
+		strings.HasPrefix(name, credentials.KubernetesConfigMapTypeURI) ||
+		strings.HasPrefix(name, security.SDSExternalCredentialPrefix) ||
+		strings.HasPrefix(name, credentials.InvalidSecretTypeURI) {
+		return name
+	}
+	return name + SdsCaSuffix
+}
+
 // ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext
 func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 	tlsOpts *networking.ClientTLSSettings, credentialSocketExist bool,
 ) {
-	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL {
+	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL && tlsOpts.CredentialName != "" {
 		// create SDS config for gateway to fetch key/cert from agent.
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, nil),
@@ -250,16 +287,33 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 		return
 	}
 
+	caCert := tlsOpts.CaCertCredentialName
+	if caCert == "" {
+		if tlsOpts.CredentialName == "" {
+			return
+		}
+		caCert = tlsOpts.CredentialName + SdsCaSuffix
+	} else {
+		caCert = normalizeCaCertCredentialName(caCert)
+	}
+
 	// create SDS config for gateway to fetch certificate validation context
 	// at gateway agent.
 	defaultValidationContext := &tls.CertificateValidationContext{
 		MatchSubjectAltNames: util.StringToExactMatch(tlsOpts.SubjectAltNames),
 	}
+	if tlsOpts.GetCaCrl() != "" {
+		defaultValidationContext.Crl = &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: tlsOpts.GetCaCrl(),
+			},
+		}
+	}
 	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 			DefaultValidationContext: defaultValidationContext,
-			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(
-				tlsOpts.CredentialName+SdsCaSuffix, credentialSocketExist, nil),
+			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCaCredential(
+				caCert, credentialSocketExist, nil),
 		},
 	}
 }
