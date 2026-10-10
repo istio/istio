@@ -77,10 +77,12 @@ func FetchSorted[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOptio
 
 func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool, opts ...FetchOption) []T {
 	c := cc.internal()
+	if dc, ok := c.(interface{ isDisabled() bool }); ok && dc.isDisabled() {
+		return nil
+	}
 	d := &dependency{
 		id:             c.uid(),
 		collectionName: c.name(),
-		filter:         &filter{},
 	}
 	for _, o := range opts {
 		o(d)
@@ -122,7 +124,7 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 		}
 	} else if d.filter.index != nil {
 		// Otherwise from an index; fetch from there. Often this is a list of a namespace
-		list = d.filter.index.list().([]T)
+		list = d.filter.index.lookup.list().([]T)
 	} else {
 		// Otherwise get everything
 		if needsMatching {
@@ -140,7 +142,7 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 		log.WithLabels(
 			"parent", parent,
 			"fetch", c.name(),
-			"filter", d.filter,
+			"filter", &d.filter,
 			"size", len(list),
 		).Debugf("Fetch")
 	}
