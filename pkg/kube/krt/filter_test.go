@@ -39,7 +39,7 @@ func TestFilterNeedsMatching(t *testing.T) {
 			want: true,
 		},
 		"index": {
-			filters: []filter{{index: &indexFilter{indexMatches: func(any) bool { return false }}}},
+			filters: []filter{{index: &indexFilter{}}},
 			want:    true,
 		},
 		"selects": {

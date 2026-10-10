@@ -39,11 +39,35 @@ type filter struct {
 }
 
 type indexFilter struct {
-	filterUID    collectionUID
-	list         func() any
-	indexMatches func(any) bool
-	extractKeys  objectKeyExtractor
-	key          string
+	filterUID collectionUID
+	lookup    indexLookup
+	key       string
+}
+
+// indexLookup is an Index plus the key being looked up, with the types erased.
+type indexLookup interface {
+	list() any
+	matches(any) bool
+	extractKeys(any) []string
+}
+
+type typedIndexLookup[K comparable, I any] struct {
+	idx Index[K, I]
+	k   K
+}
+
+func (l *typedIndexLookup[K, I]) list() any {
+	return l.idx.Lookup(l.k)
+}
+
+func (l *typedIndexLookup[K, I]) matches(a any) bool {
+	return l.idx.objectHasKey(a.(I), l.k)
+}
+
+func (l *typedIndexLookup[K, I]) extractKeys(o any) []string {
+	return slices.Map(l.idx.extractKeys(o.(I)), func(e K) string {
+		return toString(e)
+	})
 }
 
 type objectKeyExtractor = func(o any) []string
@@ -61,7 +85,7 @@ func (f *filter) reverseIndexKey() ([]string, indexedDependencyType, objectKeyEx
 		return f.keys.List(), getKeyType, getKeyExtractor, 0, true
 	}
 	if f.index != nil {
-		return []string{f.index.key}, indexType, f.index.extractKeys, f.index.filterUID, true
+		return []string{f.index.key}, indexType, f.index.lookup.extractKeys, f.index.filterUID, true
 	}
 	return nil, unknownIndexType, nil, 0, false
 }
@@ -126,18 +150,8 @@ func FilterIndex[K comparable, I any](idx Index[K, I], k K) FetchOption {
 		// Index is used to pre-filter on the List, and also to match in Matches. Provide type-erased methods for both
 		h.filter.index = &indexFilter{
 			filterUID: idx.id(),
-			list: func() any {
-				return idx.Lookup(k)
-			},
-			indexMatches: func(a any) bool {
-				return idx.objectHasKey(a.(I), k)
-			},
-			extractKeys: func(o any) []string {
-				return slices.Map(idx.extractKeys(o.(I)), func(e K) string {
-					return toString(e)
-				})
-			},
-			key: toString(k),
+			lookup:    &typedIndexLookup[K, I]{idx: idx, k: k},
+			key:       toString(k),
 		}
 	}
 }
@@ -211,7 +225,7 @@ func (f *filter) Matches(object any, forList bool) bool {
 		}
 		// Index is also cheap, and often used to filter namespaces out. Make sure we do this early
 		if f.index != nil {
-			if !f.index.indexMatches(object) {
+			if !f.index.lookup.matches(object) {
 				if log.DebugEnabled() {
 					log.Debugf("no match index")
 				}
