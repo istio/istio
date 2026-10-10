@@ -17,8 +17,10 @@ package xds_test
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -28,13 +30,16 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 	xdsserver "istio.io/istio/pkg/xds"
@@ -633,4 +638,133 @@ func TestDeltaUnsub(t *testing.T) {
 		ResourceNamesUnsubscribe: []string{"something"},
 	})
 	runAssert(resp.Nonce)
+}
+
+// TestDeltaGatewayWildcardTLSCleanup checks that an ISTIO_MUTUAL gateway server routing to a wildcard DYNAMIC_DNS
+// ServiceEntry keeps its internal listener and cluster while they are in use, and that incremental pushes remove them
+// once they are not.
+func TestDeltaGatewayWildcardTLSCleanup(t *testing.T) {
+	const (
+		internalName = "outbound-wildcard-tls|443||*.shared.com"
+		dfpCluster   = "outbound|443||*.shared.com"
+	)
+	gatewayRoute := func(ns string) string {
+		return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: shared
+  namespace: %s
+spec:
+  hosts: ["*.shared.com"]
+  gateways: ["istio-system/egressgateway"]
+  tcp:
+  - match: [{port: 443, gateways: ["istio-system/egressgateway"]}]
+    route: [{destination: {host: "*.shared.com", port: {number: 443}}}]
+`, ns)
+	}
+	configs := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata: {name: shared, namespace: istio-system}
+spec:
+  hosts: ["*.shared.com"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  location: MESH_EXTERNAL
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata: {name: egressgateway, namespace: istio-system}
+spec:
+  selector: {istio: egressgateway}
+  servers:
+  - port: {number: 443, name: tls, protocol: TLS}
+    hosts: ["*/*.shared.com"]
+    tls: {mode: ISTIO_MUTUAL}
+---
+` + gatewayRoute("team-a") + "---\n" + gatewayRoute("team-b")
+
+	type deletion struct {
+		kind     config.GroupVersionKind
+		name, ns string
+	}
+	cases := []struct {
+		name   string
+		filter bool
+		// All deletions but the last one leave the wildcard host in use.
+		deletions []deletion
+	}{
+		{
+			name:      "last VirtualService deleted",
+			deletions: []deletion{{gvk.VirtualService, "shared", "team-a"}, {gvk.VirtualService, "shared", "team-b"}},
+		},
+		{
+			name:      "last VirtualService deleted, gateway cluster filtering",
+			filter:    true,
+			deletions: []deletion{{gvk.VirtualService, "shared", "team-a"}, {gvk.VirtualService, "shared", "team-b"}},
+		},
+		{
+			name:      "ServiceEntry deleted",
+			deletions: []deletion{{gvk.ServiceEntry, "shared", "istio-system"}},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+			test.SetForTest(t, &features.FilterGatewayClusterConfig, tt.filter)
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: configs})
+			s.EnsureSynced(t)
+
+			const id = "router~10.0.0.1~egressgateway.istio-system~istio-system.svc.cluster.local"
+			meta := model.NodeMetadata{Labels: map[string]string{"istio": "egressgateway"}, Namespace: "istio-system"}
+			// sent returns the resources of a type that the gateway has, as tracked by the server.
+			sent := func(typeURL string) sets.String {
+				for _, c := range s.Discovery.AllClients() {
+					if w := c.Proxy().GetWatchedResource(typeURL); w != nil {
+						return w.ResourceNames.Copy()
+					}
+				}
+				return nil
+			}
+			lds := s.ConnectDeltaADS().WithID(id).WithMetadata(meta).WithType(v3.ListenerType)
+			cds := s.ConnectDeltaADS().WithID(id).WithMetadata(meta).WithType(v3.ClusterType)
+			lds.Request(&discovery.DeltaDiscoveryRequest{})
+			cds.Request(&discovery.DeltaDiscoveryRequest{})
+			lds.ExpectResponse()
+			cds.ExpectResponse()
+			go lds.DrainResponses()
+			go cds.DrainResponses()
+			assert.Equal(t, sent(v3.ListenerType).Contains(internalName), true)
+			assert.Equal(t, sent(v3.ClusterType).Contains(internalName), true)
+			assert.Equal(t, sent(v3.ClusterType).Contains(dfpCluster), true)
+
+			for i, d := range tt.deletions {
+				s.Store().Delete(d.kind, d.name, d.ns, nil)
+				if i < len(tt.deletions)-1 {
+					s.EnsureSynced(t)
+					assert.Equal(t, sent(v3.ListenerType).Contains(internalName), true)
+					assert.Equal(t, sent(v3.ClusterType).Contains(internalName), true)
+					continue
+				}
+				retry.UntilSuccessOrFail(t, func() error {
+					for _, typeURL := range []string{v3.ListenerType, v3.ClusterType} {
+						if sent(typeURL).Contains(internalName) {
+							return fmt.Errorf("%s %s not removed", v3.GetShortType(typeURL), internalName)
+						}
+					}
+					if tt.filter && sent(v3.ClusterType).Contains(dfpCluster) {
+						return fmt.Errorf("cluster %s not removed", dfpCluster)
+					}
+					return nil
+				}, retry.Timeout(5*time.Second))
+			}
+			// No listener still sends to the internal cluster.
+			for _, l := range s.Listeners(s.SetupProxy(&model.Proxy{
+				Type: model.Router, ConfigNamespace: "istio-system", Labels: meta.Labels, Metadata: &meta,
+			})) {
+				js, err := protomarshal.ToJSON(l)
+				assert.NoError(t, err)
+				assert.Equal(t, strings.Contains(js, internalName), false)
+			}
+		})
+	}
 }
