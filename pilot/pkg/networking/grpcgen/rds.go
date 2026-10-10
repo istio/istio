@@ -27,44 +27,67 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/sets"
 )
+
+// routeRequest is a parsed route name, "outbound|port|subset|hostname".
+type routeRequest struct {
+	name     string
+	hostname host.Name
+	port     int
+}
 
 // BuildHTTPRoutes supports per-VIP routes, as used by GRPC.
 // This mode is indicated by using names containing full host:port instead of just port.
-// Returns true of the request is of this type.
+// Clients subscribe to one route configuration per hostname, so virtual hosts are built once per
+// port for the requested hostnames only, then split by name.
 func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) model.Resources {
-	resp := model.Resources{}
+	requests := make([]routeRequest, 0, len(routeNames))
+	hostsByPort := make(map[int]sets.Set[host.Name])
 	for _, routeName := range routeNames {
-		if rc := buildHTTPRoute(node, push, routeName); rc != nil {
-			resp = append(resp, &discovery.Resource{
-				Name:     routeName,
-				Resource: protoconv.MessageToAny(rc),
-			})
+		// TODO use route-style naming instead of cluster naming
+		_, _, hostname, port := model.ParseSubsetKey(routeName)
+		if hostname == "" || port == 0 {
+			log.Warnf("failed to parse %v", routeName)
+			continue
+		}
+		requests = append(requests, routeRequest{name: routeName, hostname: hostname, port: port})
+		sets.InsertOrNew(hostsByPort, port, host.Name(strings.ToLower(string(hostname))))
+	}
+
+	virtualHostsByPort := make(map[int][]*route.VirtualHost, len(hostsByPort))
+	for _, r := range requests {
+		if _, built := virtualHostsByPort[r.port]; !built {
+			virtualHostsByPort[r.port], _, _ = core.BuildSidecarOutboundVirtualHosts(node, push, r.name, r.port, nil, &model.DisabledCache{}, hostsByPort[r.port])
 		}
 	}
+
+	resp := make(model.Resources, 0, len(requests))
+	var fullVirtualHostsByPort map[int][]*route.VirtualHost
+	for _, r := range requests {
+		virtualHosts := filterVirtualHostsForHostname(virtualHostsByPort[r.port], string(r.hostname), r.port)
+		if len(virtualHosts) == 0 {
+			// Fall back to every service on the port for names that match only an alternate
+			// domain, such as an address or short name.
+			if fullVirtualHostsByPort == nil {
+				fullVirtualHostsByPort = make(map[int][]*route.VirtualHost)
+			}
+			full, built := fullVirtualHostsByPort[r.port]
+			if !built {
+				full, _, _ = core.BuildSidecarOutboundVirtualHosts(node, push, r.name, r.port, nil, &model.DisabledCache{}, nil)
+				fullVirtualHostsByPort[r.port] = full
+			}
+			virtualHosts = filterVirtualHostsForHostname(full, string(r.hostname), r.port)
+		}
+		resp = append(resp, &discovery.Resource{
+			Name: r.name,
+			Resource: protoconv.MessageToAny(&route.RouteConfiguration{
+				Name:         r.name,
+				VirtualHosts: virtualHosts,
+			}),
+		})
+	}
 	return resp
-}
-
-func buildHTTPRoute(node *model.Proxy, push *model.PushContext, routeName string) *route.RouteConfiguration {
-	// TODO use route-style naming instead of cluster naming
-	_, _, hostname, port := model.ParseSubsetKey(routeName)
-	if hostname == "" || port == 0 {
-		log.Warnf("failed to parse %v", routeName)
-		return nil
-	}
-
-	virtualHosts, _, _ := core.BuildSidecarOutboundVirtualHosts(node, push, routeName, port, nil, &model.DisabledCache{})
-
-	// gRPC-xDS clients self-filter by subscribing to individual route configs by name (e.g.
-	// "outbound|443||svc.ns.svc.cluster.local"). Filter the returned virtual hosts to only include
-	// the one matching the requested. Without this, the RouteConfiguration contains every service on
-	// the port from around the mesh, causing unnecessary churn pushes when unrelated services change.
-	virtualHosts = filterVirtualHostsForHostname(virtualHosts, string(hostname), port)
-
-	return &route.RouteConfiguration{
-		Name:         routeName,
-		VirtualHosts: virtualHosts,
-	}
 }
 
 // filterVirtualHostsForHostname returns only the virtual hosts whose domains contain the given
@@ -93,10 +116,11 @@ func filterVirtualHostsForHostname(
 				break
 			}
 
-			domainHost, domainPort, err := net.SplitHostPort(domain)
-			if err != nil {
-				domainHost = domain
-				domainPort = ""
+			domainHost, domainPort := domain, ""
+			if strings.Contains(domain, ":") {
+				if h, p, err := net.SplitHostPort(domain); err == nil {
+					domainHost, domainPort = h, p
+				}
 			}
 
 			domainHostName := host.Name(domainHost)
