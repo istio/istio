@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** an issue in ambient multi-network mode where the `kubernetes.default` service could be
+    marked as globally scoped by `serviceScopeConfigs`, causing the API server service to be shared
+    across clusters. The `kubernetes.default` service is now always treated as cluster-local.
