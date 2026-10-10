@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** an `AuthorizationPolicy` fail-open in ambient mode where `from.source.trustDomains` and
+  `from.source.notTrustDomains` were dropped without a status condition when the policy was converted for
+  ztunnel, so an ALLOW rule combining them with another L4 field matched peers from any trust domain.
+  These fields are now reported as unsupported at ztunnel, which makes the rule fail closed; use a
+  waypoint proxy to enforce them.
