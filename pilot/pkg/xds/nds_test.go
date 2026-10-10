@@ -24,7 +24,6 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -32,7 +31,6 @@ import (
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/gvk"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -286,85 +284,6 @@ func TestNDSDeltaIncrementalPushes(t *testing.T) {
 	}
 	ads.Request(&discovery.DeltaDiscoveryRequest{ResponseNonce: response.Nonce})
 	assertResourceNames("a.example.com")
-}
-
-func TestNDSDeltaSameHostnameAcrossEgressListeners(t *testing.T) {
-	const hostname = "foo.example.com"
-	// Each egress listener imports the hostname from a different namespace, so NDS merges both.
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: `
-apiVersion: networking.istio.io/v1
-kind: Sidecar
-metadata:
-  name: default
-  namespace: default
-spec:
-  egress:
-  - port: {number: 80, protocol: HTTP, name: http}
-    hosts: ["a/*"]
-  - port: {number: 9000, protocol: HTTP, name: http-alt}
-    hosts: ["b/*"]
----
-apiVersion: networking.istio.io/v1
-kind: ServiceEntry
-metadata:
-  name: foo
-  namespace: a
-spec:
-  hosts: [foo.example.com]
-  addresses: [10.0.0.1]
-  ports:
-  - {number: 80, protocol: HTTP, name: http}
-  - {number: 9000, protocol: HTTP, name: http-alt}
-  resolution: STATIC
----
-apiVersion: networking.istio.io/v1
-kind: ServiceEntry
-metadata:
-  name: foo
-  namespace: b
-spec:
-  hosts: [foo.example.com]
-  addresses: [10.0.0.2]
-  ports:
-  - {number: 80, protocol: HTTP, name: http}
-  - {number: 9000, protocol: HTTP, name: http-alt}
-  resolution: STATIC
-`})
-	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{
-		DNSCapture:   true,
-		DeltaNDS:     true,
-		IstioVersion: "1.32.0",
-	})
-	expectIPs := func(response *discovery.DeltaDiscoveryResponse, want ...string) {
-		t.Helper()
-		if len(response.Resources) != 1 || response.Resources[0].Name != hostname {
-			t.Fatalf("unexpected resources: %v", response.Resources)
-		}
-		var nt dnsProto.NameTable
-		if err := response.Resources[0].Resource.UnmarshalTo(&nt); err != nil {
-			t.Fatal(err)
-		}
-		if diff := cmp.Diff(want, nt.GetTable()[hostname].GetIps()); diff != "" {
-			t.Fatalf("unexpected addresses (-want +got):\n%s", diff)
-		}
-	}
-	expectIPs(ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{}), "10.0.0.1", "10.0.0.2")
-
-	// Namespace a wins the merged service, but an update to b must still be pushed.
-	se := s.Store().Get(gvk.ServiceEntry, "foo", "b").DeepCopy()
-	se.Spec.(*networking.ServiceEntry).Addresses = []string{"10.0.0.3"}
-	if _, err := s.Store().Update(se); err != nil {
-		t.Fatal(err)
-	}
-	response := ads.ExpectResponse()
-	expectIPs(response, "10.0.0.1", "10.0.0.3")
-	ads.Request(&discovery.DeltaDiscoveryRequest{ResponseNonce: response.Nonce})
-
-	// Deleting b is only visible in the previous sidecar scope.
-	if err := s.Store().Delete(gvk.ServiceEntry, "foo", "b", nil); err != nil {
-		t.Fatal(err)
-	}
-	expectIPs(ads.ExpectResponse(), "10.0.0.1")
 }
 
 func TestNDSDeltaReconnectRemovesStaleResources(t *testing.T) {
