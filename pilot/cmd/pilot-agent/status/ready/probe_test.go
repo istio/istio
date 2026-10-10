@@ -202,3 +202,11 @@ func TestEnvoyReadinessCache(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeTrue())
 }
+
+func TestRestrictedReadinessDoesNotCacheSuccess(t *testing.T) {
+	t.Setenv("ISTIO_ENVOY_ADMIN_TRANSPORT", "UDS")
+	probe := Probe{receivedFirstUpdate: true, atleastOnceReady: true}
+	if err := probe.Check(); err == nil {
+		t.Fatal("reported cached success without an available admin socket")
+	}
+}

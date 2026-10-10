@@ -204,10 +204,14 @@
     ],
     "profile_path": "/var/lib/istio/data/envoy.prof",
     "address": {
+      {{- if .adminSocket }}
+      "pipe": {"path": "{{ .adminSocket }}", "mode": 384}
+      {{- else }}
       "socket_address": {
         "address": "{{ .localhost }}",
         "port_value": {{ .config.ProxyAdminPort }}
       }
+      {{- end }}
     }
   },
   "dynamic_resources": {
@@ -248,11 +252,15 @@
             "lb_endpoints": [{
               "endpoint": {
                 "address":{
+                  {{- if .adminSocket }}
+                  "pipe": {"path": "{{ .adminSocket }}"}
+                  {{- else }}
                   "socket_address": {
                     "protocol": "TCP",
                     "address": "{{ .localhost }}",
                     "port_value": {{ .config.ProxyAdminPort }}
                   }
+                  {{- end }}
                 }
               }
             }]

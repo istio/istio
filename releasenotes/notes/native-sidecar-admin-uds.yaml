@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+  - |
+    **Added** opt-in private Unix-domain socket administration for Kubernetes native
+    sidecars using `sidecar.istio.io/adminTransport: UDS` or
+    `ISTIO_ENVOY_ADMIN_TRANSPORT: UDS` in proxy metadata. This disables TCP Envoy
+    administration and agent HTTP lifecycle handlers while preserving readiness,
+    metrics, and native-sidecar termination. Diagnostics for UDS proxies require
+    Kubernetes `pods/exec` permissions. TCP remains the default.

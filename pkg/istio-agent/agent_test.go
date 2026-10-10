@@ -1074,3 +1074,22 @@ func TestWaitForSocket(t *testing.T) {
 		}
 	})
 }
+
+func TestRejectUnsupportedAdminTransport(t *testing.T) {
+	for _, tc := range []struct{ name, transport, native, file, template, override string }{
+		{name: "empty"}, {name: "unknown", transport: "invalid"}, {name: "traditional", transport: "UDS"},
+		{name: "file", transport: "UDS", native: "true", file: "custom.json"},
+		{name: "template", transport: "UDS", native: "true", template: "custom.tmpl"},
+		{name: "override", transport: "UDS", native: "true", override: "custom.json"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("ISTIO_ENVOY_ADMIN_TRANSPORT", tc.transport)
+			t.Setenv("ISTIO_NATIVE_SIDECAR", tc.native)
+			t.Setenv("ISTIO_BOOTSTRAP", tc.override)
+			a := &Agent{proxyConfig: &meshconfig.ProxyConfig{CustomConfigFile: tc.file, ProxyBootstrapTemplatePath: tc.template}}
+			if _, err := a.Run(context.Background()); err == nil {
+				t.Fatal("accepted unsupported admin configuration")
+			}
+		})
+	}
+}
