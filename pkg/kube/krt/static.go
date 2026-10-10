@@ -38,6 +38,7 @@ type staticList[T any] struct {
 	syncer         Syncer
 	metadata       Metadata
 	indexes        map[string]staticListIndex[T]
+	disabled       bool
 }
 
 func (s StaticCollection[T]) AsCollection() Collection[T] {
@@ -52,6 +53,14 @@ func (s StaticCollection[T]) List() []T {
 // Callers that need to update the collection after creation should use NewMutableCollection.
 func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) Collection[T] {
 	return NewMutableCollection(synced, vals, opts...).AsCollection()
+}
+
+// NewDisabledCollection creates a collection that is always empty. Fetching from it returns nil immediately
+// without registering a dependency, so it costs nothing to pass where a collection is required but unused.
+func NewDisabledCollection[T any](opts ...CollectionOption) Collection[T] {
+	s := NewMutableCollection[T](nil, nil, opts...)
+	s.disabled = true
+	return s.AsCollection()
 }
 
 // NewMutableCollection creates a StaticCollection that callers can update directly.
@@ -240,6 +249,10 @@ func (s *staticList[T]) GetKey(k string) *T {
 
 func (s *staticList[T]) Metadata() Metadata {
 	return s.metadata
+}
+
+func (s *staticList[T]) isDisabled() bool {
+	return s.disabled
 }
 
 // nolint: unused // (not true, its to implement an interface)

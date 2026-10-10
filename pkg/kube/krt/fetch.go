@@ -77,6 +77,9 @@ func FetchSorted[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOptio
 
 func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool, opts ...FetchOption) []T {
 	c := cc.internal()
+	if dc, ok := c.(interface{ isDisabled() bool }); ok && dc.isDisabled() {
+		return nil
+	}
 	d := &dependency{
 		id:             c.uid(),
 		collectionName: c.name(),
