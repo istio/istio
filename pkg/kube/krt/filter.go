@@ -41,13 +41,13 @@ type filter struct {
 type indexFilter struct {
 	filterUID collectionUID
 	lookup    indexLookup
-	key       string
 }
 
 // indexLookup is an Index plus the key being looked up, with the types erased.
 type indexLookup interface {
 	list() any
 	matches(any) bool
+	key() string
 	extractKeys(any) []string
 }
 
@@ -62,6 +62,11 @@ func (l *typedIndexLookup[K, I]) list() any {
 
 func (l *typedIndexLookup[K, I]) matches(a any) bool {
 	return l.idx.objectHasKey(a.(I), l.k)
+}
+
+// key is computed on demand: it is only needed to build the reverse index, and formatting it allocates.
+func (l *typedIndexLookup[K, I]) key() string {
+	return toString(l.k)
 }
 
 func (l *typedIndexLookup[K, I]) extractKeys(o any) []string {
@@ -85,7 +90,7 @@ func (f *filter) reverseIndexKey() ([]string, indexedDependencyType, objectKeyEx
 		return f.keys.List(), getKeyType, getKeyExtractor, 0, true
 	}
 	if f.index != nil {
-		return []string{f.index.key}, indexType, f.index.lookup.extractKeys, f.index.filterUID, true
+		return []string{f.index.lookup.key()}, indexType, f.index.lookup.extractKeys, f.index.filterUID, true
 	}
 	return nil, unknownIndexType, nil, 0, false
 }
@@ -151,7 +156,6 @@ func FilterIndex[K comparable, I any](idx Index[K, I], k K) FetchOption {
 		h.filter.index = &indexFilter{
 			filterUID: idx.id(),
 			lookup:    &typedIndexLookup[K, I]{idx: idx, k: k},
-			key:       toString(k),
 		}
 	}
 }
