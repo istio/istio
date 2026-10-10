@@ -1,0 +1,50 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  annotations:
+    internal.istio.io/parents: HTTPRoute/canary-echo.default
+    internal.istio.io/route-semantics: gateway
+  name: default~canary-echo.default.svc.domain.suffix
+  namespace: default
+spec:
+  gateways:
+  - mesh
+  hosts:
+  - canary-echo.default.svc.domain.suffix
+  http:
+  - headers:
+      request:
+        add:
+          my-added-header: added-value
+    name: default.canary-echo.0
+    route:
+    - destination:
+        host: echo.default.svc.domain.suffix
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  annotations:
+    internal.istio.io/parents: HTTPRoute/istio-canary-mcp.default
+    internal.istio.io/route-semantics: gateway
+  name: default~istio-canary-mcp.example.com
+  namespace: default
+spec:
+  gateways:
+  - mesh
+  hosts:
+  - istio-canary-mcp.example.com
+  http:
+  - headers:
+      request:
+        add:
+          my-added-header: added-value
+    name: default.istio-canary-mcp.0
+    route:
+    - destination:
+        host: echo.default.svc.domain.suffix
+        port:
+          number: 80
+---
