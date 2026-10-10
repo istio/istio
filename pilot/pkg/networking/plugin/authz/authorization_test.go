@@ -27,6 +27,7 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networkingapi "istio.io/api/networking/v1alpha3"
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -134,7 +136,7 @@ func TestPerRouteBuilderBuild(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := newTestPerRouteBuilder(t, tc.configs...)
 
-			got := p.Build(tc.origin)
+			got := p.Build(tc.origin, types.NamespacedName{}, true)
 			if len(got) != len(tc.wantNames) {
 				t.Fatalf("got %d per-route configs %v, want %d (%v)", len(got), keys(got), len(tc.wantNames), tc.wantNames)
 			}
@@ -162,13 +164,13 @@ func TestPerRouteBuilderBuild(t *testing.T) {
 // TestPerRouteBuilderNilSafe covers the route build path being reached with no authz policies set.
 func TestPerRouteBuilderNilSafe(t *testing.T) {
 	var p *PerRouteBuilder
-	if got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}); got != nil {
+	if got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}, types.NamespacedName{}, true); got != nil {
 		t.Fatalf("expected nil from nil builder, got %v", got)
 	}
 
 	push := &model.PushContext{Mesh: &meshconfig.MeshConfig{TrustDomain: "cluster.local"}}
 	p = NewPerRouteBuilder(push, &model.Proxy{Type: model.Router})
-	if got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}); got != nil {
+	if got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}, types.NamespacedName{}, true); got != nil {
 		t.Fatalf("expected nil when no authorization policies exist, got %v", got)
 	}
 }
@@ -329,7 +331,7 @@ func TestRouteOverrideRelationshipToWorkloadFilters(t *testing.T) {
 		httpRoutePolicy(t, "route-deny", "foo", authpb.AuthorizationPolicy_DENY),
 	)
 	p.workloadAllow = workloadAllow
-	overrides := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"})
+	overrides := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}, types.NamespacedName{}, true)
 	if len(overrides) != 2 {
 		t.Fatalf("got %d per-route overrides %v, want one per action", len(overrides), keys(overrides))
 	}
@@ -409,7 +411,7 @@ func TestPerRouteBuilderDryRunDoesNotDisableEnforcement(t *testing.T) {
 	policy.Annotations = map[string]string{annotation.IoIstioDryRun.Name: "true"}
 
 	overrides := newTestPerRouteBuilder(t, policy).
-		Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"})
+		Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}, types.NamespacedName{}, true)
 	if len(overrides) != 1 {
 		t.Fatalf("got %d overrides, want 1", len(overrides))
 	}
@@ -471,7 +473,7 @@ func TestRouteAllowUnionsWithWorkloadAllowButDenyStaysRouteOnly(t *testing.T) {
 	)
 	p.workloadAllow = []model.AuthorizationPolicy{workloadPolicy("gateway-allow", "foo", authpb.AuthorizationPolicy_ALLOW)}
 
-	got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"})
+	got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}, types.NamespacedName{}, true)
 
 	allow := policyNames(perRouteRBAC(t, got, builder.RBACFilterNameAllow))
 	if len(allow) != 2 {
@@ -499,7 +501,7 @@ func TestRouteAllowWithoutWorkloadAllow(t *testing.T) {
 
 	p := newTestPerRouteBuilder(t, httpRoutePolicy(t, "route-allow", "foo", authpb.AuthorizationPolicy_ALLOW))
 
-	got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"})
+	got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}, types.NamespacedName{}, true)
 	allow := policyNames(perRouteRBAC(t, got, builder.RBACFilterNameAllow))
 	if len(allow) != 1 || !strings.Contains(allow[0], "route-allow") {
 		t.Fatalf("allow override %v, want only the route policy", allow)
@@ -514,7 +516,7 @@ func TestRouteDenyOnlyLeavesAllowFilterAlone(t *testing.T) {
 	p := newTestPerRouteBuilder(t, httpRoutePolicy(t, "route-deny", "foo", authpb.AuthorizationPolicy_DENY))
 	p.workloadAllow = []model.AuthorizationPolicy{workloadPolicy("gateway-allow", "foo", authpb.AuthorizationPolicy_ALLOW)}
 
-	got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"})
+	got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}, types.NamespacedName{}, true)
 	if _, ok := got[builder.RBACFilterNameAllow]; ok {
 		t.Fatalf("deny-only route overrode the allow filter: %v", keys(got))
 	}
@@ -530,4 +532,272 @@ func filterNames(byName map[string]sets.Set[rbacpb.RBAC_Action]) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func TestBuilder_ListenerSetScoping(t *testing.T) {
+	gwPolicy := authzPolicyConfig("gw-policy", "default", &selectorpb.PolicyTargetReference{
+		Group: gvk.KubernetesGateway.Group,
+		Kind:  gvk.KubernetesGateway.Kind,
+		Name:  "my-gw",
+	})
+	lsAPolicy := authzPolicyConfig("ls-a-policy", "default", &selectorpb.PolicyTargetReference{
+		Group: gvk.ListenerSet.Group,
+		Kind:  gvk.ListenerSet.Kind,
+		Name:  "ls-a",
+	})
+	lsBPolicy := authzPolicyConfig("ls-b-policy", "default", &selectorpb.PolicyTargetReference{
+		Group: gvk.ListenerSet.Group,
+		Kind:  gvk.ListenerSet.Kind,
+		Name:  "ls-b",
+	})
+
+	store := memory.Make(collections.Pilot, false, test.NewStop(t))
+	for _, c := range []config.Config{gwPolicy, lsAPolicy, lsBPolicy} {
+		if _, err := store.Create(c); err != nil {
+			t.Fatalf("failed to create config: %v", err)
+		}
+	}
+	push := &model.PushContext{
+		AuthzPolicies: model.GetAuthorizationPolicies(&model.Environment{ConfigStore: store}),
+		Mesh:          &meshconfig.MeshConfig{},
+	}
+
+	serverA := &networkingapi.Server{}
+	serverB := &networkingapi.Server{}
+	proxy := &model.Proxy{
+		Type:            model.Router,
+		ConfigNamespace: "default",
+		Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "my-gw"},
+		MergedGateway: &model.MergedGateway{
+			ListenerSetForServer: map[*networkingapi.Server]types.NamespacedName{
+				serverA: {Namespace: "default", Name: "ls-a"},
+				serverB: {Namespace: "default", Name: "ls-b"},
+			},
+		},
+	}
+
+	b := NewBuilder(Local, push, proxy, false)
+	if b == nil {
+		t.Fatal("expected non-nil builder")
+	}
+
+	cases := []struct {
+		name  string
+		scope types.NamespacedName
+		want  []string
+	}{
+		{"native gateway listener", types.NamespacedName{}, []string{"gw-policy"}},
+		{"ls-a listener", types.NamespacedName{Namespace: "default", Name: "ls-a"}, []string{"gw-policy", "ls-a-policy"}},
+		{"ls-b listener", types.NamespacedName{Namespace: "default", Name: "ls-b"}, []string{"gw-policy", "ls-b-policy"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := policyNamesIn(t, b.BuildHTTP(networking.ListenerClassGateway, tc.scope))
+			assertSamePolicyNames(t, tc.want, got)
+		})
+	}
+}
+
+func authzPolicyConfig(name, namespace string, targetRef *selectorpb.PolicyTargetReference) config.Config {
+	return config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.AuthorizationPolicy,
+			Name:             name,
+			Namespace:        namespace,
+		},
+		Spec: &authpb.AuthorizationPolicy{
+			Action:    authpb.AuthorizationPolicy_ALLOW,
+			TargetRef: targetRef,
+			Rules: []*authpb.Rule{
+				{
+					To: []*authpb.Rule_To{{Operation: &authpb.Operation{Methods: []string{"GET"}}}},
+				},
+			},
+		},
+	}
+}
+
+func policyNamesIn(t *testing.T, filters []*hcm.HttpFilter) []string {
+	t.Helper()
+	seen := map[string]bool{}
+	for _, f := range filters {
+		if f.GetName() != wellknown.HTTPRoleBasedAccessControl {
+			continue
+		}
+		rbac, err := protoconv.UnmarshalAny[rbachttp.RBAC](f.GetTypedConfig())
+		if err != nil {
+			t.Fatalf("failed to unmarshal RBAC filter: %v", err)
+		}
+		for key := range rbac.GetRules().GetPolicies() {
+			start := strings.Index(key, "-policy[")
+			end := strings.Index(key, "]-rule[")
+			if start < 0 || end < 0 {
+				t.Fatalf("unexpected policy key format: %q", key)
+			}
+			seen[key[start+len("-policy["):end]] = true
+		}
+	}
+	names := make([]string, 0, len(seen))
+	for name := range seen {
+		names = append(names, name)
+	}
+	return names
+}
+
+func assertSamePolicyNames(t *testing.T, want, got []string) {
+	t.Helper()
+	sort.Strings(want)
+	sort.Strings(got)
+	if strings.Join(want, ",") != strings.Join(got, ",") {
+		t.Errorf("policy names mismatch: want %v, got %v", want, got)
+	}
+}
+
+func TestPerRouteBuilderExcludesListenerSetPolicies(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
+
+	store := memory.Make(collections.Pilot, false, test.NewStop(t))
+	for _, c := range []config.Config{
+		authzPolicyConfig("ls-a-policy", "foo", &selectorpb.PolicyTargetReference{
+			Group: gvk.ListenerSet.Group,
+			Kind:  gvk.ListenerSet.Kind,
+			Name:  "ls-a",
+		}),
+		httpRoutePolicy(t, "route-allow", "foo", authpb.AuthorizationPolicy_ALLOW),
+	} {
+		if _, err := store.Create(c); err != nil {
+			t.Fatalf("failed to create config: %v", err)
+		}
+	}
+	push := &model.PushContext{
+		Mesh:          &meshconfig.MeshConfig{TrustDomain: "cluster.local"},
+		AuthzPolicies: model.GetAuthorizationPolicies(&model.Environment{ConfigStore: store}),
+	}
+	proxy := &model.Proxy{
+		Type:            model.Router,
+		ConfigNamespace: "foo",
+		Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "my-gw"},
+		MergedGateway: &model.MergedGateway{
+			ListenerSetForServer: map[*networkingapi.Server]types.NamespacedName{
+				{}: {Namespace: "foo", Name: "ls-a"},
+			},
+		},
+	}
+
+	got := NewPerRouteBuilder(push, proxy).Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}, types.NamespacedName{}, true)
+	allow := policyNames(perRouteRBAC(t, got, builder.RBACFilterNameAllow))
+	if len(allow) != 1 || !strings.Contains(allow[0], "route-allow") {
+		t.Fatalf("allow override %v, want only the route policy", allow)
+	}
+}
+
+func TestUnionPoliciesDeduplicates(t *testing.T) {
+	both := model.AuthorizationPolicy{Name: "gw-and-ls", Namespace: "foo"}
+	lsOnly := model.AuthorizationPolicy{Name: "ls-only", Namespace: "foo"}
+	var names []string
+	for _, p := range unionPolicies([]model.AuthorizationPolicy{both}, []model.AuthorizationPolicy{both, lsOnly}) {
+		names = append(names, p.Name)
+	}
+	if strings.Join(names, ",") != "gw-and-ls,ls-only" {
+		t.Errorf("got %v, want [gw-and-ls ls-only]", names)
+	}
+}
+
+func listenerSetPolicy(name, ns, listenerSet string, action authpb.AuthorizationPolicy_Action) config.Config {
+	c := authzPolicyConfig(name, ns, &selectorpb.PolicyTargetReference{
+		Group: gvk.ListenerSet.Group,
+		Kind:  gvk.ListenerSet.Kind,
+		Name:  listenerSet,
+	})
+	c.Spec.(*authpb.AuthorizationPolicy).Action = action
+	return c
+}
+
+func TestPerRouteBuilderListenerSet(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
+	ls := types.NamespacedName{Name: "ls-a", Namespace: "foo"}
+	route := types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}
+
+	t.Run("shared chain carries ListenerSet policies on routes without route policies", func(t *testing.T) {
+		p := newTestPerRouteBuilder(t,
+			listenerSetPolicy("ls-allow", "foo", "ls-a", authpb.AuthorizationPolicy_ALLOW),
+			listenerSetPolicy("ls-deny", "foo", "ls-a", authpb.AuthorizationPolicy_DENY),
+		)
+		p.workloadAllow = []model.AuthorizationPolicy{workloadPolicy("gateway-allow", "foo", authpb.AuthorizationPolicy_ALLOW)}
+
+		got := p.Build(types.NamespacedName{}, ls, false)
+		assertPolicies(t, perRouteRBAC(t, got, builder.RBACFilterNameAllow), "gateway-allow", "ls-allow")
+		assertPolicies(t, perRouteRBAC(t, got, builder.RBACRouteAnchorNameDeny), "ls-deny")
+	})
+
+	t.Run("shared chain merges ListenerSet and route policies", func(t *testing.T) {
+		p := newTestPerRouteBuilder(t,
+			listenerSetPolicy("ls-allow", "foo", "ls-a", authpb.AuthorizationPolicy_ALLOW),
+			listenerSetPolicy("ls-deny", "foo", "ls-a", authpb.AuthorizationPolicy_DENY),
+			httpRoutePolicy(t, "route-allow", "foo", authpb.AuthorizationPolicy_ALLOW),
+			httpRoutePolicy(t, "route-deny", "foo", authpb.AuthorizationPolicy_DENY),
+		)
+
+		got := p.Build(route, ls, false)
+		assertPolicies(t, perRouteRBAC(t, got, builder.RBACFilterNameAllow), "ls-allow", "route-allow")
+		assertPolicies(t, perRouteRBAC(t, got, builder.RBACRouteAnchorNameDeny), "ls-deny", "route-deny")
+	})
+
+	t.Run("unshared chain needs no override without route policies", func(t *testing.T) {
+		p := newTestPerRouteBuilder(t,
+			listenerSetPolicy("ls-allow", "foo", "ls-a", authpb.AuthorizationPolicy_ALLOW),
+			listenerSetPolicy("ls-deny", "foo", "ls-a", authpb.AuthorizationPolicy_DENY),
+		)
+		if got := p.Build(route, ls, true); got != nil {
+			t.Fatalf("expected no override, got %v", keys(got))
+		}
+	})
+
+	t.Run("unshared chain keeps ListenerSet ALLOW when a route overrides it", func(t *testing.T) {
+		p := newTestPerRouteBuilder(t,
+			listenerSetPolicy("ls-allow", "foo", "ls-a", authpb.AuthorizationPolicy_ALLOW),
+			listenerSetPolicy("ls-deny", "foo", "ls-a", authpb.AuthorizationPolicy_DENY),
+			httpRoutePolicy(t, "route-allow", "foo", authpb.AuthorizationPolicy_ALLOW),
+		)
+
+		got := p.Build(route, ls, true)
+		assertPolicies(t, perRouteRBAC(t, got, builder.RBACFilterNameAllow), "ls-allow", "route-allow")
+		if _, ok := got[builder.RBACRouteAnchorNameDeny]; ok {
+			t.Errorf("DENY is already enforced by the chain and should not be repeated on the route")
+		}
+	})
+}
+
+func assertPolicies(t *testing.T, rbac *rbacpb.RBAC, want ...string) {
+	t.Helper()
+	got := policyNames(rbac)
+	if len(got) != len(want) {
+		t.Fatalf("got policies %v, want %v", got, want)
+	}
+	for _, w := range want {
+		if !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, "-policy["+w+"]-") }) {
+			t.Errorf("got policies %v, missing %q", got, w)
+		}
+	}
+}
+
+func TestBuilder_ListenerSetInOtherNamespace(t *testing.T) {
+	store := memory.Make(collections.Pilot, false, test.NewStop(t))
+	if _, err := store.Create(listenerSetPolicy("tenant-policy", "tenant", "ls-t", authpb.AuthorizationPolicy_ALLOW)); err != nil {
+		t.Fatalf("failed to create config: %v", err)
+	}
+	push := &model.PushContext{
+		AuthzPolicies: model.GetAuthorizationPolicies(&model.Environment{ConfigStore: store}),
+		Mesh:          &meshconfig.MeshConfig{},
+	}
+	proxy := &model.Proxy{
+		Type:            model.Router,
+		ConfigNamespace: "gateway-ns",
+		Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "my-gw"},
+	}
+
+	b := NewBuilder(Local, push, proxy, false)
+	assertSamePolicyNames(t, nil, policyNamesIn(t, b.BuildHTTP(networking.ListenerClassGateway, types.NamespacedName{})))
+	assertSamePolicyNames(t, []string{"tenant-policy"},
+		policyNamesIn(t, b.BuildHTTP(networking.ListenerClassGateway, types.NamespacedName{Namespace: "tenant", Name: "ls-t"})))
 }

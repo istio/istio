@@ -309,7 +309,7 @@ func TestOutboundNetworkFilterIdleTimeout(t *testing.T) {
 			})
 			lb := ListenerBuilder{node: proxy, push: cg.PushContext()}
 			filters := lb.buildOutboundNetworkFilters(tt.routes, &model.Port{Port: 443},
-				config.Meta{Name: "routing-config-for-example-com", Namespace: "not-default"}, false)
+				config.Meta{Name: "routing-config-for-example-com", Namespace: "not-default"})
 
 			tcpProxy := xdstest.ExtractTCPProxy(t, &listener.FilterChain{Filters: filters})
 			if !reflect.DeepEqual(tcpProxy.IdleTimeout, tt.expected) {
@@ -517,7 +517,7 @@ func TestBuildOutboundNetworkFiltersTunnelingConfig(t *testing.T) {
 			proxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: ns})
 			lb := ListenerBuilder{node: proxy, push: cg.PushContext()}
 			filters := lb.buildOutboundNetworkFilters(tt.routeDestinations,
-				&model.Port{Port: 443}, config.Meta{Name: "routing-config-for-example-com", Namespace: ns}, false)
+				&model.Port{Port: 443}, config.Meta{Name: "routing-config-for-example-com", Namespace: ns})
 
 			tcpProxy := xdstest.ExtractTCPProxy(t, &listener.FilterChain{Filters: filters})
 			if tt.expectedTunnelingConfig == nil {
@@ -640,7 +640,7 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 			lb := ListenerBuilder{node: cg.SetupProxy(nil), push: cg.PushContext()}
 			listeners := lb.buildOutboundNetworkFilters(
 				tt.routes,
-				&model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"}, false)
+				&model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"})
 			tcp := &tcp.TcpProxy{}
 			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
@@ -835,7 +835,7 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			lb := ListenerBuilder{node: proxy, push: cg.PushContext()}
-			listeners := lb.buildOutboundNetworkFilters(tt.routes, &model.Port{Port: 9999}, tt.configMeta, false)
+			listeners := lb.buildOutboundNetworkFilters(tt.routes, &model.Port{Port: 9999}, tt.configMeta)
 			tcp := &tcp.TcpProxy{}
 			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
 			hasSourceIP := len(tcp.HashPolicy) == 1 && tcp.HashPolicy[0].GetSourceIp() != nil

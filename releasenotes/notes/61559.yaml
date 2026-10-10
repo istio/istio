@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 61559
+
+releaseNotes:
+- |
+  **Added** support for `AuthorizationPolicy` `targetRefs` to reference a Gateway API `ListenerSet`.
+  The policy applies only to that `ListenerSet`'s listeners, not the whole `Gateway`. On a plain HTTP
+  port shared with listeners from other origins, `ALLOW` and `DENY` policies are enforced per route
+  when `ENABLE_GATEWAY_API_HTTPROUTE_AUTH` is enabled; otherwise they are not enforced on that port.

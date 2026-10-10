@@ -76,6 +76,27 @@ func (policy *AuthorizationPolicies) indexHTTPRoutePolicies(authz AuthorizationP
 	}
 }
 
+func (policy *AuthorizationPolicies) indexListenerSetPolicies(authz AuthorizationPolicy) {
+	seenRefs := sets.New[types.NamespacedName]()
+	for _, ref := range GetTargetRefs(authz.Spec) {
+		if !matchesGroupKind(ref, gvk.ListenerSet) {
+			continue
+		}
+
+		if ref.GetName() == "" {
+			continue
+		}
+		if ref.GetNamespace() != "" && ref.GetNamespace() != authz.Namespace {
+			continue
+		}
+
+		k := types.NamespacedName{Name: ref.GetName(), Namespace: authz.Namespace}
+		if !seenRefs.InsertContains(k) {
+			policy.listenerSetPolicies[k] = updateAuthorizationPoliciesResult(policy.listenerSetPolicies[k], authz)
+		}
+	}
+}
+
 // AuthorizationPolicies organizes AuthorizationPolicy by namespace.
 type AuthorizationPolicies struct {
 	// Maps from namespace to the Authorization policies.
@@ -83,6 +104,8 @@ type AuthorizationPolicies struct {
 
 	// Index for HTTPRoute targeted policy.
 	httpRoutePolicies map[types.NamespacedName]AuthorizationPoliciesResult
+
+	listenerSetPolicies map[types.NamespacedName]AuthorizationPoliciesResult
 
 	// The name of the root namespace. Policy in the root namespace applies to workloads in all namespaces.
 	RootNamespace string `json:"root_namespace"`
@@ -93,6 +116,7 @@ func GetAuthorizationPolicies(env *Environment) *AuthorizationPolicies {
 	policy := &AuthorizationPolicies{
 		NamespaceToPolicies: map[string][]AuthorizationPolicy{},
 		httpRoutePolicies:   map[types.NamespacedName]AuthorizationPoliciesResult{},
+		listenerSetPolicies: map[types.NamespacedName]AuthorizationPoliciesResult{},
 		RootNamespace:       env.Mesh().GetRootNamespace(),
 	}
 
@@ -116,6 +140,7 @@ func GetAuthorizationPolicies(env *Environment) *AuthorizationPolicies {
 		}
 		policy.NamespaceToPolicies[config.Namespace] = append(policy.NamespaceToPolicies[config.Namespace], authzConfig)
 		policy.indexHTTPRoutePolicies(authzConfig)
+		policy.indexListenerSetPolicies(authzConfig)
 	}
 
 	return policy
@@ -135,6 +160,13 @@ func (policy *AuthorizationPolicies) ListAuthorizationPoliciesForHTTPRoute(route
 		return AuthorizationPoliciesResult{}
 	}
 	return policy.httpRoutePolicies[route]
+}
+
+func (policy *AuthorizationPolicies) ListAuthorizationPoliciesForListenerSet(ls types.NamespacedName) AuthorizationPoliciesResult {
+	if policy == nil {
+		return AuthorizationPoliciesResult{}
+	}
+	return policy.listenerSetPolicies[ls]
 }
 
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
