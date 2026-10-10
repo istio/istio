@@ -2295,7 +2295,24 @@ func validateBackendClientCertificateRef(
 		}
 	}
 
-	key := ptr.OrDefault((*string)(ref.Namespace), namespace) + "/" + string(ref.Name)
+	credNs := ptr.OrDefault((*string)(ref.Namespace), namespace)
+	// Authorize cross-namespace refs before resolving the target, so status never
+	// reveals whether the referent exists when no ReferenceGrant allows it (CWE-203).
+	if credNs != namespace {
+		cred := creds.ToKubernetesGatewayResource(credNs, string(ref.Name))
+		objectKind := schematypes.GvkFromObject(gw)
+		if !grants.SecretAllowed(ctx, objectKind, cred, namespace) {
+			return &ConfigError{
+				Reason: ConfigErrorReason(k8s.GatewayReasonRefNotPermitted),
+				Message: fmt.Sprintf(
+					"clientCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
+					ref.Name, credNs, namespace,
+				),
+			}
+		}
+	}
+
+	key := credNs + "/" + string(ref.Name)
 	scrt := ptr.Flatten(krt.FetchOne(ctx, secrets, krt.FilterKey(key)))
 	if scrt == nil {
 		return &ConfigError{
@@ -2315,21 +2332,6 @@ func validateBackendClientCertificateRef(
 		return &ConfigError{
 			Reason:  InvalidClientCertificateRef,
 			Message: fmt.Sprintf("invalid clientCertificateRef %v, the certificate is malformed: %v", secretObjectReferenceString(ref), err),
-		}
-	}
-
-	credNs := ptr.OrDefault((*string)(ref.Namespace), namespace)
-	if credNs != namespace {
-		cred := creds.ToKubernetesGatewayResource(credNs, string(ref.Name))
-		objectKind := schematypes.GvkFromObject(gw)
-		if !grants.SecretAllowed(ctx, objectKind, cred, namespace) {
-			return &ConfigError{
-				Reason: ConfigErrorReason(k8s.GatewayReasonRefNotPermitted),
-				Message: fmt.Sprintf(
-					"clientCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
-					ref.Name, credNs, namespace,
-				),
-			}
 		}
 	}
 
