@@ -87,6 +87,11 @@ func (d *static[T]) GetKey(k string) *T {
 	return d.val.Load()
 }
 
+// ListFiltered returns objects accepted by filter. A nil filter returns all objects.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (d *static[T]) ListFiltered(filter func(T) bool) []T {
 	v := d.val.Load()
 	if v == nil || (filter != nil && !filter(*v)) {
