@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61493
+releaseNotes:
+  - |
+    **Fixed** a leak in the IP auto-allocation controller (`ip-autoallocate`) where addresses
+    allocated to a `ServiceEntry` were never released when that `ServiceEntry` was deleted.
+    On long-running `istiod` processes with significant `ServiceEntry` churn, this could
+    exhaust the auto-allocation address pool even though far fewer addresses were actually
+    in use, requiring an `istiod` restart to reclaim them. Addresses are now freed back to
+    the pool as soon as the owning `ServiceEntry` is deleted.
