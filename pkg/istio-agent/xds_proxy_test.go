@@ -727,7 +727,8 @@ func TestNDSDeltaHandler(t *testing.T) {
 		h, dnsServer := newHandler()
 		handle(t, h, []*discovery.Resource{host("a.default.svc.cluster.local", "10.0.0.1")}, nil)
 		malformed := &discovery.Resource{Name: "b.default.svc.cluster.local", Resource: protoconv.MessageToAny(&discovery.Resource{})}
-		if _, err := h.Handle(nil, []*discovery.Resource{host("c.default.svc.cluster.local", "10.0.0.3"), malformed}, []string{"a.default.svc.cluster.local"}); err == nil {
+		resources := []*discovery.Resource{host("c.default.svc.cluster.local", "10.0.0.3"), malformed}
+		if _, err := h.Handle(nil, resources, []string{"a.default.svc.cluster.local"}); err == nil {
 			t.Fatal("expected malformed resource to be rejected")
 		}
 		if _, err := h.Handle(nil, []*discovery.Resource{{Name: "d.default.svc.cluster.local"}}, nil); err == nil {
