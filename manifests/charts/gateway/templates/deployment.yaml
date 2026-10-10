@@ -138,6 +138,9 @@ spec:
       {{- with .Values.dnsPolicy }}
       dnsPolicy: {{ . }}
       {{- end }}
+      {{- if .Values.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
       {{- with .Values.dnsConfig }}
       dnsConfig:
         {{- toYaml . | nindent 8 }}
