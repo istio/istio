@@ -43,17 +43,17 @@ func TestFilterNeedsMatching(t *testing.T) {
 			want:    true,
 		},
 		"selects": {
-			filters:     []filter{{selects: map[string]string{}}, {selects: map[string]string{"app": "test"}}},
+			filters:     []filter{{extra: &filterExtra{selects: map[string]string{}}}, {extra: &filterExtra{selects: map[string]string{"app": "test"}}}},
 			want:        true,
 			wantForList: true,
 		},
 		"selectsNonEmpty": {
-			filters:     []filter{{selectsNonEmpty: map[string]string{}}, {selectsNonEmpty: map[string]string{"app": "test"}}},
+			filters:     []filter{{extra: &filterExtra{selectsNonEmpty: map[string]string{}}}, {extra: &filterExtra{selectsNonEmpty: map[string]string{"app": "test"}}}},
 			want:        true,
 			wantForList: true,
 		},
 		"labels": {
-			filters:     []filter{{labels: map[string]string{}}, {labels: map[string]string{"app": "test"}}},
+			filters:     []filter{{extra: &filterExtra{labels: map[string]string{}}}, {extra: &filterExtra{labels: map[string]string{"app": "test"}}}},
 			want:        true,
 			wantForList: true,
 		},
@@ -64,13 +64,30 @@ func TestFilterNeedsMatching(t *testing.T) {
 		},
 		"suppressChange": {
 			// SuppressChange is handled separately from Matches.
-			filters: []filter{{suppressChange: func(any, any) bool { return true }}},
+			filters: []filter{{extra: &filterExtra{suppressChange: func(any, any) bool { return true }}}},
 		},
 	}
 
-	typ := reflect.TypeOf(filter{})
-	for i := 0; i < typ.NumField(); i++ {
-		name := typ.Field(i).Name
+	// filterExtra's fields are classified like filter's own; extra itself is only a container for them.
+	nonZeroFields := func(f filter) map[string]bool {
+		res := map[string]bool{}
+		v := reflect.ValueOf(f)
+		for i := 0; i < v.NumField(); i++ {
+			if name := v.Type().Field(i).Name; name != "extra" {
+				res[name] = !v.Field(i).IsZero()
+			}
+		}
+		x := reflect.ValueOf(filterExtra{})
+		if f.extra != nil {
+			x = reflect.ValueOf(*f.extra)
+		}
+		for i := 0; i < x.NumField(); i++ {
+			res[x.Type().Field(i).Name] = !x.Field(i).IsZero()
+		}
+		return res
+	}
+	allFields := nonZeroFields(filter{})
+	for name := range allFields {
 		if _, ok := tests[name]; !ok {
 			t.Errorf("filter.%s has no needsMatching test; classify the field and update needsMatching if necessary", name)
 		}
@@ -93,7 +110,7 @@ func TestFilterNeedsMatching(t *testing.T) {
 	})
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			if _, ok := typ.FieldByName(name); !ok {
+			if _, ok := allFields[name]; !ok {
 				t.Fatalf("test names nonexistent filter field %q", name)
 			}
 			if len(tt.filters) == 0 {
@@ -103,10 +120,8 @@ func TestFilterNeedsMatching(t *testing.T) {
 				t.Run(fmt.Sprint(n), func(t *testing.T) {
 					// A different active field could hide an omission in needsMatching.
 					// IsZero works on unexported fields without unsafe or Interface().
-					value := reflect.ValueOf(f)
-					for i := 0; i < typ.NumField(); i++ {
-						field := typ.Field(i).Name
-						if got, want := !value.Field(i).IsZero(), field == name; got != want {
+					for field, got := range nonZeroFields(f) {
+						if want := field == name; got != want {
 							t.Fatalf("filter.%s non-zero = %v, want %v; each case must set only %s", field, got, want, name)
 						}
 					}
