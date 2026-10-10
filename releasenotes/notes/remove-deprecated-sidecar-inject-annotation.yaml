@@ -1,0 +1,22 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 62019
+releaseNotes:
+- |
+  **Removed** support for the long-deprecated `sidecar.istio.io/inject` *annotation* (deprecated
+  since Istio 1.11 in favor of the `sidecar.istio.io/inject` *label*). The annotation is no longer
+  read anywhere in the codebase; use the label to control sidecar injection instead.
+upgradeNotes:
+- title: Removed support for the `sidecar.istio.io/inject` annotation
+  content: |
+    The `sidecar.istio.io/inject` *annotation* has been removed. It was deprecated in Istio 1.11
+    in favor of the `sidecar.istio.io/inject` *label*, and is no longer honored by the sidecar
+    injector, `istioctl`, the CNI plugin, or any other Istio component.
+
+    If you have Pods, Deployments, or other workloads that still rely on this annotation to
+    control sidecar injection (rather than the label), update them to use the
+    `sidecar.istio.io/inject` label before upgrading, or injection behavior will silently change:
+    pods previously opted out via the annotation will now be injected (or not) based on the
+    namespace's default injection policy instead.

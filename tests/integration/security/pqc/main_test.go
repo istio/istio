@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/api/annotation"
+	ilabel "istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -121,7 +121,7 @@ func setupAppsConfig(_ resource.Context) error {
 				CurvePreferences: []string{"X25519MLKEM768"},
 			},
 			Subsets: []echo.SubsetConfig{{
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				Labels: map[string]string{ilabel.SidecarInject.Name: "false"},
 			}},
 		},
 		{

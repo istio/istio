@@ -220,11 +220,9 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	var useDefault bool
 	var inject bool
 
-	objectSelector := annos[annotation.SidecarInject.Name]
-	if lbl, labelPresent := metadata.GetLabels()[label.SidecarInject.Name]; labelPresent {
-		// The label is the new API; if both are present we prefer the label
-		objectSelector = lbl
-	}
+	// The sidecar.istio.io/inject *annotation* has been deprecated since Istio 1.11 in favor of
+	// the sidecar.istio.io/inject *label* and is no longer honored here.
+	objectSelector := metadata.GetLabels()[label.SidecarInject.Name]
 	switch objectSelector {
 	case "true":
 		inject = true

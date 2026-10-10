@@ -17,7 +17,7 @@ package match_test
 import (
 	"testing"
 
-	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/cluster/kube"
@@ -53,12 +53,12 @@ var (
 	headless1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "headless", Headless: true}
 	// naked pod (uninjected)
 	naked1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
-		Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+		Labels: map[string]string{label.SidecarInject.Name: "false"},
 	}}}
 	// external svc
 	external1 = &fakeInstance{
 		Cluster: cls1, Namespace: namespace.Static("echo"), Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
-			Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+			Labels: map[string]string{label.SidecarInject.Name: "false"},
 		}},
 	}
 )
