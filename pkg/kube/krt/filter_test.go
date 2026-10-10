@@ -134,7 +134,7 @@ func TestFilterSelectsNilLabels(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &dependency{filter: &filter{}}
+			h := &dependency{}
 			FilterSelects(nil)(h)
 			if got := h.filter.Matches(selectorObject(tt.selector), false); got != tt.want {
 				t.Errorf("Matches() = %v, want %v", got, tt.want)

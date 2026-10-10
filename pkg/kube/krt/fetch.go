@@ -80,7 +80,6 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 	d := &dependency{
 		id:             c.uid(),
 		collectionName: c.name(),
-		filter:         &filter{},
 	}
 	for _, o := range opts {
 		o(d)
@@ -140,7 +139,7 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 		log.WithLabels(
 			"parent", parent,
 			"fetch", c.name(),
-			"filter", d.filter,
+			"filter", &d.filter,
 			"size", len(list),
 		).Debugf("Fetch")
 	}
