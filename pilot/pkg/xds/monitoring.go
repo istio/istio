@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/monitoring"
@@ -86,7 +87,7 @@ var (
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
 		"Delay in seconds between config change and a proxy receiving all required configuration.",
-		[]float64{.1, .5, 1, 3, 5, 10, 20, 30},
+		features.ProxyConvergenceTimeBuckets,
 	)
 
 	inboundUpdates = monitoring.NewSum(
