@@ -138,6 +138,27 @@ func TestRender(t *testing.T) {
 			diffSelect:  "Service:*:istio-ingress",
 		},
 		{
+			desc:        "gateway-selector-labels",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Deployment:*:istio-ingress",
+		},
+		{
+			desc:        "gateway-selector-labels-service",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Service:*:istio-ingress",
+		},
+		{
+			desc:        "gateway-selector-labels-override",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Service:*:istio-ingress",
+		},
+		{
 			desc:        "istiod-traffic-distribution",
 			releaseName: "istiod",
 			namespace:   "istio-system",

@@ -1,0 +1,5 @@
+spec:
+  values:
+    selectorLabels:
+      custom-label: custom-value
+      foo: bar

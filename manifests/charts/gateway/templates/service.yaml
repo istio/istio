@@ -69,8 +69,5 @@ spec:
   {{- end }}
 {{- end }}
   selector:
-    {{- include "gateway.selectorLabels" . | nindent 4 }}
-    {{- with .Values.service.selectorLabels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
+    {{- include "gateway.serviceSelectorLabels" . | nindent 4 }}
 {{- end }}
