@@ -350,7 +350,7 @@ func BackendResourcePolicyCollection(
 					Source:       self,
 					Target:       self,
 					Host:         string(i.Spec.ExternalHostname.Hostname),
-					Port:         new(uint32(i.Spec.Port.Port)),
+					Port:         new(uint32(i.Spec.Port.Number)),
 					TLS:          tls,
 					CreationTime: i.CreationTimestamp.Time,
 				})
@@ -398,7 +398,7 @@ func backendResourceTLSSettings(
 		return nil
 	}
 
-	validation := i.Spec.TLS.Validation
+	validation := ptr.OrEmpty(i.Spec.TLS.Validation)
 	mode := networking.ClientTLSSettings_SIMPLE
 
 	switch i.Spec.TLS.Mode {

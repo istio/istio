@@ -47,9 +47,8 @@ spec:
       name: echo
       group: ""
   sessionPersistence:
-    sessionName: foo
     absoluteTimeout: 1h
     type: Cookie
-    cookieConfig:
+    cookie:
+      name: foo
       lifetimeType: Permanent
-

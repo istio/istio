@@ -115,7 +115,10 @@ spec:
   http:
   - name: default.mismatched-port.0
     route:
-    - destination: {}
+    - destination:
+        host: secure.example.net
+        port:
+          number: 80
 ---
 apiVersion: networking.istio.io/v1
 kind: VirtualService
@@ -209,7 +212,10 @@ spec:
   - '*'
   tcp:
   - route:
-    - destination: {}
+    - destination:
+        host: tcp.example.net
+        port:
+          number: 9000
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule

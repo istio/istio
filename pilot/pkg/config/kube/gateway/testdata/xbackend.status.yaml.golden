@@ -5,8 +5,12 @@ metadata:
   namespace: allowed-1
 spec: null
 status:
-  parents:
-  - conditions:
+  ancestors:
+  - ancestorRef:
+      group: gateway.networking.x-k8s.io
+      kind: XBackend
+      name: cross-namespace
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -18,11 +22,12 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/mesh-controller
-    parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XBackend
-      name: cross-namespace
-  - conditions:
+  - ancestorRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: istio-system
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -34,11 +39,6 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
-    parentRef:
-      group: gateway.networking.k8s.io
-      kind: Gateway
-      name: gateway
-      namespace: istio-system
 ---
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackend
@@ -47,8 +47,12 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents:
-  - conditions:
+  ancestors:
+  - ancestorRef:
+      group: gateway.networking.x-k8s.io
+      kind: XBackend
+      name: external-https
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -60,11 +64,12 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/mesh-controller
-    parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XBackend
-      name: external-https
-  - conditions:
+  - ancestorRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: istio-system
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -76,11 +81,6 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
-    parentRef:
-      group: gateway.networking.k8s.io
-      kind: Gateway
-      name: gateway
-      namespace: istio-system
 ---
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackend
@@ -89,8 +89,12 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents:
-  - conditions:
+  ancestors:
+  - ancestorRef:
+      group: gateway.networking.x-k8s.io
+      kind: XBackend
+      name: external-mtls
+    conditions:
     - lastTransitionTime: fake
       message: 'unsupported ClientAndServer TLS mode: Istio does not support client
         certificates on backend'
@@ -103,10 +107,6 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/mesh-controller
-    parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XBackend
-      name: external-mtls
 ---
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackend
@@ -115,8 +115,12 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents:
-  - conditions:
+  ancestors:
+  - ancestorRef:
+      group: gateway.networking.x-k8s.io
+      kind: XBackend
+      name: external-novalidation
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -128,11 +132,12 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/mesh-controller
-    parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XBackend
-      name: external-novalidation
-  - conditions:
+  - ancestorRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: istio-system
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -144,11 +149,6 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
-    parentRef:
-      group: gateway.networking.k8s.io
-      kind: Gateway
-      name: gateway
-      namespace: istio-system
 ---
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackend
@@ -157,8 +157,12 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents:
-  - conditions:
+  ancestors:
+  - ancestorRef:
+      group: gateway.networking.x-k8s.io
+      kind: XBackend
+      name: external-plain
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -170,11 +174,12 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/mesh-controller
-    parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XBackend
-      name: external-plain
-  - conditions:
+  - ancestorRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: istio-system
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -186,11 +191,6 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
-    parentRef:
-      group: gateway.networking.k8s.io
-      kind: Gateway
-      name: gateway
-      namespace: istio-system
 ---
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackend
@@ -199,8 +199,12 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents:
-  - conditions:
+  ancestors:
+  - ancestorRef:
+      group: gateway.networking.x-k8s.io
+      kind: XBackend
+      name: external-tcp
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -212,11 +216,12 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/mesh-controller
-    parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XBackend
-      name: external-tcp
-  - conditions:
+  - ancestorRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: istio-system
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -228,11 +233,6 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
-    parentRef:
-      group: gateway.networking.k8s.io
-      kind: Gateway
-      name: gateway
-      namespace: istio-system
 ---
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackend
@@ -241,8 +241,12 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents:
-  - conditions:
+  ancestors:
+  - ancestorRef:
+      group: gateway.networking.x-k8s.io
+      kind: XBackend
+      name: shared-host-plain
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -254,10 +258,6 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/mesh-controller
-    parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XBackend
-      name: shared-host-plain
 ---
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackend
@@ -266,8 +266,12 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents:
-  - conditions:
+  ancestors:
+  - ancestorRef:
+      group: gateway.networking.x-k8s.io
+      kind: XBackend
+      name: shared-host-tls
+    conditions:
     - lastTransitionTime: fake
       message: Configuration is valid
       reason: Accepted
@@ -279,10 +283,6 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/mesh-controller
-    parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XBackend
-      name: shared-host-tls
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
@@ -443,9 +443,9 @@ status:
       status: "True"
       type: Accepted
     - lastTransitionTime: fake
-      message: backend(external-https) does not expose port 8080, expected 80
-      reason: BackendNotFound
-      status: "False"
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
@@ -589,9 +589,9 @@ status:
       status: "True"
       type: Accepted
     - lastTransitionTime: fake
-      message: backend(external-tcp) does not expose port 9999, expected 9000
-      reason: BackendNotFound
-      status: "False"
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:

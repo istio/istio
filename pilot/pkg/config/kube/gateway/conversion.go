@@ -190,11 +190,9 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 		for _, codes := range r.Retry.Codes {
 			retryOn = append(retryOn, strconv.Itoa(int(codes)))
 		}
+		attempts := ptr.NonEmptyOrDefault(r.Retry.Attempts, 1)
 		vs.Retries = &istio.HTTPRetry{
-			// If unset, default is implementation specific.
-			// VirtualService.retry has no default when set -- users are expected to set it if they customize `retry`.
-			// However, the default retry if none are set is "2", so we use that as the default.
-			Attempts:      int32(ptr.OrDefault(r.Retry.Attempts, 2)),
+			Attempts:      int32(attempts),
 			PerTryTimeout: nil,
 			RetryOn:       strings.Join(retryOn, ","),
 		}
@@ -1198,16 +1196,16 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		// Unlike a Service, the port is declared on the Backend itself, so backendRef.port is
 		// optional. When it is set it must agree with the Backend's port.
-		if to.Port != nil && *to.Port != k8s.PortNumber(backend.Spec.Port.Port) {
+		if to.Port != nil && *to.Port != k8s.PortNumber(backend.Spec.Port.Number) {
 			invalidBackendErr = &ConfigError{
 				Reason:  InvalidDestinationNotFound,
-				Message: fmt.Sprintf("backend(%s) does not expose port %d, expected %d", to.Name, *to.Port, backend.Spec.Port.Port),
+				Message: fmt.Sprintf("backend(%s) does not expose port %d, expected %d", to.Name, *to.Port, backend.Spec.Port.Number),
 			}
 			return &istio.Destination{}, nil, invalidBackendErr
 		}
 		return &istio.Destination{
 			Host: hostname,
-			Port: &istio.PortSelector{Number: uint32(backend.Spec.Port.Port)},
+			Port: &istio.PortSelector{Number: uint32(backend.Spec.Port.Number)},
 		}, nil, invalidBackendErr
 	case gvk.Service:
 		if strings.Contains(string(to.Name), ".") {
@@ -2081,7 +2079,15 @@ func reportUnmanagedGatewayStatus(
 	}
 
 	status.Addresses = slices.Map(obj.Spec.Addresses, func(e k8s.GatewaySpecAddress) k8s.GatewayStatusAddress {
-		return k8s.GatewayStatusAddress(e)
+		var routability *k8s.GatewayAddressRoutabilityType
+		if e.Routability != "" {
+			routability = ptr.Of(e.Routability)
+		}
+		return k8s.GatewayStatusAddress{
+			Type:        e.Type,
+			Value:       e.Value,
+			Routability: routability,
+		}
 	})
 	status.Listeners = nil
 	status.Conditions = gatewaycommon.SetListenerConditions(obj.Generation, status.Conditions, gatewayConditions)
