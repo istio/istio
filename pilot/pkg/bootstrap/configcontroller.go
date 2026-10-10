@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync/atomic"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -54,6 +55,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/validation/agent"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/util/sets"
@@ -194,6 +196,34 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		args.RegistryOptions.KubeOptions.KrtDebugger = args.KrtDebugger
 		gwc := gateway.NewController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions, s.XDSServer)
 		s.environment.GatewayAPIController = gwc
+		// The gateway controllers compute status only from a push context built after every service
+		// registry loaded its initial state. Push once at that point: if no event follows the last
+		// registry loading, no such push context would be built, and the controllers would never sync.
+		// The first true result is kept, because a remote cluster added later makes the registries
+		// unsynced again, and one added before that push builds its context would leave the
+		// controllers unsynced until a service changes.
+		var servicesSynced atomic.Bool
+		s.environment.ServicesSynced = func() bool {
+			if servicesSynced.Load() {
+				return true
+			}
+			synced := (s.multiclusterController == nil || s.multiclusterController.HasSynced()) && s.ServiceController().HasSynced()
+			if synced {
+				servicesSynced.Store(true)
+			}
+			return synced
+		}
+		s.addStartFunc("push after service registries sync", func(stop <-chan struct{}) error {
+			go func() {
+				if kubelib.WaitForCacheSync("service registries", stop, s.environment.ServicesSynced) {
+					s.XDSServer.ConfigUpdate(&model.PushRequest{
+						Reason: model.NewReasonStats(model.GlobalUpdate),
+						Forced: true,
+					})
+				}
+			}()
+			return nil
+		})
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 
 		// Create the agentgateway controller before the leader election block so it can share the
