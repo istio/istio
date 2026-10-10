@@ -14,6 +14,8 @@
 
 package manifest
 
+import "istio.io/istio/pkg/kube/labels"
+
 // Names not found in the istio gvk package
 const (
 	ClusterRole                 = "ClusterRole"
@@ -36,7 +38,7 @@ const (
 	// OperatorManagedLabel indicates Istio operator is managing this resource.
 	OperatorManagedLabel = "operator.istio.io/managed"
 	// IstioComponentLabel indicates which Istio component a resource belongs to.
-	IstioComponentLabel = "operator.istio.io/component"
+	IstioComponentLabel = labels.IstioComponentLabel
 	// OperatorVersionLabel indicates the Istio version of the installation.
 	OperatorVersionLabel = "operator.istio.io/version"
 )
