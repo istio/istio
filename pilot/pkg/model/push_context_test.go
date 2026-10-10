@@ -3733,7 +3733,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.gateway), func(t *testing.T) {
-			rules := ps.virtualServicesForGateway(tt.proxyNs, tt.gateway)
+			rules := ps.VirtualServicesForGateway(tt.proxyNs, tt.gateway)
 			gotHosts := make([]string, 0)
 			for _, r := range rules {
 				vs := r.Spec.(*networking.VirtualService)
@@ -3852,7 +3852,7 @@ func TestVirtualServiceWithDefaultExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			rules := ps.virtualServicesForGateway(tt.proxyNs, tt.gateway)
+			rules := ps.VirtualServicesForGateway(tt.proxyNs, tt.gateway)
 			gotHosts := make([]string, 0)
 			for _, r := range rules {
 				vs := r.Spec.(*networking.VirtualService)
@@ -4135,7 +4135,7 @@ func TestInitVirtualService(t *testing.T) {
 		ps.initVirtualServices(env)
 
 		t.Run("resolve shortname", func(t *testing.T) {
-			rules := ps.virtualServicesForGateway("ns1", gatewayName)
+			rules := ps.VirtualServicesForGateway("ns1", gatewayName)
 			if len(rules) != 6 {
 				t.Fatalf("wanted 6 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
 			}

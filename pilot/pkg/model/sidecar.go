@@ -307,7 +307,7 @@ func gatewaySidecarScope(ps *PushContext, base *SidecarScope, gateways []string)
 	out.Version = ps.PushVersion
 	out.gatewayVirtualServices = make(map[string][]*config.Config, len(gateways))
 	for _, gateway := range gateways {
-		virtualServices := ps.virtualServicesForGateway(base.Namespace, gateway)
+		virtualServices := ps.VirtualServicesForGateway(base.Namespace, gateway)
 		out.gatewayVirtualServices[gateway] = virtualServices
 		if out.gatewayConfigDependencies == nil {
 			out.gatewayConfigDependencies = sets.NewWithLength[ConfigHash](len(virtualServices))
@@ -326,7 +326,7 @@ func DefaultSidecarScopeForWaypoint(ps *PushContext, configNamespace string) *Si
 	out := DefaultSidecarScopeForGateway(ps, configNamespace)
 
 	out.EgressListeners = []*IstioEgressListenerWrapper{{
-		virtualServices: ps.virtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
+		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
 	}}
 
 	return out
