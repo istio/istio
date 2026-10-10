@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: traffic-management
+issue:
+  - 60074
+releaseNotes:
+  - |
+    **Fixed** an HBONE stream leak in ambient mode where `connect_originate` streams
+    could stay open forever after a peer fully closed the connection, via the Envoy
+    update included in this release.
+
+    **Credit**: This issue was reported by Torben Strüver.
