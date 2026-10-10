@@ -196,6 +196,10 @@ var (
 	Enable100ContinueHeaders = env.Register("ENABLE_100_CONTINUE_HEADERS", true,
 		"If enabled, istiod will proxy 100-continue headers as is").Get()
 
+	EnableAWSZoneID = env.Register("PILOT_ENABLE_AWS_ZONE_ID", true,
+		"Use topology.k8s.aws/zone-id for Kubernetes workload locality when the label exists. "+
+			"Applies to sidecar and ambient modes.").Get()
+
 	EnableLocalityWeightedLbConfig = env.Register("ENABLE_LOCALITY_WEIGHTED_LB_CONFIG", false,
 		"If enabled, always set LocalityWeightedLbConfig for a cluster, "+
 			" otherwise only apply it when locality lb is specified by DestinationRule for a service").Get()

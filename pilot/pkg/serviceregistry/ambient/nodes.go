@@ -20,6 +20,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
@@ -50,6 +52,11 @@ func nodeLocality(k *v1.Node) *Node {
 	}
 	region := k.GetLabels()[v1.LabelTopologyRegion]
 	zone := k.GetLabels()[v1.LabelTopologyZone]
+	if features.EnableAWSZoneID {
+		if zoneID := k.GetLabels()[labelutil.LabelTopologyAWSZoneID]; zoneID != "" {
+			zone = zoneID
+		}
+	}
 	subzone := k.GetLabels()[label.TopologySubzone.Name]
 
 	if region != "" || zone != "" || subzone != "" {

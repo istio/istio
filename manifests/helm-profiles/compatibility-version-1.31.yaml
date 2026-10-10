@@ -1,0 +1,3 @@
+pilot:
+  env:
+    PILOT_ENABLE_AWS_ZONE_ID: "false"

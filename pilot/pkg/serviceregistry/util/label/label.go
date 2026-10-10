@@ -33,6 +33,9 @@ const (
 	LabelTopologyRegion  = "topology.kubernetes.io/region"
 )
 
+// LabelTopologyAWSZoneID identifies the same physical AWS zone across accounts.
+const LabelTopologyAWSZoneID = "topology.k8s.aws/zone-id"
+
 // AugmentLabels adds additional labels to the those provided.
 func AugmentLabels(in labels.Instance, clusterID cluster.ID, locality, k8sNode string, networkID network.ID) labels.Instance {
 	// Copy the original labels to a new map.
