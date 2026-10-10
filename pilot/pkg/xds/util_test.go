@@ -240,3 +240,30 @@ func TestShouldRespondDelta(t *testing.T) {
 		})
 	}
 }
+
+func TestNDSNackUsesGenericHandling(t *testing.T) {
+	resourceNames := sets.New("a", "b")
+	conn := newConnection("", &fakeStream{})
+	conn.SetID("proxy")
+	conn.proxy = &model.Proxy{WatchedResources: map[string]*model.WatchedResource{
+		v3.NameTableType: {
+			NonceSent:     "nonce",
+			ResourceNames: resourceNames,
+		},
+	}}
+
+	if shouldRespondDelta(conn, &discovery.DeltaDiscoveryRequest{
+		TypeUrl:       v3.NameTableType,
+		ResponseNonce: "nonce",
+		ErrorDetail:   &status.Status{Message: "rejected NDS response"},
+	}) {
+		t.Fatal("NACK unexpectedly requested a response")
+	}
+	got := conn.proxy.GetWatchedResource(v3.NameTableType)
+	if !got.ResourceNames.Equals(resourceNames) {
+		t.Fatalf("NACK changed resource membership: %v", got.ResourceNames)
+	}
+	if got.LastError == "" {
+		t.Fatal("NACK error was not recorded")
+	}
+}

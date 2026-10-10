@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Added** incremental Name Discovery Service (NDS) updates on Delta ADS streams. When
+    `ISTIO_META_DELTA_NDS` is enabled through effective proxy metadata, istiod sends named additions,
+    updates, and removals to supported agents. SotW streams, agents without the flag, and known Istio
+    versions older than 1.32 retain the legacy unnamed full-table representation, as do agents using the
+    legacy allocator (`PILOT_ENABLE_IP_AUTOALLOCATE=false` with `ISTIO_META_DNS_AUTO_ALLOCATE`). A rejected Delta NDS
+    response leaves only its hostnames stale in the agent until they change again or the stream reconnects.

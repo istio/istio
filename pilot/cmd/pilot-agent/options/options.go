@@ -110,6 +110,11 @@ var (
 	// DNSCaptureByAgent is a copy of the env var in the init code.
 	DNSCaptureByAgent = env.Register("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
+	// DeltaNDS is not read directly; deltaNDSEnabled reads the effective proxy metadata.
+	DeltaNDS = env.Register("ISTIO_META_DELTA_NDS", false,
+		"If set to true, enable incremental Name Discovery Service updates on Delta ADS streams. Can be set as an "+
+			"environment variable or through ProxyConfig.ProxyMetadata. Agents using the legacy IP allocator "+
+			"(PILOT_ENABLE_IP_AUTOALLOCATE=false with ISTIO_META_DNS_AUTO_ALLOCATE) receive full tables")
 	// EnableDNSAtGateway enables DNS server at Gateways.
 	EnableDNSAtGateway = env.Register("ISTIO_META_ENABLE_DNS_SERVER", false,
 		"If set to true, starts the DNS server on :15053. This won't automatically capture the DNS traffic and can be used "+

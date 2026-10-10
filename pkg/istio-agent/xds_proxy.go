@@ -37,6 +37,7 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/config/constants"
+	dnsClient "istio.io/istio/pkg/dns/client"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
@@ -44,6 +45,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/uds"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wasm"
 	xdspkg "istio.io/istio/pkg/xds"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
@@ -84,6 +86,7 @@ type XdsProxy struct {
 	optsMutex            sync.RWMutex
 	dialOptions          []grpc.DialOption
 	handlers             map[string]ResponseHandler
+	ndsDelta             *ndsDeltaHandler
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
@@ -157,6 +160,9 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			}
 			ia.localDNSServer.UpdateLookupTable(&nt)
 			return nil
+		}
+		if ia.cfg.DeltaNDS {
+			proxy.ndsDelta = &ndsDeltaHandler{dnsServer: ia.localDNSServer, resources: sets.New[string]()}
 		}
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
@@ -588,6 +594,73 @@ func (p *XdsProxy) close() {
 	if p.downstreamListener != nil {
 		_ = p.downstreamListener.Close()
 	}
+}
+
+// ndsDeltaHandler applies the per-hostname NameTables sent over Delta NDS and tracks the accepted hostnames.
+type ndsDeltaHandler struct {
+	dnsServer *dnsClient.LocalDNSServer
+	mu        sync.Mutex
+	resources sets.String
+	// stream is the connection whose responses are applied; responses from retired streams are dropped.
+	stream *ProxyConnection
+}
+
+// Handle applies a response from con, returning false if con no longer owns the Delta NDS state.
+func (h *ndsDeltaHandler) Handle(con *ProxyConnection, resources []*discovery.Resource, removed []string) (bool, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.stream != con {
+		return false, nil
+	}
+	return true, h.apply(resources, removed)
+}
+
+func (h *ndsDeltaHandler) apply(resources []*discovery.Resource, removed []string) error {
+	for _, resource := range resources {
+		if resource.GetResource() == nil {
+			return fmt.Errorf("NDS resource %q is empty", resource.GetName())
+		}
+	}
+	// Istiod without Delta NDS support sends the legacy single unnamed table.
+	if len(resources) == 1 && resources[0].Name == "" {
+		var table dnsProto.NameTable
+		if err := resources[0].Resource.UnmarshalTo(&table); err != nil {
+			return err
+		}
+		h.resources = sets.New[string]()
+		h.dnsServer.ResetNameIndex()
+		h.dnsServer.UpdateLookupTable(&table)
+		return nil
+	}
+	// Unmarshal everything first so a rejected response leaves the accepted state intact. Istiod does not resend the
+	// rejected hostnames, so they stay stale until they change again or the stream reconnects.
+	updated := make(map[string]*dnsProto.NameTable, len(resources))
+	for _, resource := range resources {
+		var table dnsProto.NameTable
+		if err := resource.Resource.UnmarshalTo(&table); err != nil {
+			return fmt.Errorf("NDS resource %q: %v", resource.Name, err)
+		}
+		updated[resource.Name] = &table
+	}
+	h.resources.DeleteAll(removed...)
+	for hostname := range updated {
+		h.resources.Insert(hostname)
+	}
+	h.dnsServer.ApplyNameTables(updated, removed)
+	return nil
+}
+
+// initialResourceVersions hands the Delta NDS state to con and lists the accepted hostnames, so istiod can remove
+// those that went away while the stream was down.
+func (h *ndsDeltaHandler) initialResourceVersions(con *ProxyConnection) map[string]string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.stream = con
+	versions := make(map[string]string, len(h.resources))
+	for hostname := range h.resources {
+		versions[hostname] = ""
+	}
+	return versions
 }
 
 func (p *XdsProxy) initDownstreamServer() error {

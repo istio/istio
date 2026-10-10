@@ -146,9 +146,11 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 			if !initialRequestsSent.Load() && req.TypeUrl == model.ListenerType {
 				// fire off an initial NDS request
 				if _, f := p.handlers[model.NameTableType]; f {
-					con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
-						TypeUrl: model.NameTableType,
-					})
+					req := &discovery.DeltaDiscoveryRequest{TypeUrl: model.NameTableType}
+					if p.ndsDelta != nil {
+						req.InitialResourceVersions = p.ndsDelta.initialResourceVersions(con)
+					}
+					con.sendDeltaRequest(req)
 				}
 				// fire off an initial PCDS request
 				if _, f := p.handlers[model.ProxyConfigType]; f {
@@ -217,6 +219,25 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 				"removes", len(resp.RemovedResources),
 			).Debugf("upstream response")
 			metrics.XdsProxyResponses.Increment()
+			if resp.TypeUrl == model.NameTableType && p.ndsDelta != nil {
+				active, err := p.ndsDelta.Handle(con, resp.Resources, resp.RemovedResources)
+				if !active {
+					continue
+				}
+				var errorResp *google_rpc.Status
+				if err != nil {
+					errorResp = &google_rpc.Status{
+						Code:    int32(codes.Internal),
+						Message: err.Error(),
+					}
+				}
+				con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+					TypeUrl:       resp.TypeUrl,
+					ResponseNonce: resp.Nonce,
+					ErrorDetail:   errorResp,
+				})
+				continue
+			}
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {
 					// Empty response, nothing to do
