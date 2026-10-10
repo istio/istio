@@ -61,6 +61,11 @@ func (f *fakeServer) SyncHostProbeIPSet(pod *corev1.Pod, podIPs []netip.Addr) er
 	return args.Error(0)
 }
 
+func (f *fakeServer) ReconcileEnrollment(ctx context.Context, ambientPods []*corev1.Pod) error {
+	args := f.Called(ctx, ambientPods)
+	return args.Error(0)
+}
+
 func (f *fakeServer) Start(ctx context.Context) {
 }
 
