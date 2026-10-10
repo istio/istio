@@ -777,6 +777,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "listenerset-hostname-conflict"},
 		{name: "listenerset-protocol-conflict"},
 		{name: "listenerset-https-missing-tls"},
+		{name: "listenerset-overlapping-port"},
 		{
 			name: "listenerset-empty-listeners",
 			validationIgnorer: crdvalidation.NewValidationIgnorer(

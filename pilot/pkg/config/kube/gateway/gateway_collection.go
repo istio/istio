@@ -341,7 +341,12 @@ func GatewayCollection(
 			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
+			if server == nil {
+				continue
+			}
+
 			servers = append(servers, server)
+
 			if controllerName == constants.ManagedGatewayMeshController {
 				// Waypoint doesn't convert routes to VirtualServices.
 				continue
