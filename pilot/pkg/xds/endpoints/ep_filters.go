@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -147,10 +148,17 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
+			// A sidecar cannot speak double-HBONE, but it can reach an ambient destination
+			// through an E/W gateway that terminates its mTLS and originates HBONE onward.
+			// Such an endpoint takes the legacy mTLS gateway rather than the HBONE one, so it
+			// must not be treated as requiring HBONE below.
+			bridged := features.EnableAmbientMultiNetwork && features.EnableSidecarAmbientBridge &&
+				isSidecarProxy(b.proxy) && istioEndpoint.CapturedByZtunnel
+
 			// We require using double-HBONE in a either of the following cases:
 			// 1. This is a waypoint proxy - it can only talk HBONE
 			// 2. We earlier decided to use HBONE for this endpoint
-			requireHBONE := model.IsWaypointProxy(b.proxy) || usesTunnel(lbEp)
+			requireHBONE := !bridged && (model.IsWaypointProxy(b.proxy) || usesTunnel(lbEp))
 
 			// If we use HBONE and the proxy is ingress gateway check that the feature
 			// is enabled first and if it's not, skip the endpoint.
@@ -175,7 +183,14 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			}
 
 			gateways := b.selectNetworkGateways(epNetwork, epCluster, requireHBONE)
-			reachableGateways := b.filterGatewaysByIPFamily(gateways)
+			// A gateway port that terminates mTLS serves bridged traffic and nothing else. Ordinary
+			// mTLS sent there would fail, because the gateway presents its own identity where the
+			// destination's is expected; bridged traffic needs exactly that termination. It still
+			// counts in gateways above, so a network whose only gateway terminates is not mistaken
+			// for one that is directly reachable.
+			reachableGateways := slices.Filter(b.filterGatewaysByIPFamily(gateways), func(gw model.NetworkGateway) bool {
+				return gw.TerminatesMTLS == bridged
+			})
 
 			// Check if the endpoint is directly reachable. It's considered directly reachable if
 			// the endpoint is either on the local network or on a remote network that can be reached
@@ -205,9 +220,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 			// Cross-network traffic relies on mTLS for SNI routing in sidecar mode.
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
-			// network we skip it altogether.
+			// network we skip it altogether. A bridged endpoint is the exception: the E/W gateway
+			// terminates the sidecar's mTLS and originates HBONE onward, so the destination not
+			// speaking legacy mTLS is precisely the case the bridge exists for.
 			// TODO BTS may allow us to work around this
-			if !requireHBONE && !isMtlsEnabled(lbEp) {
+			if !requireHBONE && !isMtlsEnabled(lbEp) && !bridged {
 				log.Warnf("Workload %s on network %s does not support mTLS or double-HBONE, skipping",
 					istioEndpoint.WorkloadName, epNetwork)
 				continue
@@ -299,10 +316,19 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 					Metadata: &core.Metadata{},
 				}
 
+				// An AUTO_PASSTHROUGH gateway does not terminate, so the TLS peer really is the
+				// destination workload and its SANs can be validated exactly - keep the default.
+				// A terminating gateway presents its own identity, so its endpoints (and only those)
+				// fall back to trust domain matching.
+				tlsMode := model.IstioMutualTLSModeLabel
+				if gw.TerminatesMTLS {
+					tlsMode = model.GatewayTLSModeLabel
+				}
+
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
 				util.AppendLbEndpointMetadata(&model.EndpointMetadata{
 					Network:   gw.Network,
-					TLSMode:   model.IstioMutualTLSModeLabel,
+					TLSMode:   tlsMode,
 					ClusterID: gw.Cluster,
 					Labels:    labels.Instance{},
 				}, gwEp.Metadata)

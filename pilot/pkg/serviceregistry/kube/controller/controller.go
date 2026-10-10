@@ -449,6 +449,19 @@ func (c *Controller) reprocessServicesInNamespace(namespace string) {
 	}
 }
 
+// reprocessGatewayServices triggers an update event for the Services deployed for a Gateway.
+func (c *Controller) reprocessGatewayServices(namespace, gateway string) {
+	if c.services == nil {
+		return
+	}
+	selector := klabels.SelectorFromSet(klabels.Set{label.IoK8sNetworkingGatewayGatewayName.Name: gateway})
+	for _, svc := range c.services.List(namespace, selector) {
+		if err := c.onServiceEvent(svc, svc, model.EventUpdate); err != nil {
+			log.Warnf("failed to reprocess service %s/%s for gateway %s: %v", namespace, svc.Name, gateway, err)
+		}
+	}
+}
+
 func (c *Controller) deleteService(svc *model.Service) {
 	c.Lock()
 	delete(c.servicesMap, svc.Hostname)
