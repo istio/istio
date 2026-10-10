@@ -2157,6 +2157,17 @@ func TestXBackendAlphaDisabled(t *testing.T) {
 func TestInferencePoolExtraConfigs(t *testing.T) {
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
+	dbg := &krt.DebugHandler{}
+	// Register before the stop channels so cleanup stops the controllers first.
+	// Collections unregister under the debugger's lock after their workers exit;
+	// waiting for an empty debugger synchronizes feature restoration with those reads.
+	t.Cleanup(func() {
+		assert.EventuallyEqual(t, func() string {
+			state, err := dbg.MarshalJSON()
+			assert.NoError(t, err)
+			return string(state)
+		}, "[]")
+	})
 
 	genHost := fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen")))
 	gen2Host := fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen2")))
@@ -2196,7 +2207,6 @@ func TestInferencePoolExtraConfigs(t *testing.T) {
 	kc := kube.NewFakeClient(input...)
 	setupClientCRDs(t, kc)
 	cg := core.NewConfigGenTest(t, core.TestOptions{Services: services})
-	dbg := &krt.DebugHandler{}
 	dumpOnFailure(t, dbg)
 	ctrl := NewController(kc, AlwaysReady, controller.Options{DomainSuffix: "domain.suffix", KrtDebugger: dbg}, nil)
 	go ctrl.Run(stop)
