@@ -67,7 +67,7 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 	if signerName == "" {
 		return nil, nil, nil, fmt.Errorf("signerName is required for Kubernetes CA")
 	}
-	certChain, caCert, err := SignCSRK8s(client, csrPEM, signerName, usages, dnsName, caFilePath, approveCsr, true, requestedLifetime)
+	certChain, caCert, err := SignCSRK8s(context.Background(), client, csrPEM, signerName, usages, dnsName, caFilePath, approveCsr, true, requestedLifetime)
 
 	return certChain, keyPEM, caCert, err
 }
@@ -77,11 +77,11 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 // 2. Approve a CSR
 // 3. Read the signed certificate
 // 4. Clean up the artifacts (e.g., delete CSR)
-func SignCSRK8s(client clientset.Interface, csrData []byte, signerName string, usages []cert.KeyUsage,
+func SignCSRK8s(ctx context.Context, client clientset.Interface, csrData []byte, signerName string, usages []cert.KeyUsage,
 	dnsName, caFilePath string, approveCsr, appendCaCert bool, requestedLifetime time.Duration,
 ) ([]byte, []byte, error) {
 	// 1. Submit the CSR
-	csr, err := submitCSR(client, csrData, signerName, usages, requestedLifetime)
+	csr, err := submitCSR(ctx, client, csrData, signerName, usages, requestedLifetime)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -95,7 +95,7 @@ func SignCSRK8s(client clientset.Interface, csrData []byte, signerName string, u
 	// 2. Approve the CSR
 	if approveCsr {
 		approvalMessage := fmt.Sprintf("CSR (%s) for the certificate (%s) is approved", csr.Name, dnsName)
-		err = approveCSR(client, csr, approvalMessage)
+		err = approveCSR(ctx, client, csr, approvalMessage)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to approve CSR request: %v", err)
 		}
@@ -103,7 +103,7 @@ func SignCSRK8s(client clientset.Interface, csrData []byte, signerName string, u
 	}
 
 	// 3. Read the signed certificate
-	certChain, caCert, err := readSignedCertificate(client, csr, certWatchTimeout, caFilePath, appendCaCert)
+	certChain, caCert, err := readSignedCertificate(ctx, client, csr, certWatchTimeout, caFilePath, appendCaCert)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -135,6 +135,7 @@ func readCACert(caCertPath string) ([]byte, error) {
 }
 
 func submitCSR(
+	ctx context.Context,
 	client clientset.Interface,
 	csrData []byte,
 	signerName string,
@@ -157,21 +158,21 @@ func submitCSR(
 	if requestedLifetime != time.Duration(0) {
 		csr.Spec.ExpirationSeconds = ptr.Of(int32(requestedLifetime.Seconds()))
 	}
-	resp, err := client.CertificatesV1().CertificateSigningRequests().Create(context.Background(), csr, metav1.CreateOptions{})
+	resp, err := client.CertificatesV1().CertificateSigningRequests().Create(ctx, csr, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CSR: %v", err)
 	}
 	return resp, nil
 }
 
-func approveCSR(client clientset.Interface, csr *cert.CertificateSigningRequest, approvalMessage string) error {
+func approveCSR(ctx context.Context, client clientset.Interface, csr *cert.CertificateSigningRequest, approvalMessage string) error {
 	csr.Status.Conditions = append(csr.Status.Conditions, cert.CertificateSigningRequestCondition{
 		Type:    cert.CertificateApproved,
 		Reason:  approvalMessage,
 		Message: approvalMessage,
 		Status:  corev1.ConditionTrue,
 	})
-	_, err := client.CertificatesV1().CertificateSigningRequests().UpdateApproval(context.TODO(), csr.Name, csr, metav1.UpdateOptions{})
+	_, err := client.CertificatesV1().CertificateSigningRequests().UpdateApproval(ctx, csr.Name, csr, metav1.UpdateOptions{})
 	if err != nil {
 		log.Errorf("failed to approve CSR (%v): %v", csr.Name, err)
 		return err
@@ -181,11 +182,11 @@ func approveCSR(client clientset.Interface, csr *cert.CertificateSigningRequest,
 
 // Read the signed certificate
 // verify and append CA certificate to certChain if appendCaCert is true
-func readSignedCertificate(client clientset.Interface, csr *cert.CertificateSigningRequest,
+func readSignedCertificate(ctx context.Context, client clientset.Interface, csr *cert.CertificateSigningRequest,
 	watchTimeout time.Duration, caCertPath string, appendCaCert bool,
 ) ([]byte, []byte, error) {
 	// First try to read the signed CSR through a watching mechanism
-	certPEM, err := readSignedCsr(client, csr.Name, watchTimeout)
+	certPEM, err := readSignedCsr(ctx, client, csr.Name, watchTimeout)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -229,7 +230,7 @@ func readSignedCertificate(client clientset.Interface, csr *cert.CertificateSign
 }
 
 // Return signed CSR through a watcher. If no CSR is read, return nil.
-func readSignedCsr(client clientset.Interface, csr string, watchTimeout time.Duration) ([]byte, error) {
+func readSignedCsr(ctx context.Context, client clientset.Interface, csr string, watchTimeout time.Duration) ([]byte, error) {
 	selector := fields.OneTermEqualSelector("metadata.name", csr).String()
 	// Subscribe to the watch first, then List. A List-then-Watch ordering
 	// has a window where an update can fire between the two calls and be lost.
@@ -237,7 +238,9 @@ func readSignedCsr(client clientset.Interface, csr string, watchTimeout time.Dur
 	// so a status update that landed before we subscribed is never replayed.
 	// Subscribing first closes the window: the List right after covers the
 	// case where the CSR was already signed before we got a chance to watch.
-	watcher, err := client.CertificatesV1().CertificateSigningRequests().Watch(context.Background(), metav1.ListOptions{
+	watchCtx, cancel := context.WithTimeout(ctx, watchTimeout)
+	defer cancel()
+	watcher, err := client.CertificatesV1().CertificateSigningRequests().Watch(watchCtx, metav1.ListOptions{
 		FieldSelector: selector,
 	})
 	if err != nil {
@@ -245,7 +248,7 @@ func readSignedCsr(client clientset.Interface, csr string, watchTimeout time.Dur
 	}
 	defer watcher.Stop()
 
-	l, _ := client.CertificatesV1().CertificateSigningRequests().List(context.Background(), metav1.ListOptions{
+	l, _ := client.CertificatesV1().CertificateSigningRequests().List(watchCtx, metav1.ListOptions{
 		FieldSelector: selector,
 	})
 	if l != nil && len(l.Items) > 0 {
@@ -254,8 +257,6 @@ func readSignedCsr(client clientset.Interface, csr string, watchTimeout time.Dur
 		}
 	}
 
-	// Set a timeout
-	timer := time.After(watchTimeout)
 	for {
 		select {
 		case r := <-watcher.ResultChan():
@@ -263,7 +264,7 @@ func readSignedCsr(client clientset.Interface, csr string, watchTimeout time.Dur
 			if reqSigned.Status.Certificate != nil {
 				return reqSigned.Status.Certificate, nil
 			}
-		case <-timer:
+		case <-watchCtx.Done():
 			return nil, fmt.Errorf("timeout when watching CSR %v", csr)
 		}
 	}
