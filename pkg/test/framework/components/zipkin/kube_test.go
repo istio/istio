@@ -17,21 +17,24 @@ package zipkin
 import (
 	"strings"
 	"testing"
+
+	testimage "istio.io/istio/pkg/test/util/image"
 )
 
 func TestGetZipkinYamlImageOverride(t *testing.T) {
-	hub := "example.com/cache/openzipkin"
-	t.Setenv("ZIPKIN_REGISTRY", hub)
+	hub := "example.com/cache/ghcr"
+	t.Setenv("GHCR_REGISTRY", hub)
 
 	yaml, err := getZipkinYaml()
 	if err != nil {
 		t.Fatal(err)
 	}
-	repository := hub + "/zipkin-slim:"
+	repository := hub + "/openzipkin/zipkin-slim:"
 	if !strings.Contains(yaml, repository) {
 		t.Errorf("rendered manifest does not contain overridden repository %q", repository)
 	}
-	if strings.Contains(yaml, defaultZipkinRepository) {
-		t.Errorf("rendered manifest still contains default repository %q", defaultZipkinRepository)
+	defaultRepository := testimage.GHCRRegistry + "/" + defaultZipkinRepository
+	if strings.Contains(yaml, defaultRepository) {
+		t.Errorf("rendered manifest still contains default repository %q", defaultRepository)
 	}
 }

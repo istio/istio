@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -28,13 +29,17 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	testimage "istio.io/istio/pkg/test/util/image"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
 const (
-	serviceName = "jwt-server"
-	httpPort    = 8000
-	httpsPort   = 8443
+	serviceName                      = "jwt-server"
+	httpPort                         = 8000
+	httpsPort                        = 8443
+	defaultJWTServerRepository       = "istio/testing/jwt-server"
+	defaultJWTServerTag              = "0.8"
+	legacyDefaultJWTServerRepository = "testing/jwt-server"
 )
 
 var (
@@ -86,6 +91,11 @@ func readDeploymentYAML() (string, error) {
 		return "", err
 	}
 	yamlText := string(data)
+	legacyImage := testimage.FromRegistry(testimage.IstioRegistry, "",
+		legacyDefaultJWTServerRepository, defaultJWTServerTag)
+	image := testimage.FromRegistry(testimage.GHCRRegistry, testimage.GHCRRegistryEnv,
+		defaultJWTServerRepository, defaultJWTServerTag)
+	yamlText = strings.ReplaceAll(yamlText, legacyImage, image)
 
 	return yamlText, nil
 }

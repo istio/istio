@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
+	testimage "istio.io/istio/pkg/test/util/image"
 )
 
 type otel struct {
@@ -34,7 +35,7 @@ type otel struct {
 
 const (
 	appName                        = "opentelemetry-collector"
-	defaultOtelCollectorRepository = "docker.io/otel/opentelemetry-collector-contrib"
+	defaultOtelCollectorRepository = "otel/opentelemetry-collector-contrib"
 	remoteOtelEntry                = `
 apiVersion: networking.istio.io/v1
 kind: Gateway
@@ -122,9 +123,9 @@ func getYaml() (string, error) {
 		return "", err
 	}
 	yaml := string(b)
-	if hub := os.Getenv("OTEL_REGISTRY"); hub != "" {
-		yaml = strings.ReplaceAll(yaml, defaultOtelCollectorRepository, hub+"/opentelemetry-collector-contrib")
-	}
+	yaml = strings.ReplaceAll(yaml,
+		testimage.FromRegistry(testimage.DockerRegistry, "", defaultOtelCollectorRepository, ""),
+		testimage.FromRegistry(testimage.DockerRegistry, testimage.DockerRegistryEnv, defaultOtelCollectorRepository, ""))
 	return yaml, nil
 }
 

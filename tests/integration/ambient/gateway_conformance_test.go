@@ -17,7 +17,6 @@
 package ambient
 
 import (
-	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/conformance"
 	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
@@ -40,6 +38,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	ambientComponent "istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/k8sgateway"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
@@ -129,7 +128,7 @@ func TestGatewayConformance(t *testing.T) {
 				ClientOptions: clientOptions,
 				Clientset:     gatewayConformanceInputs.Client.Kube(),
 				RestConfig:    gatewayConformanceInputs.Client.RESTConfig(),
-				ManifestFS:    []fs.FS{&conformance.Manifests},
+				ManifestFS:    k8sgateway.ConformanceManifestFS(),
 			}
 			if ctx.Settings().GatewayConformanceAllowCRDsMismatch {
 				opts.AllowCRDsMismatch = true

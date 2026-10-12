@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/resource"
+	testimage "istio.io/istio/pkg/test/util/image"
 	"istio.io/istio/pkg/util/image"
 	helmtest "istio.io/istio/tests/integration/helm"
 )
@@ -35,14 +36,11 @@ var (
 	nMinusTwoVersion         string
 )
 
-// imageToCheck is the image we probe to find out whether a minor version has been released yet.
-//
-// It has to live on Docker Hub, the only registry that has every release. Since 1.31 it is the
-// only place releases are published to, and it also has the older releases that
-// registry.istio.io/release mirrored. Probing registry.istio.io/release instead would report
-// every 1.31+ release as missing, so the tests would quietly run one minor version further back
-// than their names say.
-const imageToCheck = "docker.io/istio/pilot"
+func imageToCheck() string {
+	// Docker Hub is the default because it has every release. A mirror must have
+	// the same tags or version detection will select the wrong minor.
+	return testimage.FromRegistry(testimage.DockerRegistry, testimage.DockerRegistryEnv, "istio/pilot", "")
+}
 
 func initVersions(ctx resource.Context) error {
 	versionFromFile, err := env.ReadVersion()
@@ -62,7 +60,7 @@ func initVersions(ctx resource.Context) error {
 	}
 
 	// If the previous version is not published yet, use the latest one
-	if exists, err := image.Exists(imageToCheck + ":" + previousVersion.String()); err != nil {
+	if exists, err := image.Exists(imageToCheck() + ":" + previousVersion.String()); err != nil {
 		return err
 	} else if !exists {
 		if previousVersion, err = previousMinor(v, 2); err != nil {

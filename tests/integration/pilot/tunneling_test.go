@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
+	testimage "istio.io/istio/pkg/test/util/image"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/pilot/forwardproxy"
 )
@@ -113,6 +114,8 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 			applyForwardProxyConfigMaps(ctx, externalNs)
 			ctx.ConfigIstio().EvalFile(externalNs, map[string]any{
 				"OpenShift": ctx.Settings().OpenShift,
+				"Image": testimage.FromRegistry(testimage.DockerRegistry, testimage.DockerRegistryEnv,
+					"envoyproxy/envoy", "v1.21.0"),
 			}, "testdata/external-forward-proxy-deployment.yaml").ApplyOrFail(ctx)
 			applyForwardProxyService(ctx, externalNs)
 			externalForwardProxyIPs, err := i.PodIPsFor(ctx.Clusters().Default(), externalNs, "app=external-forward-proxy")

@@ -39,20 +39,23 @@ import (
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	testimage "istio.io/istio/pkg/test/util/image"
 	"istio.io/istio/pkg/test/util/retry"
 	helmtest "istio.io/istio/tests/integration/helm"
 	"istio.io/istio/tests/util/sanitycheck"
 )
 
 const (
-	// releaseHub is the hub we pull the images of the version being upgraded from.
-	// It has to be Docker Hub: nothing newer than 1.30 was published to
-	// registry.istio.io/release, and that registry is deleted in December 2026.
-	releaseHub        = "docker.io/istio"
 	prodTag           = "prod"
 	canaryTag         = "canary"
 	latestRevisionTag = "latest"
 )
+
+func releaseHub() string {
+	// The default has to be Docker Hub: nothing newer than 1.30 was published to
+	// registry.istio.io/release.
+	return testimage.FromRegistry(testimage.DockerRegistry, testimage.DockerRegistryEnv, "istio", "")
+}
 
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
@@ -161,7 +164,7 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 			}
 		})
 		s := t.Settings()
-		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub, "", s.Image.Variant, "", isAmbient)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub(), "", s.Image.Variant, "", isAmbient)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
@@ -212,7 +215,7 @@ func performInPlaceUpgradeWithFailurePolicy(previousVersion string) func(framewo
 
 		// Install previous version without explicit failurePolicy.
 		// The webhook controller will eventually flip failurePolicy to Fail.
-		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub, "", s.Image.Variant, "", false)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub(), "", s.Image.Variant, "", false)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, false, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, false, "")
 
@@ -288,7 +291,7 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		})
 		s := t.Settings()
 		prevVariant := s.Image.Variant
-		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub, "", prevVariant, "", isAmbient)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub(), "", prevVariant, "", isAmbient)
 		// todo tag version is not helm version
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
@@ -358,7 +361,7 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 		})
 
 		s := t.Settings()
-		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub, "", s.Image.Variant, "", false)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub(), "", s.Image.Variant, "", false)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, false, false, helmtest.DefaultNamespaceConfig)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
@@ -418,7 +421,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		// helm install istio-base istio/base --version 1.15.0 --namespace istio-system -f values.yaml
 		// helm install istiod-1-15 istio/istiod --version 1.15.0 -f values.yaml
 		previousRevision := strings.ReplaceAll(previousVersion, ".", "-")
-		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub, "", s.Image.Variant, previousRevision, false)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub(), "", s.Image.Variant, previousRevision, false)
 		helmtest.InstallIstioWithRevision(t, cs, h, previousVersion, previousRevision, overrideValuesFile, false, true)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 

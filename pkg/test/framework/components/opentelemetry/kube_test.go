@@ -17,21 +17,24 @@ package opentelemetry
 import (
 	"strings"
 	"testing"
+
+	testimage "istio.io/istio/pkg/test/util/image"
 )
 
 func TestGetYamlImageOverride(t *testing.T) {
-	hub := "example.com/cache/otel"
-	t.Setenv("OTEL_REGISTRY", hub)
+	hub := "example.com/cache/docker"
+	t.Setenv("DOCKER_REGISTRY", hub)
 
 	yaml, err := getYaml()
 	if err != nil {
 		t.Fatal(err)
 	}
-	repository := hub + "/opentelemetry-collector-contrib:"
+	repository := hub + "/otel/opentelemetry-collector-contrib:"
 	if !strings.Contains(yaml, repository) {
 		t.Errorf("rendered manifest does not contain overridden repository %q", repository)
 	}
-	if strings.Contains(yaml, defaultOtelCollectorRepository) {
-		t.Errorf("rendered manifest still contains default repository %q", defaultOtelCollectorRepository)
+	defaultRepository := testimage.DockerRegistry + "/" + defaultOtelCollectorRepository
+	if strings.Contains(yaml, defaultRepository) {
+		t.Errorf("rendered manifest still contains default repository %q", defaultRepository)
 	}
 }

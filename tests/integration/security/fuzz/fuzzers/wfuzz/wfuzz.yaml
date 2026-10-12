@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
       - name: wfuzz
-        image: ghcr.io/xmendez/wfuzz:v3.1.0
+        image: {{ .Image }}
         command: [ "sleep" ]
         args: [ "365d" ]
         volumeMounts:

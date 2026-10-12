@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	testimage "istio.io/istio/pkg/test/util/image"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -94,9 +95,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		args["Scheme"] = cfg.Scheme
 	}
 
-	if len(cfg.Image) != 0 {
-		args["Image"] = cfg.Image
-	}
+	args["Image"] = registryImage(cfg.Image)
 
 	// apply YAML
 	if err := ctx.ConfigKube(c.cluster).EvalFile(c.ns.Name(), args, env.RegistryRedirectorServerInstallFilePath).Apply(apply.CleanupConditionally); err != nil {
@@ -149,6 +148,14 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	go c.watchForwarder()
 
 	return c, nil
+}
+
+func registryImage(configuredImage string) string {
+	if configuredImage != "" {
+		return configuredImage
+	}
+	return testimage.FromRegistry(testimage.GHCRRegistry, testimage.GHCRRegistryEnv,
+		"istio/testing/fake-registry", "1.5")
 }
 
 func (c *kubeComponent) isConnected() bool {

@@ -45,11 +45,28 @@ CLUSTER_YAML="${CLUSTER_YAML:-prow/config/default.yaml}"
 
 export FAST_VM_BUILDS=true
 export ISTIO_DOCKER_BUILDER="${ISTIO_DOCKER_BUILDER:-crane}"
-# Override these registries to route integration-test image pulls through a
-# registry cache. ISTIO_BASE_REGISTRY is consumed by dockerx.pushx.
-export ISTIO_BASE_REGISTRY="${ISTIO_BASE_REGISTRY:-docker.io/istio}"
-export WASM_REGISTRY="${WASM_REGISTRY:-registry.istio.io/testing}"
-export METALLB_REGISTRY="${METALLB_REGISTRY:-registry.istio.io/testing}"
+# Override upstream registries to route integration-test image pulls through a
+# registry cache. Derived variables are consumed by existing build and setup scripts.
+export ISTIO_BASE_REGISTRY="docker.io/istio"
+if [[ -n "${DOCKER_REGISTRY:-}" ]]; then
+  export ISTIO_BASE_REGISTRY="${DOCKER_REGISTRY%/}/istio"
+fi
+export ISTIO_BUILDKIT_IMAGE="registry.istio.io/testing/buildkit:v0.11.0"
+export WASM_REGISTRY="registry.istio.io/testing"
+export METALLB_REGISTRY="registry.istio.io/testing"
+if [[ -n "${GHCR_REGISTRY:-}" ]]; then
+  export ISTIO_BUILDKIT_IMAGE="${GHCR_REGISTRY%/}/istio/testing/buildkit:v0.11.0"
+  export WASM_REGISTRY="${GHCR_REGISTRY%/}/istio/testing"
+  export METALLB_REGISTRY="${GHCR_REGISTRY%/}/istio/testing"
+fi
+export METRICS_SERVER_REGISTRY="${K8S_REGISTRY:-registry.k8s.io}"
+METRICS_SERVER_REGISTRY="${METRICS_SERVER_REGISTRY%/}"
+export METRICS_SERVER_REGISTRY
+export CALICO_REGISTRY="registry.istio.io/testing"
+if [[ -n "${GHCR_REGISTRY:-}" ]]; then
+  export CALICO_REGISTRY="${GHCR_REGISTRY%/}/istio/testing"
+fi
+export AGENTGATEWAY_REGISTRY="${AGENTGATEWAY_REGISTRY:-cr.agentgateway.dev}"
 # DEVCONTAINER controls a set of features that allow this script to be run from
 # within a dev container using ghcr.io/devcontainers/features/docker-outside-of-docker
 export DEVCONTAINER="${DEVCONTAINER:-}"
@@ -161,6 +178,37 @@ export CI="true"
 
 export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 trace "init" make init
+
+if [[ -n "${ECR_REGISTRY:-}" ]]; then
+  ECR_AUTH_DIR=$(mktemp -d "${TMPDIR:-/tmp}/istio-ecr-auth.XXXXXX")
+  if [[ -f "${DOCKER_CONFIG:-${HOME}/.docker}/config.json" ]]; then
+    cp "${DOCKER_CONFIG:-${HOME}/.docker}/config.json" "${ECR_AUTH_DIR}/config.json"
+    chmod 600 "${ECR_AUTH_DIR}/config.json"
+  fi
+  export DOCKER_CONFIG="${ECR_AUTH_DIR}"
+  IMAGE_PULL_SECRET_FILE="${ECR_AUTH_DIR}/ptc-image-secret.yaml"
+  export IMAGE_PULL_SECRET_FILE
+
+  xtrace_enabled=false
+  if [[ "$-" == *x* ]]; then
+    xtrace_enabled=true
+    set +x
+  fi
+  ecr_password=$(aws ecr get-login-password)
+  printf '%s' "${ecr_password}" | crane auth login "${ECR_REGISTRY}" --username AWS --password-stdin
+  kubectl create secret docker-registry ptc-image-secret \
+    --docker-server="${ECR_REGISTRY}" \
+    --docker-username=AWS \
+    --docker-password="${ecr_password}" \
+    --dry-run=client \
+    --output=yaml > "${IMAGE_PULL_SECRET_FILE}"
+  unset ecr_password
+  if [[ "${xtrace_enabled}" == true ]]; then
+    set -x
+  fi
+
+  export INTEGRATION_TEST_FLAGS="${INTEGRATION_TEST_FLAGS:-} --istio.test.imagePullSecret=${IMAGE_PULL_SECRET_FILE}"
+fi
 
 BUILD_IMAGES_PID=""
 if [[ -n "${CI}" && -z "${SKIP_SETUP:-}" && -z "${SKIP_BUILD:-}" && -z "${DEVCONTAINER}" ]]; then

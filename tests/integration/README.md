@@ -625,15 +625,15 @@ The following environment variables can be used to configure the KinD cluster se
 |---|---|
 | `SKIP_SETUP` | Skip KinD cluster setup entirely if set. Useful when reusing an existing cluster. |
 | `NOMETALBINSTALL` | Skip MetalLB installation if set. Useful when using [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind). |
-| `ISTIO_BASE_REGISTRY` | Registry containing the base images used by `dockerx.pushx`. Defaults to `docker.io/istio`. |
-| `ISTIO_BUILDKIT_IMAGE` | BuildKit image used by the Docker builder. Defaults to `registry.istio.io/testing/buildkit:v0.11.0`. |
-| `WASM_REGISTRY` | Registry containing the Wasm test artifacts copied to the KinD registry. Defaults to `registry.istio.io/testing`. |
-| `METALLB_REGISTRY` | Registry containing the MetalLB images deployed to KinD. Defaults to `registry.istio.io/testing`. |
-| `ECR_REGISTRY` | ECR registry host. Configures an ECR image-pull secret for MetalLB when set. |
-| `PROMETHEUS_REGISTRY` | Repository prefix for the Prometheus image. Defaults to `quay.io/prometheus`; may include a pull-through cache path. |
-| `PROMETHEUS_CONFIG_RELOADER_REGISTRY` | Repository prefix for the Prometheus config-reloader image. Defaults to `ghcr.io/prometheus-operator`; may include a pull-through cache path. |
-| `ZIPKIN_REGISTRY` | Repository prefix for the Zipkin image. Defaults to `ghcr.io/openzipkin`; may include a pull-through cache path. |
-| `OTEL_REGISTRY` | Repository prefix for the OpenTelemetry Collector image. Defaults to `docker.io/otel`; may include a pull-through cache path. |
+| `DOCKER_REGISTRY` | Mirror prefix for images normally pulled from `docker.io`, preserving the repository path beneath it. |
+| `GHCR_REGISTRY` | Mirror prefix for images normally pulled from `ghcr.io`. Also routes `registry.istio.io/testing` images through `istio/testing` beneath this prefix. |
+| `QUAY_REGISTRY` | Mirror prefix for images normally pulled from `quay.io`, preserving the repository path beneath it. |
+| `K8S_REGISTRY` | Mirror prefix for images normally pulled from `registry.k8s.io`, preserving the repository path beneath it. |
+| `AGENTGATEWAY_REGISTRY` | Mirror prefix for the agentgateway image. Defaults to `cr.agentgateway.dev`. |
+| `ECR_REGISTRY` | ECR registry host. Authenticates host-side image tools and configures an image-pull secret in KinD system and test namespaces when set. |
+| `GRPC_ECHO_IMAGE` | Full image reference for the optional C++ gRPC echo container. |
+
+The generated private-registry pull secret is named `ptc-image-secret`. Image repository names and tags remain fixed; registry overrides only replace the upstream registry prefix.
 
 ## Diagnosing Failures
 

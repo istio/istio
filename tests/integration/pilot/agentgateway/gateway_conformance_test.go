@@ -17,14 +17,12 @@
 package agentgateway
 
 import (
-	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/conformance"
 	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
@@ -37,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
+	"istio.io/istio/pkg/test/framework/components/k8sgateway"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
@@ -143,7 +142,7 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 				Clientset:     gatewayConformanceInputs.Client.Kube(),
 				ClientOptions: clientOptions,
 				RestConfig:    gatewayConformanceInputs.Client.RESTConfig(),
-				ManifestFS:    []fs.FS{&conformance.Manifests},
+				ManifestFS:    k8sgateway.ConformanceManifestFS(),
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{

@@ -30,4 +30,4 @@ spec:
     spec:
       containers:
         - name: dotdotpwn
-          image: registry.istio.io/testing/dotdotpwn:0.1
+          image: {{ .Image }}

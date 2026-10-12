@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	testimage "istio.io/istio/pkg/test/util/image"
 )
 
 const (
@@ -151,7 +152,9 @@ type kubeComponent struct {
 	cluster   cluster.Cluster
 }
 
-const defaultZipkinRepository = "ghcr.io/openzipkin/zipkin-slim"
+const (
+	defaultZipkinRepository = "openzipkin/zipkin-slim"
+)
 
 func getZipkinYaml() (string, error) {
 	yamlBytes, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/extras/zipkin.yaml"))
@@ -159,9 +162,9 @@ func getZipkinYaml() (string, error) {
 		return "", err
 	}
 	yaml := string(yamlBytes)
-	if hub := os.Getenv("ZIPKIN_REGISTRY"); hub != "" {
-		yaml = strings.ReplaceAll(yaml, defaultZipkinRepository, hub+"/zipkin-slim")
-	}
+	yaml = strings.ReplaceAll(yaml,
+		testimage.FromRegistry(testimage.GHCRRegistry, "", defaultZipkinRepository, ""),
+		testimage.FromRegistry(testimage.GHCRRegistry, testimage.GHCRRegistryEnv, defaultZipkinRepository, ""))
 	return yaml, nil
 }
 

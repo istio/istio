@@ -17,6 +17,8 @@ package prometheus
 import (
 	"strings"
 	"testing"
+
+	testimage "istio.io/istio/pkg/test/util/image"
 )
 
 func TestGetPrometheusYamlImageDefaults(t *testing.T) {
@@ -35,24 +37,27 @@ func TestGetPrometheusYamlImageDefaults(t *testing.T) {
 }
 
 func TestGetPrometheusYamlImageOverrides(t *testing.T) {
-	prometheusHub := "example.com/cache/prometheus"
-	reloaderHub := "example.com/cache/prometheus-operator"
-	t.Setenv("PROMETHEUS_REGISTRY", prometheusHub)
-	t.Setenv("PROMETHEUS_CONFIG_RELOADER_REGISTRY", reloaderHub)
+	prometheusHub := "example.com/cache/quay"
+	reloaderHub := "example.com/cache/ghcr"
+	t.Setenv("QUAY_REGISTRY", prometheusHub)
+	t.Setenv("GHCR_REGISTRY", reloaderHub)
 
 	yaml, err := getPrometheusYaml()
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, repository := range []string{
-		prometheusHub + "/prometheus:",
-		reloaderHub + "/prometheus-config-reloader:",
+		prometheusHub + "/prometheus/prometheus:",
+		reloaderHub + "/prometheus-operator/prometheus-config-reloader:",
 	} {
 		if !strings.Contains(yaml, repository) {
 			t.Errorf("rendered manifest does not contain overridden repository %q", repository)
 		}
 	}
-	for _, repository := range []string{defaultPrometheusRepository, defaultPrometheusConfigReloaderRepository} {
+	for _, repository := range []string{
+		testimage.QuayRegistry + "/" + defaultPrometheusRepository,
+		testimage.GHCRRegistry + "/" + defaultConfigReloaderRepository,
+	} {
 		if strings.Contains(yaml, repository) {
 			t.Errorf("rendered manifest still contains default repository %q", repository)
 		}

@@ -203,6 +203,12 @@ function setup_kind_cluster() {
   # Workaround kind issue causing taints to not be removed in 1.24
   kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- 2>/dev/null || true
 
+  if [[ -n "${ECR_REGISTRY:-}" ]]; then
+    configure_ecr_image_pull_secret "" default default
+    configure_ecr_image_pull_secret "" kube-system \
+      default calico-node calico-kube-controllers calico-cni-plugin metrics-server
+  fi
+
   # Determine what CNI to install
   case "${KUBERNETES_CNI:-}" in
 
@@ -225,7 +231,7 @@ function setup_kind_cluster() {
   # If metrics server configuration directory is specified then deploy in
   # the cluster just created
   if [[ -n ${METRICS_SERVER_CONFIG_DIR:-} ]]; then
-    retry kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
+    retry install_metrics_server "${METRICS_SERVER_CONFIG_DIR}"
   fi
 
   # Install Metallb if not set to install explicitly
@@ -401,59 +407,62 @@ function install_calico {
   local CONFIG_DIR="${2}"
 
   echo "Setting up ambient cluster, Calico CNI will be used."
-  kubectl --kubeconfig="$KUBECONFIG" apply -f "${CONFIG_DIR}"/calico.yaml
+  sed "s?registry.istio.io/testing/calico?${CALICO_REGISTRY:-registry.istio.io/testing}/calico?g" \
+    "${CONFIG_DIR}"/calico.yaml | kubectl --kubeconfig="$KUBECONFIG" apply -f -
 
   kubectl --kubeconfig="$KUBECONFIG" wait --for condition=ready -n kube-system pod -l k8s-app=calico-node --timeout 90s
   kubectl --kubeconfig="$KUBECONFIG" wait --for condition=ready -n kube-system pod -l k8s-app=calico-kube-controllers --timeout 90s
 }
 
-function configure_ecr_image_pull_secret() {
-  local KUBECONFIG="${1}"
-  local ecr_password
-  local xtrace_enabled=false
+function install_metrics_server {
+  local CONFIG_DIR="${1}"
 
-  if [[ -z "${ECR_REGISTRY:-}" ]]; then
-    return
-  fi
-
-  if [[ "$-" == *x* ]]; then
-    xtrace_enabled=true
-    set +x
-  fi
-
-  ecr_password=$(aws ecr get-login-password)
-  kubectl --kubeconfig="$KUBECONFIG" --namespace metallb-system create secret docker-registry ecr-pull-secret \
-    --docker-server="${ECR_REGISTRY}" \
-    --docker-username=AWS \
-    --docker-password="${ecr_password}" \
-    --dry-run=client \
-    --output=yaml | kubectl --kubeconfig="$KUBECONFIG" --namespace metallb-system apply -f -
-  unset ecr_password
-
-  if [[ "${xtrace_enabled}" == true ]]; then
-    set -x
-  fi
+  sed "s?registry.k8s.io/metrics-server?${METRICS_SERVER_REGISTRY:-registry.k8s.io}/metrics-server?g" \
+    "${CONFIG_DIR}"/metrics.yaml | kubectl apply -f -
 }
 
-function configure_metallb_image_pull_secret() {
+function configure_ecr_image_pull_secret() {
   local KUBECONFIG="${1}"
+  local namespace="${2}"
+  shift 2
 
   if [[ -z "${ECR_REGISTRY:-}" ]]; then
     return
   fi
 
-  for service_account in controller speaker; do
-    cat <<EOF | kubectl --kubeconfig="$KUBECONFIG" apply --server-side --field-manager=istio-ecr-pull-secret -f -
+  if [[ -n "${IMAGE_PULL_SECRET_FILE:-}" ]]; then
+    kubectl --kubeconfig="$KUBECONFIG" --namespace "$namespace" apply -f "${IMAGE_PULL_SECRET_FILE}"
+  else
+    local ecr_password
+    local xtrace_enabled=false
+    if [[ "$-" == *x* ]]; then
+      xtrace_enabled=true
+      set +x
+    fi
+    ecr_password=$(aws ecr get-login-password)
+    kubectl --kubeconfig="$KUBECONFIG" --namespace "$namespace" create secret docker-registry ptc-image-secret \
+      --docker-server="${ECR_REGISTRY}" \
+      --docker-username=AWS \
+      --docker-password="${ecr_password}" \
+      --dry-run=client \
+      --output=yaml | kubectl --kubeconfig="$KUBECONFIG" --namespace "$namespace" apply -f -
+    unset ecr_password
+    if [[ "${xtrace_enabled}" == true ]]; then
+      set -x
+    fi
+  fi
+
+  for service_account in "$@"; do
+    cat <<EOF | kubectl --kubeconfig="$KUBECONFIG" apply --server-side --field-manager=istio-image-pull-secret -f -
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: ${service_account}
-  namespace: metallb-system
+  namespace: ${namespace}
 imagePullSecrets:
-- name: ecr-pull-secret
+- name: ptc-image-secret
 EOF
   done
-
 }
 
 function install_metallb() {
@@ -461,8 +470,7 @@ function install_metallb() {
   if [[ -n "${ECR_REGISTRY:-}" ]]; then
     kubectl --kubeconfig="$KUBECONFIG" create namespace metallb-system --dry-run=client --output=yaml | \
       kubectl --kubeconfig="$KUBECONFIG" apply -f -
-    configure_ecr_image_pull_secret "$KUBECONFIG"
-    configure_metallb_image_pull_secret "$KUBECONFIG"
+    configure_ecr_image_pull_secret "$KUBECONFIG" metallb-system default controller speaker
   fi
   sed "s?registry.istio.io/testing?${METALLB_REGISTRY:-registry.istio.io/testing}?g" \
     "${COMMON_SCRIPTS}/metallb-native.yaml" | kubectl --kubeconfig="$KUBECONFIG" apply -f -

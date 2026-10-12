@@ -40,6 +40,7 @@ import (
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
+	testimage "istio.io/istio/pkg/test/util/image"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/ambient"
 	"istio.io/istio/tests/integration/pilot/common"
@@ -297,9 +298,11 @@ func TestCNIRestartsWithMissingKubeConfig(t *testing.T) {
 			}
 			// Delete the kubeconfig file on each node and verify it is deleted
 			for _, node := range nodes.Items {
-				deleteKubeConfigOnHostCmd := fmt.Sprintf("kubectl debug node/%s -n %s --image=busybox -- chroot /host rm"+
+				deleteKubeConfigOnHostCmd := fmt.Sprintf("kubectl debug node/%s -n %s --image=%s -- chroot /host rm"+
 					" -f /var/run/istio-cni/istio-cni-kubeconfig && ! test -f /var/run/istio-cni/istio-cni-kubeconfig",
-					node.Name, i.Settings().SystemNamespace)
+					node.Name, i.Settings().SystemNamespace,
+					testimage.FromRegistry(testimage.DockerRegistry, testimage.DockerRegistryEnv,
+						"library/busybox", "latest"))
 				t.Log("Removing istio-cni-kubeconfig from node", node.Name)
 				if _, err := shell.Execute(true, deleteKubeConfigOnHostCmd); err != nil {
 					t.Fatalf("failed to delete istio-cni-kubeconfig from node %v: %v", node.Name, err)

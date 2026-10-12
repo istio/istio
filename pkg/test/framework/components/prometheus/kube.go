@@ -38,13 +38,15 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	testimage "istio.io/istio/pkg/test/util/image"
 )
 
 const (
-	serviceName                               = "prometheus"
-	appName                                   = "prometheus"
-	defaultPrometheusRepository               = "docker.io/prom/prometheus"
-	defaultPrometheusConfigReloaderRepository = "ghcr.io/prometheus-operator/prometheus-config-reloader"
+	serviceName                     = "prometheus"
+	appName                         = "prometheus"
+	manifestPrometheusRepository    = "prom/prometheus"
+	defaultPrometheusRepository     = "prometheus/prometheus"
+	defaultConfigReloaderRepository = "prometheus-operator/prometheus-config-reloader"
 )
 
 var (
@@ -77,14 +79,12 @@ func getPrometheusYaml() (string, error) {
 		return "", err
 	}
 	yaml := string(yamlBytes)
-	if hub := os.Getenv("PROMETHEUS_REGISTRY"); hub != "" {
-		yaml = strings.ReplaceAll(yaml, defaultPrometheusRepository, hub+"/prometheus")
-	} else {
-		yaml = strings.ReplaceAll(yaml, defaultPrometheusRepository, "quay.io/prometheus/prometheus")
-	}
-	if hub := os.Getenv("PROMETHEUS_CONFIG_RELOADER_REGISTRY"); hub != "" {
-		yaml = strings.ReplaceAll(yaml, defaultPrometheusConfigReloaderRepository, hub+"/prometheus-config-reloader")
-	}
+	yaml = strings.ReplaceAll(yaml,
+		testimage.FromRegistry(testimage.DockerRegistry, "", manifestPrometheusRepository, ""),
+		testimage.FromRegistry(testimage.QuayRegistry, testimage.QuayRegistryEnv, defaultPrometheusRepository, ""))
+	yaml = strings.ReplaceAll(yaml,
+		testimage.FromRegistry(testimage.GHCRRegistry, "", defaultConfigReloaderRepository, ""),
+		testimage.FromRegistry(testimage.GHCRRegistry, testimage.GHCRRegistryEnv, defaultConfigReloaderRepository, ""))
 	// For faster tests, drop scrape interval
 	yaml = strings.ReplaceAll(yaml, "scrape_interval: 15s", "scrape_interval: 5s")
 	yaml = strings.ReplaceAll(yaml, "scrape_timeout: 10s", "scrape_timeout: 5s")

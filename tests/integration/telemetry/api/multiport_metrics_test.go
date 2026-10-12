@@ -18,13 +18,17 @@ package api
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	testimage "istio.io/istio/pkg/test/util/image"
 	"istio.io/istio/pkg/test/util/retry"
 )
+
+const defaultBusyBoxImage = "registry.k8s.io/e2e-test-images/busybox:1.29-4"
 
 // multiPortPrimaryConfigMap serves "primary_metric_total" on port 8080 at /metrics.
 // busybox httpd maps /www/<filename> → GET /<filename>, so key "metrics" is deliberate.
@@ -149,7 +153,7 @@ func TestMultiPortMetricsMerge(t *testing.T) {
 			t.ConfigIstio().YAML(ns,
 				multiPortPrimaryConfigMap+"\n---"+
 					multiPortSecondaryConfigMap+"\n---"+
-					multiPortDeployment,
+					renderBusyBoxImage(multiPortDeployment),
 			).ApplyOrFail(t)
 
 			cluster := t.Clusters().Default()
@@ -187,7 +191,7 @@ func TestMultiPortMetricsMergePartialFailure(t *testing.T) {
 			t.ConfigIstio().YAML(ist.Settings().SystemNamespace, strictMtlsPeerAuthenticationConfig).ApplyOrFail(t)
 			t.ConfigIstio().YAML(ns,
 				multiPortPrimaryConfigMap+"\n---"+
-					multiPortFailingDeployment,
+					renderBusyBoxImage(multiPortFailingDeployment),
 			).ApplyOrFail(t)
 
 			cluster := t.Clusters().Default()
@@ -219,4 +223,10 @@ func TestMultiPortMetricsMergePartialFailure(t *testing.T) {
 				return nil
 			}, retry.Delay(5*time.Second), retry.Timeout(5*time.Minute))
 		})
+}
+
+func renderBusyBoxImage(manifest string) string {
+	return strings.ReplaceAll(manifest, defaultBusyBoxImage,
+		testimage.FromRegistry(testimage.K8sRegistry, testimage.K8sRegistryEnv,
+			"e2e-test-images/busybox", "1.29-4"))
 }

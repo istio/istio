@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/kube"
+	testimage "istio.io/istio/pkg/test/util/image"
 	"istio.io/istio/tests/common/jwt"
 )
 
@@ -94,7 +95,26 @@ var (
 )
 
 func deploy(t framework.TestContext, name, ns, yaml string) {
-	t.ConfigIstio().File(ns, yaml).ApplyOrFail(t)
+	images := map[string]struct {
+		defaultRegistry string
+		registryEnv     string
+		repository      string
+		tag             string
+	}{
+		apacheServer: {testimage.DockerRegistry, testimage.DockerRegistryEnv, "library/httpd", "2.4.46"},
+		nginxServer:  {testimage.DockerRegistry, testimage.DockerRegistryEnv, "library/nginx", "1.20.0"},
+		tomcatServer: {testimage.GHCRRegistry, testimage.GHCRRegistryEnv, "istio/testing/fuzz_tomcat", "0.1"},
+		dotdotpwn:    {testimage.GHCRRegistry, testimage.GHCRRegistryEnv, "istio/testing/dotdotpwn", "0.1"},
+		wfuzz:        {testimage.GHCRRegistry, testimage.GHCRRegistryEnv, "xmendez/wfuzz", "v3.1.0"},
+		jwtTool:      {testimage.GHCRRegistry, testimage.GHCRRegistryEnv, "istio/testing/jwttool", "0.1"},
+	}
+	image, found := images[name]
+	if !found {
+		t.Fatalf("no image configured for %q", name)
+	}
+	t.ConfigIstio().EvalFile(ns, map[string]any{
+		"Image": testimage.FromRegistry(image.defaultRegistry, image.registryEnv, image.repository, image.tag),
+	}, yaml).ApplyOrFail(t)
 	if _, err := kube.WaitUntilPodsAreReady(kube.NewPodFetch(t.Clusters().Default(), ns, "app="+name)); err != nil {
 		t.Fatalf("Wait for pod %s failed: %v", name, err)
 	}
