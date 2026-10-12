@@ -177,24 +177,49 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaHTTPRoutes(node *model.Proxy, re
 
 // affectedRouteNames returns the subset of watched route names whose built content can change
 // because of the given config updates. shouldUseDeltaRoutes guarantees cfgs only contains
-// VirtualService/ServiceEntry kinds here, so the updated names/hosts are resolved once up front
-// and checked against each route with a single egress-listener resolution, rather than
-// re-resolving the egress listener and re-scanning cfgs for every watched route.
+// VirtualService/ServiceEntry kinds here, so the updated keys/hosts are resolved once up front.
+// Each distinct egress listener backing a watched route is then evaluated for affectedness at
+// most once, no matter how many watched routes resolve to it (e.g. every route maps to the same
+// catch-all listener when no Sidecar resource is configured), and that evaluation is an O(1) hash
+// lookup per update via IstioEgressListenerWrapper.DependsOnConfig for the common exact-match
+// case, only falling back to scanning Services() for listeners/updates involving a wildcarded
+// hostname.
 func affectedRouteNames(node *model.Proxy, cfgs sets.Set[model.ConfigKey], watched sets.String) sets.String {
-	updatedVirtualServices := sets.New[string]()
+	updatedKeys := sets.New[model.ConfigKey]()
 	updatedHosts := sets.New[host.Name]()
+	anyWildcardHost := false
 	for key := range cfgs {
 		switch key.Kind {
 		case kind.VirtualService:
-			updatedVirtualServices.Insert(key.Namespace + "/" + key.Name)
+			updatedKeys.Insert(key)
 		case kind.ServiceEntry:
-			updatedHosts.Insert(host.Name(key.Name))
+			// ServiceEntry hostnames are matched irrespective of namespace, so normalize away the
+			// namespace here to match the per-listener dependency hashes computed the same way.
+			updatedKeys.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: key.Name})
+			h := host.Name(key.Name)
+			updatedHosts.Insert(h)
+			if h.IsWildCarded() {
+				anyWildcardHost = true
+			}
 		}
+	}
+
+	listenerAffected := make(map[*model.IstioEgressListenerWrapper]bool)
+	isListenerAffected := func(egressListener *model.IstioEgressListenerWrapper) bool {
+		if egressListener == nil {
+			return false
+		}
+		if affected, ok := listenerAffected[egressListener]; ok {
+			return affected
+		}
+		affected := egressListenerAffectedByUpdates(egressListener, updatedKeys, updatedHosts, anyWildcardHost)
+		listenerAffected[egressListener] = affected
+		return affected
 	}
 
 	affected := sets.New[string]()
 	for routeName := range watched {
-		if routeAffectedByUpdates(node, routeName, updatedVirtualServices, updatedHosts) {
+		if routeAffectedByUpdates(node, routeName, isListenerAffected) {
 			affected.Insert(routeName)
 		}
 	}
@@ -202,39 +227,45 @@ func affectedRouteNames(node *model.Proxy, cfgs sets.Set[model.ConfigKey], watch
 }
 
 // routeAffectedByUpdates reports whether the route config identified by routeName can be affected
-// by the given updated VirtualServices/hosts. Both the current and previous SidecarScopes are
-// checked: a deleted or retargeted config may be absent from the current scope but still need to
-// remove configuration Envoy has already received. When the current egress listener backing
-// routeName cannot be resolved, it conservatively reports the route as affected.
-func routeAffectedByUpdates(node *model.Proxy, routeName string, updatedVirtualServices sets.String, updatedHosts sets.Set[host.Name]) bool {
+// by the config updates isListenerAffected was built from. Both the current and previous
+// SidecarScopes are checked: a deleted or retargeted config may be absent from the current scope
+// but still need to remove configuration Envoy has already received. When the current egress
+// listener backing routeName cannot be resolved, it conservatively reports the route as affected.
+func routeAffectedByUpdates(node *model.Proxy, routeName string, isListenerAffected func(*model.IstioEgressListenerWrapper) bool) bool {
 	listenerPort, _, _ := extractListenerPort(routeName)
 	egressListener := node.SidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
 	if egressListener == nil {
 		return true
 	}
-	if egressListenerAffectedByUpdates(egressListener, updatedVirtualServices, updatedHosts) {
+	if isListenerAffected(egressListener) {
 		return true
 	}
 	if node.PrevSidecarScope == nil {
 		return false
 	}
 	previousEgressListener := node.PrevSidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
-	return previousEgressListener != nil && egressListenerAffectedByUpdates(previousEgressListener, updatedVirtualServices, updatedHosts)
+	return previousEgressListener != nil && isListenerAffected(previousEgressListener)
 }
 
+// egressListenerAffectedByUpdates reports whether egressListener's built content depends on any
+// of updatedKeys/updatedHosts. VirtualService and exact Service/ServiceEntry hostname dependencies
+// are resolved via egressListener.DependsOnConfig, an O(1) hash lookup per update. Wildcarded
+// hostnames (on either the listener's imported hosts or an updated ServiceEntry's host) can match
+// textually different hostnames, so those fall back to the slower Services() scan, bounded to
+// just the listeners/updates where a wildcard is actually in play.
 func egressListenerAffectedByUpdates(egressListener *model.IstioEgressListenerWrapper,
-	updatedVirtualServices sets.String, updatedHosts sets.Set[host.Name],
+	updatedKeys sets.Set[model.ConfigKey], updatedHosts sets.Set[host.Name], anyWildcardHost bool,
 ) bool {
-	if len(updatedVirtualServices) > 0 {
-		for _, vs := range egressListener.VirtualServices() {
-			if updatedVirtualServices.Contains(vs.Namespace + "/" + vs.Name) {
-				return true
-			}
+	for key := range updatedKeys {
+		if egressListener.DependsOnConfig(key) {
+			return true
 		}
 	}
-	for hostname := range updatedHosts {
-		if egressListenerHasHost(egressListener, hostname) {
-			return true
+	if anyWildcardHost || egressListener.HasWildcardHosts() {
+		for hostname := range updatedHosts {
+			if egressListenerHasHost(egressListener, hostname) {
+				return true
+			}
 		}
 	}
 	return false
@@ -260,8 +291,9 @@ func egressListenerHasHost(egressListener *model.IstioEgressListenerWrapper, hos
 // mirroring how buildGatewayHTTPRouteConfig resolves a route name to the VirtualServices it builds from.
 //
 // Whether each gateway is affected by cfgs is resolved once per gateway up front, since the same
-// handful of gateways typically back many routes -- re-running VirtualServicesForGateway for every
-// (route, config) pair would otherwise repeat the same lookup for every route a gateway serves.
+// handful of gateways typically back many routes -- re-running SidecarScope.GatewayVirtualServices
+// for every (route, config) pair would otherwise repeat the same lookup for every route a gateway
+// serves.
 func affectedGatewayRouteNames(node *model.Proxy, push *model.PushContext, cfgs sets.Set[model.ConfigKey], watched sets.String) sets.String {
 	merged := node.MergedGateway
 	allGatewayNames := sets.New[string]()
@@ -271,7 +303,7 @@ func affectedGatewayRouteNames(node *model.Proxy, push *model.PushContext, cfgs 
 	affectedGateways := sets.New[string]()
 	for gatewayName := range allGatewayNames {
 		for key := range cfgs {
-			if gatewayAffectedByConfig(push, node.ConfigNamespace, gatewayName, key) {
+			if gatewayAffectedByConfig(node, push, gatewayName, key) {
 				affectedGateways.Insert(gatewayName)
 				break
 			}
@@ -302,33 +334,48 @@ func affectedGatewayRouteNames(node *model.Proxy, push *model.PushContext, cfgs 
 // gatewayAffectedByConfig reports whether the gateway identified by gatewayName (formatted
 // "namespace/name", matching MergedGateway.GatewayNameForServer) can be affected by the given
 // config update.
-func gatewayAffectedByConfig(push *model.PushContext, proxyNamespace string, gatewayName string, key model.ConfigKey) bool {
+func gatewayAffectedByConfig(node *model.Proxy, push *model.PushContext, gatewayName string, key model.ConfigKey) bool {
 	switch key.Kind {
 	case kind.Gateway:
 		return gatewayName == key.Namespace+"/"+key.Name
 	case kind.VirtualService:
-		for _, vs := range push.VirtualServicesForGateway(proxyNamespace, gatewayName) {
-			if vs.Name == key.Name && vs.Namespace == key.Namespace {
-				return true
-			}
+		if gatewayVirtualServicesContain(node.SidecarScope, gatewayName, key) {
+			return true
 		}
-		return false
+		// A VirtualService that was just removed or retargeted away from this gateway will no
+		// longer show up in the current scope, but Envoy may still hold route content built from
+		// it; check the previous scope too so the route gets rebuilt and the stale content dropped.
+		return gatewayVirtualServicesContain(node.PrevSidecarScope, gatewayName, key)
 	case kind.ServiceEntry:
-		for _, vs := range push.VirtualServicesForGateway(proxyNamespace, gatewayName) {
-			vsSpec, ok := vs.Spec.(*networking.VirtualService)
-			if !ok {
-				continue
-			}
-			for destHost := range model.VirtualServiceDestinationHosts(vsSpec) {
-				if host.Name(destHost).Matches(host.Name(key.Name)) {
-					return true
-				}
+		// Only the current scope's destinations are checked here: if a VirtualService's binding
+		// to this gateway changed (added/removed/retargeted), that is itself a VirtualService
+		// update handled by the case above, which already forces a rebuild of every route bound
+		// to the affected gateway(s). So a ServiceEntry update only needs to be checked against
+		// what's currently bound.
+		for destHost := range push.GatewayDestinationHosts(gatewayName) {
+			if host.Name(destHost).Matches(host.Name(key.Name)) {
+				return true
 			}
 		}
 		return false
 	default:
 		return true
 	}
+}
+
+// gatewayVirtualServicesContain reports whether scope's VirtualServices bound to gatewayName
+// include the config identified by key. scope may be nil (e.g. node.PrevSidecarScope before the
+// first push).
+func gatewayVirtualServicesContain(scope *model.SidecarScope, gatewayName string, key model.ConfigKey) bool {
+	if scope == nil {
+		return false
+	}
+	for _, vs := range scope.GatewayVirtualServices(gatewayName) {
+		if vs.Name == key.Name && vs.Namespace == key.Namespace {
+			return true
+		}
+	}
+	return false
 }
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path

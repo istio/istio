@@ -198,181 +198,102 @@ func BenchmarkRouteGeneration(b *testing.B) {
 	runBenchmark(b, v3.RouteType, testCases)
 }
 
-// BenchmarkDeltaRouteGeneration compares a selective VirtualService update with an update that
-// requires the full RDS fallback. The fixture has one HTTP route configuration per service, so a
-// single VirtualService update should generate exactly one resource instead of every watched route.
+// BenchmarkDeltaRouteGeneration measures the cost of computing a Delta RDS update against the cost
+// of a full RDS rebuild, across both proxy shapes that can have multiple RouteConfigurations (Sidecar
+// egress listeners and Gateway servers), a range of listener/route counts, and a range of how much of
+// the config update actually affects routes (a single route, half of them, or all of them). Each
+// fixture config has a 1:1 mapping between VirtualService and RouteConfiguration, so updating N
+// VirtualServices should affect exactly N of the `routes` watched RouteConfigurations.
 func BenchmarkDeltaRouteGeneration(b *testing.B) {
 	configureBenchmark(b)
-	test.SetForTest(b, &features.EnableDeltaRDS, true)
 
-	const routes = 100
-	s := xds.NewFakeDiscoveryServer(b, xds.FakeOptions{Configs: createDeltaRDSBenchmarkConfig(routes)})
-	proxy := &model.Proxy{
-		Type:            model.SidecarProxy,
-		IPAddresses:     []string{"1.1.1.1"},
-		ID:              "delta-rds.default",
-		ConfigNamespace: "default",
-		Metadata:        &model.NodeMetadata{},
+	routeCounts := []int{1, 5, 20, 100, 500}
+	affectedFractions := []struct {
+		name string
+		frac func(routes int) int
+	}{
+		{"1", func(routes int) int { return 1 }},
+		{"half", func(routes int) int { return max(1, routes/2) }},
+		{"all", func(routes int) int { return routes }},
 	}
-	proxy.DiscoverIPMode()
-	initPushContext(s.Env(), proxy)
-	watched := getWatchedResources(v3.RouteType, ConfigInput{}, s, proxy)
-	gen, ok := s.Discovery.Generators[v3.RouteType].(model.XdsDeltaResourceGenerator)
-	if !ok {
-		b.Fatal("RDS generator does not implement delta generation")
-	}
-
-	cases := []struct {
+	proxyShapes := []struct {
 		name          string
-		req           *model.PushRequest
-		wantResources int
-		wantDelta     bool
+		createConfigs func(routes int) []config.Config
+		newProxy      func() *model.Proxy
 	}{
 		{
-			name: "virtual-service-update",
-			req: &model.PushRequest{
-				Push: s.PushContext(),
-				ConfigsUpdated: sets.New(model.ConfigKey{
-					Kind: kind.VirtualService, Name: "vs-0", Namespace: "default",
-				}),
+			name:          "Sidecar",
+			createConfigs: createDeltaRDSBenchmarkConfig,
+			newProxy: func() *model.Proxy {
+				return &model.Proxy{
+					Type:            model.SidecarProxy,
+					IPAddresses:     []string{"1.1.1.1"},
+					ID:              "delta-rds.default",
+					ConfigNamespace: "default",
+					Metadata:        &model.NodeMetadata{},
+				}
 			},
-			wantResources: 1,
-			wantDelta:     true,
 		},
 		{
-			name: "full-fallback",
-			req: &model.PushRequest{
-				Push: s.PushContext(),
-				ConfigsUpdated: sets.New(model.ConfigKey{
-					Kind: kind.EnvoyFilter, Name: "ef", Namespace: "default",
-				}),
+			name:          "Gateway",
+			createConfigs: createDeltaGatewayRDSBenchmarkConfig,
+			newProxy: func() *model.Proxy {
+				gatewayLabels := map[string]string{"istio": "ingressgateway"}
+				return &model.Proxy{
+					Type:            model.Router,
+					IPAddresses:     []string{"1.1.1.1"},
+					ID:              "delta-rds-gw.default",
+					ConfigNamespace: "default",
+					Labels:          gatewayLabels,
+					Metadata:        &model.NodeMetadata{Labels: gatewayLabels},
+				}
 			},
-			wantResources: routes,
-			wantDelta:     false,
 		},
 	}
 
-	for _, tt := range cases {
-		b.Run(tt.name, func(b *testing.B) {
-			var resources model.Resources
-			b.ResetTimer()
-			for range b.N {
-				var usedDelta bool
-				var err error
-				resources, _, _, usedDelta, err = gen.GenerateDeltas(proxy, tt.req, watched)
-				if err != nil {
-					b.Fatal(err)
+	for _, shape := range proxyShapes {
+		for _, routes := range routeCounts {
+			for _, af := range affectedFractions {
+				affected := af.frac(routes)
+				cfgsUpdated := sets.New[model.ConfigKey]()
+				for i := 0; i < affected; i++ {
+					cfgsUpdated.Insert(model.ConfigKey{Kind: kind.VirtualService, Name: fmt.Sprintf("vs-%d", i), Namespace: "default"})
 				}
-				if usedDelta != tt.wantDelta {
-					b.Fatalf("usedDelta = %v, want %v", usedDelta, tt.wantDelta)
-				}
-				if len(resources) != tt.wantResources {
-					b.Fatalf("resources = %d, want %d", len(resources), tt.wantResources)
+
+				for _, delta := range []bool{true, false} {
+					deltaLabel := "off"
+					if delta {
+						deltaLabel = "on"
+					}
+					name := fmt.Sprintf("%s/routes=%d/affected=%s/delta=%s", shape.name, routes, af.name, deltaLabel)
+					b.Run(name, func(b *testing.B) {
+						test.SetForTest(b, &features.EnableDeltaRDS, delta)
+						s := xds.NewFakeDiscoveryServer(b, xds.FakeOptions{Configs: shape.createConfigs(routes)})
+						proxy := shape.newProxy()
+						proxy.DiscoverIPMode()
+						initPushContext(s.Env(), proxy)
+						watched := getWatchedResources(v3.RouteType, ConfigInput{}, s, proxy)
+						gen, ok := s.Discovery.Generators[v3.RouteType].(model.XdsDeltaResourceGenerator)
+						if !ok {
+							b.Fatal("RDS generator does not implement delta generation")
+						}
+						req := &model.PushRequest{Push: s.PushContext(), ConfigsUpdated: cfgsUpdated}
+
+						var resources model.Resources
+						b.ReportAllocs()
+						b.ResetTimer()
+						for range b.N {
+							var err error
+							resources, _, _, _, err = gen.GenerateDeltas(proxy, req, watched)
+							if err != nil {
+								b.Fatal(err)
+							}
+						}
+						logDebug(b, resources)
+					})
 				}
 			}
-			logDebug(b, resources)
-		})
-	}
-}
-
-// BenchmarkDeltaRouteGenerationGateway is the Router-proxy analog of BenchmarkDeltaRouteGeneration: it
-// compares a selective Gateway/VirtualService/ServiceEntry update against a full RDS fallback, using a
-// fixture with one gateway server (and route) per service.
-func BenchmarkDeltaRouteGenerationGateway(b *testing.B) {
-	configureBenchmark(b)
-	test.SetForTest(b, &features.EnableDeltaRDS, true)
-
-	const routes = 100
-	s := xds.NewFakeDiscoveryServer(b, xds.FakeOptions{Configs: createDeltaGatewayRDSBenchmarkConfig(routes)})
-	gatewayLabels := map[string]string{"istio": "ingressgateway"}
-	proxy := &model.Proxy{
-		Type:            model.Router,
-		IPAddresses:     []string{"1.1.1.1"},
-		ID:              "delta-rds-gw.default",
-		ConfigNamespace: "default",
-		Labels:          gatewayLabels,
-		Metadata:        &model.NodeMetadata{Labels: gatewayLabels},
-	}
-	proxy.DiscoverIPMode()
-	initPushContext(s.Env(), proxy)
-	watched := getWatchedResources(v3.RouteType, ConfigInput{}, s, proxy)
-	gen, ok := s.Discovery.Generators[v3.RouteType].(model.XdsDeltaResourceGenerator)
-	if !ok {
-		b.Fatal("RDS generator does not implement delta generation")
-	}
-
-	cases := []struct {
-		name          string
-		req           *model.PushRequest
-		wantResources int
-		wantDelta     bool
-	}{
-		{
-			name: "gateway-update",
-			req: &model.PushRequest{
-				Push: s.PushContext(),
-				ConfigsUpdated: sets.New(model.ConfigKey{
-					Kind: kind.Gateway, Name: "gw-0", Namespace: "default",
-				}),
-			},
-			wantResources: 1,
-			wantDelta:     true,
-		},
-		{
-			name: "virtual-service-update",
-			req: &model.PushRequest{
-				Push: s.PushContext(),
-				ConfigsUpdated: sets.New(model.ConfigKey{
-					Kind: kind.VirtualService, Name: "vs-0", Namespace: "default",
-				}),
-			},
-			wantResources: 1,
-			wantDelta:     true,
-		},
-		{
-			name: "service-entry-update",
-			req: &model.PushRequest{
-				Push: s.PushContext(),
-				ConfigsUpdated: sets.New(model.ConfigKey{
-					Kind: kind.ServiceEntry, Name: "svc-0.default.svc.cluster.local", Namespace: "default",
-				}),
-			},
-			wantResources: 1,
-			wantDelta:     true,
-		},
-		{
-			name: "full-fallback",
-			req: &model.PushRequest{
-				Push: s.PushContext(),
-				ConfigsUpdated: sets.New(model.ConfigKey{
-					Kind: kind.EnvoyFilter, Name: "ef", Namespace: "default",
-				}),
-			},
-			wantResources: routes,
-			wantDelta:     false,
-		},
-	}
-
-	for _, tt := range cases {
-		b.Run(tt.name, func(b *testing.B) {
-			var resources model.Resources
-			b.ResetTimer()
-			for range b.N {
-				var usedDelta bool
-				var err error
-				resources, _, _, usedDelta, err = gen.GenerateDeltas(proxy, tt.req, watched)
-				if err != nil {
-					b.Fatal(err)
-				}
-				if usedDelta != tt.wantDelta {
-					b.Fatalf("usedDelta = %v, want %v", usedDelta, tt.wantDelta)
-				}
-				if len(resources) != tt.wantResources {
-					b.Fatalf("resources = %d, want %d", len(resources), tt.wantResources)
-				}
-			}
-			logDebug(b, resources)
-		})
+		}
 	}
 }
 

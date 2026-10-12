@@ -2478,6 +2478,28 @@ func TestBuildDeltaHTTPRoutes(t *testing.T) {
 		}
 	})
 
+	t.Run("waypoint virtual service update selects routes backed by its egress listener", func(t *testing.T) {
+		waypoint := cg.SetupProxy(&model.Proxy{Type: model.Waypoint, ConfigNamespace: "default"})
+		routes, _, _, usedDelta := cg.ConfigGen.BuildDeltaHTTPRoutes(waypoint, &model.PushRequest{
+			Push: cg.PushContext(),
+			ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind: kind.VirtualService, Name: virtualServiceA.Name, Namespace: virtualServiceA.Namespace,
+			}),
+		}, watched)
+		if !usedDelta {
+			t.Fatal("expected a delta response")
+		}
+		got := sets.New[string]()
+		for _, route := range routes {
+			got.Insert(route.Name)
+		}
+		// Waypoints have a single catch-all egress listener, so every watched route resolves to
+		// that listener and is rebuilt when one of its VirtualServices changes.
+		if !got.Equals(sets.New("8080", "9090")) {
+			t.Fatalf("got routes %v, want [8080 9090]", got)
+		}
+	})
+
 	t.Run("deleted virtual service is selected from the previous scope", func(t *testing.T) {
 		previous := NewConfigGenTest(t, TestOptions{
 			Services:       services,
@@ -2670,6 +2692,10 @@ func TestBuildDeltaHTTPRoutesGateway(t *testing.T) {
 		buildHTTPService("svc-b.default.svc.cluster.local", visibility.Public, wildcardIPv4, "default", 9090),
 	}
 
+	// Must be set before NewConfigGenTest, since it eagerly builds the PushContext (which caches
+	// destinationsByGateway only when EnableDeltaRDS or FilterGatewayClusterConfig is already set).
+	test.SetForTest(t, &features.EnableDeltaRDS, true)
+
 	cg := NewConfigGenTest(t, TestOptions{
 		Services:       services,
 		ConfigPointers: []*config.Config{gatewayA, gatewayB, virtualServiceA, virtualServiceB},
@@ -2682,8 +2708,6 @@ func TestBuildDeltaHTTPRoutesGateway(t *testing.T) {
 		Metadata:        &model.NodeMetadata{Labels: gatewayLabels},
 	})
 	watched := &model.WatchedResource{ResourceNames: sets.New("http.80", "http.8080")}
-
-	test.SetForTest(t, &features.EnableDeltaRDS, true)
 
 	cases := []struct {
 		name       string
