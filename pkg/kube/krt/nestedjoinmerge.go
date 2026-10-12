@@ -151,6 +151,7 @@ func (j *nestedjoinmerge[T]) runQueue() {
 	if !kube.WaitForCacheSync(j.collectionName, j.stop, syncers...) {
 		return
 	}
+	setProfilerLabels(j.collectionName)
 	j.queue.Run(j.stop)
 }
 

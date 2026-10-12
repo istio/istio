@@ -398,6 +398,7 @@ func (j *mergejoin[T]) runQueue() {
 		return
 	}
 
+	setProfilerLabels(j.collectionName)
 	j.queue.Run(j.stop)
 }
 
