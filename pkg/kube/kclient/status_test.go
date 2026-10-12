@@ -63,6 +63,11 @@ func TestUpdateStatusNoResponse(t *testing.T) {
 		if request.Header.Get("Content-Type") != "application/json" {
 			t.Fatalf("content type: got %q", request.Header.Get("Content-Type"))
 		}
+		body, _ := io.ReadAll(request.Body)
+		want := `{"kind":"Pod","apiVersion":"v1","metadata":{"name":"pod","namespace":"ns"},"spec":{"containers":null},"status":{}}`
+		if string(body) != want {
+			t.Fatalf("body: got %s, want %s", body, want)
+		}
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Header:     make(http.Header),
@@ -81,7 +86,7 @@ func TestUpdateStatusNoResponse(t *testing.T) {
 	err = updateStatusNoResponse(context.Background(), client, schema.GroupVersionResource{
 		Version:  "v1",
 		Resource: "pods",
-	}, &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod", Namespace: "ns"}})
+	}, schema.GroupVersionKind{Version: "v1", Kind: "Pod"}, &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod", Namespace: "ns"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +125,7 @@ func TestUpdateStatusNoResponseReturnsAPIError(t *testing.T) {
 		Group:    "example.io",
 		Version:  "v1",
 		Resource: "examples",
-	}, &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "example", Namespace: "ns"}})
+	}, schema.GroupVersionKind{Group: "example.io", Version: "v1", Kind: "Example"}, &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "example", Namespace: "ns"}})
 	if !apierrors.IsConflict(err) {
 		t.Fatalf("got %v, want conflict", err)
 	}

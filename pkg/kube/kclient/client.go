@@ -179,16 +179,30 @@ func (n *writeClient[T]) UpdateStatusNoResponse(object T) error {
 		_, err := n.UpdateStatus(object)
 		return err
 	}
-	return updateStatusNoResponse(context.Background(), rc, n.gvr, object)
+	gvk := types.MustGVKFromType[T]().Kubernetes()
+	return updateStatusNoResponse(context.Background(), rc, n.gvr, gvk, object)
+}
+
+// encodeWithGVK encodes the object with the GVK set.
+// Objects from informers typically have an empty TypeMeta, but the API server requires it.
+// This mirrors client-go's WithVersionEncoder: temporarily set the GVK while encoding.
+func encodeWithGVK(object controllers.Object, gvk schema.GroupVersionKind) ([]byte, error) {
+	kind := object.GetObjectKind()
+	if oldGVK := kind.GroupVersionKind(); oldGVK != gvk {
+		kind.SetGroupVersionKind(gvk)
+		defer kind.SetGroupVersionKind(oldGVK)
+	}
+	return json.Marshal(object)
 }
 
 func updateStatusNoResponse(
 	ctx context.Context,
 	client rest.Interface,
 	gvr schema.GroupVersionResource,
+	gvk schema.GroupVersionKind,
 	object controllers.Object,
 ) error {
-	body, err := json.Marshal(object)
+	body, err := encodeWithGVK(object, gvk)
 	if err != nil {
 		return err
 	}
