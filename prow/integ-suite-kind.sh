@@ -180,13 +180,7 @@ export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 trace "init" make init
 
 if [[ -n "${ECR_REGISTRY:-}" ]]; then
-  ECR_AUTH_DIR=$(mktemp -d "${TMPDIR:-/tmp}/istio-ecr-auth.XXXXXX")
-  if [[ -f "${DOCKER_CONFIG:-${HOME}/.docker}/config.json" ]]; then
-    cp "${DOCKER_CONFIG:-${HOME}/.docker}/config.json" "${ECR_AUTH_DIR}/config.json"
-    chmod 600 "${ECR_AUTH_DIR}/config.json"
-  fi
-  export DOCKER_CONFIG="${ECR_AUTH_DIR}"
-  IMAGE_PULL_SECRET_FILE="${ECR_AUTH_DIR}/ptc-image-secret.yaml"
+  IMAGE_PULL_SECRET_FILE=$(mktemp "${TMPDIR:-/tmp}/ptc-image-secret.XXXXXX.yaml")
   export IMAGE_PULL_SECRET_FILE
 
   xtrace_enabled=false
@@ -195,7 +189,6 @@ if [[ -n "${ECR_REGISTRY:-}" ]]; then
     set +x
   fi
   ecr_password=$(aws ecr get-login-password --region "$(get_ecr_region)")
-  printf '%s' "${ecr_password}" | crane auth login "${ECR_REGISTRY}" --username AWS --password-stdin
   kubectl create secret docker-registry ptc-image-secret \
     --docker-server="${ECR_REGISTRY}" \
     --docker-username=AWS \
