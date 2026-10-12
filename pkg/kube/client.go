@@ -116,6 +116,10 @@ type Client interface {
 	// RESTConfig returns the Kubernetes rest.Config used to configure the clients.
 	RESTConfig() *rest.Config
 
+	// RawRESTClient returns a shared REST client rooted at the Kubernetes server URL.
+	// This may be nil for fake clients.
+	RawRESTClient() rest.Interface
+
 	// Ext returns the API extensions client.
 	Ext() kubeExtClient.Interface
 
@@ -543,6 +547,7 @@ type client struct {
 	// These may be set only when creating an extended client.
 	revision              string
 	restClient            *rest.RESTClient
+	rawRestClient         *rest.RESTClient
 	discoveryClient       discovery.CachedDiscoveryInterface
 	mapper                meta.ResettableRESTMapper
 	defaultApplyNamespace string
@@ -585,6 +590,13 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 	c.restHTTPClient = &httpClient
 
 	c.restClient, err = rest.RESTClientForConfigAndClient(c.config, c.restHTTPClient)
+	if err != nil {
+		return nil, err
+	}
+	rawConfig := rest.CopyConfig(c.config)
+	rawConfig.APIPath = ""
+	rawConfig.GroupVersion = &schema.GroupVersion{}
+	c.rawRestClient, err = rest.UnversionedRESTClientForConfigAndClient(rawConfig, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
@@ -735,6 +747,15 @@ func (c *client) RESTConfig() *rest.Config {
 	}
 	cpy := *c.config
 	return &cpy
+}
+
+// RawRESTClient returns a shared REST client rooted at the Kubernetes server URL.
+func (c *client) RawRESTClient() rest.Interface {
+	if c.rawRestClient == nil {
+		// Avoid returning a typed nil
+		return nil
+	}
+	return c.rawRestClient
 }
 
 func (c *client) Ext() kubeExtClient.Interface {
