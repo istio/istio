@@ -28,9 +28,7 @@ import (
 	prometheusApi "github.com/prometheus/client_golang/api"
 	prometheusApiV1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeYaml "sigs.k8s.io/yaml"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
@@ -41,7 +39,6 @@ import (
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	testimage "istio.io/istio/pkg/test/util/image"
-	"istio.io/istio/pkg/test/util/yml"
 )
 
 const (
@@ -76,7 +73,7 @@ type kubeComponent struct {
 	clusters  cluster.Clusters
 }
 
-func getPrometheusYaml(imagePullSecret string) (string, error) {
+func getPrometheusYaml() (string, error) {
 	yamlBytes, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/prometheus.yaml"))
 	if err != nil {
 		return "", err
@@ -91,44 +88,20 @@ func getPrometheusYaml(imagePullSecret string) (string, error) {
 	// For faster tests, drop scrape interval
 	yaml = strings.ReplaceAll(yaml, "scrape_interval: 15s", "scrape_interval: 5s")
 	yaml = strings.ReplaceAll(yaml, "scrape_timeout: 10s", "scrape_timeout: 5s")
-	if imagePullSecret != "" {
-		resources := yml.SplitString(yaml)
-		var serviceAccount corev1.ServiceAccount
-		if err := kubeYaml.Unmarshal([]byte(resources[0]), &serviceAccount); err != nil {
-			return "", err
-		}
-		serviceAccount.ImagePullSecrets = []corev1.LocalObjectReference{{Name: imagePullSecret}}
-		updatedServiceAccount, err := kubeYaml.Marshal(serviceAccount)
-		if err != nil {
-			return "", err
-		}
-		resources[0] = string(updatedServiceAccount)
-		yaml = yml.JoinString(resources...)
-	}
 	return yaml, nil
 }
 
 func installPrometheus(ctx resource.Context, ns string) error {
-	imageSettings := ctx.Settings().Image
-	imagePullSecret, err := imageSettings.PullSecretName()
-	if err != nil {
-		return err
-	}
-	yaml, err := getPrometheusYaml(imagePullSecret)
+	yaml, err := getPrometheusYaml()
 	if err != nil {
 		return err
 	}
 	yaml = strings.ReplaceAll(yaml, "namespace: istio-system", fmt.Sprintf("namespace: %s", ns))
-	cfg := ctx.ConfigKube().New()
-	if imageSettings.PullSecret != "" {
-		cfg.File(ns, imageSettings.PullSecret)
-	}
-	cfg.YAML(ns, yaml)
-	if err := cfg.Apply(apply.NoCleanup); err != nil {
+	if err := ctx.ConfigKube().YAML(ns, yaml).Apply(apply.NoCleanup); err != nil {
 		return err
 	}
 	ctx.CleanupConditionally(func() {
-		_ = cfg.Delete()
+		_ = ctx.ConfigKube().YAML(ns, yaml).Delete()
 	})
 	return nil
 }

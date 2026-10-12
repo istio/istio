@@ -46,10 +46,6 @@ spec:
 {{- end }}
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
-      {{- if $.ImagePullSecretName }}
-      imagePullSecrets:
-      - name: {{ $.ImagePullSecretName }}
-      {{- end }}
       containers:
       - name: istio-proxy
         image: {{ $.ImageHub }}/{{ $.VM.Image }}:{{ $.ImageTag }}

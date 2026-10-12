@@ -630,10 +630,10 @@ The following environment variables can be used to configure the KinD cluster se
 | `QUAY_REGISTRY` | Mirror prefix for images normally pulled from `quay.io`, preserving the repository path beneath it. |
 | `K8S_REGISTRY` | Mirror prefix for images normally pulled from `registry.k8s.io`, preserving the repository path beneath it. |
 | `AGENTGATEWAY_REGISTRY` | Mirror prefix for the agentgateway image. Defaults to `cr.agentgateway.dev`. |
-| `ECR_REGISTRY` | ECR registry host. Authenticates host-side image tools and configures an image-pull secret in KinD system and test namespaces when set. |
+| `ECR_REGISTRY` | ECR registry host. When set, generates a temporary Docker config and mounts it into every KinD node at `/var/lib/kubelet/config.json`. |
 | `GRPC_ECHO_IMAGE` | Full image reference for the optional C++ gRPC echo container. |
 
-The generated private-registry pull secret is named `ptc-image-secret`. Image repository names and tags remain fixed; registry overrides only replace the upstream registry prefix.
+The node credential mount is injected into the rendered KinD configuration only when `ECR_REGISTRY` is set. The checked-in KinD configurations also work without ECR credentials. Image repository names and tags remain fixed; registry overrides only replace the upstream registry prefix.
 
 ## Diagnosing Failures
 

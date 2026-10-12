@@ -179,30 +179,6 @@ export CI="true"
 export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 trace "init" make init
 
-if [[ -n "${ECR_REGISTRY:-}" ]]; then
-  IMAGE_PULL_SECRET_FILE=$(mktemp "${TMPDIR:-/tmp}/ptc-image-secret.XXXXXX.yaml")
-  export IMAGE_PULL_SECRET_FILE
-
-  xtrace_enabled=false
-  if [[ "$-" == *x* ]]; then
-    xtrace_enabled=true
-    set +x
-  fi
-  ecr_password=$(aws ecr get-login-password)
-  kubectl create secret docker-registry ptc-image-secret \
-    --docker-server="${ECR_REGISTRY}" \
-    --docker-username=AWS \
-    --docker-password="${ecr_password}" \
-    --dry-run=client \
-    --output=yaml > "${IMAGE_PULL_SECRET_FILE}"
-  unset ecr_password
-  if [[ "${xtrace_enabled}" == true ]]; then
-    set -x
-  fi
-
-  export INTEGRATION_TEST_FLAGS="${INTEGRATION_TEST_FLAGS:-} --istio.test.imagePullSecret=${IMAGE_PULL_SECRET_FILE}"
-fi
-
 BUILD_IMAGES_PID=""
 if [[ -n "${CI}" && -z "${SKIP_SETUP:-}" && -z "${SKIP_BUILD:-}" && -z "${DEVCONTAINER}" ]]; then
   trace "start kind registry" start_kind_registry

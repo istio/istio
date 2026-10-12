@@ -36,8 +36,6 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
     spec:
-      imagePullSecrets:
-      - name: myregistrykey
       containers:
       - name: istio-proxy
         image: auto

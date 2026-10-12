@@ -45,7 +45,6 @@ func TestXFFGateway(t *testing.T) {
 			}
 
 			templateParams := map[string]string{
-				"imagePullSecret": t.Settings().Image.PullSecret,
 				"injectLabel":     injectLabel,
 				"imagePullPolicy": t.Settings().Image.PullPolicy,
 			}
@@ -84,10 +83,6 @@ spec:
         istio: ingressgateway
         {{ .injectLabel }}
     spec:
-      {{- if ne .imagePullSecret "" }}
-      imagePullSecrets:
-      - name: {{ .imagePullSecret }}
-      {{- end }}
       containers:
       - name: istio-proxy
         image: auto
@@ -125,7 +120,6 @@ func TestProxyProtocolTCPGateway(t *testing.T) {
 			}
 
 			templateParams := map[string]string{
-				"imagePullSecret": t.Settings().Image.PullSecret,
 				"injectLabel":     injectLabel,
 				"imagePullPolicy": t.Settings().Image.PullPolicy,
 			}
@@ -166,10 +160,6 @@ spec:
         istio: ingressgateway
         {{ .injectLabel }}
     spec:
-      {{- if ne .imagePullSecret "" }}
-      imagePullSecrets:
-      - name: {{ .imagePullSecret }}
-      {{- end }}
       containers:
       - name: istio-proxy
         image: auto

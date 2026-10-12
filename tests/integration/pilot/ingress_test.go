@@ -457,7 +457,6 @@ func TestCustomGateway(t *testing.T) {
 			}
 
 			templateParams := map[string]string{
-				"imagePullSecret": t.Settings().Image.PullSecretNameOrFail(t),
 				"injectLabel":     injectLabel,
 				"host":            apps.A.Config().ClusterLocalFQDN(),
 				"imagePullPolicy": t.Settings().Image.PullPolicy,
@@ -495,10 +494,6 @@ spec:
         istio: custom
         {{ .injectLabel }}
     spec:
-      {{- if ne .imagePullSecret "" }}
-      imagePullSecrets:
-      - name: {{ .imagePullSecret }}
-      {{- end }}
       containers:
       - name: istio-proxy
         image: auto
@@ -565,10 +560,6 @@ spec:
         istio: custom
         {{ .injectLabel }}
     spec:
-      {{- if ne .imagePullSecret "" }}
-      imagePullSecrets:
-      - name: {{ .imagePullSecret }}
-      {{- end }}
       containers:
       - name: istio-proxy
         image: auto
