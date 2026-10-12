@@ -342,8 +342,9 @@ func DefaultSidecarScopeForWaypoint(ps *PushContext, configNamespace string) *Si
 	waypointEgressListener := &IstioEgressListenerWrapper{
 		virtualServices: ps.virtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
 	}
-	waypointEgressListener.configDependencies, waypointEgressListener.hasWildcardHosts =
-		buildEgressListenerConfigDependencies(waypointEgressListener.virtualServices, nil)
+	waypointEgressListener.configDependencies, waypointEgressListener.hasWildcardHosts = buildEgressListenerConfigDependencies(
+		waypointEgressListener.virtualServices, nil,
+	)
 	out.EgressListeners = []*IstioEgressListenerWrapper{waypointEgressListener}
 
 	return out
