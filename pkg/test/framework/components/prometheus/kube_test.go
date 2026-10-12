@@ -22,7 +22,7 @@ import (
 )
 
 func TestGetPrometheusYamlImageDefaults(t *testing.T) {
-	yaml, err := getPrometheusYaml()
+	yaml, err := getPrometheusYaml("")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestGetPrometheusYamlImageOverrides(t *testing.T) {
 	t.Setenv("QUAY_REGISTRY", prometheusHub)
 	t.Setenv("GHCR_REGISTRY", reloaderHub)
 
-	yaml, err := getPrometheusYaml()
+	yaml, err := getPrometheusYaml("")
 	if err != nil {
 		t.Fatal(err)
 	}
