@@ -556,9 +556,21 @@ func (r *JwksResolver) refresh(jwksURIBackgroundChannel bool) bool {
 				return
 			}
 			newPubKey := string(resp)
+			isNewKey, err := compareJWKSResponse(oldPubKey, newPubKey)
+			if err != nil {
+				hasErrors.Store(true)
+				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
+				return
+			}
+			// Keep the previously cached string when the keys are equivalent (e.g. only reordered), so the
+			// inline JWKS embedded in proxy configs stays byte-identical and does not trigger listener updates.
+			pubKeyToCache := oldPubKey
+			if isNewKey {
+				pubKeyToCache = newPubKey
+			}
 			if !r.updateCacheBucket(k, func(entry *jwtPubKeyEntry) {
 				entry.lastRefreshedTime = now
-				entry.pubKey = newPubKey
+				entry.pubKey = pubKeyToCache
 			}) {
 				// While unlikely, in the event we are unable to update the cached entry via compare and swap, forcefully write refreshed data to the cache.
 				log.Warnf("Failed to safely update cache for JWT public key from %q due to write contention, forcefully writing refreshed JWKs to cache", jwksURI)
@@ -572,18 +584,12 @@ func (r *JwksResolver) refresh(jwksURIBackgroundChannel bool) bool {
 
 				r.keyEntries.Store(k, jwtPubKeyEntry{
 					lastRefreshedTime: now,
-					pubKey:            newPubKey,
+					pubKey:            pubKeyToCache,
 					lastUsedTime:      lastUsedTime,
 					timeout:           timeout,
 				})
 			}
 
-			isNewKey, err := compareJWKSResponse(oldPubKey, newPubKey)
-			if err != nil {
-				hasErrors.Store(true)
-				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
-				return
-			}
 			if isNewKey {
 				hasChange.Store(true)
 				log.Infof("Updated cached JWT public key from %q", jwksURI)
