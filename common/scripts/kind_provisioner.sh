@@ -204,8 +204,8 @@ function setup_kind_cluster() {
   kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- 2>/dev/null || true
 
   if [[ -n "${ECR_REGISTRY:-}" ]]; then
-    configure_ecr_image_pull_secret "" default default
-    configure_ecr_image_pull_secret "" kube-system \
+    configure_ecr_image_pull_secret "${KUBECONFIG:-}" default default
+    configure_ecr_image_pull_secret "${KUBECONFIG:-}" kube-system \
       default calico-node calico-kube-controllers calico-cni-plugin metrics-server
   fi
 
@@ -214,7 +214,7 @@ function setup_kind_cluster() {
 
     "calico")
       echo "Installing Calico CNI"
-      install_calico "" "$(dirname "$CONFIG")"
+      install_calico "${KUBECONFIG:-}" "$(dirname "$CONFIG")"
       ;;
 
     "")
@@ -236,7 +236,7 @@ function setup_kind_cluster() {
 
   # Install Metallb if not set to install explicitly
   if [[ -z "${NOMETALBINSTALL}" ]]; then
-    retry install_metallb ""
+    retry install_metallb "${KUBECONFIG:-}"
   fi
 
   # IPv6 clusters need some CoreDNS changes in order to work in CI:
