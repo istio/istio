@@ -1329,7 +1329,7 @@ func getPodLocality(ctx krt.HandlerContext, Nodes krt.Collection[Node], pod *v1.
 	node := krt.FetchOne(ctx, Nodes, krt.FilterKey(pod.Spec.NodeName))
 	if node == nil {
 		if pod.Spec.NodeName != "" {
-			log.Warnf("unable to get node %q for pod %q/%q", pod.Spec.NodeName, pod.Namespace, pod.Name)
+			log.Debugf("unable to get node %q for pod %q/%q", pod.Spec.NodeName, pod.Namespace, pod.Name)
 		}
 		return nil
 	}
