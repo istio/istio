@@ -421,23 +421,6 @@ function install_metrics_server {
     "${CONFIG_DIR}"/metrics.yaml | kubectl apply -f -
 }
 
-function get_ecr_region {
-  if [[ -n "${AWS_REGION:-}" ]]; then
-    printf '%s\n' "${AWS_REGION}"
-    return
-  fi
-  if [[ -n "${AWS_DEFAULT_REGION:-}" ]]; then
-    printf '%s\n' "${AWS_DEFAULT_REGION}"
-    return
-  fi
-  if [[ "${ECR_REGISTRY:-}" =~ \.dkr\.ecr\.([^.]+)\. ]]; then
-    printf '%s\n' "${BASH_REMATCH[1]}"
-    return
-  fi
-  echo "Unable to determine AWS region from ECR_REGISTRY=${ECR_REGISTRY:-<unset>}" >&2
-  return 1
-}
-
 function configure_ecr_image_pull_secret() {
   local KUBECONFIG="${1}"
   local namespace="${2}"
@@ -456,7 +439,7 @@ function configure_ecr_image_pull_secret() {
       xtrace_enabled=true
       set +x
     fi
-    ecr_password=$(aws ecr get-login-password --region "$(get_ecr_region)")
+    ecr_password=$(aws ecr get-login-password)
     kubectl --kubeconfig="$KUBECONFIG" --namespace "$namespace" create secret docker-registry ptc-image-secret \
       --docker-server="${ECR_REGISTRY}" \
       --docker-username=AWS \

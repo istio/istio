@@ -109,7 +109,8 @@ func getPrometheusYaml(imagePullSecret string) (string, error) {
 }
 
 func installPrometheus(ctx resource.Context, ns string) error {
-	imagePullSecret, err := ctx.Settings().Image.PullSecretName()
+	imageSettings := ctx.Settings().Image
+	imagePullSecret, err := imageSettings.PullSecretName()
 	if err != nil {
 		return err
 	}
@@ -118,11 +119,16 @@ func installPrometheus(ctx resource.Context, ns string) error {
 		return err
 	}
 	yaml = strings.ReplaceAll(yaml, "namespace: istio-system", fmt.Sprintf("namespace: %s", ns))
-	if err := ctx.ConfigKube().YAML(ns, yaml).Apply(apply.NoCleanup); err != nil {
+	cfg := ctx.ConfigKube().New()
+	if imageSettings.PullSecret != "" {
+		cfg.File(ns, imageSettings.PullSecret)
+	}
+	cfg.YAML(ns, yaml)
+	if err := cfg.Apply(apply.NoCleanup); err != nil {
 		return err
 	}
 	ctx.CleanupConditionally(func() {
-		_ = ctx.ConfigKube().YAML(ns, yaml).Delete()
+		_ = cfg.Delete()
 	})
 	return nil
 }

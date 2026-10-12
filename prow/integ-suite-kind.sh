@@ -188,7 +188,7 @@ if [[ -n "${ECR_REGISTRY:-}" ]]; then
     xtrace_enabled=true
     set +x
   fi
-  ecr_password=$(aws ecr get-login-password --region "$(get_ecr_region)")
+  ecr_password=$(aws ecr get-login-password)
   kubectl create secret docker-registry ptc-image-secret \
     --docker-server="${ECR_REGISTRY}" \
     --docker-username=AWS \
