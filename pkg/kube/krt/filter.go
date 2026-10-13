@@ -55,7 +55,7 @@ type indexFilter struct {
 
 // indexLookup is an Index plus the key being looked up, with the types erased.
 type indexLookup interface {
-	list() any
+	listFiltered(any) any
 	matches(any) bool
 	key() string
 	extractKeys(any) []string
@@ -66,8 +66,8 @@ type typedIndexLookup[K comparable, I any] struct {
 	k   K
 }
 
-func (l *typedIndexLookup[K, I]) list() any {
-	return l.idx.Lookup(l.k)
+func (l *typedIndexLookup[K, I]) listFiltered(filter any) any {
+	return l.idx.LookupFiltered(l.k, filter.(func(I) bool))
 }
 
 func (l *typedIndexLookup[K, I]) matches(a any) bool {
