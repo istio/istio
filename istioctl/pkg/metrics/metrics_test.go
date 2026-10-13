@@ -208,7 +208,7 @@ func (client mockPromAPI) Snapshot(ctx context.Context, skipHead bool) (promv1.S
 	return promv1.SnapshotResult{}, nil
 }
 
-func (client mockPromAPI) Rules(ctx context.Context, ruleGroups []string) (promv1.RulesResult, error) {
+func (client mockPromAPI) Rules(ctx context.Context, matches []string) (promv1.RulesResult, error) {
 	return promv1.RulesResult{}, nil
 }
 
