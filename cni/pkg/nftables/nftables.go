@@ -400,7 +400,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 }
 
 // DeleteInpodRules removes nftables rules from a pod's network namespace
-func (cfg *NftablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
+func (cfg *NftablesConfigurator) DeleteInpodRules(log *istiolog.Scope, _ config.PodLevelOverrides) error {
 	log.Info("removing nftables inpod rules")
 
 	nft, err := cfg.nftProvider("", "")

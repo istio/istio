@@ -60,7 +60,7 @@ func TestIdempotentEquivalentInPodRerun(t *testing.T) {
 				t.Fatalf("failed to setup iptables configurator: %v", err)
 			}
 			defer func() {
-				assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log))
+				assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log, tt.podOverrides))
 				residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfiguratorPod.ext, builder, &iptConfiguratorPod.iptV, &iptConfiguratorPod.ipt6V)
 				assert.Equal(t, residueExists, false)
 				assert.Equal(t, deltaExists, true)
@@ -72,7 +72,7 @@ func TestIdempotentEquivalentInPodRerun(t *testing.T) {
 
 			t.Log("Starting cleanup")
 			// Cleanup, should work
-			assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log))
+			assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log, tt.podOverrides))
 			residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfiguratorPod.ext, builder, &iptConfiguratorPod.iptV, &iptConfiguratorPod.ipt6V)
 			assert.Equal(t, residueExists, false)
 			assert.Equal(t, deltaExists, true)
@@ -108,7 +108,7 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 			}
 
 			defer func() {
-				assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log))
+				assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log, tt.podOverrides))
 				residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfiguratorPod.ext, builder, &iptConfiguratorPod.iptV, &iptConfiguratorPod.ipt6V)
 				assert.Equal(t, residueExists, true)
 				assert.Equal(t, deltaExists, true)
