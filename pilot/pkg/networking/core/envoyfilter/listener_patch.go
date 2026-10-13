@@ -111,7 +111,7 @@ func patchListener(patchContext networking.EnvoyFilter_PatchContext,
 			// empty name means this listener will be removed, we can return directly.
 			lis.Name = ""
 			return
-		} else if isMergeOperation(lp.Operation) {
+		} else if model.IsMergeOperation(lp.Operation) {
 			mergePatchValue(lp.Operation, lis, lp.Value)
 		}
 	}
@@ -265,7 +265,7 @@ func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 			// nil means this filter chain will be removed, we can return directly.
 			fc.Filters = nil
 			return
-		} else if isMergeOperation(lp.Operation) {
+		} else if model.IsMergeOperation(lp.Operation) {
 			merged, err := mergeTransportSocketListener(fc, lp)
 			if err != nil {
 				log.Debugf("merge of transport socket failed for listener: %v", err)
@@ -308,7 +308,7 @@ func mergeTransportSocketListener(fc *listener.FilterChain, lp *model.EnvoyFilte
 
 		if dstListener != nil && srcPatch != nil {
 
-			retVal, errMerge := mergeAnyPatchValue(lp.Operation, dstListener, srcPatch)
+			retVal, errMerge := mergeAnyPatchValue(lp.Operation, dstListener, lp.TransportSocketTypedConfig)
 			if errMerge != nil {
 				return false, fmt.Errorf("function mergeAnyPatchValue failed for doFilterChainOperation: %v", errMerge)
 			}
@@ -404,7 +404,7 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 			IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, false)
 			continue
 		}
-		if isMergeOperation(lp.Operation) {
+		if model.IsMergeOperation(lp.Operation) {
 			// proto merge doesn't work well when merging two filters with ANY typed configs
 			// especially when the incoming cp.Value is a struct that could contain the json config
 			// of an ANY typed filter. So convert our filter's typed config to Struct (retaining the any
@@ -426,7 +426,7 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 			var retVal *anypb.Any
 			if userFilter.GetTypedConfig() != nil {
 				IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, true)
-				if retVal, err = mergeAnyPatchValue(lp.Operation, filter.GetTypedConfig(), userFilter.GetTypedConfig()); err != nil {
+				if retVal, err = mergeAnyPatchValue(lp.Operation, filter.GetTypedConfig(), lp.TypedConfig); err != nil {
 					retVal = filter.GetTypedConfig()
 				}
 			}
@@ -545,7 +545,7 @@ func mergeHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 			IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 			continue
 		}
-		if isMergeOperation(lp.Operation) {
+		if model.IsMergeOperation(lp.Operation) {
 			// proto merge doesn't work well when merging two filters with ANY typed configs
 			// especially when the incoming cp.Value is a struct that could contain the json config
 			// of an ANY typed filter. So convert our filter's typed config to Struct (retaining the any
@@ -566,7 +566,7 @@ func mergeHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 			}
 			var retVal *anypb.Any
 			if userHTTPFilter.GetTypedConfig() != nil {
-				if retVal, err = mergeAnyPatchValue(lp.Operation, httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {
+				if retVal, err = mergeAnyPatchValue(lp.Operation, httpFilter.GetTypedConfig(), lp.TypedConfig); err != nil {
 					retVal = httpFilter.GetTypedConfig()
 				}
 			}
@@ -596,7 +596,7 @@ func mergeListenerFilter(lp *model.EnvoyFilterConfigPatchWrapper, lisFilter *lis
 		retVal *anypb.Any
 	)
 	if userListenerFilter.GetTypedConfig() != nil {
-		if retVal, err = mergeAnyPatchValue(lp.Operation, lisFilter.GetTypedConfig(), userListenerFilter.GetTypedConfig()); err != nil {
+		if retVal, err = mergeAnyPatchValue(lp.Operation, lisFilter.GetTypedConfig(), lp.TypedConfig); err != nil {
 			retVal = lisFilter.GetTypedConfig()
 		}
 	}

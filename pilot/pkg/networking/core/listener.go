@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,6 +58,7 @@ import (
 	secconst "istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -311,6 +313,9 @@ type outboundListenerEntry struct {
 	locked   bool
 	chains   []*filterChainOpts
 	protocol protocol.Instance
+
+	// chainMatchKeys holds the match keys of chains, managed by mergeTCPFilterChains to detect conflicting chains.
+	chainMatchKeys sets.Set[filterChainMatchKey]
 }
 
 func protocolName(p protocol.Instance) string {
@@ -550,9 +555,10 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// per-pod CIDR differs), so resolve them once and reuse the result to avoid
 							// O(pods * virtualServices) host-matching. Compute lazily here, after the guards,
 							// so services with no usable endpoints do no work. getConfigsForHost never returns
-							// nil, so a nil field means "not yet computed".
+							// nil, so a nil field means "not yet computed". Network filters are likewise built once.
 							if listenerOpts.precomputedTCPConfigs == nil {
 								listenerOpts.precomputedTCPConfigs = getConfigsForHost("", service.Hostname, virtualServices)
+								listenerOpts.precomputedNetworkFilters = &precomputedNetworkFilters{lb: lb, filters: map[networkFiltersKey][]*listener.Filter{}}
 							}
 
 							if features.EnableHeadlessFilterChainListener && servicePort.Protocol.IsTCP() {
@@ -589,10 +595,9 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 
 func finalizeOutboundListeners(lb *ListenerBuilder, listenerMap map[listenerKey]*outboundListenerEntry) []*listener.Listener {
 	listeners := make([]*listener.Listener, 0, len(listenerMap))
+	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(lb.push, lb.node)
 	for _, le := range listenerMap {
-		// TODO: this could be outside the loop, but we would get object sharing in EnvoyFilter patches.
-		fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(lb.push, lb.node)
-		l := buildListenerFromEntry(lb, le, fallthroughNetworkFilters)
+		l := buildListenerFromEntry(lb, le, lb.copyFilters(fallthroughNetworkFilters))
 		listeners = append(listeners, l)
 	}
 	return listeners
@@ -836,9 +841,9 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 	}
 
 	out = append(out, buildSidecarOutboundTLSFilterChainOpts(opts.proxy, opts.push, opts.cidr, opts.service,
-		opts.bind.Primary(), opts.port, meshGateway, svcConfigs, opts.headlessPodCIDR)...)
+		opts.bind.Primary(), opts.port, meshGateway, svcConfigs, opts.headlessPodCIDR, opts.precomputedNetworkFilters)...)
 	out = append(out, buildSidecarOutboundTCPFilterChainOpts(opts.proxy, opts.push, opts.cidr, opts.service,
-		opts.port, meshGateway, svcConfigs)...)
+		opts.port, meshGateway, svcConfigs, opts.precomputedNetworkFilters)...)
 	return out
 }
 
@@ -1174,6 +1179,44 @@ type outboundListenerOpts struct {
 	// buildSidecarOutboundListeners) skip repeating the O(len(virtualServices)) host-matching
 	// scan for every pod, since the result is identical for every pod of that service+port.
 	precomputedTCPConfigs []*config.Config
+
+	// precomputedNetworkFilters, if non-nil, caches the network filters built for this
+	// service+port, as they are identical for every pod.
+	precomputedNetworkFilters *precomputedNetworkFilters
+}
+
+type precomputedNetworkFilters struct {
+	lb      *ListenerBuilder
+	filters map[networkFiltersKey][]*listener.Filter
+}
+
+// networkFiltersKey identifies the route the filters are built for, e.g. {cfg: vs, route: vs.Tcp[0]}.
+// The zero key {} is the service's default destination.
+type networkFiltersKey struct {
+	cfg   *config.Config
+	route any // *v1alpha3.TCPRoute or *v1alpha3.TLSRoute
+}
+
+// getOrBuild returns a copy of the filters for key, building them on first use.
+func (p *precomputedNetworkFilters) getOrBuild(key networkFiltersKey, build func() []*listener.Filter) []*listener.Filter {
+	if p == nil {
+		return build()
+	}
+	filters, found := p.filters[key]
+	if !found {
+		filters = build()
+		p.filters[key] = filters
+	}
+	return p.lb.copyFilters(filters)
+}
+
+// copyFilters returns a new slice, as EnvoyFilter patches add and replace filters in it. NETWORK_FILTER
+// patches also modify filters in place, so filters are cloned if the proxy has any.
+func (lb *ListenerBuilder) copyFilters(filters []*listener.Filter) []*listener.Filter {
+	if lb.envoyFilterWrapper == nil || len(lb.envoyFilterWrapper.Patches[networking.EnvoyFilter_NETWORK_FILTER]) == 0 {
+		return slices.Clone(filters)
+	}
+	return slices.Map(filters, protomarshal.Clone[*listener.Filter])
 }
 
 // buildGatewayListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
@@ -1283,59 +1326,66 @@ func (chain *filterChainOpts) isMatchAll() bool {
 		len(chain.destinationCIDRs) == 0
 }
 
-func (chain *filterChainOpts) conflictsWith(other *filterChainOpts) bool {
-	a, b := chain, other
-	if a == nil || b == nil {
-		return a == b
-	}
-	if a.transportProtocol != b.transportProtocol {
-		return false
-	}
-	if !slices.Equal(a.applicationProtocols, b.applicationProtocols) {
-		return false
+// filterChainMatchKey is equal for two filter chains iff their matches conflict,
+// e.g. {transportProtocol: "tls", sniHosts: "5:a.com5:b.com", destinationCIDR: 10.0.0.1/32}.
+type filterChainMatchKey struct {
+	transportProtocol    string
+	applicationProtocols string
+	sniHosts             string
+	// Set instead of destinationCIDRs for a single CIDR, avoiding string encoding.
+	destinationCIDR  netip.Prefix
+	destinationCIDRs string
+}
+
+func (chain *filterChainOpts) matchKey() filterChainMatchKey {
+	key := filterChainMatchKey{
+		transportProtocol:    chain.transportProtocol,
+		applicationProtocols: matchValuesKey(chain.applicationProtocols),
 	}
 	// SNI order does not matter, and we ignore * entries
-	sniSet := func(sni []string) sets.String {
-		if len(sni) == 0 {
-			return nil
-		}
-		res := sets.NewWithLength[string](len(sni))
-		for _, s := range sni {
-			if s == "*" {
-				continue
-			}
-			res.Insert(s)
-		}
-		return res
-	}
-	if !sniSet(a.sniHosts).Equals(sniSet(b.sniHosts)) {
-		return false
+	if len(chain.sniHosts) > 0 {
+		sni := sets.New(chain.sniHosts...)
+		sni.Delete("*")
+		key.sniHosts = matchValuesKey(sets.SortedList(sni))
 	}
 
 	// Order doesn't matter. Make sure we properly handle overlapping prefixes though
 	// eg: 1.2.3.4/8 is the same as 1.5.6.7/8.
-	cidrSet := func(cidrs []string) sets.String {
-		if len(cidrs) == 0 {
-			return nil
+	var buf [4]netip.Prefix
+	cidrs := buf[:0]
+	for _, s := range chain.destinationCIDRs {
+		prefix, err := util.AddrStrToPrefix(s)
+		if err != nil || prefix.Addr() == netip.IPv4Unspecified() {
+			continue
 		}
-		res := sets.NewWithLength[string](len(cidrs))
-		for _, s := range cidrs {
-			prefix, err := util.AddrStrToPrefix(s)
-			if err != nil {
-				continue
-			}
-			if prefix.Addr().String() == constants.UnspecifiedIP {
-				continue
-			}
-
-			if s == "*" {
-				continue
-			}
-			res.Insert(prefix.Masked().String())
-		}
-		return res
+		cidrs = append(cidrs, prefix.Masked())
 	}
-	return cidrSet(a.destinationCIDRs).Equals(cidrSet(b.destinationCIDRs))
+	slices.SortFunc(cidrs, netip.Prefix.Compare)
+	unique := cidrs[:0]
+	for i, cidr := range cidrs {
+		if i == 0 || cidr != cidrs[i-1] {
+			unique = append(unique, cidr)
+		}
+	}
+	switch len(unique) {
+	case 0:
+	case 1:
+		key.destinationCIDR = unique[0]
+	default:
+		key.destinationCIDRs = matchValuesKey(slices.Map(unique, netip.Prefix.String))
+	}
+	return key
+}
+
+// matchValuesKey length-prefixes each value so distinct lists never collide, e.g. ["a", "bc"] -> "1:a2:bc".
+func matchValuesKey(values []string) string {
+	var b strings.Builder
+	for _, v := range values {
+		b.WriteString(strconv.Itoa(len(v)))
+		b.WriteByte(':')
+		b.WriteString(v)
+	}
+	return b.String()
 }
 
 func (chain *filterChainOpts) toFilterChainMatch() *listener.FilterChainMatch {
@@ -1369,58 +1419,51 @@ func (chain *filterChainOpts) toFilterChainMatch() *listener.FilterChainMatch {
 }
 
 func mergeTCPFilterChains(current *outboundListenerEntry, incoming []*filterChainOpts, opts outboundListenerOpts) {
-	// TODO(rshriram) merge multiple identical filter chains with just a single destination CIDR based
-	// filter chain match, into a single filter chain and array of destinationcidr matches
+	// Identical filter chains are not combined into one chain with many CIDRs: it would change on
+	// every endpoint update, and Envoy would drain connections to all of its endpoints.
 
 	// The code below checks for TCP over TCP conflicts and merges listeners
 
 	// Merge the newly built listener with the existing listener, if and only if the filter chains have distinct conditions.
-	// Extract the current filter chain matches, for every new filter chain match being added, check if there is a matching
+	// Index the current filter chain matches, for every new filter chain match being added, check if there is a matching
 	// one in previous filter chains, if so, skip adding this filter chain with a warning.
-
-	merged := make([]*filterChainOpts, 0, len(current.chains)+len(incoming))
-	// Start with the current listener's filter chains.
-	merged = append(merged, current.chains...)
-
-	for _, incoming := range incoming {
-		conflict := false
-
-		for _, existing := range merged {
-			conflict = existing.conflictsWith(incoming)
-
-			if conflict {
-				// NOTE: While pluginParams.Service can be nil,
-				// this code cannot be reached if Service is nil because a pluginParams.Service can be nil only
-				// for user defined Egress listeners with ports. And these should occur in the API before
-				// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
-				// User is also not allowed to add duplicate ports in the egress listener
-				var newHostname host.Name
-				if opts.service != nil {
-					newHostname = opts.service.Hostname
-				} else {
-					// user defined outbound listener via sidecar API
-					newHostname = "sidecar-config-egress-tcp-listener"
-				}
-
-				outboundListenerConflict{
-					metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
-					node:            opts.proxy,
-					listenerName:    getListenerName(opts.bind.Primary(), opts.port.Port, istionetworking.TransportProtocolTCP),
-					currentProtocol: current.servicePort.Protocol,
-					newHostname:     newHostname,
-					newProtocol:     opts.port.Protocol,
-				}.addMetric(opts.push)
-				break
-			}
-		}
-
-		if !conflict {
-			// There is no conflict with any filter chain in the existing listener.
-			// So append the new filter chains to the existing listener's filter chains
-			merged = append(merged, incoming)
+	if current.chainMatchKeys == nil {
+		current.chainMatchKeys = sets.NewWithLength[filterChainMatchKey](len(current.chains) + len(incoming))
+		for _, existing := range current.chains {
+			current.chainMatchKeys.Insert(existing.matchKey())
 		}
 	}
-	current.chains = merged
+
+	for _, incoming := range incoming {
+		if current.chainMatchKeys.InsertContains(incoming.matchKey()) {
+			// NOTE: While pluginParams.Service can be nil,
+			// this code cannot be reached if Service is nil because a pluginParams.Service can be nil only
+			// for user defined Egress listeners with ports. And these should occur in the API before
+			// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
+			// User is also not allowed to add duplicate ports in the egress listener
+			var newHostname host.Name
+			if opts.service != nil {
+				newHostname = opts.service.Hostname
+			} else {
+				// user defined outbound listener via sidecar API
+				newHostname = "sidecar-config-egress-tcp-listener"
+			}
+
+			outboundListenerConflict{
+				metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
+				node:            opts.proxy,
+				listenerName:    getListenerName(opts.bind.Primary(), opts.port.Port, istionetworking.TransportProtocolTCP),
+				currentProtocol: current.servicePort.Protocol,
+				newHostname:     newHostname,
+				newProtocol:     opts.port.Protocol,
+			}.addMetric(opts.push)
+			continue
+		}
+
+		// There is no conflict with any filter chain in the existing listener.
+		// So append the new filter chains to the existing listener's filter chains
+		current.chains = append(current.chains, incoming)
+	}
 }
 
 // isConflictWithWellKnownPort checks conflicts between incoming protocol and existing protocol.

@@ -385,7 +385,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	if d.namespaces != nil {
 		ns = d.namespaces.Get(gw.Namespace, "")
 	}
-	proxyUID, proxyGID := inject.GetProxyIDs(ns)
+	proxyUID, proxyGID := inject.GetProxyIDs(ns, nil, nil)
 
 	defaultName := GetDefaultName(gw.Name, &gw.Spec, gi.DisableNameSuffix)
 

@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** configuration dependency filtering for gateways to exclude unrelated configuration updates.
+    Gateway scope construction also skips collecting mesh VirtualServices used only for waypoint routing.

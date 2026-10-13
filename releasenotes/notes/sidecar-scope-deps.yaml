@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Optimized** istiod memory and CPU used by sidecar scopes. Service and DestinationRule
+    dependencies are now derived from the scope's existing indexes instead of a per-service hash
+    set.

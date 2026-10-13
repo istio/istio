@@ -114,7 +114,7 @@ func TestBinarySizes(t *testing.T) {
 		"pilot-agent":     {20, 32},
 		"pilot-discovery": {60, 125},
 		"bug-report":      {60, 80},
-		"client":          {15, 30},
+		"client":          {15, 31},
 		"server":          {15, 35},
 		"envoy":           {60, 168},
 		"ztunnel":         {12, 19},

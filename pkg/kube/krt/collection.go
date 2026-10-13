@@ -718,6 +718,7 @@ func (h *manyCollection[I, O]) runQueue() {
 		h.mu.Unlock()
 	}()
 
+	setProfilerLabels(h.collectionName)
 	h.queue.Run(h.stop)
 }
 

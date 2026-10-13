@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Optimized** configuration pushes to gateways. Istiod now tracks the `VirtualService` resources
+    bound to the `Gateway` resources that each ingress gateway or ambient east-west gateway serves, and
+    only pushes a `VirtualService` change to the gateways it is bound to, instead of to every gateway in
+    the mesh. This also optimizes CDS and RDS generation for gateways.

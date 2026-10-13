@@ -46,6 +46,10 @@ func (t *collection[T]) Fetch(ctx HandlerContext, opts ...FetchOption) []T {
 	return Fetch(ctx, t, opts...)
 }
 
+func (t *collection[T]) FetchSorted(ctx HandlerContext, opts ...FetchOption) []T {
+	return FetchSorted(ctx, t, opts...)
+}
+
 func (t *collection[T]) FetchOne(ctx HandlerContext, opts ...FetchOption) *T {
 	return FetchOne(ctx, t, opts...)
 }

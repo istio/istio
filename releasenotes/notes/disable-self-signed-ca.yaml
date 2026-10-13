@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+releaseNotes:
+- |
+  **Added** `PILOT_DISABLE_SELF_SIGNED_CA` environment variable to istiod. When set to `true`, istiod fails to start its CA
+  instead of generating or reusing a self-signed root CA (`istio-ca-secret`) when no plugged-in `cacerts` bundle is present.
+  This allows deployments that must only use a plugged-in CA to fail closed rather than falling back to
+  an unintended self-signed root. The default is `false`.

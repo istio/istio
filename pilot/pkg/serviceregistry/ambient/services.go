@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
@@ -152,7 +153,7 @@ func selectWorkloadServices(typedServiceInfos []*TypedServiceInfo) []*model.Serv
 }
 
 func GlobalNestedWorkloadServicesCollection(
-	localCluster *multicluster.Cluster,
+	localCluster multicluster.ClusterCollections,
 	localServiceInfos krt.Collection[*model.ServiceInfo],
 	localWaypoints krt.Collection[Waypoint],
 	ctrl *multicluster.Controller,
@@ -167,7 +168,7 @@ func GlobalNestedWorkloadServicesCollection(
 	// This will contain the serviceinfos derived from Services AND ServiceEntries
 	LocalServiceInfosWithCluster := krt.MapCollection(
 		localServiceInfos,
-		wrapPointerObjectWithCluster[model.ServiceInfo](localCluster.ID),
+		wrapPointerObjectWithCluster[model.ServiceInfo](localCluster.ID()),
 		opts.WithName("LocalServiceInfosWithCluster")...,
 	)
 
@@ -177,15 +178,15 @@ func GlobalNestedWorkloadServicesCollection(
 	return multicluster.NestedCollectionFromLocalAndRemote(
 		ctrl,
 		LocalServiceInfosWithCluster,
-		func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]] {
+		func(ctx krt.HandlerContext, cluster multicluster.ClusterCollections) *krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]] {
 			opts := []krt.CollectionOption{
 				krt.WithDebugging(opts.Debugger()),
 				krt.WithStop(cluster.GetStop()),
 			}
 			services := cluster.Services()
-			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
+			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID()))
 			if waypointsPtr == nil {
-				log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID)
+				log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID())
 				return nil
 			}
 			waypoints := *waypointsPtr
@@ -204,18 +205,18 @@ func GlobalNestedWorkloadServicesCollection(
 			),
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("ambient/ServiceServiceInfos[%s]", cluster.ID)),
+					krt.WithName(fmt.Sprintf("ambient/ServiceServiceInfos[%s]", cluster.ID())),
 					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: cluster.ID,
+						multicluster.ClusterKRTMetadataKey: cluster.ID(),
 					}),
 				)...)
 
 			servicesInfoWithCluster := krt.MapCollection(
 				servicesInfo,
-				wrapPointerObjectWithCluster[model.ServiceInfo](cluster.ID),
+				wrapPointerObjectWithCluster[model.ServiceInfo](cluster.ID()),
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID)),
+					krt.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID())),
 				)...,
 			)
 			return ptr.Of(servicesInfoWithCluster)
@@ -330,6 +331,10 @@ func typedServiceServiceBuilder(
 }
 
 func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namespace], s *v1.Service) model.ServiceScope {
+	// The kubernetes API server service is always cluster-local; each cluster has its own API server.
+	if s.Namespace == metav1.NamespaceDefault && s.Name == "kubernetes" {
+		return model.Local
+	}
 	// Apply label selectors from the MeshConfig's servieScopeConfig to determine the scope of the service based on the namespace
 	// or service label matches
 	// Check if the service matches any label selectors defined in the meshConfig's serviceScopeConfig.

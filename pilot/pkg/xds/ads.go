@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	pm "istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/xds"
 )
@@ -437,13 +438,16 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			}
 		}
 	}
-	// compute the sidecarscope for both proxy type whenever it changes.
-	if shouldResetSidecarScope {
-		proxy.SetSidecarScope(push)
-	}
 	// only compute gateways for "router" type proxy and E/W gateway waypoints.
 	if shouldResetGateway && (proxy.Type == model.Router || proxy.IsAmbientEastWestGateway()) {
 		proxy.SetGatewaysForProxy(push)
+		if !slices.Equal(proxy.MergedGateway.GetGatewayNames(), proxy.PrevMergedGateway.GetGatewayNames()) {
+			shouldResetSidecarScope = true
+		}
+	}
+	// Router and east-west gateway scopes depend on the gateway set, we recompute sidecar scope after.
+	if shouldResetSidecarScope {
+		proxy.SetSidecarScope(push)
 	}
 	proxy.LastPushContext = push
 	if request != nil {

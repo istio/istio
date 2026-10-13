@@ -120,18 +120,18 @@ func buildGlobalNetworkCollections(
 	GlobalNetworkGateways := multicluster.NestedCollectionFromLocalAndRemote(
 		ctrl,
 		localNetworkGateways,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[NetworkGateway]] {
+		func(ctx krt.HandlerContext, c multicluster.ClusterCollections) *krt.Collection[krt.ObjectWithCluster[NetworkGateway]] {
 			opts := []krt.CollectionOption{
-				krt.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID)),
+				krt.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID())),
 				krt.WithDebugging(opts.Debugger()),
 				krt.WithStop(c.GetStop()),
 				krt.WithMetadata(krt.Metadata{
-					multicluster.ClusterKRTMetadataKey: c.ID,
+					multicluster.ClusterKRTMetadataKey: c.ID(),
 				}),
 			}
-			gatewaysPtr := krt.FetchOne(ctx, gateways, krt.FilterIndex(gatewaysByCluster, c.ID))
+			gatewaysPtr := krt.FetchOne(ctx, gateways, krt.FilterIndex(gatewaysByCluster, c.ID()))
 			if gatewaysPtr == nil {
-				log.Warnf("No gateways found for cluster %s", c.ID)
+				log.Warnf("No gateways found for cluster %s", c.ID())
 				return nil
 			}
 			gateways := *gatewaysPtr
@@ -144,7 +144,7 @@ func buildGlobalNetworkCollections(
 					if innerGw == nil {
 						return nil
 					}
-					return k8sGatewayToNetworkGatewaysWithCluster(c.ID, innerGw, options.ClusterID)
+					return k8sGatewayToNetworkGatewaysWithCluster(c.ID(), innerGw, options.ClusterID)
 				},
 				opts...,
 			)

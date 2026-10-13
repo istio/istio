@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -358,6 +359,47 @@ func TestDebounce(t *testing.T) {
 			close(stopCh)
 			wg.Wait()
 		})
+	}
+}
+
+func TestShouldDebounce(t *testing.T) {
+	for _, enableEDS := range []bool{true, false} {
+		for _, enableWDS := range []bool{true, false} {
+			t.Run(fmt.Sprintf("EDS=%v/WDS=%v", enableEDS, enableWDS), func(t *testing.T) {
+				opts := DebounceOptions{
+					enableEDSDebounce: enableEDS,
+					enableWDSDebounce: enableWDS,
+				}
+				for _, tt := range []struct {
+					name         string
+					kinds        []kind.Kind
+					forced       bool
+					wantDebounce bool
+				}{
+					{name: "EDS", kinds: []kind.Kind{kind.Endpoints}, wantDebounce: enableEDS},
+					{name: "WDS", kinds: []kind.Kind{kind.Address}, wantDebounce: enableWDS},
+					{name: "multiple addresses", kinds: []kind.Kind{kind.Address, kind.Address}, wantDebounce: enableWDS},
+					{name: "forced EDS", kinds: []kind.Kind{kind.Endpoints}, forced: true, wantDebounce: true},
+					{name: "forced WDS", kinds: []kind.Kind{kind.Address}, forced: true, wantDebounce: true},
+					{name: "EDS and WDS", kinds: []kind.Kind{kind.Endpoints, kind.Address}, wantDebounce: enableEDS || enableWDS},
+					{name: "forced EDS and WDS", kinds: []kind.Kind{kind.Endpoints, kind.Address}, forced: true, wantDebounce: true},
+					{name: "EDS and config", kinds: []kind.Kind{kind.Endpoints, kind.ServiceEntry}, wantDebounce: true},
+					{name: "WDS and config", kinds: []kind.Kind{kind.Address, kind.ServiceEntry}, wantDebounce: true},
+					{name: "EDS and WDS and config", kinds: []kind.Kind{kind.Endpoints, kind.Address, kind.ServiceEntry}, wantDebounce: true},
+					{name: "config", kinds: []kind.Kind{kind.ServiceEntry}, wantDebounce: true},
+					{name: "no configs", wantDebounce: true},
+				} {
+					t.Run(tt.name, func(t *testing.T) {
+						configs := sets.New[model.ConfigKey]()
+						for i, k := range tt.kinds {
+							configs.Insert(model.ConfigKey{Kind: k, Name: fmt.Sprintf("test-%d", i)})
+						}
+						req := &model.PushRequest{ConfigsUpdated: configs, Forced: tt.forced}
+						assert.Equal(t, opts.shouldDebounce(req), tt.wantDebounce)
+					})
+				}
+			})
+		}
 	}
 }
 

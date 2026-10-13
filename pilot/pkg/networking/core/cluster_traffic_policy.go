@@ -319,7 +319,7 @@ func applyLoadBalancer(
 	locality *core.Locality,
 	proxyLabels map[string]string,
 	meshConfig *meshconfig.MeshConfig,
-	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
+	wrappedLocalityLbEndpoints []*loadbalancer.WrappedLocalityLbEndpoints,
 	proxyType model.NodeType,
 	proxyID string,
 	enableSelfDiscovery bool,

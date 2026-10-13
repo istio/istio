@@ -116,6 +116,10 @@ type Client interface {
 	// RESTConfig returns the Kubernetes rest.Config used to configure the clients.
 	RESTConfig() *rest.Config
 
+	// RawRESTClient returns a shared REST client rooted at the Kubernetes server URL.
+	// This may be nil for fake clients.
+	RawRESTClient() rest.Interface
+
 	// Ext returns the API extensions client.
 	Ext() kubeExtClient.Interface
 
@@ -324,7 +328,7 @@ func NewErroringFakeClient(objects ...runtime.Object) CLIClient {
 	s := FakeIstioScheme.MustGet()
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
-	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
+	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(fakeDynamicScheme.MustGet(), nil)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
 	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)                     //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
 	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects) //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
@@ -393,7 +397,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	s := FakeIstioScheme.MustGet()
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
-	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
+	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(fakeDynamicScheme.MustGet(), nil)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
 	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)                     //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
 	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects) //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
@@ -543,6 +547,7 @@ type client struct {
 	// These may be set only when creating an extended client.
 	revision              string
 	restClient            *rest.RESTClient
+	rawRestClient         *rest.RESTClient
 	discoveryClient       discovery.CachedDiscoveryInterface
 	mapper                meta.ResettableRESTMapper
 	defaultApplyNamespace string
@@ -585,6 +590,13 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 	c.restHTTPClient = &httpClient
 
 	c.restClient, err = rest.RESTClientForConfigAndClient(c.config, c.restHTTPClient)
+	if err != nil {
+		return nil, err
+	}
+	rawConfig := rest.CopyConfig(c.config)
+	rawConfig.APIPath = ""
+	rawConfig.GroupVersion = &schema.GroupVersion{}
+	c.rawRestClient, err = rest.UnversionedRESTClientForConfigAndClient(rawConfig, c.restHTTPClient)
 	if err != nil {
 		return nil, err
 	}
@@ -735,6 +747,15 @@ func (c *client) RESTConfig() *rest.Config {
 	}
 	cpy := *c.config
 	return &cpy
+}
+
+// RawRESTClient returns a shared REST client rooted at the Kubernetes server URL.
+func (c *client) RawRESTClient() rest.Interface {
+	if c.rawRestClient == nil {
+		// Avoid returning a typed nil
+		return nil
+	}
+	return c.rawRestClient
 }
 
 func (c *client) Ext() kubeExtClient.Interface {
@@ -1498,6 +1519,25 @@ var (
 	IstioScheme = istioScheme()
 	IstioCodec  = serializer.NewCodecFactory(IstioScheme)
 )
+
+// fakeDynamicScheme is the unstructured counterpart of FakeIstioScheme, which
+// dynamicfake.NewSimpleDynamicClient would otherwise rebuild for every fake client.
+// The fake dynamic client only reads its scheme, so all fake clients can share it.
+var fakeDynamicScheme = lazy.New(func() (*runtime.Scheme, error) {
+	s := FakeIstioScheme.MustGet()
+	us := runtime.NewScheme()
+	for gvk := range s.AllKnownTypes() {
+		if us.Recognizes(gvk) {
+			continue
+		}
+		if strings.HasSuffix(gvk.Kind, "List") {
+			us.AddKnownTypeWithName(gvk, &unstructured.UnstructuredList{})
+			continue
+		}
+		us.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+	}
+	return us, nil
+})
 
 // FakeIstioScheme is an IstioScheme that has List type registered.
 var FakeIstioScheme = lazy.New(func() (*runtime.Scheme, error) {

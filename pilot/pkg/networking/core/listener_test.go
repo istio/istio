@@ -1199,6 +1199,478 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	}
 }
 
+func headlessTestService(name string, p protocol.Instance, age time.Duration) *model.Service {
+	s := buildServiceWithPort(name, 8080, p, tnow.Add(age))
+	s.Resolution = model.Passthrough
+	s.Attributes.ServiceRegistry = provider.Kubernetes
+	return s
+}
+
+func headlessTestListeners(t *testing.T, services []*model.Service, instances []*model.ServiceInstance, configs ...config.Config) []*listener.Listener {
+	t.Helper()
+	cg := NewConfigGenTest(t, TestOptions{Services: services, Instances: instances, Configs: configs})
+	p := cg.SetupProxy(getProxy())
+	listeners := NewListenerBuilder(p, cg.env.PushContext()).buildSidecarOutboundListeners(p, cg.env.PushContext())
+	xdstest.ValidateListeners(t, listeners)
+	return listeners
+}
+
+func headlessTestCluster(t *testing.T, chain *listener.FilterChain) string {
+	t.Helper()
+	for _, filter := range chain.Filters {
+		if filter.Name == wellknown.TCPProxy {
+			cfg := &tcp.TcpProxy{}
+			assert.NoError(t, filter.GetTypedConfig().UnmarshalTo(cfg))
+			return cfg.GetCluster()
+		}
+	}
+	t.Fatal("missing TCP proxy")
+	return ""
+}
+
+func TestHeadlessFilterChainSharedPortConflict(t *testing.T) {
+	test.SetForTest(t, &features.EnableHeadlessFilterChainListener, true)
+	for _, age := range []time.Duration{-time.Second, time.Second} {
+		t.Run(fmt.Sprint(age), func(t *testing.T) {
+			h := headlessTestService("headless.test", protocol.TCP, 0)
+			s := buildService("ordinary.test", "10.0.0.2/32", protocol.TCP, tnow.Add(age))
+			listeners := headlessTestListeners(t, []*model.Service{h, s}, []*model.ServiceInstance{
+				buildServiceInstance(h, "10.0.0.2"), buildServiceInstance(h, "10.0.0.3"),
+			})
+			l := xdstest.ExtractListener("0.0.0.0_8080", listeners)
+			if l == nil {
+				t.Fatal("missing wildcard listener")
+			}
+			seen := map[string]string{}
+			for _, fc := range l.FilterChains {
+				for _, cidr := range fc.GetFilterChainMatch().PrefixRanges {
+					if _, found := seen[cidr.AddressPrefix]; found {
+						t.Fatalf("duplicate destination prefix across chains: %v", cidr)
+					}
+					seen[cidr.AddressPrefix] = headlessTestCluster(t, fc)
+				}
+			}
+			assert.Equal(t, len(seen), 2)
+			winner := "headless.test"
+			if age < 0 {
+				winner = "ordinary.test"
+			}
+			assert.Equal(t, seen["10.0.0.2"], "outbound|8080||"+winner)
+			assert.Equal(t, seen["10.0.0.3"], "outbound|8080||headless.test")
+		})
+	}
+}
+
+func TestHeadlessFilterChainDistinctSNI(t *testing.T) {
+	test.SetForTest(t, &features.EnableHeadlessFilterChainListener, true)
+	a := headlessTestService("a.test", protocol.TLS, 0)
+	b := headlessTestService("b.test", protocol.TLS, time.Second)
+	vs := func(s *model.Service) config.Config {
+		return config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: string(s.Hostname), Namespace: "default"},
+			Spec: &networking.VirtualService{Hosts: []string{string(s.Hostname)}, Tls: []*networking.TLSRoute{{
+				Match: []*networking.TLSMatchAttributes{{SniHosts: []string{string(s.Hostname)}}},
+				Route: []*networking.RouteDestination{{Destination: &networking.Destination{Host: string(s.Hostname), Port: &networking.PortSelector{Number: 8080}}}},
+			}}},
+		}
+	}
+	listeners := headlessTestListeners(t, []*model.Service{a, b}, []*model.ServiceInstance{
+		buildServiceInstance(a, "10.0.0.2"), buildServiceInstance(b, "10.0.0.2"),
+	}, vs(a), vs(b))
+	found := map[string]string{}
+	for _, l := range listeners {
+		for _, fc := range l.FilterChains {
+			for _, sni := range fc.GetFilterChainMatch().ServerNames {
+				found[sni] = headlessTestCluster(t, fc)
+			}
+		}
+	}
+	assert.Equal(t, found, map[string]string{"a.test": "outbound|8080||a.test", "b.test": "outbound|8080||b.test"})
+}
+
+func TestHeadlessFilterChainSubnetMatches(t *testing.T) {
+	test.SetForTest(t, &features.EnableHeadlessFilterChainListener, true)
+	for _, shared := range []bool{false, true} {
+		t.Run(fmt.Sprintf("shared=%t", shared), func(t *testing.T) {
+			b := headlessTestService("b.test", protocol.TCP, 0)
+			services := []*model.Service{b}
+			instances := []*model.ServiceInstance{buildServiceInstance(b, "10.0.0.2"), buildServiceInstance(b, "10.0.0.3")}
+			subnet := "10.0.0.2"
+			if shared {
+				a := headlessTestService("a.test", protocol.TCP, -time.Second)
+				services = append(services, a)
+				instances = append(instances, buildServiceInstance(a, "10.0.0.2"))
+				subnet = "192.168.1.0/24"
+			}
+			vs := config.Config{
+				Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "b-route", Namespace: "default"},
+				Spec: &networking.VirtualService{Hosts: []string{"b.test"}, Tcp: []*networking.TCPRoute{{
+					Match: []*networking.L4MatchAttributes{{DestinationSubnets: []string{subnet}}},
+					Route: []*networking.RouteDestination{{Destination: &networking.Destination{Host: "b.test", Port: &networking.PortSelector{Number: 8080}}}},
+				}}},
+			}
+			listeners := headlessTestListeners(t, services, instances, vs)
+			found := map[string]string{}
+			for _, l := range listeners {
+				for _, fc := range l.FilterChains {
+					for _, cidr := range fc.GetFilterChainMatch().PrefixRanges {
+						if _, exists := found[cidr.AddressPrefix]; exists {
+							t.Fatalf("duplicate prefix: %v", cidr)
+						}
+						found[cidr.AddressPrefix] = headlessTestCluster(t, fc)
+					}
+				}
+			}
+			if shared {
+				assert.Equal(t, found["192.168.1.0"], "outbound|8080||b.test")
+			} else {
+				assert.Equal(t, found["10.0.0.2"], "outbound|8080||b.test")
+			}
+			assert.Equal(t, found["10.0.0.3"], "outbound|8080||b.test")
+		})
+	}
+}
+
+func TestHeadlessFilterChainDuplicateEndpoints(t *testing.T) {
+	test.SetForTest(t, &features.EnableHeadlessFilterChainListener, true)
+	h := headlessTestService("headless.test", protocol.TCP, 0)
+	listeners := headlessTestListeners(t, []*model.Service{h}, []*model.ServiceInstance{
+		buildServiceInstance(h, "10.0.0.2"), buildServiceInstance(h, "10.0.0.2"),
+		buildServiceInstance(h, "fd00::2"), buildServiceInstance(h, "fd00:0:0:0:0:0:0:2"),
+	})
+	l := xdstest.ExtractListener("0.0.0.0_8080", listeners)
+	if l == nil {
+		t.Fatal("missing wildcard listener")
+	}
+	// Each endpoint keeps its own chain; aliased duplicates are dropped.
+	assert.Equal(t, len(l.FilterChains), 2)
+	for _, chain := range l.FilterChains {
+		assert.Equal(t, len(chain.GetFilterChainMatch().PrefixRanges), 1)
+	}
+}
+
+// headlessTestEnvoyFilters returns an EnvoyFilter patching applyTo for the test proxy.
+func headlessTestEnvoyFilters(applyTo networking.EnvoyFilter_ApplyTo) []config.Config {
+	return getEnvoyFilterConfigs([]*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
+		ApplyTo: applyTo,
+		Match:   &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_SIDECAR_OUTBOUND},
+		Patch:   &networking.EnvoyFilter_Patch{Operation: networking.EnvoyFilter_Patch_MERGE, Value: buildPatchStruct(`{}`)},
+	}})
+}
+
+// Listeners share filters unless NETWORK_FILTER patches, which may mutate them, apply to the proxy.
+func TestPrecomputedNetworkFiltersListenerIsolation(t *testing.T) {
+	test.SetForTest(t, &features.EnableHeadlessFilterChainListener, false)
+	for _, p := range []protocol.Instance{protocol.TCP, protocol.TLS} {
+		for _, applyTo := range []networking.EnvoyFilter_ApplyTo{
+			networking.EnvoyFilter_INVALID, networking.EnvoyFilter_HTTP_FILTER, networking.EnvoyFilter_NETWORK_FILTER,
+		} {
+			t.Run(fmt.Sprintf("%s/envoyfilter=%s", p, applyTo), func(t *testing.T) {
+				var configs []config.Config
+				if applyTo != networking.EnvoyFilter_INVALID {
+					configs = headlessTestEnvoyFilters(applyTo)
+				}
+				cloned := applyTo == networking.EnvoyFilter_NETWORK_FILTER
+				h := headlessTestService("headless.test", p, 0)
+				listeners := headlessTestListeners(t, []*model.Service{h}, []*model.ServiceInstance{
+					buildServiceInstance(h, "10.0.0.2"), buildServiceInstance(h, "10.0.0.3"),
+				}, configs...)
+				assert.Equal(t, len(listeners), 2)
+				f1, f2 := listeners[0].FilterChains[0].Filters, listeners[1].FilterChains[0].Filters
+				if &f1[0] == &f2[0] {
+					t.Fatal("listeners share a filter slice")
+				}
+				for i := range f1 {
+					assert.Equal(t, f1[i] == f2[i], !cloned)
+				}
+				if cloned {
+					before := protomarshal.Clone(f2[0])
+					f1[0].Name = "mutated"
+					f1[0].GetTypedConfig().Value[0] ^= 1
+					assert.Equal(t, proto.Equal(f2[0], before), true)
+				}
+			})
+		}
+	}
+}
+
+func TestPrecomputedNetworkFiltersSNISelection(t *testing.T) {
+	test.SetForTest(t, &features.EnableHeadlessFilterChainListener, false)
+	h := headlessTestService("headless.test", protocol.TLS, 0)
+	listeners := headlessTestListeners(t, []*model.Service{h}, []*model.ServiceInstance{
+		buildServiceInstance(h, "0.0.0.0"), buildServiceInstance(h, "10.0.0.2"),
+	})
+	assert.Equal(t, len(listeners), 2)
+	wildcard := xdstest.ExtractListener("0.0.0.0_8080", listeners)
+	pod := xdstest.ExtractListener("10.0.0.2_8080", listeners)
+	if wildcard == nil || pod == nil {
+		t.Fatal("missing wildcard or pod listener")
+	}
+	// Filters are shared across pods, but SNI matches are still derived per pod.
+	assert.Equal(t, wildcard.FilterChains[0].GetFilterChainMatch().GetServerNames(), []string{"headless.test"})
+	assert.Equal(t, len(pod.FilterChains[0].GetFilterChainMatch().GetServerNames()), 0)
+}
+
+func TestPrecomputedNetworkFiltersChainIsolation(t *testing.T) {
+	test.SetForTest(t, &features.EnableHeadlessFilterChainListener, true)
+	for _, envoyFilters := range []bool{false, true} {
+		t.Run(fmt.Sprintf("envoyfilters=%t", envoyFilters), func(t *testing.T) {
+			testPrecomputedNetworkFiltersChainIsolation(t, envoyFilters)
+		})
+	}
+}
+
+func testPrecomputedNetworkFiltersChainIsolation(t *testing.T, envoyFilters bool) {
+	configs := []config.Config{}
+	if envoyFilters {
+		configs = headlessTestEnvoyFilters(networking.EnvoyFilter_NETWORK_FILTER)
+	}
+	h := headlessTestService("headless.test", protocol.TLS, 0)
+	vs := config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "tls-route", Namespace: "default"},
+		Spec: &networking.VirtualService{Hosts: []string{"headless.test"}, Tls: []*networking.TLSRoute{{
+			Match: []*networking.TLSMatchAttributes{{SniHosts: []string{"a.test"}}, {SniHosts: []string{"b.test"}}},
+			Route: []*networking.RouteDestination{{Destination: &networking.Destination{Host: "headless.test"}}},
+		}}},
+	}
+	listeners := headlessTestListeners(t, []*model.Service{h}, []*model.ServiceInstance{
+		buildServiceInstance(h, "10.0.0.2"), buildServiceInstance(h, "10.0.0.3"),
+	}, append(configs, vs)...)
+	assert.Equal(t, len(listeners), 1)
+	assert.Equal(t, len(listeners[0].FilterChains), 4)
+	// Chains 0 and 2 are the a.test chains of different pods, built from the same template.
+	a, b := listeners[0].FilterChains[0], listeners[0].FilterChains[2]
+	assert.Equal(t, a.GetFilterChainMatch().GetServerNames(), b.GetFilterChainMatch().GetServerNames())
+	assert.Equal(t, len(a.GetFilterChainMatch().PrefixRanges), 1)
+	assert.Equal(t, len(b.GetFilterChainMatch().PrefixRanges), 1)
+	if &a.Filters[0] == &b.Filters[0] || a.Metadata == b.Metadata {
+		t.Fatal("chains share a filter slice or metadata")
+	}
+	assert.Equal(t, a.Filters[0] == b.Filters[0], !envoyFilters)
+	before := protomarshal.Clone(b)
+	if envoyFilters {
+		a.Filters[0].GetTypedConfig().Value[0] ^= 1
+	}
+	a.Metadata.FilterMetadata = nil
+	assert.Equal(t, proto.Equal(b, before), true)
+}
+
+func TestHeadlessFilterChainLayouts(t *testing.T) {
+	for _, cidrListener := range []bool{false, true} {
+		t.Run(fmt.Sprintf("cidr=%t", cidrListener), func(t *testing.T) {
+			test.SetForTest(t, &features.EnableHeadlessFilterChainListener, cidrListener)
+			a := headlessTestService("a.test", protocol.TCP, 0)
+			b := headlessTestService("b.test", protocol.TCP, time.Second)
+			listeners := headlessTestListeners(t, []*model.Service{a, b}, []*model.ServiceInstance{
+				buildServiceInstance(a, "10.0.0.2"), buildServiceInstance(a, "10.0.0.3"),
+				buildServiceInstance(b, "10.0.0.4"), buildServiceInstance(b, "10.0.0.5"),
+			})
+			if !cidrListener {
+				assert.Equal(t, len(listeners), 4)
+				return
+			}
+			assert.Equal(t, len(listeners), 1)
+			assert.Equal(t, len(listeners[0].FilterChains), 4)
+			cidrs := map[string]int{}
+			for _, chain := range listeners[0].FilterChains {
+				cidrs[headlessTestCluster(t, chain)] += len(chain.GetFilterChainMatch().PrefixRanges)
+			}
+			assert.Equal(t, cidrs, map[string]int{"outbound|8080||a.test": 2, "outbound|8080||b.test": 2})
+		})
+	}
+}
+
+func TestTCPFilterChainServiceEntrySubnets(t *testing.T) {
+	s := buildService("cidr.test", "10.1.0.0/24", protocol.TCP, tnow)
+	route := []*networking.RouteDestination{{Destination: &networking.Destination{Host: "cidr.test"}}}
+	svcConfigs := []config.Config{{
+		Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "cidr-route", Namespace: "default"},
+		Spec: &networking.VirtualService{Hosts: []string{"cidr.test"}, Tcp: []*networking.TCPRoute{
+			{Match: []*networking.L4MatchAttributes{{DestinationSubnets: []string{"10.2.0.0/24"}}}, Route: route},
+			{Match: []*networking.L4MatchAttributes{{DestinationSubnets: []string{"10.3.0.0/24"}}}, Route: route},
+		}},
+	}}
+	listeners := headlessTestListeners(t, []*model.Service{s}, nil, svcConfigs...)
+	assert.Equal(t, len(listeners[0].FilterChains), 3)
+	count := 0
+	for _, chain := range listeners[0].FilterChains {
+		count += len(chain.GetFilterChainMatch().PrefixRanges)
+	}
+	assert.Equal(t, count, 3)
+}
+
+// Every pod must get the same filters it would have built itself, in its own slice. The filters
+// are only cloned if an EnvoyFilter, which may mutate them, selects the proxy.
+func TestPrecomputedNetworkFilters(t *testing.T) {
+	for _, tc := range []struct {
+		protocol     protocol.Instance
+		envoyFilters bool
+	}{{protocol.TCP, false}, {protocol.TCP, true}, {protocol.TLS, false}, {protocol.TLS, true}} {
+		p := tc.protocol
+		t.Run(fmt.Sprintf("%s/envoyfilters=%t", p, tc.envoyFilters), func(t *testing.T) {
+			h := headlessTestService("headless.test", p, 0)
+			route := []*networking.RouteDestination{{Destination: &networking.Destination{Host: "headless.test", Port: &networking.PortSelector{Number: 8080}}}}
+			vs := &config.Config{
+				Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "routes", Namespace: "default"},
+				Spec: &networking.VirtualService{
+					Hosts: []string{"headless.test"},
+					Tcp:   []*networking.TCPRoute{{Match: []*networking.L4MatchAttributes{{DestinationSubnets: []string{"192.168.0.0/16"}}}, Route: route}},
+					Tls: []*networking.TLSRoute{
+						{Match: []*networking.TLSMatchAttributes{{SniHosts: []string{"a.test"}}}, Route: route},
+						{Match: []*networking.TLSMatchAttributes{{SniHosts: []string{"b.test"}}}, Route: route},
+					},
+				},
+			}
+			cg := NewConfigGenTest(t, TestOptions{Services: []*model.Service{h}, Configs: []config.Config{*vs}})
+			proxy := cg.SetupProxy(getProxy())
+			opts := outboundListenerOpts{
+				push: cg.env.PushContext(), proxy: proxy, port: h.Ports[0], service: h,
+				precomputedTCPConfigs: []*config.Config{vs},
+			}
+			shared := opts
+			lb := &ListenerBuilder{}
+			if tc.envoyFilters {
+				lb.envoyFilterWrapper = &model.MergedEnvoyFilterWrapper{Patches: map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper{
+					networking.EnvoyFilter_NETWORK_FILTER: {{}},
+				}}
+			}
+			shared.precomputedNetworkFilters = &precomputedNetworkFilters{lb: lb, filters: map[networkFiltersKey][]*listener.Filter{}}
+			var previous []*filterChainOpts
+			for _, ip := range []string{"10.0.0.2", "10.0.0.3"} {
+				opts.cidr, shared.cidr = []string{ip}, []string{ip}
+				want := buildSidecarOutboundTCPListenerOpts(opts, nil)
+				got := buildSidecarOutboundTCPListenerOpts(shared, nil)
+				assert.Equal(t, len(got), 2)
+				assert.Equal(t, len(got), len(want))
+				for i := range got {
+					assert.Equal(t, got[i].destinationCIDRs, want[i].destinationCIDRs)
+					assert.Equal(t, got[i].sniHosts, want[i].sniHosts)
+					assert.Equal(t, got[i].networkFilters, want[i].networkFilters)
+					if previous != nil {
+						if &got[i].networkFilters[0] == &previous[i].networkFilters[0] {
+							t.Fatal("pods share a filter slice")
+						}
+						assert.Equal(t, got[i].networkFilters[0] == previous[i].networkFilters[0], !tc.envoyFilters)
+					}
+				}
+				previous = got
+			}
+			assert.Equal(t, len(shared.precomputedNetworkFilters.filters), 2)
+		})
+	}
+}
+
+// legacyConflictsWith is the pairwise conflict check that filterChainMatchKey replaced.
+func legacyConflictsWith(a, b *filterChainOpts) bool {
+	if a.transportProtocol != b.transportProtocol {
+		return false
+	}
+	if !slices.Equal(a.applicationProtocols, b.applicationProtocols) {
+		return false
+	}
+	sniSet := func(sni []string) sets.String {
+		if len(sni) == 0 {
+			return nil
+		}
+		res := sets.NewWithLength[string](len(sni))
+		for _, s := range sni {
+			if s == "*" {
+				continue
+			}
+			res.Insert(s)
+		}
+		return res
+	}
+	if !sniSet(a.sniHosts).Equals(sniSet(b.sniHosts)) {
+		return false
+	}
+	cidrSet := func(cidrs []string) sets.String {
+		if len(cidrs) == 0 {
+			return nil
+		}
+		res := sets.NewWithLength[string](len(cidrs))
+		for _, s := range cidrs {
+			prefix, err := util.AddrStrToPrefix(s)
+			if err != nil {
+				continue
+			}
+			if prefix.Addr().String() == constants.UnspecifiedIP {
+				continue
+			}
+			res.Insert(prefix.Masked().String())
+		}
+		return res
+	}
+	return cidrSet(a.destinationCIDRs).Equals(cidrSet(b.destinationCIDRs))
+}
+
+func TestFilterChainMatchKey(t *testing.T) {
+	cidrs := [][]string{
+		nil,
+		{},
+		{"10.0.0.1"},
+		{"10.0.0.1/32"},
+		{"10.0.0.2"},
+		{"10.0.0.0/24"},
+		{"10.0.0.1/24"},
+		{"10.0.0.1", "10.0.0.2"},
+		{"10.0.0.2", "10.0.0.1"},
+		{"10.0.0.1", "10.0.0.1/32"},
+		{"10.0.0.1", "invalid"},
+		{"invalid"},
+		{"0.0.0.0"},
+		{"0.0.0.0/0"},
+		{"::"},
+		{"fd00::1"},
+		{"fd00:0:0:0:0:0:0:1/128"},
+		{"fd00::1", "10.0.0.1"},
+		{"10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5"},
+		{"10.0.0.5", "10.0.0.4", "10.0.0.3", "10.0.0.2", "10.0.0.1"},
+	}
+	snis := [][]string{nil, {"*"}, {"a.test"}, {"*", "a.test"}, {"a.test", "b.test"}, {"b.test", "a.test", "a.test"}, {"1:a.test"}}
+	alpns := [][]string{nil, {}, {"h2", "http/1.1"}, {"http/1.1", "h2"}, {"h2http/1.1"}}
+	var chains []*filterChainOpts
+	for _, transport := range []string{"", "tls"} {
+		for _, alpn := range alpns {
+			for _, sni := range snis {
+				for _, cidr := range cidrs {
+					chains = append(chains, &filterChainOpts{
+						transportProtocol: transport, applicationProtocols: alpn, sniHosts: sni, destinationCIDRs: cidr,
+					})
+				}
+			}
+		}
+	}
+	keys := slices.Map(chains, (*filterChainOpts).matchKey)
+	for i, a := range chains {
+		for j, b := range chains {
+			if want := legacyConflictsWith(a, b); (keys[i] == keys[j]) != want {
+				t.Fatalf("conflict(%+v, %+v) = %v, want %v", *a, *b, !want, want)
+			}
+		}
+	}
+	headless := &filterChainOpts{destinationCIDRs: []string{"10.0.0.1"}}
+	assert.Equal(t, testing.AllocsPerRun(100, func() { headless.matchKey() }), float64(0))
+}
+
+func TestMergeTCPFilterChains(t *testing.T) {
+	chain := func(cidrs ...string) *filterChainOpts { return &filterChainOpts{destinationCIDRs: cidrs} }
+	port := &model.Port{Port: 8080, Protocol: protocol.TCP}
+	push := model.NewPushContext()
+	opts := outboundListenerOpts{push: push, proxy: &model.Proxy{}, port: port}
+	existing, a, b := chain("10.0.0.1"), chain("10.0.0.2"), chain("10.0.0.0/24")
+	entry := &outboundListenerEntry{servicePort: port, chains: []*filterChainOpts{existing}}
+	// Conflicts with an existing chain, and with a chain added earlier in the same call.
+	mergeTCPFilterChains(entry, []*filterChainOpts{a, chain("10.0.0.1/32"), chain("10.0.0.2/32")}, opts)
+	assert.Equal(t, len(push.GetMetric(model.ProxyStatusConflictOutboundListenerTCPOverTCP.Name())), 1)
+	// A later call reuses the index, which must include the chains added before.
+	mergeTCPFilterChains(entry, []*filterChainOpts{b, chain("10.0.0.2"), chain("10.0.0.5/24")}, opts)
+	if !slices.Equal(entry.chains, []*filterChainOpts{existing, a, b}) {
+		t.Fatalf("unexpected chains: %v", entry.chains)
+	}
+	assert.Equal(t, entry.chainMatchKeys.Len(), 3)
+}
+
 func TestOutboundListenerForExternalServices(t *testing.T) {
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Attributes.ServiceRegistry = provider.Kubernetes

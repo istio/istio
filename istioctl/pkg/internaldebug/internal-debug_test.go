@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
+	"istio.io/istio/istioctl/pkg/util/testutil"
 	"istio.io/istio/istioctl/pkg/xds"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
@@ -107,6 +108,9 @@ func TestInternalDebug(t *testing.T) {
 						Phase: corev1.PodRunning,
 					},
 				}, metav1.CreateOptions{})
+				assert.NoError(t, err)
+				_, err = client.Kube().CoreV1().ConfigMaps("istio-system").Create(context.TODO(),
+					testutil.RootCertConfigMap(t, "istio-system", ""), metav1.CreateOptions{})
 				assert.NoError(t, err)
 			}
 			verifyExecTestOutput(t, DebugCommand(ctx), c)
@@ -239,6 +243,10 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 					Phase: corev1.PodRunning,
 				},
 			}, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			_, err = client.Kube().CoreV1().ConfigMaps("istio-system").Create(context.TODO(),
+				testutil.RootCertConfigMap(t, "istio-system", ""), metav1.CreateOptions{})
 			require.NoError(t, err)
 
 			verifyExecTestOutput(t, DebugCommand(ctx), c.testcase)
