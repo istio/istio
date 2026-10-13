@@ -37,6 +37,8 @@ spec:
         prometheus.io/port: "15014"
         sidecar.istio.io/rewriteAppHTTPProbers: "true"
     spec:
+      imagePullSecrets:
+      - name: myregistrykey
       containers:
       - name: istio-proxy
         image: auto

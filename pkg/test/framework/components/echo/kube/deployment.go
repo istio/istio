@@ -251,7 +251,10 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 		}
 	}
 
-	params := deploymentParams(ctx, cfg, settings)
+	params, err := deploymentParams(ctx, cfg, settings)
+	if err != nil {
+		return "", err
+	}
 
 	deploy := getTemplate(deploymentTemplateFile)
 	if cfg.DeployAsVM {
@@ -359,8 +362,12 @@ func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost
 	return istioHost, istioIP
 }
 
-func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) map[string]any {
+func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (map[string]any, error) {
 	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
+	imagePullSecretName, err := settings.Image.PullSecretName()
+	if err != nil {
+		return nil, err
+	}
 
 	containerPorts := getContainerPorts(cfg)
 	appContainers := []map[string]any{{
@@ -409,6 +416,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"ImageHub":                settings.Image.Hub,
 		"ImageTag":                settings.Image.Tag,
 		"ImagePullPolicy":         settings.Image.PullPolicy,
+		"ImagePullSecretName":     imagePullSecretName,
 		"Service":                 cfg.Service,
 		"StatefulSet":             cfg.StatefulSet,
 		"ProxylessGRPC":           cfg.IsProxylessGRPC(),
@@ -457,7 +465,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		}
 	}
 
-	return params
+	return params, nil
 }
 
 func serviceParams(cfg echo.Config, isOpenShift bool) map[string]any {

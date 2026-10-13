@@ -18,11 +18,29 @@ import (
 	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/yaml"
+
 	testimage "istio.io/istio/pkg/test/util/image"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
+func TestGetPrometheusYamlPullSecret(t *testing.T) {
+	rendered, err := getPrometheusYaml("private-registry")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var serviceAccount corev1.ServiceAccount
+	if err := yaml.Unmarshal([]byte(yml.SplitString(rendered)[0]), &serviceAccount); err != nil {
+		t.Fatal(err)
+	}
+	if len(serviceAccount.ImagePullSecrets) != 1 || serviceAccount.ImagePullSecrets[0].Name != "private-registry" {
+		t.Fatalf("configured pull secret missing from Prometheus service account: %v", serviceAccount.ImagePullSecrets)
+	}
+}
+
 func TestGetPrometheusYamlImageDefaults(t *testing.T) {
-	yaml, err := getPrometheusYaml()
+	yaml, err := getPrometheusYaml("")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +60,7 @@ func TestGetPrometheusYamlImageOverrides(t *testing.T) {
 	t.Setenv("QUAY_REGISTRY", prometheusHub)
 	t.Setenv("GHCR_REGISTRY", reloaderHub)
 
-	yaml, err := getPrometheusYaml()
+	yaml, err := getPrometheusYaml("")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -72,6 +72,16 @@ func TestGatewayConformance(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(ctx)
 
+			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
+			if ctx.Settings().Image.PullSecret != "" {
+				for _, ns := range conformanceNamespaces {
+					namespace.Claim(ctx, namespace.Config{
+						Prefix: ns,
+						Inject: false,
+					})
+				}
+			}
+
 			clientOptions := client.Options{
 				Scheme: kube.IstioScheme,
 			}

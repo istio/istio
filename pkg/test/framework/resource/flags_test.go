@@ -14,10 +14,42 @@
 package resource
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )
+
+func TestImagePullSecretName(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		secret    string
+		want      string
+		expectErr bool
+	}{
+		{name: "unset"},
+		{name: "configured", secret: "apiVersion: v1\nkind: Secret\nmetadata:\n  name: private-registry\n", want: "private-registry"},
+		{name: "missing name", secret: "apiVersion: v1\nkind: Secret\n", expectErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var image ImageSettings
+			if tc.secret != "" {
+				image.PullSecret = filepath.Join(t.TempDir(), "secret.yaml")
+				if err := os.WriteFile(image.PullSecret, []byte(tc.secret), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, err := image.PullSecretName()
+			if (err != nil) != tc.expectErr {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("got secret name %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
 
 func TestValidate(t *testing.T) {
 	tcs := []struct {

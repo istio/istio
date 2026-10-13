@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // nolint: gosec
@@ -238,6 +239,27 @@ func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 		})
 	}
 
+	s := n.ctx.Settings()
+	if s.Image.PullSecret != "" {
+		if err := c.ApplyYAMLFiles(n.name, s.Image.PullSecret); err != nil {
+			return err
+		}
+		pullSecretName, err := s.Image.PullSecretName()
+		if err != nil {
+			return err
+		}
+		err = retry.UntilSuccess(func() error {
+			_, err := c.Kube().CoreV1().ServiceAccounts(n.name).Patch(context.TODO(),
+				"default",
+				types.StrategicMergePatchType,
+				[]byte(fmt.Sprintf(`{"imagePullSecrets":[{"name":%q}]}`, pullSecretName)),
+				metav1.PatchOptions{})
+			return err
+		}, retry.Delay(1*time.Second), retry.Timeout(10*time.Second))
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

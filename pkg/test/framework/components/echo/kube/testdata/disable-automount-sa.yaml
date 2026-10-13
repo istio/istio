@@ -43,6 +43,8 @@ spec:
     spec:
       serviceAccountName: foo
       automountServiceAccountToken: false
+      imagePullSecrets:
+      - name: myregistrykey
       containers:
       - name: istio-proxy
         image: auto

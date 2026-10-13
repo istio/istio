@@ -67,6 +67,10 @@ spec:
 {{- if $.DisableAutomountSAToken }}
       automountServiceAccountToken: false
 {{- end}}
+{{- if ne $.ImagePullSecretName "" }}
+      imagePullSecrets:
+      - name: {{ $.ImagePullSecretName }}
+{{- end }}
 {{- if $.UserNamespace }}
       hostUsers: false
 {{- end }}

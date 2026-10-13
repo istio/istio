@@ -16,12 +16,16 @@ package resource
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
 	"github.com/google/uuid"
+	corev1 "k8s.io/api/core/v1"
 	gwConformanceConfig "sigs.k8s.io/gateway-api/conformance/utils/config"
+	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -44,6 +48,36 @@ type ImageSettings struct {
 
 	// Image pull policy to use for deployments. If not specified, the defaults of each deployment will be used.
 	PullPolicy string
+
+	// PullSecret path to a file containing a k8s secret in yaml so test pods can pull from protected registries.
+	PullSecret string
+}
+
+func (s *ImageSettings) PullSecretName() (string, error) {
+	if s.PullSecret == "" {
+		return "", nil
+	}
+	data, err := os.ReadFile(s.PullSecret)
+	if err != nil {
+		return "", err
+	}
+	var secret corev1.Secret
+	if err := yaml.Unmarshal(data, &secret); err != nil {
+		return "", err
+	}
+	if secret.Name == "" {
+		return "", fmt.Errorf("image pull secret %q has no metadata.name", s.PullSecret)
+	}
+	return secret.Name, nil
+}
+
+func (s *ImageSettings) PullSecretNameOrFail(t test.Failer) string {
+	t.Helper()
+	out, err := s.PullSecretName()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 // Settings is the set of arguments to the test driver.
@@ -251,6 +285,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("Tag:               						 %s\n", s.Image.Tag)
 	result += fmt.Sprintf("Variant:           						 %s\n", s.Image.Variant)
 	result += fmt.Sprintf("PullPolicy:        						 %s\n", s.Image.PullPolicy)
+	result += fmt.Sprintf("PullSecret:        						 %s\n", s.Image.PullSecret)
 	result += fmt.Sprintf("MaxDumps:          						 %d\n", s.MaxDumps)
 	result += fmt.Sprintf("HelmRepo:          						 %v\n", s.HelmRepo)
 	result += fmt.Sprintf("IPFamilies:							 %v\n", s.IPFamilies)
