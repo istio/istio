@@ -5253,38 +5253,6 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			Warning: false,
 		},
 		{
-			name: "target-ref-good-listenerset",
-			in: &security_beta.AuthorizationPolicy{
-				Action: security_beta.AuthorizationPolicy_DENY,
-				TargetRef: &api.PolicyTargetReference{
-					Group: gvk.ListenerSet.Group,
-					Kind:  gvk.ListenerSet.Kind,
-					Name:  "foo",
-				},
-				Rules: []*security_beta.Rule{
-					{
-						From: []*security_beta.Rule_From{
-							{
-								Source: &security_beta.Source{
-									Principals: []string{"temp"},
-								},
-							},
-						},
-						To: []*security_beta.Rule_To{
-							{
-								Operation: &security_beta.Operation{
-									Ports:   []string{"8080"},
-									Methods: []string{"GET", "DELETE"},
-								},
-							},
-						},
-					},
-				},
-			},
-			valid:   true,
-			Warning: false,
-		},
-		{
 			name: "target-refs-good-service",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
@@ -9087,6 +9055,32 @@ func TestValidateAuthorizationPolicyHTTPRouteTargetRef(t *testing.T) {
 			})
 			if (err == nil) != c.valid {
 				t.Fatalf("got error %v, want valid=%v", err, c.valid)
+			}
+		})
+	}
+}
+
+func TestValidateAuthorizationPolicyListenerSetTargetRef(t *testing.T) {
+	policy := &security_beta.AuthorizationPolicy{
+		Action: security_beta.AuthorizationPolicy_DENY,
+		TargetRef: &api.PolicyTargetReference{
+			Group: gvk.ListenerSet.Group,
+			Kind:  gvk.ListenerSet.Kind,
+			Name:  "foo",
+		},
+		Rules: []*security_beta.Rule{{
+			To: []*security_beta.Rule_To{{Operation: &security_beta.Operation{Methods: []string{"GET"}}}},
+		}},
+	}
+	for _, enabled := range []bool{true, false} {
+		t.Run(fmt.Sprintf("enabled=%v", enabled), func(t *testing.T) {
+			test.SetForTest(t, &features.EnableGatewayAPIListenerSetAuth, enabled)
+			_, err := ValidateAuthorizationPolicy(config.Config{
+				Meta: config.Meta{Name: "name", Namespace: "namespace"},
+				Spec: policy,
+			})
+			if (err == nil) != enabled {
+				t.Fatalf("got error %v, want valid=%v", err, enabled)
 			}
 		})
 	}

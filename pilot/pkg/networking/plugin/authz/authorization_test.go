@@ -535,6 +535,7 @@ func filterNames(byName map[string]sets.Set[rbacpb.RBAC_Action]) []string {
 }
 
 func TestBuilder_ListenerSetScoping(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIListenerSetAuth, true)
 	gwPolicy := authzPolicyConfig("gw-policy", "default", &selectorpb.PolicyTargetReference{
 		Group: gvk.KubernetesGateway.Group,
 		Kind:  gvk.KubernetesGateway.Kind,
@@ -654,6 +655,7 @@ func assertSamePolicyNames(t *testing.T, want, got []string) {
 }
 
 func TestPerRouteBuilderExcludesListenerSetPolicies(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIListenerSetAuth, true)
 	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
 
 	store := memory.Make(collections.Pilot, false, test.NewStop(t))
@@ -714,6 +716,7 @@ func listenerSetPolicy(name, ns, listenerSet string, action authpb.Authorization
 }
 
 func TestPerRouteBuilderListenerSet(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIListenerSetAuth, true)
 	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
 	ls := types.NamespacedName{Name: "ls-a", Namespace: "foo"}
 	route := types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}
@@ -782,6 +785,7 @@ func assertPolicies(t *testing.T, rbac *rbacpb.RBAC, want ...string) {
 }
 
 func TestBuilder_ListenerSetInOtherNamespace(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIListenerSetAuth, true)
 	store := memory.Make(collections.Pilot, false, test.NewStop(t))
 	if _, err := store.Create(listenerSetPolicy("tenant-policy", "tenant", "ls-t", authpb.AuthorizationPolicy_ALLOW)); err != nil {
 		t.Fatalf("failed to create config: %v", err)

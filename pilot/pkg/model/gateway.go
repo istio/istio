@@ -84,6 +84,9 @@ type MergedGateway struct {
 	// GatewayScopeKey identifies the gateway-specific SidecarScope for this proxy and gateway set.
 	GatewayScopeKey GatewayScopeKey
 
+	// ListenerSetForServer maps from server to the ListenerSet it was defined in. Servers defined
+	// directly on a Gateway have no entry. Used to scope ListenerSet-targeted AuthorizationPolicy
+	// to that ListenerSet's listeners.
 	ListenerSetForServer map[*networking.Server]types.NamespacedName
 
 	// ServersByRouteName maps from port names to virtual hosts

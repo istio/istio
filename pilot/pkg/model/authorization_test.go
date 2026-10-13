@@ -681,6 +681,7 @@ func listenerSetTargetRefPolicy(action authpb.AuthorizationPolicy_Action, names 
 }
 
 func TestListAuthorizationPoliciesForListenerSet(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIListenerSetAuth, true)
 	configs := []config.Config{
 		newConfig("allow-a", "foo", listenerSetTargetRefPolicy(authpb.AuthorizationPolicy_ALLOW, "ls-a")),
 		newConfig("deny-a", "foo", listenerSetTargetRefPolicy(authpb.AuthorizationPolicy_DENY, "ls-a")),
@@ -728,6 +729,15 @@ func TestListAuthorizationPoliciesForListenerSet(t *testing.T) {
 			assertPolicyNames(t, "deny", got.Deny, tc.wantDeny)
 			assertPolicyNames(t, "audit", got.Audit, tc.wantAudit)
 		})
+	}
+}
+
+func TestIndexListenerSetPoliciesFeatureGate(t *testing.T) {
+	configs := []config.Config{newConfig("allow-a", "foo", listenerSetTargetRefPolicy(authpb.AuthorizationPolicy_ALLOW, "ls-a"))}
+	got := createFakeAuthorizationPolicies(configs).
+		ListAuthorizationPoliciesForListenerSet(types.NamespacedName{Name: "ls-a", Namespace: "foo"})
+	if len(got.Allow) != 0 {
+		t.Fatalf("expected no policies indexed with the feature disabled, got %d", len(got.Allow))
 	}
 }
 

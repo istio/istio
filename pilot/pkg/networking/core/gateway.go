@@ -316,6 +316,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	}
 }
 
+// commonListenerSetScope returns the ListenerSet that all servers were defined in, or the zero value if
+// they come from different origins. Plain HTTP servers on a port share one filter chain, as there's no SNI
+// to split them, so the chain can only enforce a ListenerSet's policies if every server belongs to it.
 func commonListenerSetScope(mergedGateway *model.MergedGateway, servers []*networking.Server) types.NamespacedName {
 	if len(servers) == 0 {
 		return types.NamespacedName{}

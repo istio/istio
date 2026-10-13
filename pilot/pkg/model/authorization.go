@@ -77,6 +77,9 @@ func (policy *AuthorizationPolicies) indexHTTPRoutePolicies(authz AuthorizationP
 }
 
 func (policy *AuthorizationPolicies) indexListenerSetPolicies(authz AuthorizationPolicy) {
+	if !features.EnableGatewayAPIListenerSetAuth {
+		return
+	}
 	seenRefs := sets.New[types.NamespacedName]()
 	for _, ref := range GetTargetRefs(authz.Spec) {
 		if !matchesGroupKind(ref, gvk.ListenerSet) {
@@ -105,6 +108,7 @@ type AuthorizationPolicies struct {
 	// Index for HTTPRoute targeted policy.
 	httpRoutePolicies map[types.NamespacedName]AuthorizationPoliciesResult
 
+	// Index for ListenerSet targeted policy.
 	listenerSetPolicies map[types.NamespacedName]AuthorizationPoliciesResult
 
 	// The name of the root namespace. Policy in the root namespace applies to workloads in all namespaces.
