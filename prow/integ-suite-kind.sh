@@ -66,7 +66,6 @@ export CALICO_REGISTRY="registry.istio.io/testing"
 if [[ -n "${GHCR_REGISTRY:-}" ]]; then
   export CALICO_REGISTRY="${GHCR_REGISTRY%/}/istio/testing"
 fi
-export AGENTGATEWAY_REGISTRY="${AGENTGATEWAY_REGISTRY:-cr.agentgateway.dev}"
 # DEVCONTAINER controls a set of features that allow this script to be run from
 # within a dev container using ghcr.io/devcontainers/features/docker-outside-of-docker
 export DEVCONTAINER="${DEVCONTAINER:-}"

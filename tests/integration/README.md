@@ -629,7 +629,6 @@ The following environment variables can be used to configure the KinD cluster se
 | `GHCR_REGISTRY` | Mirror prefix for images normally pulled from `ghcr.io`. Also routes `registry.istio.io/testing` images through `istio/testing` beneath this prefix. |
 | `QUAY_REGISTRY` | Mirror prefix for images normally pulled from `quay.io`, preserving the repository path beneath it. |
 | `K8S_REGISTRY` | Mirror prefix for images normally pulled from `registry.k8s.io`, preserving the repository path beneath it. |
-| `AGENTGATEWAY_REGISTRY` | Mirror prefix for the agentgateway image. Defaults to `cr.agentgateway.dev`. |
 | `ECR_REGISTRY` | ECR registry host. When set, generates a temporary Docker config and mounts it into every KinD node at `/var/lib/kubelet/config.json`. |
 | `GRPC_ECHO_IMAGE` | Full image reference for the optional C++ gRPC echo container. |
 

@@ -244,15 +244,11 @@ func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 		if err := c.ApplyYAMLFiles(n.name, s.Image.PullSecret); err != nil {
 			return err
 		}
-		pullSecretName, err := s.Image.PullSecretName()
-		if err != nil {
-			return err
-		}
-		err = retry.UntilSuccess(func() error {
+		err := retry.UntilSuccess(func() error {
 			_, err := c.Kube().CoreV1().ServiceAccounts(n.name).Patch(context.TODO(),
 				"default",
-				types.StrategicMergePatchType,
-				[]byte(fmt.Sprintf(`{"imagePullSecrets":[{"name":%q}]}`, pullSecretName)),
+				types.JSONPatchType,
+				[]byte(`[{"op": "add", "path": "/imagePullSecrets", "value": [{"name": "test-gcr-secret"}]}]`),
 				metav1.PatchOptions{})
 			return err
 		}, retry.Delay(1*time.Second), retry.Timeout(10*time.Second))

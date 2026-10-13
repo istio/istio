@@ -193,16 +193,15 @@ func DefaultArgs() Args {
 		log.Warnf("failed to read proxy sha: %v", err)
 		pv = "unknown"
 	}
-	agwv, err := testenv.ReadDepsSHA("AGENTGATEWAY_IMAGE")
-	if err != nil {
-		log.Warnf("failed to read agentgateway sha")
-		agwv = "unknown"
+	agwImage := os.Getenv("AGENTGATEWAY_IMAGE")
+	if agwImage == "" {
+		agwv, err := testenv.ReadDepsSHA("AGENTGATEWAY_IMAGE")
+		if err != nil {
+			log.Warnf("failed to read agentgateway sha")
+			agwv = "unknown"
+		}
+		agwImage = "cr.agentgateway.dev/agentgateway:" + agwv
 	}
-	agwRegistry := strings.TrimSuffix(os.Getenv("AGENTGATEWAY_REGISTRY"), "/")
-	if agwRegistry == "" {
-		agwRegistry = "cr.agentgateway.dev"
-	}
-	agwImage := agwRegistry + "/agentgateway:" + agwv
 	zv, err := testenv.ReadDepsSHA("ZTUNNEL_REPO_SHA")
 	if err != nil {
 		log.Warnf("failed to read ztunnel sha")

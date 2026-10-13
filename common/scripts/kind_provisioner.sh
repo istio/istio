@@ -463,7 +463,7 @@ function configure_kind_node_registry_auth() {
 
   yq eval '
     (.nodes = (.nodes // [{"role": "control-plane"}])) |
-    (.nodes[].extraMounts = (.nodes[].extraMounts // [])) |
+    (.nodes[].extraMounts |= (. // [])) |
     .nodes[].extraMounts += [{
       "hostPath": strenv(ECR_DOCKER_CONFIG_FILE),
       "containerPath": "/var/lib/kubelet/config.json",

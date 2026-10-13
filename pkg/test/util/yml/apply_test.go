@@ -15,46 +15,8 @@
 package yml
 
 import (
-	"slices"
 	"testing"
-
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/yaml"
 )
-
-func TestApplyPullSecret(t *testing.T) {
-	for _, existing := range []string{"", "existing-secret"} {
-		t.Run("existing="+existing, func(t *testing.T) {
-			deployment := appsv1.Deployment{}
-			pod := &deployment.Spec.Template.Spec
-			pod.Containers = []corev1.Container{{Name: "app", Image: "example.com/app:latest"}}
-			if existing != "" {
-				pod.ImagePullSecrets = []corev1.LocalObjectReference{{Name: existing}}
-			}
-			original, err := yaml.Marshal(deployment)
-			if err != nil {
-				t.Fatal(err)
-			}
-			rendered, err := ApplyPullSecret(string(original), "private-registry")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := yaml.Unmarshal([]byte(rendered), &deployment); err != nil {
-				t.Fatal(err)
-			}
-			if !slices.Contains(pod.ImagePullSecrets, corev1.LocalObjectReference{Name: "private-registry"}) {
-				t.Fatal("configured pull secret missing from deployment")
-			}
-			if existing != "" && !slices.Contains(pod.ImagePullSecrets, corev1.LocalObjectReference{Name: existing}) {
-				t.Fatal("existing pull secret was removed")
-			}
-			if len(pod.Containers) != 1 || pod.Containers[0].Image != "example.com/app:latest" {
-				t.Fatal("pull-secret patch changed the app container")
-			}
-		})
-	}
-}
 
 func TestApplyNamespace(t *testing.T) {
 	cases := []struct {

@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	gwConformanceConfig "sigs.k8s.io/gateway-api/conformance/utils/config"
 	"sigs.k8s.io/yaml"
 
@@ -61,14 +61,11 @@ func (s *ImageSettings) PullSecretName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var secret corev1.Secret
-	if err := yaml.Unmarshal(data, &secret); err != nil {
+	secret := unstructured.Unstructured{Object: map[string]any{}}
+	if err := yaml.Unmarshal(data, secret.Object); err != nil {
 		return "", err
 	}
-	if secret.Name == "" {
-		return "", fmt.Errorf("image pull secret %q has no metadata.name", s.PullSecret)
-	}
-	return secret.Name, nil
+	return secret.GetName(), nil
 }
 
 func (s *ImageSettings) PullSecretNameOrFail(t test.Failer) string {

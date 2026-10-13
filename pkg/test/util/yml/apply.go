@@ -57,7 +57,7 @@ spec:
   template:
     spec:
       imagePullSecrets:
-      - name: {{.pullSecret}}
+      - name: {{.pullSecret}}  	
 `, map[string]string{"pullSecret": pullSecret})
 
 	overlayYaml, err := yaml.YAMLToJSON([]byte(patchYaml))
