@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** `istioctl manifest translate` writing unquoted values from IstioOperator
+    input (such as namespace and release name) into generated install shell scripts.
+    Crafted values could inject additional shell commands when those scripts were run.
+    Arguments are now escaped with `shellescape.Quote`.
+
+    **Credit**: This vulnerability was discovered and reported by OpenSec Intelligence.
