@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** an event ordering issue with MCS service discovery that could leave
+  exported service endpoints inaccessible from other clusters when EndpointSlices
+  were processed before their Service. Endpoint discoverability is now refreshed
+  when the Service is first registered.
