@@ -160,7 +160,8 @@ func (client mockPromAPI) Flags(ctx context.Context) (promv1.FlagsResult, error)
 	return nil, nil
 }
 
-func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (prometheus_model.Value, promv1.Warnings, promv1.Infos, error) {
+func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time, opts ...promv1.Option,
+) (prometheus_model.Value, promv1.Warnings, promv1.Infos, error) {
 	canned, ok := client.cannedResponse[query]
 	if !ok {
 		return prometheus_model.Vector{}, nil, nil, nil
