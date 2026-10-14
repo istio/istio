@@ -68,6 +68,10 @@ var conformanceNamespaces = []string{
 var skippedTests = map[string]string{
 	// The following tests were added in v1.5.0
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
+	// The following tests were added in v1.7.0
+	// Istio derives the upstream protocol from the Service port; the test Service has no appProtocol,
+	// so we send HTTP/1.1 (no h2 ALPN) to the TLS gRPC backend.
+	"BackendTLSPolicyGRPCRoute": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {

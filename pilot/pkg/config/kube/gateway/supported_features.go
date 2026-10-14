@@ -26,6 +26,11 @@ var skippedExtendedFeatures = []features.Feature{
 	features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature,
 	// UDPRoute* - Istio does not support UDPRoute
 	features.UDPRouteFeature,
+	// The following features were added in v1.7.0
+	// GatewayRouteHostnameIntersectionPrecedence: route precedence by original route hostname specificity
+	features.GatewayRouteHostnameIntersectionPrecedenceFeature,
+	// HTTPRouteBackendURLRewrite: URLRewrite filter on backendRefs
+	features.HTTPRouteBackendURLRewriteFeature,
 }
 
 var SupportedFeatures = features.AllFeatures.Clone().Delete(skippedExtendedFeatures...)
