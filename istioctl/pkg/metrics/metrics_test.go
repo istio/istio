@@ -172,6 +172,10 @@ func (client mockPromAPI) TSDB(ctx context.Context, opts ...promv1.Option) (prom
 	return promv1.TSDBResult{}, nil
 }
 
+func (client mockPromAPI) TSDBBlocks(ctx context.Context) (promv1.TSDBBlocksResult, error) {
+	return promv1.TSDBBlocksResult{}, nil
+}
+
 func (client mockPromAPI) QueryRange(
 	ctx context.Context,
 	query string,
