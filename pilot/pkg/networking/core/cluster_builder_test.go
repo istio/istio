@@ -37,6 +37,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/type/v1beta1"
@@ -1451,6 +1453,42 @@ func TestBuildDefaultCluster(t *testing.T) {
 
 			if diff := cmp.Diff(defaultCluster.build(), tt.expectedCluster, protocmp.Transform()); diff != "" {
 				t.Errorf("Unexpected default cluster, diff: %v", diff)
+			}
+		})
+	}
+}
+
+func TestOriginalDstTargetPortOverride(t *testing.T) {
+	cases := []struct {
+		name       string
+		registry   provider.ID
+		resolution model.Resolution
+		targetPort intstr.IntOrString
+		want       uint32
+	}{
+		{"ServiceEntry NONE with target port", provider.External, model.Passthrough, intstr.FromInt32(8080), 8080},
+		{"ServiceEntry NONE without target port", provider.External, model.Passthrough, intstr.FromInt32(0), 0},
+		{"Kubernetes headless with target port", provider.Kubernetes, model.Passthrough, intstr.FromInt32(8080), 0},
+		{"Kubernetes headless with named target port", provider.Kubernetes, model.Passthrough, intstr.FromString("http"), 0},
+		{"ServiceEntry STATIC with passthrough policy", provider.External, model.ClientSideLB, intstr.FromInt32(8080), 0},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			port := &model.Port{Name: "http", Port: 80, TargetPort: tt.targetPort, Protocol: protocol.HTTP}
+			service := &model.Service{
+				Hostname:   "example.com",
+				Ports:      model.PortList{port},
+				Resolution: tt.resolution,
+				Attributes: model.ServiceAttributes{ServiceRegistry: tt.registry},
+			}
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: testMesh()})
+			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
+			built := cb.buildCluster("outbound|80||example.com", cluster.Cluster_ORIGINAL_DST, nil,
+				model.TrafficDirectionOutbound, port, service, nil, "").build()
+			override := built.GetOriginalDstLbConfig().GetUpstreamPortOverride()
+			assert.Equal(t, override.GetValue(), tt.want)
+			if tt.want == 0 {
+				assert.Equal(t, override, (*wrappers.UInt32Value)(nil))
 			}
 		})
 	}

@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -53,9 +54,10 @@ import (
 
 func convertPort(port *networking.ServicePort) *model.Port {
 	return &model.Port{
-		Name:     port.Name,
-		Port:     int(port.Number),
-		Protocol: protocol.Parse(port.Protocol),
+		Name:       port.Name,
+		Port:       int(port.Number),
+		TargetPort: intstr.FromInt32(int32(port.TargetPort)),
+		Protocol:   protocol.Parse(port.Protocol),
 	}
 }
 
@@ -228,15 +230,8 @@ func convertServices(cfg config.Config, nsAnnotations map[string]string, canonic
 	dnsConnectStrategy := model.GetDNSConnectStrategy(cfg.Annotations)
 
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
-	var portOverrides map[uint32]uint32
 	for _, port := range serviceEntry.Ports {
 		svcPorts = append(svcPorts, convertPort(port))
-		if resolution == model.Passthrough && port.TargetPort != 0 {
-			if portOverrides == nil {
-				portOverrides = map[uint32]uint32{}
-			}
-			portOverrides[port.Number] = port.TargetPort
-		}
 	}
 
 	var exportTo sets.Set[visibility.Instance]
@@ -298,14 +293,13 @@ func convertServices(cfg config.Config, nsAnnotations map[string]string, canonic
 			Ports:          svcPorts,
 			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry:        provider.External,
-				PassthroughTargetPorts: portOverrides,
-				Name:                   ha.host,
-				Namespace:              cfg.Namespace,
-				Labels:                 labels,
-				ExportTo:               exportTo,
-				LabelSelectors:         labelSelectors,
-				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution, DNSConnectStrategy: dnsConnectStrategy},
+				ServiceRegistry: provider.External,
+				Name:            ha.host,
+				Namespace:       cfg.Namespace,
+				Labels:          labels,
+				ExportTo:        exportTo,
+				LabelSelectors:  labelSelectors,
+				K8sAttributes:   model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution, DNSConnectStrategy: dnsConnectStrategy},
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
 		}
@@ -552,10 +546,7 @@ func services(
 			// No selector: endpoints from SE directly
 			return slices.Map(services, func(ss *model.Service) ServiceWithInstances {
 				return ServiceWithInstances{
-					Service: ss,
-					TargetPorts: slices.Map(se.Ports, func(p *networking.ServicePort) uint32 {
-						return p.TargetPort
-					}),
+					Service:   ss,
 					Instances: convertServiceEntryToInstances(ctx, cfg, ss, meshConfig, clusterID, networkIDFn),
 				}
 			})
@@ -594,10 +585,7 @@ func services(
 		res := make([]ServiceWithInstances, 0, len(services))
 		for _, service := range services {
 			swi := ServiceWithInstances{
-				Service: service,
-				TargetPorts: slices.Map(se.Ports, func(p *networking.ServicePort) uint32 {
-					return p.TargetPort
-				}),
+				Service:   service,
 				Instances: make([]*WorkloadServiceInstance, 0, len(selectedWorkloads)*len(se.Ports)),
 			}
 			for _, wi := range selectedWorkloads {
