@@ -156,7 +156,7 @@ func (c *kubeComponent) APIForCluster(cluster cluster.Cluster) prometheusApiV1.A
 func (c *kubeComponent) RawQuery(cluster cluster.Cluster, promQL string) (model.Value, error) {
 	scopes.Framework.Debugf("Query running: %s", promQL)
 
-	v, _, err := c.api[cluster.Name()].Query(context.Background(), promQL, time.Now())
+	v, _, _, err := c.api[cluster.Name()].Query(context.Background(), promQL, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("error querying Prometheus: %v", err)
 	}
