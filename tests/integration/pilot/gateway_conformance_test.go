@@ -69,6 +69,8 @@ var skippedTests = map[string]string{
 	// Istio derives the upstream protocol from the Service port; the test Service has no appProtocol,
 	// so we send HTTP/1.1 (no h2 ALPN) to the TLS gRPC backend.
 	"BackendTLSPolicyGRPCRoute": "TODO",
+	// Backends have sidecars, which turn the connection error into a 503 response, so the gateway does not retry.
+	"HTTPRouteRetryConnectionError": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
