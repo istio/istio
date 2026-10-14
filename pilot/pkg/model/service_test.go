@@ -15,6 +15,7 @@
 package model
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"testing"
@@ -708,6 +709,29 @@ func TestServiceInstanceDeepCopyTargetPort(t *testing.T) {
 		copied.Service.Ports[0].TargetPort = intstr.FromString("changed")
 		assert.Equal(t, *instance.ServicePort, originalPort)
 		assert.Equal(t, *instance.Service.Ports[0], originalPort)
+	}
+}
+
+func TestPortTargetPortJSON(t *testing.T) {
+	cases := []struct {
+		name       string
+		targetPort intstr.IntOrString
+		want       string
+	}{
+		{"unspecified", intstr.IntOrString{}, `{"port":80}`},
+		{"numeric", intstr.FromInt32(8080), `{"port":80,"targetPort":8080}`},
+		{"named", intstr.FromString("http"), `{"port":80,"targetPort":"http"}`},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			port := Port{Port: 80, TargetPort: tt.targetPort}
+			b, err := json.Marshal(port)
+			assert.NoError(t, err)
+			assert.Equal(t, string(b), tt.want)
+			var decoded Port
+			assert.NoError(t, json.Unmarshal(b, &decoded))
+			assert.Equal(t, decoded, port)
+		})
 	}
 }
 

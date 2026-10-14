@@ -961,13 +961,8 @@ func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapp
 			}
 			// when there are multiple ports, construct service with listener port
 			sc := service.ShallowCopy()
-			sc.Ports = []*Port{
-				{
-					Name:     port.Name,
-					Port:     port.Port,
-					Protocol: port.Protocol,
-				},
-			}
+			p := *port
+			sc.Ports = PortList{&p}
 			return sc
 		}
 	}

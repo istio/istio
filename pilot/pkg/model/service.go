@@ -290,7 +290,7 @@ type Port struct {
 	// TargetPort is the declared target port number or name, or zero if unspecified.
 	// Named ports are resolved per workload, and workload port mappings may override the declaration.
 	// The resolved port is stored in IstioEndpoint.EndpointPort.
-	TargetPort intstr.IntOrString `json:"targetPort,omitempty"`
+	TargetPort intstr.IntOrString `json:"targetPort,omitzero"`
 
 	// Protocol to be used for the port.
 	Protocol protocol.Instance `json:"protocol,omitempty"`
