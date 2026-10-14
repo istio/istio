@@ -1558,8 +1558,6 @@ func notifyExit() {
 
 var defaultTransport = http.DefaultTransport.(*http.Transport)
 
-// SetTransportDefaults mirrors Kubernetes probe settings
-// https://github.com/kubernetes/kubernetes/blob/0153febd9f0098d4b8d0d484927710eaf899ef40/pkg/probe/http/http.go#L52
 func setTransportDefaults(t *http.Transport) *http.Transport {
 	if !EnableHTTP2Probing {
 		return t
@@ -1580,8 +1578,10 @@ func setTransportDefaults(t *http.Transport) *http.Transport {
 	protocols.SetHTTP2(true)
 	t.Protocols = protocols
 	t.HTTP2 = &http.HTTP2Config{
+		// Send a health check ping once the connection has been idle this long,
 		SendPingTimeout: time.Duration(30) * time.Second,
-		PingTimeout:     time.Duration(15) * time.Second,
+		// and close the connection if that ping is not answered within this long.
+		PingTimeout: time.Duration(15) * time.Second,
 	}
 	return t
 }
