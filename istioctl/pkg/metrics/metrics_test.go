@@ -222,7 +222,7 @@ func (client mockPromAPI) Metadata(ctx context.Context, metric string, limit str
 
 func (client mockPromAPI) LabelNames(
 	ctx context.Context, matches []string, startTime time.Time, endTime time.Time, options ...promv1.Option,
-) ([]string, promv1.Warnings, error) {
+) (prometheus_model.LabelNames, promv1.Warnings, error) {
 	return nil, nil, nil
 }
 
