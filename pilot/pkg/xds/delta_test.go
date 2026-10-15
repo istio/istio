@@ -19,12 +19,16 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	xdspkg "istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
@@ -150,7 +154,8 @@ func TestDeltaCDSReconnect(t *testing.T) {
 		},
 	})
 	assertResources(resp, "outbound|8080||eds.test.svc.cluster.local", "outbound|8080||eds2.test.svc.cluster.local")
-	assert.Equal(t, resp.RemovedResources, []string{"outbound|80||test-1.default"})
+	// Listeners from before the reconnect may still refer to removed clusters; see TestDeltaCDSRemovalOnReconnect.
+	assert.Equal(t, resp.RemovedResources, nil)
 
 	// Another removal should behave the same
 	s.MemRegistry.RemoveService("eds.test.svc.cluster.local")
@@ -168,6 +173,213 @@ func TestDeltaCDSReconnect(t *testing.T) {
 	resp = ads.ExpectResponse()
 	assertResources(resp)
 	assert.Equal(t, resp.RemovedResources, []string{"outbound|8080||eds2.test.svc.cluster.local"})
+}
+
+// connectDeltaClustersAndListeners connects a sidecar co-located with an eds.test.svc.cluster.local endpoint, so it
+// has an inbound cluster, and ACKs its initial clusters and listeners.
+func connectDeltaClustersAndListeners(t *testing.T, drain time.Duration) (*xds.FakeDiscoveryServer, *xdspkg.DeltaAdsTest) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	addTestClientEndpoints(s.MemRegistry)
+	s.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
+	s.MemRegistry.SetEndpoints(edsIncSvc, "",
+		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
+	s.EnsureSynced(t)
+
+	ads := s.ConnectDeltaADS().WithID("sidecar~127.0.0.1~test.default~default.svc.cluster.local").
+		WithMetadata(model.NodeMetadata{ProxyConfig: &model.NodeMetaProxyConfig{DrainDuration: durationpb.New(drain)}})
+	cds := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{TypeUrl: v3.ClusterType})
+	assert.Equal(t, slices.Contains(slices.Map(cds.Resources, (*discovery.Resource).GetName), "inbound|80||"), true)
+	ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{TypeUrl: v3.ListenerType})
+	return s, ads
+}
+
+// expectClustersThenListeners expects a push of clusters, without removals, followed by listeners.
+func expectClustersThenListeners(t *testing.T, ads *xdspkg.DeltaAdsTest) (cds, lds *discovery.DeltaDiscoveryResponse) {
+	t.Helper()
+	cds = ads.ExpectResponse()
+	assert.Equal(t, cds.TypeUrl, v3.ClusterType)
+	assert.Equal(t, cds.RemovedResources, nil)
+	lds = ads.ExpectResponse()
+	assert.Equal(t, lds.TypeUrl, v3.ListenerType)
+	return cds, lds
+}
+
+func ackDelta(ads *xdspkg.DeltaAdsTest, resp *discovery.DeltaDiscoveryResponse) {
+	ads.Request(&discovery.DeltaDiscoveryRequest{TypeUrl: resp.TypeUrl, ResponseNonce: resp.Nonce})
+}
+
+func expectClusterRemoval(t *testing.T, ads *xdspkg.DeltaAdsTest, removed ...string) {
+	t.Helper()
+	resp := ads.ExpectResponse()
+	assert.Equal(t, resp.TypeUrl, v3.ClusterType)
+	assert.Equal(t, len(resp.Resources), 0)
+	assert.Equal(t, resp.RemovedResources, removed)
+}
+
+func TestDeltaCDSRemovalWaitsForListenerAck(t *testing.T) {
+	s, ads := connectDeltaClustersAndListeners(t, 0)
+
+	// The proxy is no longer selected by the service: its inbound cluster must outlive the listener that uses it.
+	s.MemRegistry.RemoveService(edsIncSvc)
+	_, lds := expectClustersThenListeners(t, ads)
+	ads.ExpectNoResponse()
+
+	ackDelta(ads, lds)
+	expectClusterRemoval(t, ads, "inbound|80||", "outbound|8080||eds.test.svc.cluster.local")
+	ads.ExpectNoResponse()
+}
+
+func TestDeltaCDSRemovalWaitsForListenerDrain(t *testing.T) {
+	// Comfortably longer than the response-check window below, so a loaded CI machine cannot make the removal
+	// arrive "too early"; the assertion on time.Since still rejects an early removal.
+	const drain = time.Second
+	s, ads := connectDeltaClustersAndListeners(t, drain)
+
+	s.MemRegistry.RemoveService(edsIncSvc)
+	_, lds := expectClustersThenListeners(t, ads)
+	ackDelta(ads, lds)
+	acked := time.Now()
+	// Connections of the replaced listener still use the clusters while it drains.
+	ads.ExpectNoResponse()
+	// Removal is due only after drain. Delivering it is asynchronous, and a loaded CI
+	// machine can take far longer than the default 1s response timeout; the assertion
+	// below still rejects a removal that arrives before drain has elapsed.
+	ads.WithTimeout(retry.DefaultTimeout)
+	expectClusterRemoval(t, ads, "inbound|80||", "outbound|8080||eds.test.svc.cluster.local")
+	assert.Equal(t, time.Since(acked) >= drain, true)
+}
+
+func TestDeltaCDSRemovalWaitsForRouteAck(t *testing.T) {
+	s, ads := connectDeltaClustersAndListeners(t, 0)
+	ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{TypeUrl: v3.RouteType, ResourceNamesSubscribe: []string{"80"}})
+
+	s.MemRegistry.RemoveService("test-1.default")
+	_, lds := expectClustersThenListeners(t, ads)
+	rds := ads.ExpectResponse()
+	assert.Equal(t, rds.TypeUrl, v3.RouteType)
+	ackDelta(ads, lds)
+	// The previous routes, still in use, refer to the cluster.
+	ads.ExpectNoResponse()
+
+	ackDelta(ads, rds)
+	expectClusterRemoval(t, ads, "outbound|80||test-1.default")
+}
+
+func TestDeltaCDSRemovalOnReconnect(t *testing.T) {
+	t.Run("proxy that never fetches listeners", func(t *testing.T) {
+		s, ads := connectDeltaClustersAndListeners(t, 0)
+		ads.Cleanup()
+		s.MemRegistry.RemoveService("test-1.default")
+		s.EnsureSynced(t)
+
+		// Envoy sends the clusters it kept, and only subscribes to listeners once it has the new clusters.
+		ads = s.ConnectDeltaADS().WithID("sidecar~127.0.0.1~test.default~default.svc.cluster.local").
+			WithMetadata(model.NodeMetadata{ProxyConfig: &model.NodeMetaProxyConfig{DrainDuration: durationpb.New(0)}})
+		cds := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+			TypeUrl: v3.ClusterType,
+			InitialResourceVersions: map[string]string{
+				"outbound|80||test-1.default":               "",
+				"outbound|8080||eds.test.svc.cluster.local": "",
+			},
+		})
+		assert.Equal(t, cds.RemovedResources, nil)
+		// A further request shows the proxy fetches no listeners; waiting for them would hold forever.
+		expectClusterRemoval(t, ads, "outbound|80||test-1.default")
+		ads.ExpectNoResponse()
+	})
+
+	t.Run("waits for the listeners fetched after the clusters", func(t *testing.T) {
+		const drain = time.Second
+		s, ads := connectDeltaClustersAndListeners(t, 0)
+		ads.Cleanup()
+		s.MemRegistry.RemoveService("test-1.default")
+		s.EnsureSynced(t)
+
+		ads = s.ConnectDeltaADS().WithID("sidecar~127.0.0.1~test.default~default.svc.cluster.local").
+			WithMetadata(model.NodeMetadata{ProxyConfig: &model.NodeMetaProxyConfig{DrainDuration: durationpb.New(drain)}})
+		cds := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+			TypeUrl: v3.ClusterType,
+			InitialResourceVersions: map[string]string{
+				"outbound|80||test-1.default":               "",
+				"outbound|8080||eds.test.svc.cluster.local": "",
+			},
+		})
+		assert.Equal(t, cds.RemovedResources, nil)
+
+		// Subscribe to listeners, but leave the response unacknowledged: the previous listeners, still draining,
+		// refer to the cluster. The cluster ACK alone started the drain timer through the no-listeners release
+		// valve; it must not release once the proxy has subscribed to listeners.
+		ads.Request(&discovery.DeltaDiscoveryRequest{TypeUrl: v3.ListenerType})
+		lds := ads.ExpectResponse()
+		time.Sleep(drain + 100*time.Millisecond)
+		ads.ExpectNoResponse()
+
+		ackDelta(ads, lds)
+		ads.WithTimeout(retry.DefaultTimeout)
+		expectClusterRemoval(t, ads, "outbound|80||test-1.default")
+		ads.ExpectNoResponse()
+	})
+}
+
+func TestDeltaCDSRemovalHeldOnListenerNack(t *testing.T) {
+	s, ads := connectDeltaClustersAndListeners(t, 0)
+
+	s.MemRegistry.RemoveService(edsIncSvc)
+	_, lds := expectClustersThenListeners(t, ads)
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		TypeUrl:       v3.ListenerType,
+		ResponseNonce: lds.Nonce,
+		ErrorDetail:   &status.Status{Message: "Test request NACK"},
+	})
+	// Envoy keeps its previous listeners, which still use the clusters.
+	ads.ExpectNoResponse()
+
+	// The next accepted listeners release the removals held so far.
+	s.MemRegistry.RemoveService("test-1.default")
+	_, lds = expectClustersThenListeners(t, ads)
+	ads.ExpectNoResponse()
+	ackDelta(ads, lds)
+	expectClusterRemoval(t, ads, "inbound|80||", "outbound|8080||eds.test.svc.cluster.local", "outbound|80||test-1.default")
+}
+
+func TestDeltaCDSRemovalSkipsClustersAddedBack(t *testing.T) {
+	s, ads := connectDeltaClustersAndListeners(t, 0)
+
+	s.MemRegistry.RemoveService("test-1.default")
+	expectClustersThenListeners(t, ads)
+
+	// The service comes back before the listeners are ACKed, so its cluster must not be removed.
+	s.MemRegistry.AddHTTPService("test-1.default", "10.10.1.4", 80)
+	cds, lds := expectClustersThenListeners(t, ads)
+	assert.Equal(t, slices.Contains(slices.Map(cds.Resources, (*discovery.Resource).GetName), "outbound|80||test-1.default"), true)
+	ackDelta(ads, lds)
+	ads.ExpectNoResponse()
+}
+
+func TestDeltaCDSRemovalNotDeferred(t *testing.T) {
+	t.Run("without listeners", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		addTestClientEndpoints(s.MemRegistry)
+		s.EnsureSynced(t)
+		ads := s.ConnectDeltaADS()
+		ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{TypeUrl: v3.ClusterType})
+
+		s.MemRegistry.RemoveService("test-1.default")
+		resp := ads.ExpectResponse()
+		assert.Equal(t, resp.RemovedResources, []string{"outbound|80||test-1.default"})
+		ads.ExpectNoResponse()
+	})
+	t.Run("feature disabled", func(t *testing.T) {
+		test.SetForTest(t, &features.DeferClusterRemoval, false)
+		s, ads := connectDeltaClustersAndListeners(t, 0)
+
+		s.MemRegistry.RemoveService("test-1.default")
+		resp := ads.ExpectResponse()
+		assert.Equal(t, resp.TypeUrl, v3.ClusterType)
+		assert.Equal(t, resp.RemovedResources, []string{"outbound|80||test-1.default"})
+		assert.Equal(t, ads.ExpectResponse().TypeUrl, v3.ListenerType)
+		ads.ExpectNoResponse()
+	})
 }
 
 func TestDeltaEDS(t *testing.T) {
@@ -413,9 +625,10 @@ func TestDeltaReconnectRequests(t *testing.T) {
 	if resn := xdstest.ExtractResource(res.Resources); resn.Contains(updateCluster) || !resn.Contains(staticCluster) {
 		t.Fatalf("unexpected resources: %v", resn)
 	}
-	// It should be removed
-	if resn := sets.New(res.RemovedResources...); !resn.Contains(updateCluster) {
-		t.Fatalf("unexpected remove resources: %v", resn)
+	// Its removal is deferred, as listeners from before the reconnect may still refer to it; see
+	// TestDeltaCDSRemovalOnReconnect.
+	if len(res.RemovedResources) > 0 {
+		t.Fatalf("unexpected remove resources: %v", res.RemovedResources)
 	}
 }
 
@@ -633,4 +846,45 @@ func TestDeltaUnsub(t *testing.T) {
 		ResourceNamesUnsubscribe: []string{"something"},
 	})
 	runAssert(resp.Nonce)
+}
+
+func BenchmarkDeltaClusterRemoval(b *testing.B) {
+	for _, services := range []int{100, 1000, 2500} {
+		for _, deferRemoval := range []bool{false, true} {
+			b.Run(fmt.Sprintf("services=%d/defer=%v", services, deferRemoval), func(b *testing.B) {
+				test.SetForTest(b, &features.DeferClusterRemoval, deferRemoval)
+				s := xds.NewFakeDiscoveryServer(b, xds.FakeOptions{})
+				addTestClientEndpoints(s.MemRegistry)
+				for i := range services {
+					s.MemRegistry.AddHTTPService(fmt.Sprintf("svc-%d.default", i), fmt.Sprintf("10.20.%d.%d", i/250, i%250+1), 80)
+				}
+				s.EnsureSynced(b)
+				ads := s.ConnectDeltaADS().WithID("sidecar~127.0.0.1~test.default~default.svc.cluster.local").
+					WithMetadata(model.NodeMetadata{ProxyConfig: &model.NodeMetaProxyConfig{DrainDuration: durationpb.New(0)}})
+				ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{TypeUrl: v3.ClusterType})
+				ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{TypeUrl: v3.ListenerType})
+
+				expect := func(typeURL string, removals bool) {
+					resp := ads.ExpectResponse()
+					if resp.TypeUrl != typeURL || (len(resp.RemovedResources) > 0) != removals {
+						b.Fatalf("unexpected %s response with removals %v", resp.TypeUrl, resp.RemovedResources)
+					}
+					ackDelta(ads, resp)
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for range b.N {
+					s.MemRegistry.RemoveService("test-1.default")
+					expect(v3.ClusterType, !deferRemoval)
+					expect(v3.ListenerType, false)
+					if deferRemoval {
+						expect(v3.ClusterType, true)
+					}
+					s.MemRegistry.AddHTTPService("test-1.default", "10.10.1.4", 80)
+					expect(v3.ClusterType, false)
+					expect(v3.ListenerType, false)
+				}
+			})
+		}
+	}
 }
