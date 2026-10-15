@@ -719,8 +719,14 @@ spec:
 			// sent returns the resources of a type that the gateway has, as tracked by the server.
 			sent := func(typeURL string) sets.String {
 				for _, c := range s.Discovery.AllClients() {
-					if w := c.Proxy().GetWatchedResource(typeURL); w != nil {
-						return w.ResourceNames.Copy()
+					// The server updates the watched resources while it pushes, so read them under the proxy lock.
+					p := c.Proxy()
+					p.RLock()
+					w, ok := p.DeepCloneWatchedResourcesLocked()[typeURL]
+					names := w.ResourceNames.Copy()
+					p.RUnlock()
+					if ok {
+						return names
 					}
 				}
 				return nil
