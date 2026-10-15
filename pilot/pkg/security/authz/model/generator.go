@@ -337,7 +337,11 @@ func (requestHeaderGenerator) principal(key, value string, forTCP bool, _ bool) 
 	if err != nil {
 		return nil, err
 	}
-	m := matcher.HeaderMatcher(header, value)
+	headerMatcher := matcher.HeaderMatcher
+	if header == methodHeader {
+		headerMatcher = matcher.MethodMatcher
+	}
+	m := headerMatcher(header, value)
 	return principalHeader(m), nil
 }
 
@@ -401,7 +405,7 @@ func (methodGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permi
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
-	m := matcher.HeaderMatcher(methodHeader, value)
+	m := matcher.MethodMatcher(methodHeader, value)
 	return permissionHeader(m), nil
 }
 
