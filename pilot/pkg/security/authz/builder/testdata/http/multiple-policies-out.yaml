@@ -13,10 +13,12 @@ typedConfig:
                     name: :method
                     stringMatch:
                       exact: GET
+                      ignoreCase: true
                 - header:
                     name: :method
                     stringMatch:
                       exact: POST
+                      ignoreCase: true
         principals:
         - andIds:
             ids:
