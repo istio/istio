@@ -22,8 +22,6 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	dnsServer "istio.io/istio/pkg/dns/server"
-	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -58,7 +56,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaNameTable(proxy *model.Proxy, up
 	if len(tables) == 0 && len(removed) == 0 {
 		return nil, nil
 	}
-	return toPerHostResources(tables), slices.Sort(removed)
+	return toPerHostResources(tables), removed
 }
 
 func nameTableConfig(node *model.Proxy, push *model.PushContext) dnsServer.Config {
@@ -71,10 +69,10 @@ func nameTableConfig(node *model.Proxy, push *model.PushContext) dnsServer.Confi
 
 func toPerHostResources(tables map[string]*dnsProto.NameTable) []*discovery.Resource {
 	resources := make([]*discovery.Resource, 0, len(tables))
-	for _, hostname := range slices.Sort(maps.Keys(tables)) {
+	for hostname, table := range tables {
 		resources = append(resources, &discovery.Resource{
 			Name:     hostname,
-			Resource: protoconv.MessageToAny(tables[hostname]),
+			Resource: protoconv.MessageToAny(table),
 		})
 	}
 	return resources

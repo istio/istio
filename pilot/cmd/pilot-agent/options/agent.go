@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
 	istioagent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/ptr"
@@ -63,7 +62,7 @@ func NewAgentOptions(proxy *ProxyArgs, cfg *meshconfig.ProxyConfig, sds istioage
 		GRPCBootstrapPath:             grpcBootstrapEnv,
 		DisableEnvoy:                  disableEnvoyEnv,
 		DNSCapture:                    DNSCaptureByAgent.Get(),
-		DeltaNDS:                      deltaNDSEnabled(cfg),
+		DeltaNDS:                      DeltaNDS.Get(),
 		DNSAtGateway:                  EnableDNSAtGateway.Get(),
 		DNSForwardParallel:            DNSForwardParallel.Get(),
 		DNSForwardTimeout:             DNSForwardTimeout.Get(),
@@ -81,11 +80,6 @@ func NewAgentOptions(proxy *ProxyArgs, cfg *meshconfig.ProxyConfig, sds istioage
 	}
 	extractXDSHeadersFromEnv(o)
 	return o
-}
-
-func deltaNDSEnabled(cfg *meshconfig.ProxyConfig) bool {
-	metadata, _, err := bootstrap.GetEffectiveProxyMetadata(cfg, os.Environ())
-	return err == nil && bool(metadata.DeltaNDS)
 }
 
 // Simplified extraction of gRPC headers from environment.

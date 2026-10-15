@@ -102,7 +102,6 @@ func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 func (n NdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	watched *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	// DELTA_NDS expresses intent; known Istio versions before 1.32 cannot consume named resources.
 	if !supportsDeltaNDS(proxy) {
 		resources, details, err := n.Generate(proxy, watched, req)
 		return resources, nil, details, false, err
@@ -120,9 +119,7 @@ func (n NdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 }
 
 func supportsDeltaNDS(proxy *model.Proxy) bool {
-	// Non-empty custom versions follow Istio's optimistic version handling; a missing version falls back to legacy NDS.
-	return proxy.Metadata != nil && bool(proxy.Metadata.DeltaNDS) && proxy.Metadata.IstioVersion != "" &&
-		proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(minimumDeltaNDSVersion) && !usesLegacyAutoAllocation(proxy)
+	return bool(proxy.Metadata.DeltaNDS) && proxy.VersionGreaterOrEqual(minimumDeltaNDSVersion) && !usesLegacyAutoAllocation(proxy)
 }
 
 // usesLegacyAutoAllocation reports whether the proxy gets addresses from the legacy allocator, which can renumber any
