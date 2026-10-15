@@ -52,9 +52,7 @@ func (t gatewayWildcardTLSTarget) name() string {
 }
 
 // gatewayWildcardDestination returns the wildcard DYNAMIC_DNS service and upstream port when wildcard TLS is
-// enabled and the routes send to a single such service. A filter chain has one SNI dynamic forward proxy filter,
-// with one DNS cache and one port, but each wildcard service has its own DNS cache and cluster. So routes to
-// several destinations are not supported.
+// enabled and the routes send to a single such service, as the chain has one SNI dynamic forward proxy filter.
 func gatewayWildcardDestination(
 	node *model.Proxy, routes []*networking.RouteDestination, serverPort int,
 ) (*model.Service, int) {
