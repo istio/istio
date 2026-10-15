@@ -141,8 +141,10 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		watchedServices = sets.NewWithLength[host.Name](len(scopedServices))
 	}
 	for cluster := range watched.ResourceNames {
-		// Gateway wildcard TLS internal clusters are rebuilt on every push, so the ones not rebuilt are deleted.
-		if strings.HasPrefix(cluster, string(model.TrafficDirectionOutboundWildcardTLS)+"|") {
+		// A VirtualService change can drop a gateway wildcard TLS target while its service stays, so the
+		// internal clusters not rebuilt are deleted.
+		if features.EnableWildcardHostServiceEntriesForTLS && scopeChanged &&
+			strings.HasPrefix(cluster, string(model.TrafficDirectionOutboundWildcardTLS)+"|") {
 			deletedClusters.Insert(cluster)
 			continue
 		}
