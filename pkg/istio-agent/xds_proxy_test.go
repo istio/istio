@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -723,20 +724,40 @@ func TestNDSDeltaHandler(t *testing.T) {
 		assert.Equal(t, ips(dnsServer), map[string][]string{"c.default.svc.cluster.local": {"10.0.0.3"}})
 	})
 
-	t.Run("rejected response retains accepted state", func(t *testing.T) {
+	t.Run("partially rejected response applies valid resources and removals", func(t *testing.T) {
 		h, dnsServer := newHandler()
-		handle(t, h, []*discovery.Resource{host("a.default.svc.cluster.local", "10.0.0.1")}, nil)
-		malformed := &discovery.Resource{Name: "b.default.svc.cluster.local", Resource: protoconv.MessageToAny(&discovery.Resource{})}
-		resources := []*discovery.Resource{host("c.default.svc.cluster.local", "10.0.0.3"), malformed}
-		if _, err := h.Handle(nil, resources, []string{"a.default.svc.cluster.local"}); err == nil {
-			t.Fatal("expected malformed resource to be rejected")
+		handle(t, h, []*discovery.Resource{
+			host("a.default.svc.cluster.local", "10.0.0.1"),
+			host("b.default.svc.cluster.local", "10.0.0.2"),
+		}, nil)
+		malformed := func(hostname string) *discovery.Resource {
+			return &discovery.Resource{Name: hostname, Resource: protoconv.MessageToAny(&discovery.Resource{})}
 		}
-		if _, err := h.Handle(nil, []*discovery.Resource{{Name: "d.default.svc.cluster.local"}}, nil); err == nil {
-			t.Fatal("expected empty resource to be rejected")
+		resources := []*discovery.Resource{
+			host("c.default.svc.cluster.local", "10.0.0.3"),
+			malformed("b.default.svc.cluster.local"),
+			malformed("d.default.svc.cluster.local"),
+			{Name: "e.default.svc.cluster.local"},
 		}
-		assert.Equal(t, ips(dnsServer), map[string][]string{"a.default.svc.cluster.local": {"10.0.0.1"}})
-		handle(t, h, []*discovery.Resource{host("b.default.svc.cluster.local", "10.0.0.2")}, nil)
-		assert.Equal(t, len(ips(dnsServer)), 2)
+		_, err := h.Handle(nil, resources, []string{"a.default.svc.cluster.local"})
+		if err == nil {
+			t.Fatal("expected malformed resources to be rejected")
+		}
+		for _, hostname := range []string{"b.default.svc.cluster.local", "d.default.svc.cluster.local", "e.default.svc.cluster.local"} {
+			if !strings.Contains(err.Error(), hostname) {
+				t.Fatalf("NACK %q does not name rejected resource %s", err, hostname)
+			}
+		}
+		// The removal and valid addition apply, and b keeps its previously accepted table.
+		assert.Equal(t, ips(dnsServer), map[string][]string{
+			"b.default.svc.cluster.local": {"10.0.0.2"},
+			"c.default.svc.cluster.local": {"10.0.0.3"},
+		})
+		// Rejected additions are not reported as held on reconnect, so istiod sends them again.
+		assert.Equal(t, h.initialResourceVersions(nil), map[string]string{"b.default.svc.cluster.local": "", "c.default.svc.cluster.local": ""})
+
+		handle(t, h, []*discovery.Resource{host("d.default.svc.cluster.local", "10.0.0.4")}, nil)
+		assert.Equal(t, ips(dnsServer)["d.default.svc.cluster.local"], []string{"10.0.0.4"})
 	})
 
 	t.Run("initial resource versions list accepted hostnames", func(t *testing.T) {

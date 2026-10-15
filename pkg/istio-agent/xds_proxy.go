@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -616,13 +617,11 @@ func (h *ndsDeltaHandler) Handle(con *ProxyConnection, resources []*discovery.Re
 }
 
 func (h *ndsDeltaHandler) apply(resources []*discovery.Resource, removed []string) error {
-	for _, resource := range resources {
-		if resource.GetResource() == nil {
-			return fmt.Errorf("NDS resource %q is empty", resource.GetName())
-		}
-	}
 	// Istiod without Delta NDS support sends the legacy single unnamed table.
 	if len(resources) == 1 && resources[0].Name == "" {
+		if resources[0].GetResource() == nil {
+			return fmt.Errorf("NDS resource is empty")
+		}
 		var table dnsProto.NameTable
 		if err := resources[0].Resource.UnmarshalTo(&table); err != nil {
 			return err
@@ -632,13 +631,19 @@ func (h *ndsDeltaHandler) apply(resources []*discovery.Resource, removed []strin
 		h.dnsServer.UpdateLookupTable(&table)
 		return nil
 	}
-	// Unmarshal everything first so a rejected response leaves the accepted state intact. Istiod does not resend the
-	// rejected hostnames, so they stay stale until they change again or the stream reconnects.
+	// Like Envoy and ztunnel, apply the valid resources and all removals, and NACK only the rejected resources.
+	// A rejected hostname keeps its previously accepted table until istiod sends it again.
 	updated := make(map[string]*dnsProto.NameTable, len(resources))
+	var rejected []string
 	for _, resource := range resources {
 		var table dnsProto.NameTable
+		if resource.GetResource() == nil {
+			rejected = append(rejected, fmt.Sprintf("%s: empty resource", resource.GetName()))
+			continue
+		}
 		if err := resource.Resource.UnmarshalTo(&table); err != nil {
-			return fmt.Errorf("NDS resource %q: %v", resource.Name, err)
+			rejected = append(rejected, fmt.Sprintf("%s: %v", resource.GetName(), err))
+			continue
 		}
 		updated[resource.Name] = &table
 	}
@@ -647,6 +652,9 @@ func (h *ndsDeltaHandler) apply(resources []*discovery.Resource, removed []strin
 		h.resources.Insert(hostname)
 	}
 	h.dnsServer.ApplyNameTables(updated, removed)
+	if len(rejected) > 0 {
+		return fmt.Errorf("rejected NDS resources: %s", strings.Join(rejected, "; "))
+	}
 	return nil
 }
 

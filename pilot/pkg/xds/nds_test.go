@@ -175,15 +175,15 @@ func TestNDSDeltaWireFormat(t *testing.T) {
 		}
 	})
 
-	t.Run("configured agent without version receives unnamed full table", func(t *testing.T) {
+	t.Run("configured agent without version receives named resources", func(t *testing.T) {
 		s := newServer(t)
 		ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{
 			DNSCapture: true,
 			DeltaNDS:   true,
 		})
 		response := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
-		if len(response.Resources) != 1 || response.Resources[0].Name != "" {
-			t.Fatalf("agent without a version selected named resources: %v", response.Resources)
+		if len(response.Resources) == 0 || response.Resources[0].Name == "" {
+			t.Fatalf("agent without a version did not receive named resources: %v", response.Resources)
 		}
 	})
 

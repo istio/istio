@@ -97,8 +97,8 @@ func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 }
 
 // GenerateDeltas uses generic Delta xDS NACK handling: record the rejection without resetting the stream or forcing a snapshot.
-// ResourceNames is updated on send, so hostnames in a rejected response stay stale in the agent until they change again
-// or the stream reconnects.
+// The agent applies removals and valid resources of a rejected response, so only the rejected hostnames stay stale until
+// they change again, a full push, or the stream reconnects.
 func (n NdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	watched *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {

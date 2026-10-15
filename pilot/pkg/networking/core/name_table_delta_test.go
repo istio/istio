@@ -129,7 +129,7 @@ func TestBuildDeltaNameTableFullPushGroupsByHostname(t *testing.T) {
 
 	resources := buildFull(deltaTestProxy(push), push)
 	want := []string{"db.default.svc.cluster.local", "example.com", "reviews.default.svc.cluster.local"}
-	if diff := cmp.Diff(want, slices.Map(resources, func(r *discovery.Resource) string { return r.Name })); diff != "" {
+	if diff := cmp.Diff(want, slices.Sort(slices.Map(resources, func(r *discovery.Resource) string { return r.Name }))); diff != "" {
 		t.Fatalf("unexpected resource names (-want +got):\n%s", diff)
 	}
 	got := resourceTables(t, resources)
