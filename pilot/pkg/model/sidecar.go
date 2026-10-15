@@ -447,12 +447,8 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range ilw.virtualServices {
-			// we don't need to add dependencies on delegate virtual services because they are handled by the virtual service controller
-			sc.AddConfigDependencies(ConfigKey{
-				Kind:      kind.VirtualService,
-				Namespace: vs.Namespace,
-				Name:      vs.Name,
-			}.HashCode())
+			// VirtualService dependency is answered by DependsOnConfig delegating to each
+			// EgressListener's own configDependencies, so it isn't tracked again here.
 			v := vs.Spec.(*networking.VirtualService)
 			for h, ports := range virtualServiceDestinationsFilteredBySourceNamespace(v, configNamespace) {
 				byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
@@ -780,6 +776,14 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	case kind.DestinationRule:
 		if _, f := sc.destinationRulesByNames[types.NamespacedName{Name: config.Name, Namespace: config.Namespace}]; f {
 			return true
+		}
+	case kind.VirtualService:
+		// Not tracked in configDependencies to avoid duplicating what each EgressListener
+		// already tracks in its own configDependencies; ask them directly instead.
+		for _, ilw := range sc.EgressListeners {
+			if ilw.DependsOnConfig(config) {
+				return true
+			}
 		}
 	}
 
