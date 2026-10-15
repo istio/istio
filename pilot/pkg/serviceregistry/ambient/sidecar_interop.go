@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/workloadapi"
@@ -135,11 +136,17 @@ func RegisterEdsShim(
 						network: wAddress.Network,
 						ip:      mustByteIPToString(wAddress.Address),
 					}
-					waypointSvc := krt.FetchOne(ctx, Services, krt.FilterIndex(ServicesByAddress, serviceKey))
-					if waypointSvc == nil {
+					waypointSvcs := krt.Fetch(ctx, Services, krt.FilterIndex(ServicesByAddress, serviceKey))
+					if len(waypointSvcs) != 1 {
+						if len(waypointSvcs) > 1 {
+							log.Warnf("service %v: waypoint address %v is claimed by %d services (%v); "+
+								"its waypoint endpoints will not be updated until the collision is resolved",
+								svc.ResourceName(), serviceKey, len(waypointSvcs),
+								slices.Map(waypointSvcs, model.ServiceInfo.ResourceName))
+						}
 						continue
 					}
-					waypointServiceKey = waypointSvc.ResourceName()
+					waypointServiceKey = waypointSvcs[0].ResourceName()
 				}
 				workloads = append(workloads, WorkloadsByServiceKey.Fetch(ctx, waypointServiceKey)...)
 			}
