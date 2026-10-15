@@ -169,13 +169,17 @@ func TestGatewayConformance(t *testing.T) {
 			csuite, err := suite.NewConformanceTestSuite(opts)
 			assert.NoError(t, err)
 			csuite.Setup(t, tests.ConformanceTests)
+			// Run marks the suite as finished in a t.Cleanup, so the report can only be generated after that.
+			// Cleanups run in reverse order, so register this before calling Run.
+			t.Cleanup(func() {
+				report, err := csuite.Report()
+				assert.NoError(t, err)
+				reportb, err := yaml.Marshal(report)
+				assert.NoError(t, err)
+				fp := filepath.Join(ctx.Settings().BaseDir, "istio-conformance.yaml")
+				t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
+				assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
+			})
 			assert.NoError(t, csuite.Run(t, tests.ConformanceTests))
-			report, err := csuite.Report()
-			assert.NoError(t, err)
-			reportb, err := yaml.Marshal(report)
-			assert.NoError(t, err)
-			fp := filepath.Join(ctx.Settings().BaseDir, "istio-conformance.yaml")
-			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
-			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
 		})
 }
