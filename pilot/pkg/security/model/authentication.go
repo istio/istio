@@ -62,17 +62,18 @@ var SDSAdsConfig = &core.ConfigSource{
 	ResourceApiVersion: core.ApiVersion_V3,
 }
 
-// ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
-// from certificates referenced by credentialName in DestinationRule or Gateway.
+// ConstructSdsSecretConfigForCredential constructs SDS secret configuration
+// referencing a credential by name, resolved from a DestinationRule or Gateway.
 func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bool, push *model.PushContext) *tls.SdsSecretConfig {
 	return constructSdsSecretConfigForCredential(name, credentialSocketExist, push, false)
 }
 
-// ConstructSdsSecretConfigForCredential constructs SDS secret configuration
-// that holds a CA certificate referenced by caCertCredentialName in
-// DestinationRule or Gateway.
+// ConstructSdsSecretConfigForCaCredential constructs SDS secret configuration
+// referencing a CA certificate, for a credential name stored in a
+// DestinationRule's ClientTLSSettings, either in caCertCredentialName or
+// credentialName with the CA cert suffix appended.
 //
-// This differs for "sds://" names. The "-cacert" suffix is never appended to
+// It differs for "sds://" names. The "-cacert" suffix is never appended to
 // them, because the resource name is sent verbatim to the external SDS server.
 // If no external SDS server is reachable we fall back to resolving the name as
 // a Kubernetes Secret via istiod, and at that point the suffix is what tells
