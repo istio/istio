@@ -338,7 +338,7 @@ func TestGatewaySNIDFPFilter(t *testing.T) {
 			routes: []*networking.RouteDestination{route("example.com", 443, 0)},
 		},
 		{
-			// Weighted clusters are an intentional non-goal: one DNS cache cannot serve several destinations.
+			// Weighted clusters are an intentional non-goal: the chain has one SNI dynamic forward proxy filter.
 			name:   "weighted destinations",
 			flag:   true,
 			routes: []*networking.RouteDestination{route("*.wildcard.com", 443, 50), route("*.wildcard.com", 443, 50)},
