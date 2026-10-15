@@ -57,6 +57,7 @@ spec:
       sni: httpbin.org
 `
 
+//nolint:unparam // cluster name is constant across all call sites
 func fileCredReproSdsTarget(t *testing.T, clusters []*cluster.Cluster, name string) string {
 	t.Helper()
 	for _, c := range clusters {
