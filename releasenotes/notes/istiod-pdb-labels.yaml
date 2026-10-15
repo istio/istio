@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
   - |
-    **Added** a `pdbLabels` value to the istiod Helm chart to apply additional labels to the istiod PodDisruptionBudget.
+    **Added** a `pdb.labels` value to the istiod Helm chart to apply additional labels to the istiod PodDisruptionBudget.

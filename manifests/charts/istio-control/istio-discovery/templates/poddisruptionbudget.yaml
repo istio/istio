@@ -18,7 +18,7 @@ metadata:
     istio: pilot
     app.kubernetes.io/name: "istiod"
     {{- include "istio.labels" . | nindent 4 }}
-    {{- range $key, $val := .Values.pdbLabels }}
+    {{- range $key, $val := .Values.pdb.labels }}
     {{ $key }}: "{{ $val }}"
     {{- end }}
 spec:
