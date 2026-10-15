@@ -109,6 +109,8 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 // TestWorkloadInstances is effectively an integration test of composing the Kubernetes service registry with the
 // external service registry, which have cross-references by workload instances.
 func TestWorkloadInstances(t *testing.T) {
+	istiotest.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, false)
+	istiotest.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, false)
 	istiotest.SetForTest(t, &features.WorkloadEntryHealthChecks, true)
 	port := &networking.ServicePort{
 		Name:     "http",
@@ -1425,34 +1427,43 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
-		store, kube, fx := setupTest(t)
-		makeService(t, kube, service)
-
-		// Start as unhealthy, should have no instances
-		makeIstioObject(t, store, setHealth(workloadEntry, false))
-		instances := []EndpointResponse{}
-		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
-
-		// Mark healthy, get instances
-		makeIstioObject(t, store, setHealth(workloadEntry, true))
-		instances = []EndpointResponse{{
-			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
-			Port:    80,
-		}}
-		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
-
-		// Set back to unhealthy
-		makeIstioObject(t, store, setHealth(workloadEntry, false))
-		instances = []EndpointResponse{}
-		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
-
-		// Remove health status entirely
-		makeIstioObject(t, store, workloadEntry)
-		instances = []EndpointResponse{{
-			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
-			Port:    80,
-		}}
-		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+		for _, flags := range []struct{ auto, global bool }{{false, false}, {true, false}, {false, true}} {
+			t.Run(fmt.Sprintf("auto=%v/global=%v", flags.auto, flags.global), func(t *testing.T) {
+				istiotest.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, flags.auto)
+				istiotest.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, flags.global)
+				store, kube, fx := setupTest(t)
+				makeService(t, kube, service)
+				sendUnhealthy := flags.auto || flags.global
+				check := func(cfg config.Config, health model.HealthStatus) {
+					t.Helper()
+					makeIstioObject(t, store, cfg)
+					instances := []EndpointResponse{}
+					if health == model.Healthy || sendUnhealthy {
+						instances = append(instances, EndpointResponse{workloadEntry.Spec.(*networking.WorkloadEntry).Address, 80})
+					}
+					expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+					if len(instances) > 0 {
+						index := fx.Delegate.(*model.FakeEndpointIndexUpdater).Index
+						retry.UntilSuccessOrFail(t, func() error {
+							endpoints := GetEndpointsForPort(expectedSvc, index, 80)
+							if len(endpoints) != 1 {
+								return fmt.Errorf("expected one workload endpoint, got %d", len(endpoints))
+							}
+							if endpoints[0].HealthStatus != health || endpoints[0].SendUnhealthyEndpoints != sendUnhealthy {
+								return fmt.Errorf("expected health %v/sendUnhealthy %v, got %v/%v", health, sendUnhealthy,
+									endpoints[0].HealthStatus, endpoints[0].SendUnhealthyEndpoints)
+							}
+							return nil
+						})
+					}
+				}
+				check(setHealth(workloadEntry, false), model.UnHealthy)
+				check(setHealth(workloadEntry, true), model.Healthy)
+				check(setHealth(workloadEntry, false), model.UnHealthy)
+				// Entries without health checks are assumed healthy.
+				check(workloadEntry, model.Healthy)
+			})
+		}
 	})
 
 	istiotest.SetForTest(t, &features.EnableSidecarHBONEListening, true)
