@@ -1065,6 +1065,9 @@ message PilotConfig {
 
   // The name of the ztunnel that istiod should trust for mTLS.
   string trustedZtunnelName = 69;
+
+  // Additional labels for the istiod PodDisruptionBudget.
+  google.protobuf.Struct pdbLabels = 70;
 }
 
 message PilotTaintControllerConfig {
