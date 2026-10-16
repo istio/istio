@@ -64,7 +64,8 @@ func gatewayWildcardDestination(
 		return nil, 0
 	}
 	// Must match the port of the destination cluster.
-	return svc, istio_route.GetDestinationPort(routes[0].Destination, svc, serverPort)
+	_, _, _, port := model.ParseSubsetKey(istio_route.GetDestinationCluster(routes[0].Destination, svc, serverPort))
+	return svc, port
 }
 
 // gatewayWildcardTLSTargetForServer returns the target of an ISTIO_MUTUAL TLS server whose routes send to a
