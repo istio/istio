@@ -116,16 +116,19 @@ func NewIptablesConfigurator(
 	return configurator, inPodConfigurator, nil
 }
 
-func (cfg *IptablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
+func (cfg *IptablesConfigurator) DeleteInpodRules(
+	log *istiolog.Scope,
+	podOverrides config.PodLevelOverrides,
+) error {
 	var inpodErrs []error
 
 	log.Debug("deleting iptables rules")
-	cfg.executeDeleteCommands(log)
+	cfg.executeDeleteCommands(log, podOverrides.Kata)
 	inpodErrs = append(inpodErrs, cfg.delInpodMarkIPRule(), cfg.delLoopbackRoute())
 	return errors.Join(inpodErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
+func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope, kata bool) {
 	deleteCmds := [][]string{
 		{"-t", "mangle", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
 		{"-t", "mangle", "-D", "OUTPUT", "-j", ChainInpodOutput},
@@ -133,20 +136,42 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 		{"-t", "raw", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
 		{"-t", "raw", "-D", "OUTPUT", "-j", ChainInpodOutput},
 		{"-t", "nat", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
-		// flush-then-delete our created chains
-		// these sometimes fail due to "Device or resource busy" or because they are optional given the iptables cfg
-		{"-t", "mangle", "-F", ChainInpodPrerouting},
-		{"-t", "mangle", "-F", ChainInpodOutput},
-		{"-t", "nat", "-F", ChainInpodPrerouting},
-		{"-t", "nat", "-F", ChainInpodOutput},
-		{"-t", "raw", "-F", ChainInpodPrerouting},
-		{"-t", "raw", "-F", ChainInpodOutput},
-		{"-t", "mangle", "-X", ChainInpodPrerouting},
-		{"-t", "mangle", "-X", ChainInpodOutput},
-		{"-t", "nat", "-X", ChainInpodPrerouting},
-		{"-t", "nat", "-X", ChainInpodOutput},
-		{"-t", "raw", "-X", ChainInpodPrerouting},
-		{"-t", "raw", "-X", ChainInpodOutput},
+	}
+	// Usually, ISTIO_POSTRT exists only on the host netns, but in Kata, we also place it in the pod netns, so we need to delete it there too.
+	if kata {
+		deleteCmds = append(deleteCmds,
+			[]string{"-t", "nat", "-D", "POSTROUTING", "-j", ChainHostPostrouting},
+		)
+	}
+
+	// Flush, then delete, our created chains. These sometimes fail due to
+	// "Device or resource busy" or because they are optional given the iptables config.
+	deleteCmds = append(deleteCmds,
+		[]string{"-t", "mangle", "-F", ChainInpodPrerouting},
+		[]string{"-t", "mangle", "-F", ChainInpodOutput},
+		[]string{"-t", "nat", "-F", ChainInpodPrerouting},
+		[]string{"-t", "nat", "-F", ChainInpodOutput},
+		[]string{"-t", "raw", "-F", ChainInpodPrerouting},
+		[]string{"-t", "raw", "-F", ChainInpodOutput},
+	)
+	// Usually, ISTIO_POSTRT exists only on the host netns, but in Kata, we also place it in the pod netns, so we need to delete it there too.
+	if kata {
+		deleteCmds = append(deleteCmds,
+			[]string{"-t", "nat", "-F", ChainHostPostrouting},
+		)
+	}
+	deleteCmds = append(deleteCmds,
+		[]string{"-t", "mangle", "-X", ChainInpodPrerouting},
+		[]string{"-t", "mangle", "-X", ChainInpodOutput},
+		[]string{"-t", "nat", "-X", ChainInpodPrerouting},
+		[]string{"-t", "nat", "-X", ChainInpodOutput},
+		[]string{"-t", "raw", "-X", ChainInpodPrerouting},
+		[]string{"-t", "raw", "-X", ChainInpodOutput},
+	)
+	if kata {
+		deleteCmds = append(deleteCmds,
+			[]string{"-t", "nat", "-X", ChainHostPostrouting},
+		)
 	}
 
 	iptablesVariant := []dep.IptablesVersion{}
@@ -166,6 +191,11 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
 func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
+	// Kata pods take a completely separate path -- see iptables_kata.go.
+	if podOverrides.Kata {
+		return cfg.createInpodRulesKata(log, podOverrides)
+	}
+
 	// Append our rules here
 	builder := cfg.AppendInpodRules(podOverrides)
 
