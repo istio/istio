@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62067
+releaseNotes:
+  - |
+    **Fixed** an issue where, with `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG` enabled, incremental CDS pushes removed gateway clusters
+    for Services listed in the `envoyfilter.istio.io/referenced-services` annotation of an `EnvoyFilter`. These clusters were
+    only restored on the next full push.
