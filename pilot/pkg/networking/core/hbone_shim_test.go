@@ -53,11 +53,31 @@ func TestHBONEOriginationShimListener(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, false)
 	for _, baggage := range []bool{false, true} {
 		test.SetForTest(t, &features.EnableAmbientBaggage, baggage)
-		cg := NewConfigGenTest(t, TestOptions{})
-		for _, kind := range []model.NodeType{model.Waypoint, model.Router} {
+		cg := NewConfigGenTest(t, TestOptions{ConfigString: `
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: outbound-logs
+  namespace: default
+spec:
+  accessLogging:
+  - providers:
+    - name: envoy
+    match:
+      mode: CLIENT
+  - providers:
+    - name: envoy
+    match:
+      mode: SERVER
+    disabled: true
+`})
+		for _, kind := range []model.NodeType{model.Waypoint, model.Router, model.SidecarProxy} {
 			for _, enabled := range []bool{false, true} {
 				proxy := shimTestProxy(cg, kind, enabled)
-				class := istionetworking.ListenerClassSidecarInbound
+				class := istionetworking.ListenerClassSidecarOutbound
+				if kind == model.Waypoint {
+					class = istionetworking.ListenerClassSidecarInbound
+				}
 				if kind == model.Router {
 					class = istionetworking.ListenerClassGateway
 				}
@@ -73,6 +93,7 @@ func TestHBONEOriginationShimListener(t *testing.T) {
 					found = true
 					assert.Equal(t, l.GetInternalListener(), legacy.GetInternalListener())
 					assert.Equal(t, l.ListenerFilters, legacy.ListenerFilters)
+					assert.Equal(t, l.AccessLog, legacy.AccessLog)
 					filters := l.FilterChains[0].Filters
 					original := legacy.FilterChains[0].Filters
 					assert.Equal(t, filters[:len(filters)-1], original[:len(original)-1])
@@ -86,6 +107,9 @@ func TestHBONEOriginationShimListener(t *testing.T) {
 					wantTCP := &tcp.TcpProxy{}
 					assert.NoError(t, original[len(original)-1].GetTypedConfig().UnmarshalTo(wantTCP))
 					assert.Equal(t, tcpProxy, wantTCP)
+					if kind == model.SidecarProxy {
+						assert.Equal(t, len(tcpProxy.AccessLog), 1)
+					}
 					assert.Equal(t, tcpProxy.GetCluster(), ConnectOriginate)
 					assert.Equal(t, tcpProxy.GetTunnelingConfig().Hostname, "%DOWNSTREAM_LOCAL_ADDRESS%")
 				}
@@ -149,7 +173,7 @@ func TestHBONEOriginationShimPairing(t *testing.T) {
 					Namespace: "default", CapturedByZtunnel: true,
 				}}},
 			})
-			for _, kind := range []model.NodeType{model.Waypoint, model.Router} {
+			for _, kind := range []model.NodeType{model.Waypoint, model.Router, model.SidecarProxy} {
 				for _, enabled := range []bool{false, true} {
 					proxy := shimTestProxy(cg, kind, enabled)
 					cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
@@ -236,15 +260,19 @@ func TestHBONEOriginationShimCacheIsolation(t *testing.T) {
 	svc := &model.Service{Hostname: "app.default.svc.cluster.local", Attributes: model.ServiceAttributes{Namespace: "default"}}
 	port := &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP}
 	cg := NewConfigGenTest(t, TestOptions{Services: []*model.Service{svc}})
-	keys := make([][2]any, 0, 2)
-	for _, enabled := range []bool{false, true} {
-		proxy := shimTestProxy(cg, model.Router, enabled)
-		cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
-		cds := buildClusterKey(svc, port, cb, proxy, nil)
-		eds := endpoints.NewEndpointBuilder(model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port), proxy, cg.PushContext())
-		keys = append(keys, [2]any{cds.Key(), eds.Key()})
-	}
-	if keys[0][0] == keys[1][0] || keys[0][1] == keys[1][1] {
-		t.Fatal("shim and stock proxy share an xDS cache key")
+	for _, kind := range []model.NodeType{model.SidecarProxy, model.Router} {
+		t.Run(string(kind), func(t *testing.T) {
+			keys := make([][2]any, 0, 2)
+			for _, enabled := range []bool{false, true} {
+				proxy := shimTestProxy(cg, kind, enabled)
+				cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
+				cds := buildClusterKey(svc, port, cb, proxy, nil)
+				eds := endpoints.NewEndpointBuilder(model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port), proxy, cg.PushContext())
+				keys = append(keys, [2]any{cds.Key(), eds.Key()})
+			}
+			if keys[0][0] == keys[1][0] || keys[0][1] == keys[1][1] {
+				t.Fatal("shim and stock proxy share an xDS cache key")
+			}
+		})
 	}
 }
