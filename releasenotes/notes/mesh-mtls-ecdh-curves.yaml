@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - https://github.com/istio/istio/issues/52290
+releaseNotes:
+  - |
+    **Added** support for `meshMTLS.ecdhCurves` in the mesh config allowing users to configure
+    ECDH curves for sidecar mesh mTLS on both inbound and outbound connections. Previously this field
+    was rejected.
