@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 52073
+
+releaseNotes:
+  - |
+    **Fixed** the ambient node-untaint controller removing the `cni.istio.io/not-ready` taint when
+    only istio-cni was ready. It can now also wait for ztunnel to be ready on the node, so pods are
+    not scheduled onto a node whose ztunnel is still wedged. This is off by default on this release
+    branch and is enabled with `PILOT_NODE_UNTAINT_CHECK_ZTUNNEL=true`. Only applies when ambient
+    is enabled.
