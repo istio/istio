@@ -304,7 +304,7 @@ type NodeMetadata struct {
 	// Note: this only impacts sidecars and gateways; ztunnel and waypoint proxy unconditionally use HBONE.
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
 
-	// EnableHBONEOriginationShim opts a custom waypoint or gateway proxy into the experimental
+	// EnableHBONEOriginationShim opts a custom sidecar, waypoint, or gateway proxy into the experimental
 	// contrib Istio HBONE shim. The binary must contain both shim extensions.
 	EnableHBONEOriginationShim StringBool `json:"ENABLE_HBONE_ORIGINATION_SHIM,omitempty"`
 
