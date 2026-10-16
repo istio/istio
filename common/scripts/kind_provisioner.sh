@@ -300,6 +300,8 @@ function setup_kind_clusters() {
       cp "${DEFAULT_CLUSTER_YAML}" "${CLUSTER_YAML}"
       cat <<EOF >> "${CLUSTER_YAML}"
 networking:
+  # Let Docker allocate the host port to avoid races during parallel cluster creation.
+  apiServerPort: -1
   podSubnet: ${CLUSTER_POD_SUBNET}
   serviceSubnet: ${CLUSTER_SVC_SUBNET}
 EOF
