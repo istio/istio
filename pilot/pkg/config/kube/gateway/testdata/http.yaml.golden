@@ -401,7 +401,7 @@ spec:
         prefix: /empty
     name: default.http-retry-request.1
     retries:
-      attempts: 2
+      attempts: 1
       retryOn: connect-failure,refused-stream,unavailable,cancelled
     route:
     - destination:
