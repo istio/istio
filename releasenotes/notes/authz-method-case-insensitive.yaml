@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** `AuthorizationPolicy` method rules being bypassed over HTTP/2 by changing
+  the case of the method (e.g. `post` for `POST`). Method matching is now case-insensitive.
+  See [GHSA-w44g-8m76-8gc5](https://github.com/istio/istio/security/advisories/GHSA-w44g-8m76-8gc5).
+  Reported by [@izzy0101010101](https://github.com/izzy0101010101).
