@@ -305,11 +305,10 @@ spec:
       version: v1
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       labels:
         app: productpage
         version: v1
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: bookinfo-productpage
       containers:
@@ -324,7 +323,7 @@ metadata:
 spec: {}
 ---
 # Deployment has multiple service attached but using same port but different protocol.
-# Sidecar is enabled although the namespaced doesn't have automatic injection.
+# Sidecar is enabled via the label although the namespace doesn't have automatic injection.
 # It should generate a warning.
 apiVersion: apps/v1
 kind: Deployment
@@ -342,11 +341,10 @@ spec:
       version: v1
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "true"
       labels:
         app: ratings
         version: v1
+        sidecar.istio.io/inject: "true"
     spec:
       serviceAccountName: bookinfo-ratings
       containers:

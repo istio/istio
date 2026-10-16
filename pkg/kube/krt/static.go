@@ -38,6 +38,7 @@ type staticList[T any] struct {
 	syncer         Syncer
 	metadata       Metadata
 	indexes        map[string]staticListIndex[T]
+	disabled       bool
 }
 
 func (s StaticCollection[T]) AsCollection() Collection[T] {
@@ -52,6 +53,14 @@ func (s StaticCollection[T]) List() []T {
 // Callers that need to update the collection after creation should use NewMutableCollection.
 func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) Collection[T] {
 	return NewMutableCollection(synced, vals, opts...).AsCollection()
+}
+
+// NewDisabledCollection creates a collection that is always empty. Fetching from it returns nil immediately
+// without registering a dependency, so it costs nothing to pass where a collection is required but unused.
+func NewDisabledCollection[T any](opts ...CollectionOption) Collection[T] {
+	s := NewMutableCollection[T](nil, nil, opts...)
+	s.disabled = true
+	return s.AsCollection()
 }
 
 // NewMutableCollection creates a StaticCollection that callers can update directly.
@@ -242,6 +251,10 @@ func (s *staticList[T]) Metadata() Metadata {
 	return s.metadata
 }
 
+func (s *staticList[T]) isDisabled() bool {
+	return s.disabled
+}
+
 // nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) name() string {
 	return s.collectionName
@@ -273,19 +286,29 @@ type staticListIndex[T any] struct {
 }
 
 // nolint: unused // (not true)
-func (s staticListIndex[T]) Lookup(key string) []T {
+// LookupFiltered returns objects matching the key and filter. A nil filter returns all objects for the key.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
+func (s staticListIndex[T]) LookupFiltered(key string, filter func(T) bool) []T {
 	s.parent.mu.RLock()
 	defer s.parent.mu.RUnlock()
 	keys := s.index[key]
 
-	res := make([]T, 0, len(keys))
+	var res []T
+	if filter == nil {
+		res = make([]T, 0, len(keys))
+	}
 	for k := range keys {
 		v, f := s.parent.vals[k]
 		if !f {
 			log.WithLabels("key", k).Errorf("invalid index state, object does not exist")
 			continue
 		}
-		res = append(res, v)
+		if filter == nil || filter(v) {
+			res = append(res, v)
+		}
 	}
 	return res
 }
@@ -335,6 +358,11 @@ func (s *staticList[T]) index(name string, extract func(o T) []string) indexer[T
 	return idx
 }
 
+// ListFiltered returns objects accepted by filter. A nil filter returns all objects.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (s *staticList[T]) ListFiltered(filter func(T) bool) []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

@@ -21,7 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -83,20 +83,20 @@ var (
 	headless2 = &fakeInstance{Cluster: cls2, Namespace: echo1NS, Service: "headless", Headless: true}
 	// naked pod (uninjected)
 	naked1 = &fakeInstance{Cluster: cls1, Namespace: echo1NS, Service: "naked", Subsets: []echo.SubsetConfig{{
-		Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+		Labels: map[string]string{label.SidecarInject.Name: "false"},
 	}}}
 	naked2 = &fakeInstance{Cluster: cls2, Namespace: echo1NS, Service: "naked", Subsets: []echo.SubsetConfig{{
-		Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+		Labels: map[string]string{label.SidecarInject.Name: "false"},
 	}}}
 	// external svc
 	external1 = &fakeInstance{
 		Cluster: cls1, Namespace: echo1NS, Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
-			Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+			Labels: map[string]string{label.SidecarInject.Name: "false"},
 		}},
 	}
 	external2 = &fakeInstance{
 		Cluster: cls2, Namespace: echo1NS, Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
-			Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+			Labels: map[string]string{label.SidecarInject.Name: "false"},
 		}},
 	}
 
