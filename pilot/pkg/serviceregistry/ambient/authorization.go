@@ -279,9 +279,9 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 			// then we don't need to add a rule for this STRICT port since it will be enforced by the parent policy
 			if isMtlsModeStrict(pa.GetMtls()) || // #1
 				(isMtlsModeUnset(pa.GetMtls()) && // First condition for #2 and #3
-					(nsCfg != nil && isMtlsModeStrict(nsCfg.Spec.Mtls)) || // #2
+					((nsCfg != nil && isMtlsModeStrict(nsCfg.Spec.Mtls)) || // #2
 					// #3
-					((nsCfg == nil || isMtlsModeUnset(nsCfg.Spec.Mtls)) && rootCfg != nil && isMtlsModeStrict(rootCfg.Spec.Mtls))) {
+					((nsCfg == nil || isMtlsModeUnset(nsCfg.Spec.Mtls)) && rootCfg != nil && isMtlsModeStrict(rootCfg.Spec.Mtls)))) {
 				log.Debugf("skipping port %d/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s",
 					port, portMtlsMode, cfg.Namespace, cfg.Name, mode)
 				continue
