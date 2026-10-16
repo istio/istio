@@ -247,6 +247,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			buildOuterConnectOriginateListener(builder.push, builder.node))
 	}
 
+	for _, target := range gatewayWildcardTLSTargets(builder.node) {
+		listeners = append(listeners, builder.buildGatewayWildcardTLSInternalListener(target))
+	}
+
 	builder.gatewayListeners = listeners
 	return builder
 }
@@ -858,18 +862,33 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
 // server's port and hostnames, and produces network filters for each destination from the filtered services.
 func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *networking.Server, gatewayName string) []*listener.Filter {
+	routes, configMeta, ok := gatewayTCPRoutes(lb.node, server, gatewayName)
+	if !ok {
+		return nil
+	}
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
 		Protocol: protocol.Parse(server.Port.Protocol),
 	}
+	if target, ok := gatewayWildcardTLSTargetForServer(lb.node, server, routes); ok {
+		return lb.buildGatewayWildcardTLSFilters(target, port)
+	}
+	includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
+	return lb.buildOutboundNetworkFilters(routes, port, configMeta, includeMx)
+}
 
+// gatewayTCPRoutes returns the routes of the first VirtualService TCP rule (or TLSRoute rule, for TLS termination)
+// that is bound to the server, and the metadata of that VirtualService.
+func gatewayTCPRoutes(
+	node *model.Proxy, server *networking.Server, gatewayName string,
+) ([]*networking.RouteDestination, config.Meta, bool) {
 	gatewayServerHosts := sets.NewWithLength[host.Name](len(server.Hosts))
 	for _, hostname := range server.Hosts {
 		gatewayServerHosts.Insert(host.Name(hostname))
 	}
 
-	virtualServices := lb.node.SidecarScope.GatewayVirtualServices(gatewayName)
+	virtualServices := node.SidecarScope.GatewayVirtualServices(gatewayName)
 	if len(virtualServices) == 0 {
 		log.Warnf("no virtual service bound to gateway: %v", gatewayName)
 	}
@@ -894,8 +913,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 				if len(tcp.Route) == 0 {
 					continue
 				}
-				includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
-				return lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx)
+				return tcp.Route, v.Meta, true
 			}
 		}
 
@@ -905,17 +923,16 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		if parentName, ok := v.Annotations[constants.InternalParentNames]; ok &&
 			strings.HasPrefix(parentName, "TLSRoute/") &&
 			!gateway.IsPassThroughServer(server) {
-			includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
 			for _, tls := range vsvc.Tls {
 				for _, match := range tls.Match {
 					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
-						return lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, includeMx)
+						return tls.Route, v.Meta, true
 					}
 				}
 			}
 		}
 	}
-	return nil
+	return nil, config.Meta{}, false
 }
 
 // buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TLS blocks.
@@ -982,7 +999,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 						filterChains = append(filterChains, &filterChainOpts{
 							sniHosts:       match.SniHosts,
 							tlsContext:     nil, // NO TLS context because this is passthrough
-							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false),
+							networkFilters: lb.withGatewaySNIDFPFilter(lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false), tls.Route, port),
 						})
 					}
 				}
@@ -991,6 +1008,23 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 	}
 
 	return filterChains
+}
+
+// withGatewaySNIDFPFilter inserts an SNI dynamic forward proxy filter before the TCP proxy when a passthrough
+// TLS route sends to a single wildcard DYNAMIC_DNS ServiceEntry, so Envoy resolves the upstream from the SNI.
+func (lb *ListenerBuilder) withGatewaySNIDFPFilter(
+	filters []*listener.Filter, routes []*networking.RouteDestination, port *model.Port,
+) []*listener.Filter {
+	svc, upstreamPort := gatewayWildcardDestination(lb.node, routes, port.Port)
+	if svc == nil {
+		return filters
+	}
+	tcpProxy := slices.IndexFunc(filters, func(f *listener.Filter) bool { return f.Name == wellknown.TCPProxy })
+	if tcpProxy < 0 {
+		return filters
+	}
+	dfp := buildSNIDFPFilter(upstreamPort, svc, util.SelectDNSLookupFamily(lb.node.IPAddresses))
+	return slices.Insert(filters, tcpProxy, dfp)
 }
 
 // builtAutoPassthroughFilterChains builds a set of filter chains for auto_passthrough gateway servers.
