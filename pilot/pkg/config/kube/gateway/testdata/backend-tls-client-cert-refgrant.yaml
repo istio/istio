@@ -1,0 +1,73 @@
+# Regression test for the cross-namespace existence oracle (CWE-203) on
+# spec.tls.backend.clientCertificateRef. Both Gateways reference a Secret in
+# namespace "certs" with NO ReferenceGrant. Grant-first authorization must make
+# existing-vs-missing indistinguishable: both must report
+# ResolvedRefs=False / RefNotPermitted with no "not found" or "malformed" leak.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+# clientCertificateRef -> EXISTING Secret in another namespace, no grant.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: backend-clientcert-exists
+  namespace: istio-system
+spec:
+  tls:
+    backend:
+      clientCertificateRef:
+        group: ""
+        kind: Secret
+        namespace: certs
+        name: existing-cert
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+# clientCertificateRef -> MISSING Secret in another namespace, no grant.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: backend-clientcert-missing
+  namespace: istio-system
+spec:
+  tls:
+    backend:
+      clientCertificateRef:
+        group: ""
+        kind: Secret
+        namespace: certs
+        name: missing-cert
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: existing-cert
+  namespace: certs
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg==
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCg==
