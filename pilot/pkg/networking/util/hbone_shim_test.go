@@ -37,7 +37,8 @@ func TestHBONEOriginationShimOptIn(t *testing.T) {
 		{name: "nil"},
 		{name: "no metadata", proxy: &model.Proxy{Type: model.Waypoint}},
 		{name: "stock", proxy: &model.Proxy{Type: model.Waypoint, Metadata: &model.NodeMetadata{}}},
-		{name: "sidecar", proxy: &model.Proxy{Type: model.SidecarProxy, Metadata: &model.NodeMetadata{EnableHBONEOriginationShim: true}}},
+		{name: "sidecar", want: true, proxy: &model.Proxy{Type: model.SidecarProxy, Metadata: &model.NodeMetadata{EnableHBONEOriginationShim: true}}},
+		{name: "proxyless", proxy: &model.Proxy{Type: model.SidecarProxy, Metadata: &model.NodeMetadata{EnableHBONEOriginationShim: true, Generator: "grpc"}}},
 		{name: "waypoint", want: true, proxy: &model.Proxy{Type: model.Waypoint, Metadata: &model.NodeMetadata{EnableHBONEOriginationShim: true}}},
 		{name: "gateway", want: true, proxy: &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{EnableHBONEOriginationShim: true}}},
 		{name: "sending disabled", proxy: &model.Proxy{
@@ -51,11 +52,22 @@ func TestHBONEOriginationShimOptIn(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) { assert.Equal(t, HBONEOriginationShimEnabled(tt.proxy), tt.want) })
 	}
 	test.SetForTest(t, &features.EnableHBONESend, false)
-	gateway := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{EnableHBONEOriginationShim: true}}
-	assert.Equal(t, HBONEOriginationShimEnabled(gateway), false)
-	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-	waypoint := &model.Proxy{Type: model.Waypoint, Metadata: &model.NodeMetadata{EnableHBONEOriginationShim: true}}
-	assert.Equal(t, HBONEOriginationShimEnabled(waypoint), false)
+	for _, kind := range []model.NodeType{model.SidecarProxy, model.Router} {
+		proxy := &model.Proxy{Type: kind, Metadata: &model.NodeMetadata{EnableHBONEOriginationShim: true}}
+		assert.Equal(t, HBONEOriginationShimEnabled(proxy), false)
+	}
+	test.SetForTest(t, &features.EnableHBONESend, true)
+	for _, kind := range []model.NodeType{model.SidecarProxy, model.Router, model.Waypoint} {
+		t.Run(string(kind)+" disabled", func(t *testing.T) {
+			proxy := &model.Proxy{Type: kind, Metadata: &model.NodeMetadata{
+				EnableHBONEOriginationShim: true, DisableHBONESend: true,
+			}}
+			assert.Equal(t, HBONEOriginationShimEnabled(proxy), false)
+			proxy.Metadata.DisableHBONESend = false
+			test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+			assert.Equal(t, HBONEOriginationShimEnabled(proxy), false)
+		})
+	}
 }
 
 func TestHBONEOriginationShimUnsupportedServices(t *testing.T) {

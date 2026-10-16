@@ -33,13 +33,14 @@ const (
 )
 
 // HBONEOriginationShimEnabled is an explicit capability opt-in for custom proxy images.
-// The POC only supports single-HBONE origination on waypoints and ingress gateways.
+// The POC supports single-HBONE origination on Envoy sidecars, waypoints, and ingress gateways.
 func HBONEOriginationShimEnabled(proxy *model.Proxy) bool {
 	if proxy == nil || proxy.Metadata == nil || !bool(proxy.Metadata.EnableHBONEOriginationShim) ||
-		bool(proxy.Metadata.DisableHBONESend) || proxy.IsAmbientEastWestGateway() || features.EnableAmbientMultiNetwork {
+		bool(proxy.Metadata.DisableHBONESend) || proxy.IsProxylessGrpc() || proxy.IsAmbientEastWestGateway() || features.EnableAmbientMultiNetwork {
 		return false
 	}
-	return proxy.IsWaypointProxy() || (proxy.Type == model.Router && features.EnableHBONESend)
+	return proxy.IsWaypointProxy() ||
+		((proxy.Type == model.SidecarProxy || proxy.Type == model.Router) && features.EnableHBONESend)
 }
 
 // UseHBONEOriginationShim must be applied to both CDS and EDS. Unsupported traffic keeps

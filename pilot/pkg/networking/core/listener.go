@@ -139,7 +139,10 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	}
 
 	if util.HBONEOriginationShimEnabled(node) {
-		class := istionetworking.ListenerClassSidecarInbound
+		class := istionetworking.ListenerClassSidecarOutbound
+		if node.IsWaypointProxy() {
+			class = istionetworking.ListenerClassSidecarInbound
+		}
 		if node.Type == model.Router {
 			class = istionetworking.ListenerClassGateway
 		}

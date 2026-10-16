@@ -34,6 +34,7 @@ import (
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
@@ -600,24 +601,52 @@ spec:
 }
 
 func TestIngressUseWaypoint(t *testing.T) {
+	test.SetForTest(t, &features.EnableHBONESend, true)
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 	d, _ := setupWaypointTest(t,
 		waypointGateway,
 		waypointSvc,
 		appPod, appPodNoMesh,
 		waypointInstance, appWorkloadEntry,
 		appServiceEntry)
-	ingressProxy := d.SetupProxy(&model.Proxy{
-		Type:            model.Router,
-		ConfigNamespace: "default",
-		IPAddresses:     []string{"3.0.0.3"}, // Arbitrary
-	})
-
-	eps := slices.Sort(xdstest.ExtractLoadAssignments(d.Endpoints(ingressProxy))["outbound|80||app.com"])
-	assert.Equal(t, eps, []string{
-		// 1.2.3.4: Service VIP
-		// 3.0.0.1: Waypoint Pod IP
-		"connect_originate;1.2.3.4:80;3.0.0.1:15008",
-	})
+	for _, shim := range []bool{false, true} {
+		t.Run(fmt.Sprintf("shim=%t", shim), func(t *testing.T) {
+			ingressProxy := d.SetupProxy(&model.Proxy{
+				Type: model.Router, ConfigNamespace: "default",
+				IPAddresses: []string{"3.0.0.3"},
+				Metadata: &model.NodeMetadata{
+					EnableHBONEOriginationShim: model.StringBool(shim),
+				},
+			})
+			listenerName := "connect_originate"
+			transportName := "envoy.transport_sockets.internal_upstream"
+			if shim {
+				listenerName = util.HBONEOriginationShimListener
+				transportName = util.HBONEOriginationShimTransport
+			}
+			eps := slices.Sort(xdstest.ExtractLoadAssignments(d.Endpoints(ingressProxy))["outbound|80||app.com"])
+			// Preserve the service VIP as CONNECT authority and the waypoint as outer peer.
+			assert.Equal(t, eps, []string{listenerName + ";1.2.3.4:80;3.0.0.1:15008"})
+			clusters := xdstest.ExtractClusters(d.Clusters(ingressProxy))
+			c := clusters["outbound|80||app.com"]
+			if c == nil || clusters["connect_originate"] == nil {
+				t.Fatal("missing service or outer HBONE cluster")
+			}
+			found := false
+			for _, match := range c.TransportSocketMatches {
+				if match.Name == "hbone" {
+					found = true
+					assert.Equal(t, match.TransportSocket.Name, transportName)
+				}
+			}
+			assert.Equal(t, found, true)
+			assert.Equal(t, c.LoadBalancingPolicy == nil, true)
+			listeners := d.Listeners(ingressProxy)
+			assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationShimListener, listeners) != nil, shim)
+			assert.Equal(t, xdstest.ExtractListener("connect_originate", listeners) != nil, true)
+		})
+	}
 }
 
 func TestWaypointClusterWithDynamicDNS(t *testing.T) {
