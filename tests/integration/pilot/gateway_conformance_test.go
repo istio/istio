@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/tests/integration/pilot/gatewayconformance"
 )
 
 // GatewayConformanceInputs defines inputs to the gateway conformance test.
@@ -93,12 +94,13 @@ func TestGatewayConformance(t *testing.T) {
 
 			supportedFeatures := gateway.SupportedFeatures.Clone().
 				Delete(features.MeshClusterIPMatchingFeature) // https://github.com/istio/istio/issues/44702
+
+			// Standard-only selection goes through SkipTests, leaving supportedFeatures to
+			// advertise what Istio actually implements. Conformance tests read it at runtime
+			// to decide whether their assertions apply.
+			testsToSkip := skippedTests
 			if ctx.Settings().GatewayConformanceStandardOnly {
-				for f := range supportedFeatures {
-					if f.Channel != features.FeatureChannelStandard {
-						supportedFeatures.Delete(f)
-					}
-				}
+				testsToSkip = gatewayconformance.SkipNonStandardTests(tests.ConformanceTests, skippedTests)
 			}
 
 			hostnameType := v1.AddressType("Hostname")
@@ -112,7 +114,7 @@ func TestGatewayConformance(t *testing.T) {
 					CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 					CleanupTestResources:     gatewayConformanceInputs.Cleanup,
 					SupportedFeatures:        features.SetsToNamesSet(supportedFeatures).UnsortedList(),
-					SkipTests:                maps.Keys(skippedTests),
+					SkipTests:                maps.Keys(testsToSkip),
 					UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 					UnusableNetworkAddresses: []v1.GatewaySpecAddress{{Value: "foo", Type: &hostnameType}},
 					ConformanceProfiles: []suite.ConformanceProfileName{
