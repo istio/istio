@@ -15,7 +15,9 @@
 package gateway
 
 import (
+	"sync/atomic"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +27,7 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
@@ -96,6 +99,40 @@ func setupControllerWithRevision(t *testing.T, revision string, objs ...runtime.
 	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 
 	return controller
+}
+
+func TestReconcileWaitsForServiceRegistries(t *testing.T) {
+	kc := kube.NewFakeClient(
+		&k8s.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: "gwclass"}, Spec: *gatewayClassSpec},
+		&k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "gwspec", Namespace: "ns1"}, Spec: *gatewaySpec},
+		&k8s.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Name: "http-route", Namespace: "ns1"}, Spec: *httpRouteSpec},
+	)
+	setupClientCRDs(t, kc)
+	stop := test.NewStop(t)
+	controller := NewController(kc, AlwaysReady, controller.Options{KrtDebugger: krt.GlobalDebugHandler}, nil)
+	kc.RunAndWait(stop)
+	go controller.Run(stop)
+	cg := core.NewConfigGenTest(t, core.TestOptions{})
+	var servicesSynced atomic.Bool
+	cg.Env().ServicesSynced = servicesSynced.Load
+	reconcile := func() {
+		ps := model.NewPushContext()
+		ps.InitContext(cg.Env(), nil, nil)
+		controller.Reconcile(ps)
+	}
+
+	reconcile()
+	timeout := make(chan struct{})
+	time.AfterFunc(time.Second, func() { close(timeout) })
+	if kube.WaitForCacheSync("test", timeout, controller.HasSynced) {
+		t.Fatal("synced from a push context built while the service registries were loading")
+	}
+
+	servicesSynced.Store(true)
+	reconcile()
+	if !kube.WaitForCacheSync("test", stop, controller.HasSynced) {
+		t.Fatal("did not sync from a push context built after the service registries loaded")
+	}
 }
 
 func TestListInvalidGroupVersionKind(t *testing.T) {
