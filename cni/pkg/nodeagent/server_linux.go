@@ -15,6 +15,7 @@
 package nodeagent
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,7 +33,24 @@ import (
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
-func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, error) {
+func initMeshDataplane(client kube.Client, args AmbientArgs) (_ *meshDataplane, retErr error) {
+	var probeRoutes hostProbeRoutes
+	if err := util.RunAsHost(func() error {
+		var err error
+		probeRoutes, err = configureHostProbeRoutes(args.CNIAgentRunDir, HostProbeSNATIP, HostProbeSNATIPV6,
+			EnableHostProbeLocalRoute, args.EnableIPv6)
+		return err
+	}); err != nil {
+		return nil, fmt.Errorf("error initializing host probe local routing: %w", err)
+	}
+	defer func() {
+		if retErr != nil {
+			retErr = errors.Join(retErr, util.RunAsHost(func() error {
+				return probeRoutes.rollback()
+			}))
+		}
+	}()
+
 	// Linux specific startup operations
 	hostCfg := &config.AmbientConfig{
 		RedirectDNS:            args.DNSCapture,
@@ -144,6 +162,7 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		netServer:          netServer,
 		hostTrafficManager: hostTrafficManager,
 		hostAddrSet:        setManager,
+		hostProbeRoutes:    probeRoutes,
 	}, nil
 }
 
