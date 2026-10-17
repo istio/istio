@@ -63,52 +63,11 @@ env:
   AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE: "true"
 ```
 
-#### Cilium FIB lookup prerequisite
-
-Cilium must support the `DROP_NO_FIB` / `BPF_FIB_LKUP_RET_NOT_FWDED` fallback in its
-pod-to-network BPF host-routing path. Having that code is not sufficient if the
-endpoint program is compiled with `ENABLE_SKIP_FIB`: that path bypasses the FIB
-lookup and therefore the local-destination fallback. Adding a local route alone
-does not recover probes in that configuration.
-
-In the tested Cilium 1.18.14 configuration, one selected direct-routing device with
-`endpointRoutes.enabled=false` produced pod programs with `ENABLE_SKIP_FIB`.
-Setting `endpointRoutes.enabled=true` enforced FIB lookup for pod endpoints and
-allowed local-route recovery for both IPv4 and IPv6, while BPF host routing and BPF
-masquerading remained enabled. This is a tested configuration, not a recommendation
-to change production routing without evaluating its other effects.
-
-The relevant Cilium Helm values used for that comparison were:
-
-```yaml
-cni:
-  exclusive: false
-ipam:
-  mode: kubernetes
-routingMode: native
-autoDirectNodeRoutes: true
-kubeProxyReplacement: true
-socketLB:
-  hostNamespaceOnly: true
-bpf:
-  hostLegacyRouting: false
-  masquerade: true
-endpointRoutes:
-  enabled: true
-```
-
-Check effective routing and masquerading using `cilium-dbg status --verbose`.
-That output alone does not prove FIB lookup is enabled. Identify the workload's
-endpoint ID with `cilium-dbg endpoint list` and inspect
-`/var/run/cilium/state/<endpoint-id>/ep_config.h` in the Cilium agent on that node
-for `ENABLE_SKIP_FIB`. Inspect the pod endpoint, not the host endpoint; their
-settings can differ. Verify the fallback implementation for the deployed Cilium
-version rather than assuming all versions and datapaths behave identically.
-
-The live regression comparison used separate, single-node IPv4-only and IPv6-only
-kind clusters, Kubernetes 1.35.8, Cilium 1.18.14, Istio 1.31.2 control plane and
-ztunnel, and a locally built CNI candidate. These tests do not establish
-simultaneous dual-stack, multi-node, or general primary-CNI compatibility.
+**Cilium compatibility:** This option requires the pod datapath to perform a FIB
+lookup and fall back to the host stack for local destinations. Paths that bypass
+FIB lookup, such as those using `ENABLE_SKIP_FIB`, cannot be fixed by the local
+route alone. Verify compatibility with your deployed Cilium configuration; Istio
+does not modify Cilium settings.
 
 #### Address selection and ownership
 
