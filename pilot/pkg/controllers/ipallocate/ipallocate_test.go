@@ -601,6 +601,66 @@ func TestIPAllocateStaleAddressCleanup(t *testing.T) {
 	}, 0, retry.Converge(5), retry.Delay(time.Millisecond*5))
 }
 
+// TestIPAllocateFreesAddressesOnDelete asserts that deleting a ServiceEntry frees its
+// auto-allocated addresses back to the pool, instead of leaking them for the lifetime
+// of the istiod process.
+func TestIPAllocateFreesAddressesOnDelete(t *testing.T) {
+	rig := setupIPAllocateTest(t, TestIPV4Prefix, TestIPV6Prefix)
+
+	rig.se.Create(
+		&networkingv1alpha3.ServiceEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "deleteme",
+				Namespace: "boop",
+			},
+			Spec: v1alpha3.ServiceEntry{
+				Hosts:      []string{"deleteme.boop.testing.io"},
+				Resolution: v1alpha3.ServiceEntry_DNS,
+			},
+		},
+	)
+	// "pre-existing" already consumed index 1 during warming, so this should be index 2.
+	assert.EventuallyEqual(t, func() []string {
+		addr := autoallocate.GetAddressesFromServiceEntry(rig.se.Get("deleteme", "boop"))
+		var res []string
+		for _, a := range addr {
+			res = append(res, a.String())
+		}
+		return res
+	}, []string{
+		newV4AddressString(TestIPV4Prefix, 2),
+		newV6AddressString(TestIPV6Prefix, 2),
+	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*20))
+
+	rig.se.Delete("deleteme", "boop")
+
+	// If the freed addresses were not released back to the allocator, the next
+	// ServiceEntry would be assigned index 3 rather than reusing the freed index 2.
+	rig.se.Create(
+		&networkingv1alpha3.ServiceEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "reuse-address",
+				Namespace: "boop",
+			},
+			Spec: v1alpha3.ServiceEntry{
+				Hosts:      []string{"reuse-address.boop.testing.io"},
+				Resolution: v1alpha3.ServiceEntry_DNS,
+			},
+		},
+	)
+	assert.EventuallyEqual(t, func() []string {
+		addr := autoallocate.GetAddressesFromServiceEntry(rig.se.Get("reuse-address", "boop"))
+		var res []string
+		for _, a := range addr {
+			res = append(res, a.String())
+		}
+		return res
+	}, []string{
+		newV4AddressString(TestIPV4Prefix, 2),
+		newV6AddressString(TestIPV6Prefix, 2),
+	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*20))
+}
+
 func toMapStringString(in map[string][]netip.Addr) map[string][]string {
 	out := map[string][]string{}
 
