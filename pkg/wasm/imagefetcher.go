@@ -384,8 +384,14 @@ func extractWasmPluginBinary(r io.Reader) ([]byte, error) {
 			return nil, err
 		}
 
-		ret := make([]byte, h.Size)
 		if filepath.Base(h.Name) == wasmPluginFileName {
+			// archive/tar only rejects a negative Size for regular files, so a header-only
+			// entry can declare any size. Bound it before it is used as an allocation size.
+			if h.Size < 0 || h.Size > features.MaxWasmBinarySizeBytes {
+				return nil, fmt.Errorf("%s declares an invalid size %d", wasmPluginFileName, h.Size)
+			}
+
+			ret := make([]byte, h.Size)
 			_, err := io.ReadFull(tr, ret)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read %s: %v", wasmPluginFileName, err)

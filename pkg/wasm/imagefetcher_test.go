@@ -673,6 +673,33 @@ func TestExtractWasmPluginBinary(t *testing.T) {
 			t.Errorf("extractWasmPluginBinary must fail with not found")
 		}
 	})
+
+	t.Run("unreasonable declared size", func(t *testing.T) {
+		cases := []struct {
+			name     string
+			typeflag byte
+			size     []byte
+		}{
+			// A directory is a header-only type, so archive/tar leaves Size unvalidated.
+			{"negative", tar.TypeDir, negativeSize()},
+			{"oversize", tar.TypeReg, oversizeSize()},
+		}
+		for _, c := range cases {
+			t.Run(c.name, func(t *testing.T) {
+				buf := bytes.NewBuffer(nil)
+				gz := gzip.NewWriter(buf)
+				if _, err := gz.Write(createTarWithRawSize(t, "plugin.wasm", c.typeflag, c.size)); err != nil {
+					t.Fatal(err)
+				}
+				gz.Close()
+
+				_, err := extractWasmPluginBinary(buf)
+				if err == nil || !strings.Contains(err.Error(), "invalid size") {
+					t.Errorf("extractWasmPluginBinary must reject the declared size, got %v", err)
+				}
+			})
+		}
+	})
 }
 
 func TestWasmKeyChain(t *testing.T) {
