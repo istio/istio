@@ -1,0 +1,19 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 57878
+  - 60716
+releaseNotes:
+  - |
+    **Added** experimental support for sidecar clients to reach ambient workloads on a remote
+    network, enabled with `AMBIENT_ENABLE_MULTI_NETWORK_SIDECAR_BRIDGE` (which additionally requires
+    `AMBIENT_ENABLE_MULTI_NETWORK`). A sidecar can now call a global service backed by ambient
+    workloads in another network: the ambient east-west gateway terminates the sidecar's mTLS on an
+    `ISTIO_MUTUAL` listener and originates HBONE toward the destination or its waypoint.
+    DestinationRule subsets are honored for endpoint selection.
+
+    Because the bridge terminates the client's mTLS, on this path the destination observes the
+    east-west gateway's identity as the peer principal rather than the original client's;
+    `AuthorizationPolicy` rules matching on `source.principal` should account for this. The feature
+    is disabled by default.
