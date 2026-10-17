@@ -222,6 +222,9 @@ var (
 	EnableGatewayAPIHTTPRouteAuth = env.Register("ENABLE_GATEWAY_API_HTTPROUTE_AUTH", false,
 		"If true, support targeting Gateway API HTTPRoute resources with AuthorizationPolicy").Get()
 
+	EnableGatewayAPIListenerSetAuth = env.Register("ENABLE_GATEWAY_API_LISTENERSET_AUTH", false,
+		"If true, support targeting Gateway API ListenerSet resources with AuthorizationPolicy").Get()
+
 	EnableWildcardHostServiceEntriesForTLS = env.Register("ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS", false,
 		"If enabled, ServiceEntries with wildcard hosts and dynamic dns resolution will be allowed for TLS traffic. "+
 			"This is a security risk, susceptible to SNI spoofing, and should be used with caution. "+

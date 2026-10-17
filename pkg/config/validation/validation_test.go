@@ -8222,6 +8222,29 @@ func TestValidateTelemetry(t *testing.T) {
 				allowedTargetRefs, gvk.KubernetesGateway.Group, "wrong-kind"), "",
 		},
 		{
+			"bad targetRef - listenerset not supported",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.ListenerSet.Group,
+					Kind:  gvk.ListenerSet.Kind,
+					Name:  "foo",
+				},
+			},
+			fmt.Sprintf("targetRef must be to one of %v but was %s/%s",
+				allowedTargetRefs, gvk.ListenerSet.Group, gvk.ListenerSet.Kind), "",
+		},
+		{
 			"targetRef and selector cannot both be set",
 			&telemetry.Telemetry{
 				Tracing: []*telemetry.Tracing{{
@@ -9032,6 +9055,32 @@ func TestValidateAuthorizationPolicyHTTPRouteTargetRef(t *testing.T) {
 			})
 			if (err == nil) != c.valid {
 				t.Fatalf("got error %v, want valid=%v", err, c.valid)
+			}
+		})
+	}
+}
+
+func TestValidateAuthorizationPolicyListenerSetTargetRef(t *testing.T) {
+	policy := &security_beta.AuthorizationPolicy{
+		Action: security_beta.AuthorizationPolicy_DENY,
+		TargetRef: &api.PolicyTargetReference{
+			Group: gvk.ListenerSet.Group,
+			Kind:  gvk.ListenerSet.Kind,
+			Name:  "foo",
+		},
+		Rules: []*security_beta.Rule{{
+			To: []*security_beta.Rule_To{{Operation: &security_beta.Operation{Methods: []string{"GET"}}}},
+		}},
+	}
+	for _, enabled := range []bool{true, false} {
+		t.Run(fmt.Sprintf("enabled=%v", enabled), func(t *testing.T) {
+			test.SetForTest(t, &features.EnableGatewayAPIListenerSetAuth, enabled)
+			_, err := ValidateAuthorizationPolicy(config.Config{
+				Meta: config.Meta{Name: "name", Namespace: "namespace"},
+				Spec: policy,
+			})
+			if (err == nil) != enabled {
+				t.Fatalf("got error %v, want valid=%v", err, enabled)
 			}
 		})
 	}
