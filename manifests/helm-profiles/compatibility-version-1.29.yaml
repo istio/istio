@@ -1,5 +1,6 @@
 pilot:
   env:
+    PILOT_ENABLE_AWS_ZONE_ID: "false"
     # 1.30 behavioral changes
     PILOT_SIDECAR_PICK_BEST_SERVICE_NAMESPACE: "false"
     # 1.31 behavioral changes
