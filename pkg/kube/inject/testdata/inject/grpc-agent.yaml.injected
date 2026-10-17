@@ -108,6 +108,10 @@ spec:
           value: "false"
         - name: DISABLE_ENVOY
           value: "true"
+        - name: ISTIO_ENVOY_ADMIN_TRANSPORT
+          value: TCP
+        - name: ISTIO_NATIVE_SIDECAR
+          value: "false"
         image: registry.istio.io/testing/proxyv2:latest
         lifecycle:
           postStart:
