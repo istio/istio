@@ -34,7 +34,7 @@ var (
 	EnableAWSBranchENIProbe        = env.RegisterBoolVar("AMBIENT_ENABLE_AWS_BRANCH_ENI_PROBE", true,
 		"If true, detect AWS VPC CNI branch ENI pods and add ip rules to route probe traffic via veth").Get()
 	EnableHostProbeLocalRoute = env.RegisterBoolVar("AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE", false,
-		"If true, install a local IPv4 host probe SNAT route for CNIs that bypass host netfilter").Get()
+		"If true, install local host probe SNAT routes for CNIs that return local destinations to host netfilter").Get()
 )
 
 const (
@@ -44,7 +44,7 @@ const (
 	//
 	// It doesn't matter what this IP is, so long as it's not routable and doesn't collide with anything else.
 	//
-	// IPv6 link local ranges are designed to be collision-resistant by default, and so probably never need to be overridden
+	// The IPv6 marker is a unique-local address, not an IPv6 link-local address.
 	DefaultHostProbeSNATIP   = "169.254.7.127"
 	DefaultHostProbeSNATIPV6 = "fd16:9254:7127:1337:ffff:ffff:ffff:ffff"
 )

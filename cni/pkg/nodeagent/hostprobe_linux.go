@@ -46,32 +46,100 @@ type hostProbeRouteState struct {
 	Priority  int
 }
 
+type hostProbeRoutes []*hostProbeRoute
+
+func configureHostProbeRoutes(runDir string, ipv4, ipv6 netip.Addr, enabled, enableIPv6 bool) (_ hostProbeRoutes, retErr error) {
+	var routes hostProbeRoutes
+	defer func() {
+		if retErr != nil {
+			retErr = errors.Join(retErr, routes.rollback())
+		}
+	}()
+	for _, cfg := range []struct {
+		address netip.Addr
+		family  int
+		enabled bool
+	}{
+		{ipv4, unix.AF_INET, enabled},
+		{ipv6, unix.AF_INET6, enabled && enableIPv6},
+	} {
+		route, err := configureHostProbeRoute(runDir, cfg.address, cfg.enabled, cfg.family)
+		if err != nil {
+			return nil, err
+		}
+		if route != nil {
+			routes = append(routes, route)
+		}
+	}
+	return routes, nil
+}
+
+func (routes hostProbeRoutes) close(remove bool) error {
+	var err error
+	for _, route := range routes {
+		err = errors.Join(err, route.close(remove))
+	}
+	return err
+}
+
+func (routes hostProbeRoutes) rollback() error {
+	var err error
+	for _, route := range routes {
+		err = errors.Join(err, route.close(route.added))
+	}
+	return err
+}
+
+func validHostProbeAddress(address netip.Addr, family int) bool {
+	switch family {
+	case unix.AF_INET:
+		return address.Is4() && address.IsLinkLocalUnicast()
+	case unix.AF_INET6:
+		return address.Is6() && !address.Is4In6() && address.IsPrivate() && address.Zone() == ""
+	default:
+		return false
+	}
+}
+
 func (s hostProbeRouteState) route() (*netlink.Route, error) {
-	if !s.Address.Is4() || !s.Address.IsLinkLocalUnicast() || s.LinkIndex <= 0 || s.Priority <= 0 {
+	family, scope := unix.AF_INET, netlink.SCOPE_HOST
+	if s.Address.Is6() {
+		// Linux reports IPv6 local routes with universe scope, unlike IPv4.
+		family, scope = unix.AF_INET6, netlink.SCOPE_UNIVERSE
+	}
+	if !validHostProbeAddress(s.Address, family) || s.LinkIndex <= 0 || s.Priority <= 0 {
 		return nil, fmt.Errorf("invalid host probe route state: %+v", s)
 	}
+	bits := s.Address.BitLen()
 	return &netlink.Route{
-		Dst:       &net.IPNet{IP: net.IP(s.Address.AsSlice()), Mask: net.CIDRMask(32, 32)},
-		Family:    unix.AF_INET,
+		Dst:       &net.IPNet{IP: net.IP(s.Address.AsSlice()), Mask: net.CIDRMask(bits, bits)},
+		Family:    family,
 		Table:     unix.RT_TABLE_LOCAL,
 		Type:      unix.RTN_LOCAL,
-		Scope:     netlink.SCOPE_HOST,
+		Scope:     scope,
 		Protocol:  unix.RTPROT_STATIC,
 		LinkIndex: s.LinkIndex,
 		Priority:  s.Priority,
 	}, nil
 }
 
-// configureHostProbeRoute must run in the host network namespace. IPv6 is
-// deliberately unchanged until the BPF return path has been validated there.
-func configureHostProbeRoute(runDir string, address netip.Addr, enabled bool) (_ *hostProbeRoute, retErr error) {
-	if enabled && (!address.Is4() || !address.IsLinkLocalUnicast()) {
-		return nil, fmt.Errorf("local host probe routing requires an IPv4 link-local HOST_PROBE_SNAT_IP, got %s", address)
+// configureHostProbeRoute must run in the host network namespace.
+func configureHostProbeRoute(runDir string, address netip.Addr, enabled bool, family int) (_ *hostProbeRoute, retErr error) {
+	stateFile := "host-probe-route.json"
+	switch family {
+	case unix.AF_INET:
+	case unix.AF_INET6:
+		stateFile = "host-probe-route-v6.json"
+	default:
+		return nil, fmt.Errorf("unsupported host probe route family: %d", family)
+	}
+	if enabled && !validHostProbeAddress(address, family) {
+		return nil, fmt.Errorf("local host probe routing requires an IPv4 link-local or IPv6 unique-local address matching family %d, got %s", family, address)
 	}
 	if runDir == "" {
 		return nil, fmt.Errorf("host probe route state requires a CNI agent run directory")
 	}
-	statePath := filepath.Join(runDir, "host-probe-route.json")
+	statePath := filepath.Join(runDir, stateFile)
 	if !enabled {
 		if _, err := os.Stat(statePath); errors.Is(err, os.ErrNotExist) {
 			return nil, nil
@@ -100,6 +168,9 @@ func configureHostProbeRoute(runDir string, address netip.Addr, enabled bool) (_
 	case err == nil:
 		if err := json.Unmarshal(data, &state); err != nil {
 			return nil, fmt.Errorf("read host probe route ownership: %w", err)
+		}
+		if !validHostProbeAddress(state.Address, family) {
+			return nil, fmt.Errorf("host probe route ownership address %s does not match family %d", state.Address, family)
 		}
 		p.route, err = state.route()
 		if err != nil {
@@ -130,7 +201,7 @@ func configureHostProbeRoute(runDir string, address netip.Addr, enabled bool) (_
 		return nil, err
 	}
 	for _, route := range routes {
-		if route.Type != unix.RTN_LOCAL || route.Scope != netlink.SCOPE_HOST ||
+		if route.Type != unix.RTN_LOCAL || route.Scope != desired.Scope ||
 			route.LinkIndex != desired.LinkIndex || len(route.Gw) != 0 || len(route.MultiPath) != 0 {
 			return nil, fmt.Errorf("conflicting route for host probe address %s: %s", address, route.String())
 		}
@@ -186,7 +257,7 @@ func configureHostProbeRoute(runDir string, address netip.Addr, enabled bool) (_
 }
 
 func probeRoutes(route *netlink.Route) ([]netlink.Route, error) {
-	return netlink.RouteListFiltered(unix.AF_INET, route, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_DST)
+	return netlink.RouteListFiltered(route.Family, route, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_DST)
 }
 
 func removeProbeRouteState(path string) error {
