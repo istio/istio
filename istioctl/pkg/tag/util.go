@@ -61,6 +61,18 @@ func GetWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, r
 	return webhooks.Items, nil
 }
 
+// GetValidatingWebhooksWithRevision returns validating webhooks tagged with istio.io/rev=<rev> and NOT TAGGED with
+// istio.io/tag. This retrieves the validating webhook created at revision installation rather than tag webhooks.
+func GetValidatingWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admitv1.ValidatingWebhookConfiguration, error) {
+	webhooks, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, rev, label.IoIstioTag.Name),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return webhooks.Items, nil
+}
+
 // GetServicesWithRevision returns services tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag.
 // This retrieves the services created at revision installation rather than tag services.
 func GetServicesWithRevision(ctx context.Context, client kubernetes.Interface, istioNS, rev string) ([]corev1.Service, error) {
@@ -220,6 +232,43 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 		webhook.Webhooks[i] = wh
 	}
 	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()
+	_, err = admit.Update(ctx, &webhook, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DeactivateIstioValidationWebhook deactivates the previous default revision's ValidatingWebhookConfiguration
+// (labeled istio.io/rev=default and not istio.io/tag) if it exists. Like DeactivateIstioInjectionWebhook, it is used
+// rather than deleting the webhook so the user can later switch back to the previous default revision.
+//
+// This must run AFTER the tag-managed istiod-default-validator has been applied: at that point that validator carries
+// istio.io/tag=default and is excluded by the selector, leaving only the previous default install's validator to
+// deactivate.
+func DeactivateIstioValidationWebhook(ctx context.Context, client kubernetes.Interface) error {
+	vwhs, err := GetValidatingWebhooksWithRevision(ctx, client, DefaultRevisionName)
+	if err != nil {
+		return err
+	}
+	if len(vwhs) == 0 {
+		// no previous default revision validator, no action required.
+		return nil
+	}
+	if len(vwhs) > 1 {
+		return fmt.Errorf("expected a single validating webhook for default revision")
+	}
+	webhook := vwhs[0]
+	for i := range webhook.Webhooks {
+		wh := webhook.Webhooks[i]
+		// mirror DeactivateIstioInjectionWebhook: make the webhook ineffectual without deleting it by adding a
+		// nonsense match.
+		wh.NamespaceSelector = util.NeverMatch
+		wh.ObjectSelector = util.NeverMatch
+		webhook.Webhooks[i] = wh
+	}
+	admit := client.AdmissionregistrationV1().ValidatingWebhookConfigurations()
 	_, err = admit.Update(ctx, &webhook, metav1.UpdateOptions{})
 	if err != nil {
 		return err

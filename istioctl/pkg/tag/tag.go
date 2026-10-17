@@ -320,6 +320,16 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 	if err := Create(kubeClient, tagYAML, istioNS); err != nil {
 		return fmt.Errorf("failed to apply tag webhook MutatingWebhookConfiguration to cluster: %v", err)
 	}
+
+	if tagName == DefaultRevisionName {
+		// Deactivate the previous default install's validating webhook, mirroring the injection webhook handled in
+		// Generate. This runs after the apply above so the tag-managed istiod-default-validator already carries
+		// istio.io/tag=default and is excluded, leaving only the previous default revision's validator.
+		if err := DeactivateIstioValidationWebhook(ctx, kubeClient.Kube()); err != nil {
+			return fmt.Errorf("failed deactivating previous default revision validation webhook: %v", err)
+		}
+	}
+
 	fmt.Fprintf(w, tagCreatedStr, tagName, revision, tagName)
 	return nil
 }
