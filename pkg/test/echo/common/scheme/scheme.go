@@ -21,6 +21,7 @@ const (
 	HTTP      Instance = "http"
 	HTTPS     Instance = "https"
 	GRPC      Instance = "grpc"
+	GRPCS     Instance = "grpcs"
 	XDS       Instance = "xds"
 	WebSocket Instance = "ws"
 	TCP       Instance = "tcp"
