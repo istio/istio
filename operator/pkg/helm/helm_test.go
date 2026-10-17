@@ -15,6 +15,7 @@
 package helm
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,6 +29,9 @@ import (
 	"helm.sh/helm/v4/pkg/chart/common"
 	commonutil "helm.sh/helm/v4/pkg/chart/common/util"
 	"helm.sh/helm/v4/pkg/engine"
+	admissionv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -385,6 +389,67 @@ func TestRender(t *testing.T) {
 			if got != want {
 				t.Fatal(cmp.Diff(got, want))
 			}
+		})
+	}
+}
+
+func TestRevisionTagLabels(t *testing.T) {
+	for _, tag := range []string{"123", "true", "001", "ordinary-tag"} {
+		t.Run(tag, func(t *testing.T) {
+			t.Parallel()
+			const revision = "canary"
+			iop := values.MakeMap(values.Map{
+				"revision":     revision,
+				"revisionTags": []string{tag},
+			}, "spec", "values")
+			rendered, warnings, err := renderWithOptions("istiod", "istio-system", "istio-control/istio-discovery", iop, false)
+			require.NoError(t, err)
+			require.Empty(t, warnings)
+
+			found := 0
+			for _, mf := range rendered {
+				if !strings.HasPrefix(mf.GetName(), "istiod-revision-tag-") && !strings.HasPrefix(mf.GetName(), "istio-revision-tag-") {
+					continue
+				}
+				found++
+				t.Run(mf.GetKind(), func(t *testing.T) {
+					// Decode through JSON as Kubernetes does, without YAML's conversion of numbers to strings.
+					data, err := yaml.YAMLToJSON([]byte(mf.Content))
+					require.NoError(t, err)
+					switch mf.GetKind() {
+					case "Service":
+						var svc corev1.Service
+						require.NoError(t, json.Unmarshal(data, &svc))
+						require.Equal(t, "istiod-revision-tag-"+tag, svc.Name)
+						require.Equal(t, tag, svc.Labels["istio.io/tag"])
+						require.Equal(t, revision, svc.Labels["istio.io/rev"])
+						require.Equal(t, revision, svc.Spec.Selector["istio.io/rev"])
+					case "MutatingWebhookConfiguration":
+						var mwc admissionv1.MutatingWebhookConfiguration
+						require.NoError(t, json.Unmarshal(data, &mwc))
+						require.Equal(t, "istio-revision-tag-"+tag, mwc.Name)
+						require.Equal(t, tag, mwc.Labels["istio.io/tag"])
+						require.Equal(t, revision, mwc.Labels["istio.io/rev"])
+						require.Len(t, mwc.Webhooks, 2)
+						for _, wh := range mwc.Webhooks {
+							matches := 0
+							for _, selector := range []*metav1.LabelSelector{wh.NamespaceSelector, wh.ObjectSelector} {
+								require.NotNil(t, selector)
+								for _, expr := range selector.MatchExpressions {
+									if expr.Key == "istio.io/rev" && expr.Operator == metav1.LabelSelectorOpIn {
+										require.Equal(t, []string{tag}, expr.Values)
+										matches++
+									}
+								}
+							}
+							require.Equal(t, 1, matches)
+						}
+					default:
+						t.Fatalf("unexpected revision tag resource: %s", mf.GetKind())
+					}
+				})
+			}
+			require.Equal(t, 2, found)
 		})
 	}
 }
