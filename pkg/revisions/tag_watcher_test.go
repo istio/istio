@@ -89,6 +89,78 @@ func TestTagWatcher(t *testing.T) {
 	assert.Equal(t, tw.GetMyTags(), sets.New("revision", "tag-mwc-foo", "tag-svc-foo", "shared-tag"))
 }
 
+func TestTagWatcherServicePrecedence(t *testing.T) {
+	for _, tagName := range []string{"shared-tag", "revision-a"} {
+		t.Run(tagName, func(t *testing.T) {
+			c := kube.NewFakeClient(&corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "tagged",
+					Labels: map[string]string{
+						label.IoIstioRev.Name: tagName,
+					},
+				},
+			})
+			watchers := []*tagWatcher{
+				NewTagWatcher(c, "revision-a", "istio-system").(*tagWatcher),
+				NewTagWatcher(c, "revision-b", "istio-system").(*tagWatcher),
+			}
+			tracks := make([]*assert.Tracker[string], 0, len(watchers))
+			for _, tw := range watchers {
+				track := assert.NewTracker[string](t)
+				tw.AddHandler(func(tags sets.String) {
+					track.Record(strings.Join(sets.SortedList(tags), ","))
+				})
+				tracks = append(tracks, track)
+			}
+			stop := test.NewStop(t)
+			c.RunAndWait(stop)
+			for _, tw := range watchers {
+				go tw.Run(stop)
+				kube.WaitForCacheSync("test", stop, tw.HasSynced)
+			}
+			checkOwner := func(revision string) {
+				t.Helper()
+				for i, tw := range watchers {
+					// A tag cannot remove the watcher's own revision name.
+					ownsTag := tw.revision == revision || tw.revision == tagName
+					want := sets.New(tw.revision)
+					if ownsTag {
+						want.Insert(tagName)
+					}
+					tracks[i].WaitOrdered(strings.Join(sets.SortedList(want), ","))
+					assert.Equal(t, tw.GetMyTags(), want)
+					assert.Equal(t, tw.IsMine(metav1.ObjectMeta{
+						Labels: map[string]string{label.IoIstioRev.Name: tagName},
+					}), ownsTag, "object revision label", tw.revision)
+					assert.Equal(t, tw.IsMine(metav1.ObjectMeta{Namespace: "tagged"}), ownsTag,
+						"namespace revision label", tw.revision)
+				}
+			}
+			checkOwner("")
+			whs := clienttest.Wrap(t, watchers[0].webhooks)
+			svcs := clienttest.Wrap(t, watchers[0].services)
+
+			// A tag represented by only a webhook belongs to its revision.
+			whs.Create(makeTag("revision-a", tagName))
+			checkOwner("revision-a")
+
+			// A Service pointing elsewhere must override the webhook for both watchers.
+			svcs.Create(makeServiceTag("revision-b", tagName))
+			checkOwner("revision-b")
+
+			// Moving the Service transfers ownership, including when both resources agree.
+			svcs.Update(makeServiceTag("revision-a", tagName))
+			checkOwner("revision-a")
+			svcs.Update(makeServiceTag("revision-b", tagName))
+			checkOwner("revision-b")
+
+			// Removing the Service restores the existing webhook's ownership.
+			svcs.Delete(tagName, "istio-system")
+			checkOwner("revision-a")
+		})
+	}
+}
+
 func makeTag(revision string, tg string) *admissionregistrationv1.MutatingWebhookConfiguration {
 	return &admissionregistrationv1.MutatingWebhookConfiguration{
 		TypeMeta: metav1.TypeMeta{},
