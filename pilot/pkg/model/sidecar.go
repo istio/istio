@@ -171,9 +171,13 @@ type SidecarScope struct {
 	// services/virtual services in that listener.
 	EgressListeners []*IstioEgressListenerWrapper
 
-	// Union of services imported across all egress listeners for use by CDS code.
+	// Union of services imported across all egress listeners, plus VirtualService destinations they don't
+	// import, for use by CDS calculation. servicesByHostname holds the merged service per hostname of this union.
 	services           []*Service
 	servicesByHostname map[host.Name]*Service
+	// servicesByEgressHostname holds every egress listener service per hostname, unmerged and in listener
+	// order. Unlike servicesByHostname, it excludes VirtualService destinations the listeners don't import.
+	servicesByEgressHostname map[host.Name][]*Service
 
 	// Destination rules imported across all egress listeners. This
 	// contains the computed set based on public/private destination rules
@@ -418,10 +422,12 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 	if len(sc.servicesByHostname) == 0 {
 		sc.servicesByHostname = make(map[host.Name]*Service, imported)
 	}
+	sc.servicesByEgressHostname = make(map[host.Name][]*Service, imported)
 	for _, ilw := range sc.EgressListeners {
 		// First add the explicitly requested services, which take priority
 		for _, s := range ilw.services {
 			sc.appendSidecarServices(servicesAdded, s)
+			sc.servicesByEgressHostname[s.Hostname] = append(sc.servicesByEgressHostname[s.Hostname], s)
 		}
 
 		// Infer more possible destinations from virtual services
@@ -800,6 +806,11 @@ func (sc *SidecarScope) Services() []*Service {
 // Services returns the list of services that are visible to a sidecar.
 func (sc *SidecarScope) ServicesByHostname() map[host.Name]*Service {
 	return sc.servicesByHostname
+}
+
+// ServicesForEgressHostname returns the unmerged egress listener services for the hostname, in listener order.
+func (sc *SidecarScope) ServicesForEgressHostname(hostname host.Name) []*Service {
+	return sc.servicesByEgressHostname[hostname]
 }
 
 // Testing Only. This allows tests to inject a config without having the mock.

@@ -56,6 +56,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -3653,6 +3654,28 @@ spec:
     protocol: HTTP
 `, map[string]any{"IPs": ips})
 	}
+	makeNamedSE := func(name, hostname string, ips ...string) string {
+		return tmpl.MustEvaluate(`
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: {{.Name}}
+spec:
+  hosts:
+  - {{.Hostname | quote}}
+  addresses:
+{{ range $ip := .IPs }}
+  - {{$ip | quote}}
+{{ end }}
+  resolution: STATIC
+  endpoints:
+  - address: "10.0.0.1"
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+`, map[string]any{"Name": name, "Hostname": hostname, "IPs": ips})
+	}
 	ipv4 := []string{"1.2.3.4", "1.2.3.5"}
 	ipv6 := []string{"1234:1234:1234::1234:1234:1234", "1235:1235:1235::1235:1235:1235"}
 	dummyLocalhostServer := "127.0.0.1"
@@ -3754,6 +3777,74 @@ spec:
 				},
 			})
 		}
+	}
+	for _, client := range flatten(t.Apps.VM, t.Apps.A, t.Apps.Tproxy) {
+		t.NewSubTest(fmt.Sprintf("incremental/%s/%s", client.Config().Service, client.Config().Cluster.StableName())).Run(
+			func(ctx framework.TestContext) {
+				v4, _ := getSupportedIPFamilies(t, client)
+				ipA, ipB, ipBUpdated := "1.2.4.1", "1.2.4.2", "1.2.4.3"
+				if !v4 {
+					ipA, ipB, ipBUpdated = "2001:db8::1", "2001:db8::2", "2001:db8::3"
+				}
+				const hostA = "delta-a.fake.service.local"
+				const hostB = "delta-b.fake.service.local"
+
+				resolvesTo := func(hostname string, expected ...string) {
+					ctx.Helper()
+					retry.UntilSuccessOrFail(ctx, func() error {
+						_, err := client.Call(echo.CallOptions{
+							Scheme:  scheme.DNS,
+							Count:   1,
+							Address: hostname + "?&protocol=udp",
+							Check: func(result echo.CallResult, callErr error) error {
+								if callErr != nil {
+									return callErr
+								}
+								if len(result.Responses) == 0 {
+									return fmt.Errorf("no DNS responses for %s", hostname)
+								}
+								for _, response := range result.Responses {
+									if got := sets.New(response.Body()...); !got.Equals(sets.New(expected...)) {
+										return fmt.Errorf("DNS %s: wanted %v, got %v", hostname, expected, response.Body())
+									}
+								}
+								return nil
+							},
+						})
+						return err
+					}, retry.Timeout(30*time.Second))
+				}
+				doesNotResolve := func(hostname string) {
+					ctx.Helper()
+					retry.UntilSuccessOrFail(ctx, func() error {
+						_, err := client.Call(echo.CallOptions{
+							Scheme:  scheme.DNS,
+							Count:   1,
+							Address: hostname + "?&protocol=udp",
+							Check:   check.Error(),
+						})
+						return err
+					}, retry.Timeout(30*time.Second))
+				}
+
+				entryA := ctx.ConfigIstio().YAML(t.Apps.Namespace.Name(), makeNamedSE("delta-nds-a", hostA, ipA))
+				entryA.ApplyOrFail(ctx)
+				resolvesTo(hostA, ipA)
+
+				entryB := ctx.ConfigIstio().YAML(t.Apps.Namespace.Name(), makeNamedSE("delta-nds-b", hostB, ipB))
+				entryB.ApplyOrFail(ctx, apply.NoCleanup)
+				resolvesTo(hostB, ipB)
+				resolvesTo(hostA, ipA)
+
+				ctx.ConfigIstio().YAML(t.Apps.Namespace.Name(), makeNamedSE("delta-nds-b", hostB, ipBUpdated)).
+					ApplyOrFail(ctx, apply.NoCleanup)
+				resolvesTo(hostB, ipBUpdated)
+				resolvesTo(hostA, ipA)
+
+				entryB.DeleteOrFail(ctx)
+				doesNotResolve(hostB)
+				resolvesTo(hostA, ipA)
+			})
 	}
 	svcCases := []struct {
 		name     string
