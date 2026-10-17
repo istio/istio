@@ -517,7 +517,7 @@ func (cfg *NftablesConfigurator) DeleteHostRules() {
 		return nil
 	})
 	if err != nil {
-		log.Errorf("error while trying to delete the ambient nftable rules from the host network: %w", err)
+		log.Errorf("error while trying to delete the ambient nftable rules from the host network: %v", err)
 		return
 	}
 
