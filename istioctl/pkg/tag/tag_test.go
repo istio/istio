@@ -769,6 +769,15 @@ func TestSetTagErrors(t *testing.T) {
 			outputMatches: []string{},
 			error:         "cannot create revision tag \"revision\"",
 		},
+		{
+			name:          "TestErrorWhenOnlyServiceExists",
+			tag:           "prod",
+			revision:      "revision",
+			webhookBefore: nil,
+			serviceBefore: serviceBefore,
+			outputMatches: []string{},
+			error:         "cannot find MutatingWebhookConfiguration",
+		},
 	}
 
 	for _, tc := range tcs {
