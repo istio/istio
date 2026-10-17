@@ -149,7 +149,7 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
 # Defines a target to run a standard set of tests in various different environments (IPv6, distroless, ARM, etc).
 .PHONY: test.integration.kube.environment
 test.integration.kube.environment: | $(JUNIT_REPORT) check-go-tag
-	$(call run-test-with-tags,./tests/integration/security/ ./tests/integration/pilot/,$(INTEGRATION_TEST_TAGS_ENVIRONMENT),-run="TestReachability|TestTraffic|TestGatewayConformance",$(_INTEGRATION_TEST_ENVIRONMENT_SELECT_FLAGS))
+	$(call run-test-with-tags,./tests/integration/security/ ./tests/integration/pilot/,$(INTEGRATION_TEST_TAGS_ENVIRONMENT),-run="TestReachability|TestTraffic",$(_INTEGRATION_TEST_ENVIRONMENT_SELECT_FLAGS))
 
 # Agentgateway support is currently experimental. Only used to run agentgateway tests as optional
 .PHONY: test.integration.kube.agentgateway

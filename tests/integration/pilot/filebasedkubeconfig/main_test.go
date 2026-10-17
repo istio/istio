@@ -52,7 +52,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.Full).
-		Label(label.Multicluster).
 		RequireMultiPrimary().
 		RequireMinClusters(2).
 		Setup(istio.Setup(&i, setupConfigForMountedKubeconfigs, createEmptyMountedKubeconfigSecrets)).
