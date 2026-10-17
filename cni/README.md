@@ -37,7 +37,7 @@ and setting up iptables rules to funnel traffic thru that socket "tube" to ztunn
 
 This effectively behaves like ztunnel is an in-pod sidecar, without actually requiring the injection of ztunnel as a sidecar into the pod manifest, or mutating the application pod in any way.
 
-Additionally, it does not require any network rules/routing/config in the host network namespace, which greatly increases ambient mode compatibility with 3rd-party CNIs. In virtually all cases, this "in-pod" ambient CNI is exactly as compatible with 3rd-party CNIs as sidecars are/were.
+Workload interception lives in the pod network namespace. Host health probes additionally require host SNAT rules, and some primary CNIs require host routing adjustments so replies traverse kernel conntrack for reverse NAT.
 
 ### Notable Env Vars
 
@@ -45,6 +45,28 @@ Additionally, it does not require any network rules/routing/config in the host n
 |--------------------|-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | HOST_PROBE_SNAT_IP | "169.254.7.127" | Applied to SNAT host probe packets, so they can be identified/skipped podside. To override the default SNAT IP, use any address from the 169.254.0.0/16 block. |
 | HOST_PROBE_SNAT_IPV6 | "fd16:9254:7127:1337:ffff:ffff:ffff:ffff" | IPv6 link local ranges are designed to be collision-resistant by default, and so this probably never needs to be overridden.                                           |
+| AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE | `false` | Experimental: install an exact local IPv4 route for `HOST_PROBE_SNAT_IP` so probe replies can return to the host stack with BPF host routing. Does not change IPv6 or sidecar mode. |
+
+The local-route option requires a Cilium version whose BPF host-routing path falls back
+to the host stack for local destinations. It does not repair missing host SNAT rules.
+Configure it through the CNI chart's `env` map:
+
+```yaml
+env:
+  AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE: "true"
+```
+
+Use a dedicated, unused IPv4 link-local probe address. The route makes that address a
+local destination for all traffic, not only established probe replies; evaluate
+pod-to-host access and host-firewall policy before enabling it. This is not a
+general compatibility claim for other datapaths or IPv6.
+
+The agent records route ownership in its host-mounted run directory and preserves
+the route during safe upgrades. Equivalent pre-existing routes are never owned or
+deleted; conflicting routes fail startup. An overlapping agent fails startup until
+the previous agent releases the ownership lock. Disabling the option on an ambient
+agent removes its recorded route, as does normal uninstall. Keep the run directory
+unchanged across upgrades. Routes are checked at startup, not continuously reconciled.
 
 ## Sidecar Mode Implementation Details
 

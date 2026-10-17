@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Added** the experimental, default-disabled
+    `AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE` CNI option. It installs a local route
+    for the IPv4 ambient health-probe SNAT address, allowing probe replies to
+    reach kernel reverse NAT with Cilium BPF host routing when Cilium supports
+    local-destination fallback. IPv6 and sidecar probe handling are unchanged.

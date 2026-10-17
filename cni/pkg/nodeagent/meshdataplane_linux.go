@@ -34,6 +34,7 @@ type meshDataplane struct {
 	netServer          MeshDataplane
 	hostTrafficManager trafficmanager.TrafficRuleManager
 	hostAddrSet        set.AddressSetManager
+	hostProbeRoute     *hostProbeRoute
 
 	// branchENIRules tracks the branch ENI routing info we added rules for,
 	// keyed by pod IP. We cache it at add time so teardown can delete the rules
@@ -84,6 +85,13 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 		})
 	}
 
+	if s.hostProbeRoute != nil {
+		if err := util.RunAsHost(func() error {
+			return s.hostProbeRoute.close(!skipCleanup)
+		}); err != nil {
+			log.Errorf("failed to stop host probe local routing: %v", err)
+		}
+	}
 	s.netServer.Stop(skipCleanup)
 }
 

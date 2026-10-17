@@ -33,6 +33,8 @@ var (
 	UseScopedIptablesLegacyLocking = env.RegisterBoolVar("AMBIENT_USE_SCOPED_XTABLES_LOCKING", true, "").Get()
 	EnableAWSBranchENIProbe        = env.RegisterBoolVar("AMBIENT_ENABLE_AWS_BRANCH_ENI_PROBE", true,
 		"If true, detect AWS VPC CNI branch ENI pods and add ip rules to route probe traffic via veth").Get()
+	EnableHostProbeLocalRoute = env.RegisterBoolVar("AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE", false,
+		"If true, install a local IPv4 host probe SNAT route for CNIs that bypass host netfilter").Get()
 )
 
 const (
@@ -48,6 +50,7 @@ const (
 )
 
 type AmbientArgs struct {
+	CNIAgentRunDir             string
 	SystemNamespace            string
 	Revision                   string
 	KubeConfig                 string
