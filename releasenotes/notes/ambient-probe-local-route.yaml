@@ -5,7 +5,9 @@ area: traffic-management
 releaseNotes:
   - |
     **Added** the experimental, default-disabled
-    `AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE` CNI option. It installs a local route
-    for the IPv4 ambient health-probe SNAT address, allowing probe replies to
-    reach kernel reverse NAT with Cilium BPF host routing when Cilium supports
-    local-destination fallback. IPv6 and sidecar probe handling are unchanged.
+    `AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE` CNI option. It installs exact local
+    routes for the IPv4 and enabled IPv6 ambient health-probe SNAT addresses,
+    allowing probe replies to reach kernel reverse NAT with Cilium BPF host
+    routing when the pod datapath performs FIB lookup and supports
+    local-destination fallback. Cilium configurations using `ENABLE_SKIP_FIB`
+    are not fixed by these routes alone. Sidecar probe handling is unchanged.

@@ -44,29 +44,91 @@ Workload interception lives in the pod network namespace. Host health probes add
 | Env Var            | Default         | Purpose                                                                                                                                                                |
 |--------------------|-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | HOST_PROBE_SNAT_IP | "169.254.7.127" | Applied to SNAT host probe packets, so they can be identified/skipped podside. To override the default SNAT IP, use any address from the 169.254.0.0/16 block. |
-| HOST_PROBE_SNAT_IPV6 | "fd16:9254:7127:1337:ffff:ffff:ffff:ffff" | IPv6 link local ranges are designed to be collision-resistant by default, and so this probably never needs to be overridden.                                           |
-| AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE | `false` | Experimental: install an exact local IPv4 route for `HOST_PROBE_SNAT_IP` so probe replies can return to the host stack with BPF host routing. Does not change IPv6 or sidecar mode. |
+| HOST_PROBE_SNAT_IPV6 | "fd16:9254:7127:1337:ffff:ffff:ffff:ffff" | IPv6 unique-local (ULA) probe SNAT address, not an IPv6 link-local address. The local-route option requires a dedicated, unused address from `fc00::/7`. |
+| AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE | `false` | Experimental: install an exact local `/32` route for `HOST_PROBE_SNAT_IP` and, when ambient IPv6 is enabled, a `/128` route for `HOST_PROBE_SNAT_IPV6`. Sidecar mode is unchanged. |
 
-The local-route option requires a Cilium version whose BPF host-routing path falls back
-to the host stack for local destinations. It does not repair missing host SNAT rules.
+### Local host probe routes
+
+The local-route option requires a datapath that performs a FIB lookup and falls back
+to the host stack for local destinations. The routes make the probe SNAT markers
+local destinations; kernel conntrack, not the routes themselves, reverses the SNAT.
+This option does not repair missing host SNAT rules or change the primary CNI's settings.
 Configure it through the CNI chart's `env` map:
 
 ```yaml
+profile: ambient
+ambient:
+  ipv6: true # Set false for IPv4-only ambient networking.
 env:
   AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE: "true"
 ```
 
-Use a dedicated, unused IPv4 link-local probe address. The route makes that address a
-local destination for all traffic, not only established probe replies; evaluate
-pod-to-host access and host-firewall policy before enabling it. This is not a
-general compatibility claim for other datapaths or IPv6.
+#### Cilium FIB lookup prerequisite
+
+Cilium must support the `DROP_NO_FIB` / `BPF_FIB_LKUP_RET_NOT_FWDED` fallback in its
+pod-to-network BPF host-routing path. Having that code is not sufficient if the
+endpoint program is compiled with `ENABLE_SKIP_FIB`: that path bypasses the FIB
+lookup and therefore the local-destination fallback. Adding a local route alone
+does not recover probes in that configuration.
+
+In the tested Cilium 1.18.14 configuration, one selected direct-routing device with
+`endpointRoutes.enabled=false` produced pod programs with `ENABLE_SKIP_FIB`.
+Setting `endpointRoutes.enabled=true` enforced FIB lookup for pod endpoints and
+allowed local-route recovery for both IPv4 and IPv6, while BPF host routing and BPF
+masquerading remained enabled. This is a tested configuration, not a recommendation
+to change production routing without evaluating its other effects.
+
+The relevant Cilium Helm values used for that comparison were:
+
+```yaml
+cni:
+  exclusive: false
+ipam:
+  mode: kubernetes
+routingMode: native
+autoDirectNodeRoutes: true
+kubeProxyReplacement: true
+socketLB:
+  hostNamespaceOnly: true
+bpf:
+  hostLegacyRouting: false
+  masquerade: true
+endpointRoutes:
+  enabled: true
+```
+
+Check effective routing and masquerading using `cilium-dbg status --verbose`.
+That output alone does not prove FIB lookup is enabled. Identify the workload's
+endpoint ID with `cilium-dbg endpoint list` and inspect
+`/var/run/cilium/state/<endpoint-id>/ep_config.h` in the Cilium agent on that node
+for `ENABLE_SKIP_FIB`. Inspect the pod endpoint, not the host endpoint; their
+settings can differ. Verify the fallback implementation for the deployed Cilium
+version rather than assuming all versions and datapaths behave identically.
+
+The live regression comparison used separate, single-node IPv4-only and IPv6-only
+kind clusters, Kubernetes 1.35.8, Cilium 1.18.14, Istio 1.31.2 control plane and
+ztunnel, and a locally built CNI candidate. These tests do not establish
+simultaneous dual-stack, multi-node, or general primary-CNI compatibility.
+
+#### Address selection and ownership
+
+Use dedicated, unused IPv4 link-local and IPv6 unique-local probe addresses. Each
+route makes its marker a local destination for all traffic, not only established
+probe replies; evaluate pod-to-host access, wildcard host listeners, host-firewall
+policy, and NetworkPolicy before enabling it.
 
 The agent records route ownership in its host-mounted run directory and preserves
-the route during safe upgrades. Equivalent pre-existing routes are never owned or
-deleted; conflicting routes fail startup. An overlapping agent fails startup until
+the routes during safe upgrades. IPv4 retains `host-probe-route.json`; IPv6 uses
+`host-probe-route-v6.json` with an independent ownership lock. Equivalent
+pre-existing routes are never owned or deleted; conflicting routes fail startup.
+An overlapping agent fails startup until
 the previous agent releases the ownership lock. Disabling the option on an ambient
-agent removes its recorded route, as does normal uninstall. Keep the run directory
-unchanged across upgrades. Routes are checked at startup, not continuously reconciled.
+agent removes both recorded routes, as does normal uninstall. Disabling ambient
+IPv6 removes only the recorded IPv6 route on the next agent startup. Restart the
+agent after changing settings supplied through ConfigMap environment variables.
+Failed startup removes newly added routes but preserves inherited routes.
+Keep the run directory unchanged across
+upgrades. Routes are checked at startup, not continuously reconciled.
 
 ## Sidecar Mode Implementation Details
 
