@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 61558
+releaseNotes:
+  - |
+    **Fixed** the `clearRouteCache` field of the `envoyExtAuthzHttp` and `envoyExtAuthzGrpc`
+    extension providers being accepted in `meshConfig` but not applied to the generated
+    Envoy `ext_authz` filter configuration.
