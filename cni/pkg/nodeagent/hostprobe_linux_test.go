@@ -34,6 +34,9 @@ func startProbeRoute(t *testing.T, dir, ip string) *hostProbeRoute {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { assert.NoError(t, p.close(true)) })
+	if p.route != nil {
+		assert.Equal(t, p.route.Priority > 0 && p.route.Priority <= 1<<30, true)
+	}
 	return p
 }
 

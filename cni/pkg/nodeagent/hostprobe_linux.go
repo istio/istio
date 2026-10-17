@@ -15,10 +15,11 @@
 package nodeagent
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand/v2"
+	"math/big"
 	"net"
 	"net/netip"
 	"os"
@@ -157,8 +158,12 @@ func configureHostProbeRoute(runDir string, address netip.Addr, enabled bool) (_
 
 	// Persist a per-route metric before RouteAdd, so a process crash between the
 	// two operations is recoverable without adopting an unrelated static route.
+	priority, err := rand.Int(rand.Reader, big.NewInt(1<<30))
+	if err != nil {
+		return nil, fmt.Errorf("generate host probe route priority: %w", err)
+	}
 	state = hostProbeRouteState{
-		Address: address, LinkIndex: lo.Attrs().Index, Priority: rand.IntN(1<<30) + 1,
+		Address: address, LinkIndex: lo.Attrs().Index, Priority: int(priority.Int64()) + 1,
 	}
 	p.route, err = state.route()
 	if err != nil {
