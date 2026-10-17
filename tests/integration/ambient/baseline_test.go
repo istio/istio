@@ -3019,6 +3019,175 @@ spec:
 	})
 }
 
+func TestIngressTCP(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Destination": apps.Captured.Config().Service,
+		}, `apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: tcp-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 31400
+      name: tcp
+      protocol: TCP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: tcp-route
+spec:
+  gateways:
+  - tcp-gateway
+  hosts:
+  - "*"
+  tcp:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+        port:
+          number: 9090
+`).ApplyOrFail(t)
+		istio.DefaultIngressOrFail(t, t).CallOrFail(t, echo.CallOptions{
+			Scheme:  scheme.TCP,
+			Count:   5,
+			Timeout: time.Second * 2,
+			Check:   check.OK(),
+			To:      apps.Captured,
+		})
+
+		t.NewSubTest("cross-cluster").Run(func(t framework.TestContext) {
+			if !t.Settings().AmbientMultiNetwork {
+				t.Skip("this test is ambient multi-cluster specific")
+			}
+			labelServiceGlobal(t, apps.Captured.Config().Service, t.AllClusters()...)
+			// Allow istiod to debounce and push updated endpoints with double-HBONE resources to the ingress gateway.
+			time.Sleep(2 * features.DebounceAfter)
+			istio.DefaultIngressOrFail(t, t).CallOrFail(t, echo.CallOptions{
+				Scheme:                  scheme.TCP,
+				Count:                   20,
+				Timeout:                 time.Second * 30,
+				NewConnectionPerRequest: true,
+				Check:                   check.And(check.OK(), check.ReachedTargetClusters(t)),
+				To:                      apps.Captured,
+				Retry: echo.Retry{
+					Options: []retry.Option{retry.Timeout(2 * time.Minute), retry.Delay(time.Second)},
+				},
+			})
+		})
+	})
+}
+
+func TestIngressTLSPassthrough(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		dst := apps.Captured
+		sni := fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, apps.Namespace.Name())
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Destination": dst.Config().Service,
+			"Namespace":   apps.Namespace.Name(),
+		}, `apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: tls-passthrough-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 31400
+      name: tls
+      protocol: TLS
+    tls:
+      mode: PASSTHROUGH
+    hosts: ["{{.Destination}}.{{.Namespace}}.svc.cluster.local"]
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: tls-passthrough-route
+spec:
+  gateways:
+  - tls-passthrough-gateway
+  hosts:
+  - "{{.Destination}}.{{.Namespace}}.svc.cluster.local"
+  tls:
+  - match:
+    - sniHosts: ["{{.Destination}}.{{.Namespace}}.svc.cluster.local"]
+    route:
+    - destination:
+        host: "{{.Destination}}"
+        port:
+          number: 443
+`).ApplyOrFail(t)
+		istio.DefaultIngressOrFail(t, t).CallOrFail(t, echo.CallOptions{
+			Port:   echo.Port{ServicePort: 31400},
+			Scheme: scheme.HTTPS,
+			TLS: echo.TLS{
+				InsecureSkipVerify: true,
+				ServerName:         sni,
+			},
+			Count:   5,
+			Timeout: time.Second * 2,
+			Check:   check.OK(),
+			To:      dst,
+		})
+
+		t.NewSubTest("cross-cluster").Run(func(t framework.TestContext) {
+			if !t.Settings().AmbientMultiNetwork {
+				t.Skip("this test is ambient multi-cluster specific")
+			}
+			labelServiceGlobal(t, dst.Config().Service, t.AllClusters()...)
+			t.Cleanup(func() {
+				unlabelServiceGlobal(t, dst.Config().Service, t.AllClusters()...)
+			})
+			time.Sleep(2 * features.DebounceAfter)
+
+			// The TLS passthrough test uses small batches with accumulated
+			// results. The echo framework's HTTPS forwarder binds dials to the
+			// batch context, so concurrent connections through a cloud load
+			// balancer (e.g. AWS ELB across AZs) intermittently timeout at the
+			// TCP level. Default Istio CI uses Kind where this is not an issue,
+			// but real multi-cluster deployments on cloud infrastructure must
+			// account for LB-induced latency on concurrent TLS handshakes.
+			ingr := istio.DefaultIngressOrFail(t, t)
+			targetClusters := sets.New(dst.Clusters().Names()...)
+			seenClusters := sets.New[string]()
+			successTotal := 0
+			retry.UntilSuccessOrFail(t, func() error {
+				result, _ := ingr.Call(echo.CallOptions{
+					Port:   echo.Port{ServicePort: 31400},
+					Scheme: scheme.HTTPS,
+					TLS: echo.TLS{
+						InsecureSkipVerify: true,
+						ServerName:         sni,
+					},
+					Count:                   5,
+					Timeout:                 time.Second * 10,
+					NewConnectionPerRequest: true,
+					Check:                   func(echo.CallResult, error) error { return nil },
+					To:                      dst,
+				})
+				for _, r := range result.Responses {
+					if r.Code == "200" {
+						successTotal++
+						seenClusters.Insert(r.Cluster)
+					}
+				}
+				if seenClusters.SupersetOf(targetClusters) && successTotal >= 10 {
+					return nil
+				}
+				return fmt.Errorf("reached clusters %v (want %v), successful requests %d (want >=10)",
+					sets.SortedList(seenClusters), sets.SortedList(targetClusters), successTotal)
+			}, retry.Timeout(2*time.Minute), retry.Delay(time.Second))
+		})
+	})
+}
+
 var CheckDeny = check.Or(
 	check.ErrorContains("rpc error: code = PermissionDenied"), // gRPC
 	check.ErrorContains("EOF"),                                // TCP envoy
