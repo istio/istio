@@ -36,6 +36,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1454,6 +1455,130 @@ func TestBuildDefaultCluster(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOriginalDstTargetPortOverride(t *testing.T) {
+	cases := []struct {
+		name       string
+		registry   provider.ID
+		resolution model.Resolution
+		targetPort intstr.IntOrString
+		want       uint32
+	}{
+		{"ServiceEntry NONE with target port", provider.External, model.Passthrough, intstr.FromInt32(8080), 8080},
+		{"ServiceEntry NONE without target port", provider.External, model.Passthrough, intstr.FromInt32(0), 0},
+		{"Kubernetes headless with target port", provider.Kubernetes, model.Passthrough, intstr.FromInt32(8080), 0},
+		{"Kubernetes headless with named target port", provider.Kubernetes, model.Passthrough, intstr.FromString("http"), 0},
+		{"ServiceEntry STATIC with passthrough policy", provider.External, model.ClientSideLB, intstr.FromInt32(8080), 0},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			port := &model.Port{Name: "http", Port: 80, TargetPort: tt.targetPort, Protocol: protocol.HTTP}
+			service := &model.Service{
+				Hostname:   "example.com",
+				Ports:      model.PortList{port},
+				Resolution: tt.resolution,
+				Attributes: model.ServiceAttributes{ServiceRegistry: tt.registry},
+			}
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: testMesh()})
+			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
+			built := cb.buildCluster("outbound|80||example.com", cluster.Cluster_ORIGINAL_DST, nil,
+				model.TrafficDirectionOutbound, port, service, nil, "").build()
+			override := built.GetOriginalDstLbConfig().GetUpstreamPortOverride()
+			assert.Equal(t, override.GetValue(), tt.want)
+			if tt.want == 0 {
+				assert.Equal(t, override, (*wrappers.UInt32Value)(nil))
+			}
+		})
+	}
+}
+
+func TestOriginalDstTargetPortOverridesForMergedServiceEntries(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{Configs: []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.ServiceEntry,
+				Name:              "older",
+				Namespace:         "default",
+				CreationTimestamp: time.Unix(1, 0),
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts:      []string{"example.com"},
+				Resolution: networking.ServiceEntry_NONE,
+				Ports:      []*networking.ServicePort{{Name: "http", Number: 80, Protocol: "HTTP", TargetPort: 8080}},
+			},
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.ServiceEntry,
+				Name:              "newer",
+				Namespace:         "default",
+				CreationTimestamp: time.Unix(2, 0),
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts:      []string{"example.com"},
+				Resolution: networking.ServiceEntry_NONE,
+				Ports: []*networking.ServicePort{
+					{Name: "http", Number: 80, Protocol: "HTTP", TargetPort: 9090},
+					{Name: "http-alt", Number: 81, Protocol: "HTTP", TargetPort: 8181},
+					{Name: "http-default", Number: 82, Protocol: "HTTP"},
+				},
+			},
+		},
+	}})
+	clusters := cg.Clusters(cg.SetupProxy(nil))
+	for _, tt := range []struct {
+		port       int
+		targetPort uint32
+	}{
+		{80, 8080}, // The older declaration wins for overlapping ports.
+		{81, 8181}, // Ports added by the newer declaration retain their targets.
+		{82, 0},    // An unspecified target leaves the original destination port unchanged.
+	} {
+		t.Run(fmt.Sprintf("port_%d", tt.port), func(t *testing.T) {
+			c := xdstest.ExtractCluster(fmt.Sprintf("outbound|%d||example.com", tt.port), clusters)
+			if c == nil {
+				t.Fatalf("missing cluster for merged port %d", tt.port)
+			}
+			assert.Equal(t, c.GetType(), cluster.Cluster_ORIGINAL_DST)
+			override := c.GetOriginalDstLbConfig().GetUpstreamPortOverride()
+			assert.Equal(t, override.GetValue(), tt.targetPort)
+			if tt.targetPort == 0 {
+				assert.Equal(t, override, (*wrappers.UInt32Value)(nil))
+			}
+		})
+	}
+}
+
+func TestOriginalDstTargetPortOverrideWithSidecarPortFilter(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{Configs: []config.Config{
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Name: "multi-port", Namespace: "default"},
+			Spec: &networking.ServiceEntry{
+				Hosts:      []string{"example.com"},
+				Resolution: networking.ServiceEntry_NONE,
+				Ports: []*networking.ServicePort{
+					{Name: "http", Number: 80, Protocol: "HTTP", TargetPort: 8080},
+					{Name: "http-alt", Number: 81, Protocol: "HTTP", TargetPort: 8181},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Name: "port-filter", Namespace: "default"},
+			Spec: &networking.Sidecar{
+				Egress: []*networking.IstioEgressListener{
+					{Port: &networking.SidecarPort{Number: 80, Name: "http", Protocol: "HTTP"}, Hosts: []string{"*/*"}},
+				},
+			},
+		},
+	}})
+	clusters := cg.Clusters(cg.SetupProxy(nil))
+	c := xdstest.ExtractCluster("outbound|80||example.com", clusters)
+	if c == nil {
+		t.Fatal("missing cluster for imported port 80")
+	}
+	assert.Equal(t, c.GetOriginalDstLbConfig().GetUpstreamPortOverride().GetValue(), uint32(8080))
+	assert.Equal(t, xdstest.ExtractCluster("outbound|81||example.com", clusters), (*cluster.Cluster)(nil))
 }
 
 func TestClusterDnsConfig(t *testing.T) {
