@@ -21,16 +21,24 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
+type revisionedNamespace struct {
+	revision  string
+	namespace namespace.Instance
+}
+
 // TestRevisionTraffic checks that traffic between all revisions specified works.
-// This is similar to TestMultiVersionRevision, except it doesn't actually install the version of Istio under test.
+// Unlike TestRevisionedUpgrade, it installs nothing: the revisions already exist in the cluster.
 // This allows a conformance-style tests against existing installations in the cluster.
 // The test is completely skipped if ISTIO_TEST_EXTRA_REVISIONS is not set
 // To run, add each revision to test. eg `ISTIO_TEST_EXTRA_REVISIONS=canary,my-rev`.
@@ -85,4 +93,37 @@ spec:
 			instances = append(instances, apps.A...)
 			testAllEchoCalls(t, instances)
 		})
+}
+
+// testAllEchoCalls takes list of revisioned namespaces and generates list of echo calls covering
+// communication between every pair of namespaces
+func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
+	trafficTypes := []string{"http", "tcp", "grpc"}
+	for _, from := range echoInstances {
+		for _, to := range echoInstances {
+			if from == to {
+				continue
+			}
+			for _, trafficType := range trafficTypes {
+				t.NewSubTest(fmt.Sprintf("%s-%s->%s", trafficType, from.Config().Service, to.Config().Service)).
+					Run(func(t framework.TestContext) {
+						retry.UntilSuccessOrFail(t, func() error {
+							result, err := from.Call(echo.CallOptions{
+								To:    to,
+								Count: 1,
+								Port: echo.Port{
+									Name: trafficType,
+								},
+								Retry: echo.Retry{
+									NoRetry: true,
+								},
+							})
+							return check.And(
+								check.NoError(),
+								check.OK()).Check(result, err)
+						}, retry.Delay(time.Millisecond*150))
+					})
+			}
+		}
+	}
 }
