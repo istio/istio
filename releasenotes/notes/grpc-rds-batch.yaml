@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Optimized** proxyless gRPC route generation by building virtual hosts once per port and only for
+    the requested hostnames instead of every service on the port. Hostname filtering also avoids
+    costly host/port parsing for bare hostnames.
