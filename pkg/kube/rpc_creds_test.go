@@ -26,8 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
-
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 func Test_tokenSupplier_GetRequestMetadata(t *testing.T) {
@@ -76,15 +74,16 @@ func Test_tokenSupplier_GetRequestMetadata(t *testing.T) {
 		t.Fatal("Unexpectedly getting a new tokens")
 	}
 
-	var m3 map[string]string
-	retry.UntilOrFail(t,
-		func() bool {
-			m3, err = perCred.GetRequestMetadata(ctx)
-			return err == nil && !reflect.DeepEqual(m1, m3)
-		},
-		retry.Delay(refreshSeconds*time.Second),
-		retry.Timeout(expirationSeconds*time.Second),
-	)
+	// Move the token into the sunset window instead of waiting for it to get there.
+	supplier := perCred.(*tokenSupplier)
+	supplier.mu.Lock()
+	supplier.Expires = time.Now()
+	supplier.mu.Unlock()
+
+	m3, err := perCred.GetRequestMetadata(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if reflect.DeepEqual(m1, m3) {
 		t.Fatal("Unexpectedly not getting a new token")
 	}
