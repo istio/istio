@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 // The connect and reconnect tests are removed - ADS already has coverage, and the
@@ -2342,4 +2343,122 @@ spec:
 	if !reflect.DeepEqual(want, gotPriority) {
 		t.Errorf("CLA priorities = %v, want %v", gotPriority, want)
 	}
+}
+
+type sidecarWaypointIndex struct {
+	model.NoopAmbientIndexes
+	key  string
+	info model.ServiceWaypointInfo
+}
+
+func (s sidecarWaypointIndex) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
+	if key != s.key {
+		return nil
+	}
+
+	return []model.ServiceWaypointInfo{s.info}
+}
+
+// TestSidecarWaypointEDSUpdate verifies that sidecar EDS replaces stale waypoint endpoints after an update.
+func TestSidecarWaypointEDSUpdate(t *testing.T) {
+	test.SetForTest(t, &features.EnableSidecarWaypointRouting, true)
+
+	const (
+		namespace           = "default"
+		destinationHostname = "app.default.svc.cluster.local"
+		waypointHostname    = "waypoint.default.svc.cluster.local"
+		destinationVIP      = "10.0.0.1"
+		initialWaypointIP   = "192.0.2.1"
+		updatedWaypointIP   = "192.0.2.2"
+	)
+
+	destinationService := &model.Service{
+		Hostname:       host.Name(destinationHostname),
+		DefaultAddress: destinationVIP,
+		Ports: model.PortList{{
+			Name:     "http",
+			Port:     80,
+			Protocol: protocol.HTTP,
+		}},
+		Attributes: model.ServiceAttributes{Name: "app", Namespace: namespace},
+	}
+	waypointService := &model.Service{
+		Hostname: host.Name(waypointHostname),
+		Ports: model.PortList{{
+			Name:     "hbone",
+			Port:     15008,
+			Protocol: protocol.HTTP,
+		}},
+		Attributes: model.ServiceAttributes{Name: "waypoint", Namespace: namespace},
+	}
+	ambientIndex := sidecarWaypointIndex{
+		key: namespace + "/" + destinationHostname,
+		info: model.ServiceWaypointInfo{
+			Service: &workloadapi.Service{
+				Name:      "app",
+				Namespace: namespace,
+				Hostname:  destinationHostname,
+				Waypoint: &workloadapi.GatewayAddress{
+					Destination: &workloadapi.GatewayAddress_Hostname{
+						Hostname: &workloadapi.NamespacedHostname{
+							Namespace: namespace,
+							Hostname:  waypointHostname,
+						},
+					},
+					HboneMtlsPort: 15008,
+				},
+			},
+			WaypointHostname: waypointHostname,
+		},
+	}
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+		Services:     []*model.Service{destinationService, waypointService},
+		AmbientIndex: ambientIndex,
+	})
+	setWaypointEndpoint := func(address string) {
+		s.MemRegistry.SetEndpoints(waypointHostname, namespace, []*model.IstioEndpoint{{
+			Addresses:       []string{address},
+			ServicePortName: "hbone",
+			EndpointPort:    15008,
+		}})
+	}
+	setWaypointEndpoint(initialWaypointIP)
+	s.EnsureSynced(t)
+
+	proxy := s.SetupProxy(&model.Proxy{Type: model.SidecarProxy})
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(destinationHostname), 80)
+	watched := &model.WatchedResource{ResourceNames: sets.New(clusterName)}
+	generator := s.Discovery.Generators[v3.EndpointType]
+	generate := func(req *model.PushRequest) []string {
+		t.Helper()
+		resources, _, err := generator.Generate(proxy, watched, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(resources) != 1 {
+			t.Fatalf("expected one EDS resource, got %d", len(resources))
+		}
+		cla := &endpoint.ClusterLoadAssignment{}
+		if err := resources[0].Resource.UnmarshalTo(cla); err != nil {
+			t.Fatalf("failed to unmarshal EDS resource: %v", err)
+		}
+
+		return xdstest.ExtractEndpoints(cla)
+	}
+
+	initial := generate(&model.PushRequest{Push: s.PushContext(), Start: time.Now(), Forced: true})
+	assert.Equal(t, initial, []string{"connect_originate;" + destinationVIP + ":80;" + initialWaypointIP + ":15008"})
+
+	setWaypointEndpoint(updatedWaypointIP)
+	updated := generate(&model.PushRequest{
+		Push:  s.PushContext(),
+		Start: time.Now(),
+		ConfigsUpdated: sets.New(model.ConfigKey{
+			Kind:      kind.Endpoints,
+			Name:      waypointHostname,
+			Namespace: namespace,
+		}),
+	})
+	assert.Equal(t, updated, []string{"connect_originate;" + destinationVIP + ":80;" + updatedWaypointIP + ":15008"})
 }
