@@ -539,7 +539,7 @@ func TestShouldCreateDoubleHBONEResources(t *testing.T) {
 			expect:          false,
 		},
 		{
-			name:            "legacy labelled gateway, multi-network on",
+			name:            "legacy labeled gateway, multi-network on",
 			proxy:           legacyGateway(),
 			multiNet:        true,
 			ingressMultiNet: true,
