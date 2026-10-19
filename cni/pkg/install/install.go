@@ -86,10 +86,11 @@ func removePreviousIstioOwnedMarker(cfg *config.InstallConfig) error {
 	return nil
 }
 
-// removeStaleIstioOwnedConfig removes an istio-owned CNI config file that is no longer
-// the one istio should own, so it isn't mistaken for the primary CNI config (a leftover
-// file sorts to a high priority). It must run before config discovery.
-func removeStaleIstioOwnedConfig(cfg *config.InstallConfig) error {
+// staleIstioOwnedNames returns the istio-owned CNI config filenames that are not the one
+// istio should own now, and the name of the one it should own ("" if none).
+// Stale files must be ignored during config discovery so they aren't mistaken for the
+// primary CNI config (a leftover file sorts to a high priority).
+func staleIstioOwnedNames(cfg *config.InstallConfig) (sets.String, string) {
 	previousNames := sets.New(constants.DefaultIstioOwnedCNIConfigFilename)
 
 	currentName := ""
@@ -105,12 +106,19 @@ func removeStaleIstioOwnedConfig(cfg *config.InstallConfig) error {
 	if previousName := readPreviousIstioOwnedMarker(cfg); previousName != "" {
 		previousNames.Insert(previousName)
 	}
+	previousNames.Delete(currentName)
+	return previousNames, currentName
+}
 
-	for p := range previousNames {
-		if p != currentName {
-			if err := removeIstioOwnedFile(cfg, p); err != nil {
-				return err
-			}
+// removeStaleIstioOwnedConfig removes an istio-owned CNI config file that is no longer
+// the one istio should own. It must run after the current CNI config has been written
+// (or validated) so the node is never left without the istio-cni plugin configured.
+// Until then, config discovery ignores the stale files (see staleIstioOwnedNames).
+func removeStaleIstioOwnedConfig(cfg *config.InstallConfig) error {
+	stale, currentName := staleIstioOwnedNames(cfg)
+	for p := range stale {
+		if err := removeIstioOwnedFile(cfg, p); err != nil {
+			return err
 		}
 	}
 
@@ -160,10 +168,6 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 		return copiedFiles, fmt.Errorf("write kubeconfig: %v", err)
 	}
 
-	if err := removeStaleIstioOwnedConfig(in.cfg); err != nil {
-		return copiedFiles, fmt.Errorf("remove stale istio-owned CNI config: %v", err)
-	}
-
 	// Install CNI netdir config (if needed) - we write/update this in the shared node CNI netdir,
 	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
 	// unless it's missing or the contents are not what we expect.
@@ -177,6 +181,11 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 		in.cniConfigFilepath = cfgPath
 	} else {
 		installLog.Infof("valid Istio config present in node-level CNI file %s, not modifying", in.cniConfigFilepath)
+	}
+
+	// Only remove stale istio-owned config once the current config is in place.
+	if err := removeStaleIstioOwnedConfig(in.cfg); err != nil {
+		return copiedFiles, fmt.Errorf("remove stale istio-owned CNI config: %v", err)
 	}
 
 	return copiedFiles, nil
@@ -349,7 +358,8 @@ func checkValidCNIConfig(cfg *config.InstallConfig, cniConfigFilepath string) er
 	// OR filename of the Istio owned config which may contain the primary CNI config
 	// and/or the Istio CNI plugin (if enabled)
 	// firstCNIConfigFilename is the name of the highest priority, valid config
-	cniConfigFilenames, err := getConfigFilenames(cfg.MountedCNINetDir)
+	stale, _ := staleIstioOwnedNames(cfg)
+	cniConfigFilenames, err := getConfigFilenames(cfg.MountedCNINetDir, stale)
 	if err != nil || len(cniConfigFilenames) == 0 {
 		return err
 	}

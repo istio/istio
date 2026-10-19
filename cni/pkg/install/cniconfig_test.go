@@ -27,6 +27,7 @@ import (
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestBuildIstioCNIPlugin(t *testing.T) {
@@ -137,7 +138,7 @@ func TestGetConfigFilenames(t *testing.T) {
 				}
 			}
 
-			result, err := getConfigFilenames(c.dir)
+			result, err := getConfigFilenames(c.dir, nil)
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
 				t.Fatalf("expected failure: %t, got %v", c.expectedFailure, err)
 			}
@@ -246,7 +247,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				parent := context.Background()
 				ctx1, cancel := context.WithTimeout(parent, 100*time.Millisecond)
 				defer cancel()
-				result, err := getCNIConfigFilepath(ctx1, c.specifiedConfName, tempDir, c.chainedCNIPlugin)
+				result, err := getCNIConfigFilepath(ctx1, c.specifiedConfName, tempDir, c.chainedCNIPlugin, nil)
 				if err != nil {
 					assert.Equal(t, result, "")
 					if err == context.DeadlineExceeded {
@@ -264,7 +265,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			if c.expectedError != nil {
 				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
-				result, err := getCNIConfigFilepath(ctx, c.specifiedConfName, tempDir, c.chainedCNIPlugin)
+				result, err := getCNIConfigFilepath(ctx, c.specifiedConfName, tempDir, c.chainedCNIPlugin, nil)
 				assert.Equal(t, result, "")
 				assert.Equal(t, err, c.expectedError)
 				return
@@ -275,7 +276,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			parent := t.Context()
 			resultChan, errChan := make(chan string, 1), make(chan error, 1)
 			go func(resultChan chan string, errChan chan error, ctx context.Context, cniConfName, mountedCNINetDir string, chained bool) {
-				result, err := getCNIConfigFilepath(ctx, cniConfName, mountedCNINetDir, chained)
+				result, err := getCNIConfigFilepath(ctx, cniConfName, mountedCNINetDir, chained, nil)
 				if err != nil {
 					errChan <- err
 					return
@@ -624,5 +625,22 @@ func TestCreateCNIConfigFile(t *testing.T) {
 				t.Errorf("%s", err)
 			}
 		})
+	}
+}
+
+func TestGetConfigFilenamesExcludesStale(t *testing.T) {
+	dir := t.TempDir()
+	conf := `{"cniVersion":"0.3.1","name":"n","plugins":[{"type":"bridge"}]}`
+	for _, n := range []string{"01-stale.conflist", "10-primary.conflist"} {
+		if err := os.WriteFile(filepath.Join(dir, n), []byte(conf), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := getConfigFilenames(dir, sets.New("01-stale.conflist"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "10-primary.conflist" {
+		t.Fatalf("expected only the primary config, got %v", got)
 	}
 }
