@@ -362,7 +362,7 @@ func (requestHeaderGenerator) principal(key, value string, forTCP bool, _ bool) 
 		return nil, err
 	}
 	headerMatcher := matcher.HeaderMatcher
-	if header == methodHeader {
+	if strings.EqualFold(header, methodHeader) {
 		headerMatcher = matcher.MethodMatcher
 	}
 	m := headerMatcher(header, value)

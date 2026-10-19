@@ -432,6 +432,18 @@ func TestGenerator(t *testing.T) {
             ignoreCase: true`),
 		},
 		{
+			name:  "requestHeaderGenerator-method-uppercase-key",
+			g:     requestHeaderGenerator{},
+			key:   "request.headers[:METHOD]",
+			value: "POST",
+			want: yamlPrincipal(t, `
+        header:
+          name: :METHOD
+          stringMatch:
+            exact: POST
+            ignoreCase: true`),
+		},
+		{
 			name:  "hostGenerator",
 			g:     hostGenerator{},
 			value: "foo",
