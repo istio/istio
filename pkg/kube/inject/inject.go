@@ -220,8 +220,6 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	var useDefault bool
 	var inject bool
 
-	// The sidecar.istio.io/inject *annotation* has been deprecated since Istio 1.11 in favor of
-	// the sidecar.istio.io/inject *label* and is no longer honored here.
 	objectSelector := metadata.GetLabels()[label.SidecarInject.Name]
 	switch objectSelector {
 	case "true":

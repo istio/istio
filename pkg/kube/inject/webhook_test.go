@@ -126,30 +126,6 @@ func TestInjectRequired(t *testing.T) {
 		},
 		{
 			config: &Config{
-				Policy: InjectionPolicyEnabled,
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "annotation-true-no-longer-honored",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
-			},
-			want: true,
-		},
-		{
-			config: &Config{
-				Policy: InjectionPolicyEnabled,
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "annotation-false-no-longer-honored",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
-			},
-			want: true,
-		},
-		{
-			config: &Config{
 				Policy: InjectionPolicyDisabled,
 			},
 			podSpec: podSpec,
@@ -168,30 +144,6 @@ func TestInjectRequired(t *testing.T) {
 			meta: metav1.ObjectMeta{
 				Name:      "default-policy",
 				Namespace: "test-namespace",
-			},
-			want: false,
-		},
-		{
-			config: &Config{
-				Policy: InjectionPolicyDisabled,
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "annotation-true-no-longer-honored",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
-			},
-			want: false,
-		},
-		{
-			config: &Config{
-				Policy: InjectionPolicyDisabled,
-			},
-			podSpec: podSpec,
-			meta: metav1.ObjectMeta{
-				Name:        "annotation-false-no-longer-honored",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
 			want: false,
 		},
@@ -443,10 +395,9 @@ func TestInjectRequired(t *testing.T) {
 			},
 			podSpec: podSpec,
 			meta: metav1.ObjectMeta{
-				Name:        "policy-disabled-label-disabled",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
-				Labels:      map[string]string{label.SidecarInject.Name: "false"},
+				Name:      "policy-disabled-label-disabled",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{label.SidecarInject.Name: "false"},
 			},
 			want: false,
 		},
