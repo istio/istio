@@ -57,10 +57,10 @@ func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 }
 
 // previousIstioOwnedMarkerPath returns the path of the marker file recording the
-// name of the istio-owned CNI config that was last written. It lives in the CNI
-// agent run dir (istio's private host rundir), not the shared CNI net dir.
+// name of the istio-owned CNI config that was last written. It lives in the shared CNI
+// net dir.
 func previousIstioOwnedMarkerPath(cfg *config.InstallConfig) string {
-	return filepath.Join(cfg.CNIAgentRunDir, constants.IstioOwnedPreviousConfigFilename)
+	return filepath.Join(cfg.MountedCNINetDir, constants.IstioOwnedPreviousConfigFilename)
 }
 
 // readPreviousIstioOwnedMarker returns the istio-owned config name recorded in the
@@ -267,6 +267,10 @@ func (in *Installer) Cleanup() error {
 				return fmt.Errorf("failed to remove CNI config file %s: %w", in.cniConfigFilepath, err)
 			}
 		}
+	}
+
+	if err := removePreviousIstioOwnedMarker(in.cfg); err != nil {
+		return fmt.Errorf("failed to remove istio-owned marker file: %w", err)
 	}
 
 	if len(in.kubeconfigFilepath) > 0 && file.Exists(in.kubeconfigFilepath) {
