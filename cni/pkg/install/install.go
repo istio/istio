@@ -74,7 +74,11 @@ func readPreviousIstioOwnedMarker(cfg *config.InstallConfig) string {
 }
 
 // writePreviousIstioOwnedMarker records name as the istio-owned config that was last written.
+// The marker lives in the shared CNI net dir, so it is only written when it has changed.
 func writePreviousIstioOwnedMarker(cfg *config.InstallConfig, name string) error {
+	if readPreviousIstioOwnedMarker(cfg) == name {
+		return nil
+	}
 	return file.AtomicWrite(previousIstioOwnedMarkerPath(cfg), []byte(name), 0o644)
 }
 

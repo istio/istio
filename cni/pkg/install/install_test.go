@@ -783,3 +783,42 @@ func TestRemoveStaleIstioOwnedConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestWritePreviousIstioOwnedMarkerOnlyWhenChanged(t *testing.T) {
+	cfg := &config.InstallConfig{MountedCNINetDir: t.TempDir()}
+	path := previousIstioOwnedMarkerPath(cfg)
+
+	if err := writePreviousIstioOwnedMarker(cfg, "02-istio-cni.conflist"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Backdate the file so a rewrite would be visible as a newer modification time.
+	old := time.Now().Add(-time.Hour).Truncate(time.Second)
+	if err := os.Chtimes(path, old, old); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := writePreviousIstioOwnedMarker(cfg, "02-istio-cni.conflist"); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.ModTime().Equal(old) {
+		t.Errorf("marker was rewritten although unchanged: modtime %v, expected %v", info.ModTime(), old)
+	}
+
+	if err := writePreviousIstioOwnedMarker(cfg, "01-custom.conflist"); err != nil {
+		t.Fatal(err)
+	}
+	if got := readPreviousIstioOwnedMarker(cfg); got != "01-custom.conflist" {
+		t.Errorf("expected marker to be updated, got %q", got)
+	}
+	if info, err = os.Stat(path); err != nil {
+		t.Fatal(err)
+	}
+	if info.ModTime().Equal(old) {
+		t.Error("marker was not rewritten although changed")
+	}
+}
