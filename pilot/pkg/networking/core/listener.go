@@ -597,7 +597,7 @@ func finalizeOutboundListeners(lb *ListenerBuilder, listenerMap map[listenerKey]
 	listeners := make([]*listener.Listener, 0, len(listenerMap))
 	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(lb.push, lb.node)
 	for _, le := range listenerMap {
-		l := buildListenerFromEntry(lb, le, lb.copyFilters(fallthroughNetworkFilters))
+		l := buildListenerFromEntry(lb, le, fallthroughNetworkFilters)
 		listeners = append(listeners, l)
 	}
 	return listeners
@@ -663,10 +663,8 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		// Otherwise, do not have a timeout at all
 		l.ListenerFiltersTimeout = durationpb.New(0)
 	}
-	trafficExtensions := builder.push.TrafficExtensionsByListenerInfo(builder.node, model.ListenerInfo{
-		Port:  le.servicePort.Port,
-		Class: istionetworking.ListenerClassSidecarOutbound,
-	}, model.FilterChainTypeNetwork)
+	// Only HTTP chains use these; TrafficExtensionsByListenerInfo never returns nil.
+	var trafficExtensions map[extensions.TrafficExtension_ExecutionPhase][]*model.TrafficExtensionWrapper
 	for _, opt := range le.chains {
 		chain := &listener.FilterChain{
 			Metadata:        opt.metadata,
@@ -682,6 +680,12 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 			statsPrefix := strings.ToLower(l.TrafficDirection.String()) + "_" + l.Name
 			opt.httpOpts.statPrefix = util.DelimitedStatsPrefix(statsPrefix)
 			opt.httpOpts.port = le.servicePort.Port
+			if trafficExtensions == nil {
+				trafficExtensions = builder.push.TrafficExtensionsByListenerInfo(builder.node, model.ListenerInfo{
+					Port:  le.servicePort.Port,
+					Class: istionetworking.ListenerClassSidecarOutbound,
+				}, model.FilterChainTypeNetwork)
+			}
 			hcm := builder.buildHTTPConnectionManager(opt.httpOpts)
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,
@@ -716,7 +720,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		l.DefaultFilterChain = &listener.FilterChain{
 			FilterChainMatch: &listener.FilterChainMatch{},
 			Name:             util.PassthroughFilterChain,
-			Filters:          fallthroughNetworkFilters,
+			Filters:          builder.copyFilters(fallthroughNetworkFilters),
 		}
 	}
 	return l
@@ -824,7 +828,6 @@ func buildSidecarOutboundHTTPListenerOpts(
 }
 
 func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServices []*config.Config) []*filterChainOpts {
-	meshGateway := sets.New(constants.IstioMeshGateway)
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []*config.Config
 	switch {
@@ -841,9 +844,9 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 	}
 
 	out = append(out, buildSidecarOutboundTLSFilterChainOpts(opts.proxy, opts.push, opts.cidr, opts.service,
-		opts.bind.Primary(), opts.port, meshGateway, svcConfigs, opts.headlessPodCIDR, opts.precomputedNetworkFilters)...)
+		opts.bind.Primary(), opts.port, meshGateways, svcConfigs, opts.headlessPodCIDR, opts.precomputedNetworkFilters)...)
 	out = append(out, buildSidecarOutboundTCPFilterChainOpts(opts.proxy, opts.push, opts.cidr, opts.service,
-		opts.port, meshGateway, svcConfigs, opts.precomputedNetworkFilters)...)
+		opts.port, meshGateways, svcConfigs, opts.precomputedNetworkFilters)...)
 	return out
 }
 
@@ -1180,14 +1183,15 @@ type outboundListenerOpts struct {
 	// scan for every pod, since the result is identical for every pod of that service+port.
 	precomputedTCPConfigs []*config.Config
 
-	// precomputedNetworkFilters, if non-nil, caches the network filters built for this
-	// service+port, as they are identical for every pod.
+	// precomputedNetworkFilters, if non-nil, caches the network filters and chain metadata built
+	// for this service+port, as they are identical for every pod.
 	precomputedNetworkFilters *precomputedNetworkFilters
 }
 
 type precomputedNetworkFilters struct {
-	lb      *ListenerBuilder
-	filters map[networkFiltersKey][]*listener.Filter
+	lb       *ListenerBuilder
+	filters  map[networkFiltersKey][]*listener.Filter
+	metadata map[*config.Config]*core.Metadata
 }
 
 // networkFiltersKey identifies the route the filters are built for, e.g. {cfg: vs, route: vs.Tcp[0]}.
@@ -1210,13 +1214,34 @@ func (p *precomputedNetworkFilters) getOrBuild(key networkFiltersKey, build func
 	return p.lb.copyFilters(filters)
 }
 
+// getOrBuildMetadata returns the chain metadata for cfg. It is shared unless the proxy has FILTER_CHAIN or
+// LISTENER patches, as their merges modify it in place, the latter via the default filter chain.
+func (p *precomputedNetworkFilters) getOrBuildMetadata(cfg *config.Config) *core.Metadata {
+	if p == nil || p.lb.hasPatches(networking.EnvoyFilter_FILTER_CHAIN) || p.lb.hasPatches(networking.EnvoyFilter_LISTENER) {
+		return util.BuildConfigInfoMetadata(cfg.Meta)
+	}
+	if md, found := p.metadata[cfg]; found {
+		return md
+	}
+	if p.metadata == nil {
+		p.metadata = map[*config.Config]*core.Metadata{}
+	}
+	md := util.BuildConfigInfoMetadata(cfg.Meta)
+	p.metadata[cfg] = md
+	return md
+}
+
 // copyFilters returns a new slice, as EnvoyFilter patches add and replace filters in it. NETWORK_FILTER
 // patches also modify filters in place, so filters are cloned if the proxy has any.
 func (lb *ListenerBuilder) copyFilters(filters []*listener.Filter) []*listener.Filter {
-	if lb.envoyFilterWrapper == nil || len(lb.envoyFilterWrapper.Patches[networking.EnvoyFilter_NETWORK_FILTER]) == 0 {
+	if !lb.hasPatches(networking.EnvoyFilter_NETWORK_FILTER) {
 		return slices.Clone(filters)
 	}
 	return slices.Map(filters, protomarshal.Clone[*listener.Filter])
+}
+
+func (lb *ListenerBuilder) hasPatches(applyTo networking.EnvoyFilter_ApplyTo) bool {
+	return lb.envoyFilterWrapper != nil && len(lb.envoyFilterWrapper.Patches[applyTo]) > 0
 }
 
 // buildGatewayListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
@@ -1405,8 +1430,10 @@ func (chain *filterChainOpts) toFilterChainMatch() *listener.FilterChainMatch {
 		}
 	}
 	if len(chain.destinationCIDRs) > 0 {
-		chain.destinationCIDRs = append([]string{}, chain.destinationCIDRs...)
-		sort.Stable(sort.StringSlice(chain.destinationCIDRs))
+		if len(chain.destinationCIDRs) > 1 {
+			chain.destinationCIDRs = append([]string{}, chain.destinationCIDRs...)
+			sort.Stable(sort.StringSlice(chain.destinationCIDRs))
+		}
 		for _, d := range chain.destinationCIDRs {
 			cidr := util.ConvertAddressToCidr(d)
 			if cidr != nil && cidr.AddressPrefix != constants.UnspecifiedIP {
