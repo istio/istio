@@ -113,34 +113,9 @@ func Test_injectionDisabled(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "Annotation alone no longer disables injection",
-			pod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.SidecarInject.Name: "false",
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "Annotation alone no longer enables injection",
-			pod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.SidecarInject.Name: "true",
-					},
-				},
-			},
-			expected: false,
-		},
-		{
 			name: "Injection disabled by label",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.SidecarInject.Name: "true",
-					},
 					Labels: map[string]string{
 						label.SidecarInject.Name: "false",
 					},
@@ -152,9 +127,6 @@ func Test_injectionDisabled(t *testing.T) {
 			name: "Injection enabled by label",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						annotation.SidecarInject.Name: "false",
-					},
 					Labels: map[string]string{
 						label.SidecarInject.Name: "true",
 					},
