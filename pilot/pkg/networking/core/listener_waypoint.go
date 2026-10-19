@@ -807,9 +807,21 @@ func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, 
 	return buildConnectForwarder(push, proxy, class, ConnectOriginate, true)
 }
 
+func hboneOriginationListenerClass(proxy *model.Proxy) istionetworking.ListenerClass {
+	if proxy.IsWaypointProxy() {
+		return istionetworking.ListenerClassSidecarInbound
+	}
+	return model.OutboundListenerClass(proxy.Type)
+}
+
 func buildConnectOriginateShimListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) (*listener.Listener, error) {
-	l := buildConnectOriginateListener(push, proxy, class)
-	l.Name = util.HBONEOriginationShimListener
+	return wrapHBONEOriginationShimListener(buildConnectOriginateListener(push, proxy, class), util.HBONEOriginationShimListener)
+}
+
+// Replace only the terminal TCP proxy so both single and double HBONE preserve
+// their authority, metadata propagation, headers, and access logs.
+func wrapHBONEOriginationShimListener(l *listener.Listener, name string) (*listener.Listener, error) {
+	l.Name = name
 	filters := l.FilterChains[0].Filters
 	terminal := filters[len(filters)-1]
 	tcpProxy := &tcp.TcpProxy{}
