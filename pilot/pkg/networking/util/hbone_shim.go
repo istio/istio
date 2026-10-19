@@ -26,6 +26,7 @@ import (
 
 const (
 	HBONEOriginationShimListener           = "connect_originate_hbone_shim"
+	HBONEInnerOriginationShimListener      = "inner_connect_originate_hbone_shim"
 	HBONEOriginationShimFilter             = "envoy.filters.network.istio_hbone"
 	HBONEOriginationShimTransport          = "envoy.transport_sockets.istio_hbone"
 	HBONEOriginationShimConfigType         = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.Config"
@@ -33,10 +34,16 @@ const (
 )
 
 // HBONEOriginationShimEnabled is an explicit capability opt-in for custom proxy images.
-// The POC supports single-HBONE origination on Envoy sidecars, waypoints, and ingress gateways.
+// The POC supports single HBONE on Envoy sidecars, waypoints, and ingress gateways,
+// and double HBONE on proxies with native double-HBONE resources.
 func HBONEOriginationShimEnabled(proxy *model.Proxy) bool {
 	if proxy == nil || proxy.Metadata == nil || !bool(proxy.Metadata.EnableHBONEOriginationShim) ||
-		bool(proxy.Metadata.DisableHBONESend) || proxy.IsProxylessGrpc() || proxy.IsAmbientEastWestGateway() || features.EnableAmbientMultiNetwork {
+		bool(proxy.Metadata.DisableHBONESend) || proxy.IsProxylessGrpc() || proxy.IsAmbientEastWestGateway() {
+		return false
+	}
+	// Enabling the transport also affects remote EDS entries. Require the nested
+	// listeners and clusters before opting a multi-network proxy into the shim.
+	if features.EnableAmbientMultiNetwork && !model.ShouldCreateDoubleHBONEResources(proxy) {
 		return false
 	}
 	return proxy.IsWaypointProxy() ||

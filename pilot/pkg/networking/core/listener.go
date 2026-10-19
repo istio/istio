@@ -149,6 +149,14 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 		} else {
 			l = append(l, shim)
 		}
+		if model.ShouldCreateDoubleHBONEResources(node) {
+			inner := buildInnerConnectOriginateListener(push, node)
+			if shim, err := wrapHBONEOriginationShimListener(inner, util.HBONEInnerOriginationShimListener); err != nil {
+				log.Errorf("failed to build inner HBONE origination shim listener: %v", err)
+			} else {
+				l = append(l, shim)
+			}
+		}
 	}
 	return l
 }
@@ -1566,7 +1574,7 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
 		TunnelingConfig:  tunnel,
 	}
-	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, hboneOriginationListenerClass(proxy))
 
 	sfs := &listener.Filter{
 		Name: "propagate_endpoint_metadata",
@@ -1593,7 +1601,7 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 			Filters: filters,
 		}},
 	}
-	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, hboneOriginationListenerClass(proxy))
 	return l
 }
 
@@ -1630,7 +1638,7 @@ func buildOuterConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 			HeadersToAdd: headers,
 		},
 	}
-	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, hboneOriginationListenerClass(proxy))
 
 	l := &listener.Listener{
 		Name:              DoubleHBONEOuterConnectOriginate,
@@ -1648,6 +1656,6 @@ func buildOuterConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 			}},
 		}},
 	}
-	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, hboneOriginationListenerClass(proxy))
 	return l
 }
