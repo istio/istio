@@ -763,7 +763,10 @@ func TestRemoveStaleIstioOwnedConfig(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			actualFiles := slices.Map(entries, os.DirEntry.Name)
+			// the marker lives in the net dir too, but is checked separately below
+			actualFiles := slices.FilterInPlace(slices.Map(entries, os.DirEntry.Name), func(n string) bool {
+				return n != constants.IstioOwnedPreviousConfigFilename
+			})
 			expectedFiles := []string{}
 			if tt.expectedConfig != "" {
 				expectedFiles = []string{tt.expectedConfig}

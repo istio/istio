@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // buildIstioCNIPlugin returns the marshaled istio-cni plugin JSON for the current config.
@@ -80,8 +81,10 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 		// primary CNI config name is not specified, undefined behavior
 		return "", fmt.Errorf("primary CNI config name is not specified, cannot write CNI config")
 	}
+	// stale istio-owned configs are removed after this write, so they must not be picked as the primary
+	stale, _ := staleIstioOwnedNames(cfg)
 	// get the CNI config file path for the primary CNI config
-	cniConfigFilepath, err := getCNIConfigFilepath(ctx, cfg.CNIConfName, cfg.MountedCNINetDir, cfg.ChainedCNIPlugin)
+	cniConfigFilepath, err := getCNIConfigFilepath(ctx, cfg.CNIConfName, cfg.MountedCNINetDir, cfg.ChainedCNIPlugin, stale)
 	if err != nil {
 		return "", err
 	}
@@ -171,7 +174,7 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 
 // If configured as chained CNI plugin, waits indefinitely for a main CNI config file to exist before returning
 // Or until cancelled by parent context
-func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir string, chained bool) (string, error) {
+func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir string, chained bool, exclude sets.String) (string, error) {
 	if !chained {
 		if len(cniConfName) == 0 {
 			cniConfName = "YYY-istio-cni.conf"
@@ -186,7 +189,7 @@ func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir str
 	defer watcher.Close()
 
 	for len(cniConfName) == 0 {
-		cniConfNames, err := getConfigFilenames(mountedCNINetDir)
+		cniConfNames, err := getConfigFilenames(mountedCNINetDir, exclude)
 		if err == nil || len(cniConfNames) > 0 {
 			cniConfName = cniConfNames[0]
 			break
@@ -221,9 +224,10 @@ func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir str
 }
 
 // Follows similar semantics as kubelet
-// Will return all CNI config filenames in the given directory with .conf or .conflist extensions
+// Will return all CNI config filenames in the given directory with .conf or .conflist extensions,
+// skipping excluded filenames
 // https://github.com/kubernetes/kubernetes/blob/954996e231074dc7429f7be1256a579bedd8344c/pkg/kubelet/dockershim/network/cni/cni.go#L144-L184
-func getConfigFilenames(confDir string) ([]string, error) {
+func getConfigFilenames(confDir string, exclude sets.String) ([]string, error) {
 	files, err := libcni.ConfFiles(confDir, []string{".conf", ".conflist"})
 	switch {
 	case err != nil:
@@ -236,6 +240,9 @@ func getConfigFilenames(confDir string) ([]string, error) {
 
 	var validFiles []string
 	for _, confFile := range files {
+		if exclude.Contains(filepath.Base(confFile)) {
+			continue
+		}
 		var confList *libcni.NetworkConfigList
 		if strings.HasSuffix(confFile, ".conflist") {
 			confList, err = libcni.ConfListFromFile(confFile)
