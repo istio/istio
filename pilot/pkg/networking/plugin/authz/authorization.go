@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type ActionType int
@@ -40,12 +41,13 @@ const (
 )
 
 type Builder struct {
-	// Lazy load
-	httpBuilt, tcpBuilt bool
+	push     *model.PushContext
+	tdBundle trustdomain.Bundle
+	option   builder.Option
+	policies model.AuthorizationPoliciesResult
 
-	httpFilters []*hcm.HttpFilter
-	tcpFilters  []*listener.Filter
-	builder     *builder.Builder
+	httpFilters map[types.NamespacedName][]*hcm.HttpFilter
+	tcpFilters  map[types.NamespacedName][]*listener.Filter
 }
 
 func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy, useFilterState bool) *Builder {
@@ -83,46 +85,84 @@ func newBuilder(
 		selectionOpts.IsWaypoint = false
 	}
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
-	b := builder.New(tdBundle, push, policies, option)
-	return &Builder{builder: b}
+	return &Builder{push: push, tdBundle: tdBundle, option: option, policies: policies}
+}
+
+func (b *Builder) policiesFor(scope types.NamespacedName) model.AuthorizationPoliciesResult {
+	if scope.Name == "" {
+		return b.policies
+	}
+	ls := b.push.AuthzPolicies.ListAuthorizationPoliciesForListenerSet(scope)
+	return model.AuthorizationPoliciesResult{
+		Custom: unionPolicies(b.policies.Custom, ls.Custom),
+		Deny:   unionPolicies(b.policies.Deny, ls.Deny),
+		Allow:  unionPolicies(b.policies.Allow, ls.Allow),
+		Audit:  unionPolicies(b.policies.Audit, ls.Audit),
+	}
+}
+
+func unionPolicies(lists ...[]model.AuthorizationPolicy) []model.AuthorizationPolicy {
+	var out []model.AuthorizationPolicy
+	seen := sets.New[types.NamespacedName]()
+	for _, list := range lists {
+		for _, p := range list {
+			if !seen.InsertContains(p.NamespacedName()) {
+				out = append(out, p)
+			}
+		}
+	}
+	return out
 }
 
 func (b *Builder) BuildTCPRulesAsHTTPFilter() []*hcm.HttpFilter {
-	if b == nil || b.builder == nil {
+	if b == nil {
 		return nil
 	}
-
-	return b.builder.BuildTCPRulesAsHTTPFilter()
-}
-
-func (b *Builder) BuildTCP() []*listener.Filter {
-	if b == nil || b.builder == nil {
+	inner := builder.New(b.tdBundle, b.push, b.policies, b.option)
+	if inner == nil {
 		return nil
 	}
-	if b.tcpBuilt {
-		return b.tcpFilters
-	}
-	b.tcpBuilt = true
-	b.tcpFilters = b.builder.BuildTCP()
-
-	return b.tcpFilters
+	return inner.BuildTCPRulesAsHTTPFilter()
 }
 
-func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
-	if b == nil || b.builder == nil {
+func (b *Builder) BuildTCP(scope types.NamespacedName) []*listener.Filter {
+	if b == nil {
+		return nil
+	}
+	if filters, ok := b.tcpFilters[scope]; ok {
+		return filters
+	}
+	var filters []*listener.Filter
+	if inner := builder.New(b.tdBundle, b.push, b.policiesFor(scope), b.option); inner != nil {
+		filters = inner.BuildTCP()
+	}
+	if b.tcpFilters == nil {
+		b.tcpFilters = map[types.NamespacedName][]*listener.Filter{}
+	}
+	b.tcpFilters[scope] = filters
+	return filters
+}
+
+func (b *Builder) BuildHTTP(class networking.ListenerClass, scope types.NamespacedName) []*hcm.HttpFilter {
+	if b == nil {
 		return nil
 	}
 	if class == networking.ListenerClassSidecarOutbound {
 		// Only applies to inbound and gateways
 		return nil
 	}
-	if b.httpBuilt {
-		return b.httpFilters
+	if filters, ok := b.httpFilters[scope]; ok {
+		return filters
 	}
-	b.httpBuilt = true
-	b.httpFilters = b.builder.BuildHTTP()
-
-	return b.httpFilters
+	var filters []*hcm.HttpFilter
+	if inner := builder.New(b.tdBundle, b.push, b.policiesFor(scope), b.option); inner != nil {
+		filters = inner.BuildHTTP()
+	}
+	if b.httpFilters == nil {
+		b.httpFilters = map[types.NamespacedName][]*hcm.HttpFilter{}
+	}
+	b.httpFilters[scope] = filters
+	return filters
 }
 
 // PartitionRouteScopedFilters splits the workload's RBAC filters into those
@@ -185,7 +225,7 @@ type PerRouteBuilder struct {
 
 	// Cached by origin: one HTTPRoute usually expands into several Envoy routes, and merged
 	// VirtualServices repeat origins across route configs.
-	cache map[types.NamespacedName]map[string]*anypb.Any
+	cache map[perRouteKey]map[string]*anypb.Any
 }
 
 // NewPerRouteBuilder returns a builder for per-route authorization config for the given proxy.
@@ -194,7 +234,7 @@ func NewPerRouteBuilder(push *model.PushContext, proxy *model.Proxy) *PerRouteBu
 		push:           push,
 		tdBundle:       trustdomain.NewBundle(push.Mesh.GetTrustDomain(), push.Mesh.GetTrustDomainAliases()),
 		useFilterState: proxy.Type == model.Waypoint,
-		cache:          map[types.NamespacedName]map[string]*anypb.Any{},
+		cache:          map[perRouteKey]map[string]*anypb.Any{},
 	}
 	if push.AuthzPolicies != nil {
 		selectionOpts := model.PolicyMatcherForProxy(proxy).WithRootNamespace(push.AuthzPolicies.RootNamespace)
@@ -203,28 +243,36 @@ func NewPerRouteBuilder(push *model.PushContext, proxy *model.Proxy) *PerRouteBu
 	return p
 }
 
+type perRouteKey struct {
+	origin      types.NamespacedName
+	listenerSet types.NamespacedName
+	onChain     bool
+}
+
 // Build returns the authorization config for the HTTPRoute a route was generated from, keyed by
-// RBAC filter name. Returns nil if no policy targets it, including routes with a zero origin,
-// which did not come from an HTTPRoute.
-func (p *PerRouteBuilder) Build(origin types.NamespacedName) map[string]*anypb.Any {
-	if p == nil || origin.Name == "" || origin.Namespace == "" {
+// RBAC filter name. Returns nil if no policy targets it.
+func (p *PerRouteBuilder) Build(origin, listenerSet types.NamespacedName, onChain bool) map[string]*anypb.Any {
+	if p == nil || (origin.Name == "" && listenerSet.Name == "") {
 		return nil
 	}
-	if cached, ok := p.cache[origin]; ok {
+	key := perRouteKey{origin: origin, listenerSet: listenerSet, onChain: onChain}
+	if cached, ok := p.cache[key]; ok {
 		return cached
 	}
 
 	var out map[string]*anypb.Any
 	route := p.push.AuthzPolicies.ListAuthorizationPoliciesForHTTPRoute(origin)
+	ls := p.push.AuthzPolicies.ListAuthorizationPoliciesForListenerSet(listenerSet)
 	// An action with no route policy is left out entirely, so its filter keeps enforcing whatever
 	// the listener configured.
 	policies := model.AuthorizationPoliciesResult{Deny: route.Deny}
-	if len(route.Allow) > 0 {
+	if !onChain {
+		policies.Deny = unionPolicies(ls.Deny, route.Deny)
+	}
+	if len(route.Allow) > 0 || (!onChain && len(ls.Allow) > 0) {
 		// The override replaces the ALLOW filter's config here, so it must carry the workload's
 		// ALLOW policies too or they would stop applying to this route.
-		policies.Allow = make([]model.AuthorizationPolicy, 0, len(p.workloadAllow)+len(route.Allow))
-		policies.Allow = append(policies.Allow, p.workloadAllow...)
-		policies.Allow = append(policies.Allow, route.Allow...)
+		policies.Allow = unionPolicies(p.workloadAllow, ls.Allow, route.Allow)
 	}
 	if b := builder.New(p.tdBundle, p.push, policies, builder.Option{UseFilterState: p.useFilterState}); b != nil {
 		for action, rbac := range b.BuildHTTPRBACForRoute() {
@@ -239,6 +287,6 @@ func (p *PerRouteBuilder) Build(origin types.NamespacedName) map[string]*anypb.A
 		}
 	}
 
-	p.cache[origin] = out
+	p.cache[key] = out
 	return out
 }

@@ -33,6 +33,7 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -1113,6 +1114,8 @@ type httpListenerOpts struct {
 	class istionetworking.ListenerClass
 	port  int
 	hbone bool
+
+	listenerSetScope types.NamespacedName
 
 	// Waypoint-specific modifications in HCM
 	isWaypoint bool

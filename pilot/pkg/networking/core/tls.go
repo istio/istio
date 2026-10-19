@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -161,7 +162,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
 							networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{cfg, tls}, func() []*listener.Filter {
-								return lb.buildOutboundNetworkFilters(tls.Route, listenPort, cfg.Meta, false)
+								return lb.buildOutboundNetworkFilters(tls.Route, listenPort, cfg.Meta)
 							}),
 						})
 						hasTLSMatch = true
@@ -234,7 +235,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			destinationCIDRs: destinationCIDRs,
 			networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{}, func() []*listener.Filter {
 				return lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-					listenPort, destinationRule, tunnelingconfig.Apply, false, service)
+					listenPort, destinationRule, tunnelingconfig.Apply, false, service, types.NamespacedName{})
 			}),
 		})
 	}
@@ -271,7 +272,7 @@ TcpLoop:
 					metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 					destinationCIDRs: destinationCIDRs,
 					networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{cfg, tcp}, func() []*listener.Filter {
-						return lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false)
+						return lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta)
 					}),
 				})
 				defaultRouteAdded = true
@@ -297,7 +298,7 @@ TcpLoop:
 							metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 							destinationCIDRs: destinationCIDRs,
 							networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{cfg, tcp}, func() []*listener.Filter {
-								return lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false)
+								return lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta)
 							}),
 						})
 						defaultRouteAdded = true
@@ -311,7 +312,7 @@ TcpLoop:
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
 					networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{cfg, tcp}, func() []*listener.Filter {
-						return lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false)
+						return lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta)
 					}),
 				})
 
@@ -352,7 +353,7 @@ TcpLoop:
 			destinationCIDRs: destinationCIDRs,
 			networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{}, func() []*listener.Filter {
 				return lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-					listenPort, destinationRule, tunnelingconfig.Apply, false, service)
+					listenPort, destinationRule, tunnelingconfig.Apply, false, service, types.NamespacedName{})
 			}),
 		})
 	}

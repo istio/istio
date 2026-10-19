@@ -56,6 +56,11 @@ func TestPolicyMatcher(t *testing.T) {
 		Kind:  gvk.ServiceEntry.Kind,
 		Name:  "sample-svc-entry",
 	}
+	listenerSetTargetRef := &v1beta1.PolicyTargetReference{
+		Group: gvk.ListenerSet.Group,
+		Kind:  gvk.ListenerSet.Kind,
+		Name:  "sample-listenerset",
+	}
 	sampleSelector := &v1beta1.WorkloadSelector{
 		MatchLabels: labels.Instance{
 			"app": "my-app",
@@ -204,6 +209,15 @@ func TestPolicyMatcher(t *testing.T) {
 			selection:              sampleGateway,
 			policy:                 &mockPolicyTargetGetter{},
 			expected:               true,
+			enableSelectorPolicies: true,
+		},
+		{
+			name: "gateway API ingress and a listenerset targetRef never matches the workload",
+			policy: &mockPolicyTargetGetter{
+				targetRef: listenerSetTargetRef,
+			},
+			selection:              sampleGateway,
+			expected:               false,
 			enableSelectorPolicies: true,
 		},
 		{
