@@ -27,8 +27,9 @@ This supplies the bootstrap node metadata
 binary cannot load the new extensions. No EnvoyFilter is required.
 
 Normal ambient/HBONE configuration is still required. The POC is disabled when
-istiod's `AMBIENT_ENABLE_MULTI_NETWORK` is true or the proxy disables HBONE
-sending. Sidecars and ingress gateways also require istiod's
+the proxy disables HBONE sending. With `AMBIENT_ENABLE_MULTI_NETWORK=true`, only
+waypoints and ingress gateways with native double-HBONE support are eligible;
+see the double-HBONE section below. Sidecars and ingress gateways also require istiod's
 `PILOT_ENABLE_SENDING_HBONE` (enabled by default when ambient is enabled through
 `PILOT_ENABLE_AMBIENT`). `ENABLE_HBONE` controls receiving HBONE on sidecars;
 it is not required solely to originate HBONE with this shim.
@@ -59,8 +60,8 @@ DestinationRule policies are checked at service, subset, and port scope.
 Application TLS origination (`SIMPLE` or `MUTUAL`), PROXY protocol origination,
 DNS and passthrough services, SNI passthrough, proxyless gRPC clients, and ambient
 east-west gateways retain their existing behavior. Mesh `ISTIO_MUTUAL` remains supported
-because HBONE supplies that mTLS on the outer connection. Double HBONE is outside
-this POC.
+because HBONE supplies that mTLS. Double-HBONE origination is supported on
+waypoints and ingress gateways with the native multi-network resources enabled.
 
 Route retry policies are unchanged. Confirm the application route includes
 `connect-failure`, has a nonzero retry count, and can select another endpoint
@@ -115,7 +116,7 @@ HTTP/1.1 and HTTP/2 requests retain route-level retry behavior. Raw TCP can also
 use the connection-readiness gate, but has no HTTP request retry policy and gains
 no replay guarantee after bytes are sent. Receiving HBONE, routing through a
 service waypoint, and originating nested HBONE are separate capabilities; this
-change only expands single-HBONE origination.
+sidecar support currently covers single-HBONE origination.
 
 ## Validation
 
@@ -134,3 +135,70 @@ waypoint test checks LDS/CDS/EDS pairing, service authority, and the selected wa
 The Envoy shim tests separately exercise CONNECT failures, safe POST retries,
 H2 multiplexing, resets, and GOAWAY. A real ztunnel/mTLS deployment has not yet
 been tested.
+
+## Double-HBONE origination
+
+The same shim proxy image supports nested HBONE; this expansion needs an updated
+istiod, with no additional Envoy changes. Set these environment variables on istiod
+in addition to the normal ambient configuration:
+
+```yaml
+env:
+- name: PILOT_ENABLE_AMBIENT
+  value: "true"
+- name: AMBIENT_ENABLE_MULTI_NETWORK
+  value: "true"
+- name: AMBIENT_ENABLE_MULTI_NETWORK_WAYPOINT
+  value: "true"
+```
+
+For ingress origination, also enable `AMBIENT_ENABLE_MULTI_NETWORK_INGRESS=true`
+and `PILOT_ENABLE_SENDING_HBONE=true`. The source proxy must be a recognized managed
+waypoint or ingress gateway, advertise `ENABLE_HBONE_ORIGINATION_SHIM`, and use the
+custom proxy image. Sidecar double HBONE and ambient east-west gateway opt-in are
+not supported. Leave shim metadata unset on stock E/W proxies.
+
+Network IDs, remote service discovery, ambient E/W gateways, and trust/SDS setup
+must already support native double HBONE. Enabling these flags alone does not
+create a remote route. The global multi-network flag now gates native nested
+resources for both proxy types, matching its documented behavior.
+
+For eligible service clusters, inspect this chain in the source proxy's config:
+
+```text
+service cluster (shim transport)
+  local endpoint  -> connect_originate_hbone_shim -> connect_originate
+  remote gateway -> inner_connect_originate_hbone_shim
+                 -> inner_connect_originate (H2, internal-upstream wrapping TLS)
+                 -> outer_connect_originate listener (ordinary TCP CONNECT proxy)
+                 -> outer_connect_originate cluster (H2, TLS)
+                 -> remote E/W gateway
+```
+
+The additional inner listener preserves the native target authority from
+`istio.double_hbone.hbone_target_address`, gateway address propagation, source
+network header, optional baggage, and access logs. Native listeners remain present
+for opt-out proxies and excluded service policies. Local and remote EDS endpoints
+use the same service transport, but enter the appropriate shim listener. Remote
+endpoints retain gateway identifiers, metadata, and aggregate weights. Both nested
+H2 clusters retain `max_requests_per_connection: 1`.
+
+Outer CONNECT, inner TLS, and inner H2 setup proceed before the application
+connection becomes ready. Application bytes are withheld until the **inner**
+CONNECT succeeds. Outer rejection, inner TLS failure, and inner CONNECT rejection
+can therefore fail establishment before an application request is sent. Inner
+acceptance by a remote waypoint only gates that hop; its subsequent backend hop
+still needs its own handling. The application connection timeout bounds the whole
+nested setup. Retries remain configured on application routes, not CONNECT routes.
+
+The current native outer cluster overrides its port to 15008. Gateway metadata
+may advertise a different port; this POC preserves the native override. Source
+EDS aggregates remote pods into gateways and does not identify the selected
+remote pod. Retry predicates and outlier accounting at the source consequently
+operate at gateway granularity for remote traffic. Avoiding individual
+terminating remote pods still requires remote-side selection behavior.
+
+The configuration tests cover mixed local/remote endpoints, gateway weights and
+metadata, listener and transport pairing, feature/capability gates, policies,
+application HTTP/1.1/HTTP/2/TCP, cache separation, and TLS retention.
+Live nested traffic, real identities and churn must be validated in a deployment.
