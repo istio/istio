@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/annotation"
+	istiolabel "istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	xdsv3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
@@ -51,6 +52,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	echodeployment "istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -3778,7 +3780,19 @@ spec:
 			})
 		}
 	}
-	for _, client := range flatten(t.Apps.VM, t.Apps.A, t.Apps.Tproxy) {
+	// Workloads opting in to Delta NDS through proxy metadata receive incremental name table updates.
+	deltaNDSClients := echodeployment.New(t, t.AllClusters().Configs()...).WithConfig(echo.Config{
+		Namespace: t.Apps.Namespace,
+		Service:   "delta-nds",
+		Ports:     t.Apps.A[0].Config().Ports,
+		Subsets: []echo.SubsetConfig{{
+			Labels: map[string]string{istiolabel.SidecarInject.Name: "true"},
+			Annotations: map[string]string{
+				annotation.ProxyConfig.Name: `{"proxyMetadata": {"ISTIO_META_DELTA_NDS": "true", "ISTIO_DELTA_XDS": "true"}}`,
+			},
+		}},
+	}).BuildOrFail(t)
+	for _, client := range append(flatten(t.Apps.VM, t.Apps.A, t.Apps.Tproxy), deltaNDSClients...) {
 		t.NewSubTest(fmt.Sprintf("incremental/%s/%s", client.Config().Service, client.Config().Cluster.StableName())).Run(
 			func(ctx framework.TestContext) {
 				v4, _ := getSupportedIPFamilies(t, client)
