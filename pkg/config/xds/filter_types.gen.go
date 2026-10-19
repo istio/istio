@@ -397,6 +397,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/cert_mappers/static_name/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/cert_selectors/on_demand_secret/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/cert_validator/dynamic_modules/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/handshakers/dynamic_modules/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/udp_packet_writer/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/dynamic_modules/v3"
