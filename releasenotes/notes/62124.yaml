@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issues:
+- 62124
+releaseNotes:
+- |
+  **Added** a validation warning for `ServiceEntry` addresses that are catch-all (`0.0.0.0`, `::`), have an unspecified network (`0.0.0.0/N`, `::/N`),
+  or are a CIDR with a prefix shorter than `/8`. A `ServiceEntry` like this with `resolution: NONE` and the default `exportTo` can make every sidecar
+  in the mesh pass through traffic on its ports, bypassing `outboundTrafficPolicy` `REGISTRY_ONLY`. Use a narrower CIDR and `exportTo: ["."]`.
+  For egress enforcement, use an egress gateway with a NetworkPolicy.
