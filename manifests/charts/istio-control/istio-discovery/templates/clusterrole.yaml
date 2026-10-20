@@ -65,6 +65,9 @@ rules:
 
   # discovery and routing
   - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create"]
+  - apiGroups: [""]
     resources: ["pods", "nodes", "services", "namespaces", "endpoints"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["discovery.k8s.io"]
@@ -94,7 +97,7 @@ rules:
     verbs: ["*"]
 
   - apiGroups: ["networking.k8s.io"]
-    verbs: [ "get", "list", "watch" ]
+    verbs: [ "get", "list", "watch", "create", "delete" ]
     resources: [ "ipaddresses" ]
 
   # required for CA's namespace controller

@@ -15,28 +15,42 @@
 package ipallocate
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/netip"
 	"strings"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	k8snetworkingv1 "k8s.io/api/networking/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/api/label"
+	meshapi "istio.io/api/mesh/v1alpha1"
 	apiv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingv1 "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	cfghost "istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh/labelselector"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvr"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/kube/multicluster"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -47,8 +61,15 @@ type IPAllocator struct {
 	serviceEntryClient kclient.Informer[*networkingv1.ServiceEntry]
 	serviceEntryWriter kclient.Writer[*networkingv1.ServiceEntry]
 	index              kclient.Index[netip.Addr, *networkingv1.ServiceEntry]
+	ipAddressClient    kclient.Informer[*k8snetworkingv1.IPAddress]
+	ipAddressWriter    kclient.Writer[*k8snetworkingv1.IPAddress]
+	remoteAddressIndex kclient.Index[remoteServiceKey, *k8snetworkingv1.IPAddress]
 	stopChan           <-chan struct{}
 	queue              controllers.Queue
+	multicluster       *multicluster.Controller
+	remoteServices     krt.Collection[remoteService]
+	serviceClient      typedcorev1.ServiceInterface
+	systemNamespace    string
 
 	// This controller is not safe for concurrency but it exists outside the critical path performing important but minimal functionality in a single thread.
 	// If we want the multi-thread this controller we must add locking around accessing the allocators which would otherwise be racy
@@ -101,14 +122,109 @@ func newConflictDetectedEvent(id types.NamespacedName, addresses []netip.Addr) c
 }
 
 const (
-	controllerName = "IP Autoallocator"
+	controllerName                = "IP Autoallocator"
+	allocationParentServiceName   = "istio-ip-allocator"
+	originalServiceNameLabel      = "istio.io/original-service-name"
+	originalServiceNamespaceLabel = "istio.io/original-service-namespace"
+	originalNetworkAnnotation     = "istio.io/original-network"
 )
 
-func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
+type remoteServiceKey struct {
+	network network.ID
+	service types.NamespacedName
+}
+
+func (k remoteServiceKey) resourceName() string {
+	return fmt.Sprintf("%s/%s/%s", k.network, k.service.Namespace, k.service.Name)
+}
+
+func (k remoteServiceKey) String() string {
+	return k.resourceName()
+}
+
+type remoteService struct {
+	key     remoteServiceKey
+	service *corev1.Service
+	network network.ID
+}
+
+func (s remoteService) ResourceName() string {
+	return s.key.resourceName()
+}
+
+func isGlobalService(
+	ctx krt.HandlerContext,
+	meshConfig krt.Singleton[meshwatcher.MeshConfigResource],
+	namespaces krt.Collection[*corev1.Namespace],
+	service *corev1.Service,
+) bool {
+	meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+	if meshCfg == nil {
+		return false
+	}
+	namespace := krt.FetchOne(ctx, namespaces, krt.FilterKey(service.Namespace))
+	if namespace == nil || *namespace == nil {
+		log.Warnf("namespace %s not found for service %s/%s", service.Namespace, service.Namespace, service.Name)
+		return false
+	}
+	namespaceLabels := klabels.Set((*namespace).Labels)
+	serviceLabels := klabels.Set(service.Labels)
+	for _, scopeConfig := range meshCfg.ServiceScopeConfigs {
+		namespaceSelector, err := labelselector.LabelSelectorAsSelector(scopeConfig.NamespaceSelector)
+		if err != nil {
+			log.Warnf("failed to convert namespace selector: %v", err)
+			continue
+		}
+		if namespaceSelector.String() == klabels.Nothing().String() {
+			namespaceSelector = klabels.Everything()
+		}
+		serviceSelector, err := labelselector.LabelSelectorAsSelector(scopeConfig.ServicesSelector)
+		if err != nil {
+			log.Warnf("failed to convert service selector: %v", err)
+			continue
+		}
+		if serviceSelector.String() == klabels.Nothing().String() {
+			serviceSelector = klabels.Everything()
+		}
+		if namespaceSelector.Matches(namespaceLabels) && serviceSelector.Matches(serviceLabels) &&
+			scopeConfig.GetScope() == meshapi.MeshConfig_ServiceScopeConfigs_GLOBAL {
+			return true
+		}
+	}
+	return false
+}
+
+func NewIPAllocator(
+	stop <-chan struct{},
+	c kubelib.Client,
+	multiclusterController *multicluster.Controller,
+	meshConfig krt.Singleton[meshwatcher.MeshConfigResource],
+	systemNamespace string,
+) *IPAllocator {
+	clusters := multiclusterController.Clusters()
+	localNamespaces := multiclusterController.ConfigCluster().Namespaces()
 	client := kclient.NewDelayedInformer[*networkingv1.ServiceEntry](c, gvr.ServiceEntry, kubetypes.StandardInformer, kclient.Filter{
 		ObjectFilter: c.ObjectFilter(),
 	})
 	writer := kclient.NewWriteClient[*networkingv1.ServiceEntry](c)
+	ipAddressClient := kclient.New[*k8snetworkingv1.IPAddress](c)
+	ipAddressWriter := kclient.NewWriteClient[*k8snetworkingv1.IPAddress](c)
+	remoteAddressIndex := kclient.CreateIndex[remoteServiceKey, *k8snetworkingv1.IPAddress](
+		ipAddressClient,
+		"remoteService",
+		func(address *k8snetworkingv1.IPAddress) []remoteServiceKey {
+			name := address.Labels[originalServiceNameLabel]
+			namespace := address.Labels[originalServiceNamespaceLabel]
+			remoteNetwork, hasNetwork := address.Annotations[originalNetworkAnnotation]
+			if name == "" || namespace == "" || !hasNetwork {
+				return nil
+			}
+			return []remoteServiceKey{{
+				network: network.ID(remoteNetwork),
+				service: types.NamespacedName{Namespace: namespace, Name: name},
+			}}
+		},
+	)
 	index := kclient.CreateIndex[netip.Addr, *networkingv1.ServiceEntry](client, "address", func(serviceentry *networkingv1.ServiceEntry) []netip.Addr {
 		addresses := autoallocate.GetAddressesFromServiceEntry(serviceentry)
 		for _, addr := range serviceentry.Spec.Addresses {
@@ -124,19 +240,78 @@ func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 		serviceEntryClient: client,
 		serviceEntryWriter: writer,
 		index:              index,
+		ipAddressClient:    ipAddressClient,
+		ipAddressWriter:    ipAddressWriter,
+		remoteAddressIndex: remoteAddressIndex,
 		stopChan:           stop,
+		multicluster:       multiclusterController,
+		serviceClient:      c.Kube().CoreV1().Services(systemNamespace),
+		systemNamespace:    systemNamespace,
 		// MustParsePrefix is OK because these are const. If we allow user configuration we must not use this function.
 		v4allocator: newPrefixUse(netip.MustParsePrefix(features.IPAutoallocateIPv4Prefix)),
 		v6allocator: newPrefixUse(netip.MustParsePrefix(features.IPAutoallocateIPv6Prefix)),
 	}
 	allocator.queue = controllers.NewQueue(controllerName, controllers.WithGenericReconciler(allocator.reconcile), controllers.WithMaxAttempts(5))
+	remoteServiceCollections := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, remoteCluster *multicluster.Cluster) []krt.Collection[remoteService] {
+		remoteNetwork := network.ID("")
+		if namespace := krt.FetchOne(ctx, localNamespaces, krt.FilterKey(systemNamespace)); namespace != nil && *namespace != nil {
+			var localNetwork = network.ID((*namespace).Labels[label.TopologyNetwork.Name])
+			if namespace := krt.FetchOne(ctx, remoteCluster.Namespaces(), krt.FilterKey(systemNamespace)); namespace != nil && *namespace != nil {
+				remoteNetwork = network.ID((*namespace).Labels[label.TopologyNetwork.Name])
+				if localNetwork == remoteNetwork || remoteNetwork.String() == "" {
+					return nil
+				}
+			}
+		}
+		remoteNamespaces := remoteCluster.Namespaces()
+		services := krt.NewCollection(remoteCluster.Services(), func(ctx krt.HandlerContext, service *corev1.Service) *remoteService {
+			if service.Namespace == systemNamespace && service.Name == allocationParentServiceName {
+				return nil
+			}
+			if !isGlobalService(ctx, meshConfig, remoteNamespaces, service) {
+				log.Debugf("%s is not a global service", service.Name)
+				return nil
+			}
+			return &remoteService{
+				key: remoteServiceKey{
+					network: remoteNetwork,
+					service: config.NamespacedName(service),
+				},
+				service: service,
+				network: remoteNetwork,
+			}
+		}, krt.WithName(fmt.Sprintf("IPAllocatorServices[%s]", remoteCluster.ID)), krt.WithStop(remoteCluster.GetStop()))
+		return []krt.Collection[remoteService]{services}
+	}, krt.WithName("IPAllocatorRemoteServiceCollections"), krt.WithStop(stop))
+	allocator.remoteServices = krt.NestedJoinWithMergeCollection(remoteServiceCollections, func(services []remoteService) *remoteService {
+		if len(services) == 0 {
+			return nil
+		}
+		return &services[0]
+	}, krt.WithName("IPAllocatorRemoteServices"), krt.WithStop(stop))
+	allocator.remoteServices.Register(func(event krt.Event[remoteService]) {
+		allocator.queue.Add(event.Latest().key)
+	})
 	client.AddEventHandler(controllers.ObjectHandler(allocator.queue.AddObject))
 	return allocator
 }
 
 func (c *IPAllocator) Run(stop <-chan struct{}) {
 	log.Debugf("starting %s controller", controllerName)
-	kubelib.WaitForCacheSync(controllerName, stop, c.serviceEntryClient.HasSynced)
+	defer c.serviceEntryClient.ShutdownHandlers()
+	defer c.ipAddressClient.ShutdownHandlers()
+	if err := wait.PollUntilContextCancel(wait.ContextForChannel(stop), time.Second, true, func(ctx context.Context) (bool, error) {
+		if err := c.ensureAllocationParentService(ctx); err != nil {
+			log.Errorf("failed to ensure IP allocation parent Service: %v; retrying", err)
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
+		log.Debugf("stopping %s controller before initialization completed: %v", controllerName, err)
+		c.queue.ShutDownEarly()
+		return
+	}
+	kubelib.WaitForCacheSync(controllerName, stop, c.serviceEntryClient.HasSynced, c.ipAddressClient.HasSynced, c.remoteServices.HasSynced)
 	// it is important that we always warm cache before we try to run the queue
 	// failing to warm cache first could result in allocating IP which are already in use
 	c.populateControllerDatastructures()
@@ -144,7 +319,29 @@ func (c *IPAllocator) Run(stop <-chan struct{}) {
 	// if we wish to replicate v1 assignment behavior for existing serviceentry it should go here and must
 	// include a change to respect the used IPs from the warmed cache begin reconcile
 	c.queue.Run(stop)
-	c.serviceEntryClient.ShutdownHandlers()
+}
+
+func (c *IPAllocator) ensureAllocationParentService(ctx context.Context) error {
+	if _, err := c.serviceClient.Get(ctx, allocationParentServiceName, metav1.GetOptions{}); err == nil {
+		return nil
+	} else if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("getting Service %s/%s: %w", c.systemNamespace, allocationParentServiceName, err)
+	}
+
+	// This Service only anchors parent references; it must not allocate a ClusterIP or select workloads.
+	_, err := c.serviceClient.Create(ctx, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      allocationParentServiceName,
+			Namespace: c.systemNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: corev1.ClusterIPNone,
+		},
+	}, metav1.CreateOptions{})
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("creating Service %s/%s: %w", c.systemNamespace, allocationParentServiceName, err)
+	}
+	return nil
 }
 
 // populateControllerDatastructures reads all serviceentries and records any addresses in our ranges as in use
@@ -154,22 +351,111 @@ func (c *IPAllocator) populateControllerDatastructures() {
 	for _, serviceentry := range serviceentries {
 		count++
 		owner := config.NamespacedName(serviceentry)
+		log.Debugf("checking SE with addresses %s", autoallocate.GetAddressesFromServiceEntry(serviceentry))
 		c.checkInSpecAddresses(serviceentry)
 		c.markUsedOrQueueConflict(autoallocate.GetAddressesFromServiceEntry(serviceentry), owner)
+	}
+	for _, address := range c.ipAddressClient.List(metav1.NamespaceAll, klabels.Everything()) {
+		ip, err := netip.ParseAddr(address.Name)
+		if err != nil {
+			continue
+		}
+		// can use config.NamespacedName here
+		owner := types.NamespacedName{Name: "IPAddress/" + address.Name}
+		key := remoteServiceKey{
+			network: network.ID(address.Annotations[originalNetworkAnnotation]),
+			service: types.NamespacedName{
+				Namespace: address.Labels[originalServiceNamespaceLabel],
+				Name:      address.Labels[originalServiceNameLabel],
+			},
+		}
+		if addresses := c.remoteAddressIndex.Lookup(key); len(addresses) > 0 {
+			owner = remoteServiceOwner(key)
+		}
+		c.markUsedOrQueueConflict([]netip.Addr{ip}, owner)
 	}
 
 	log.Debugf("discovered %v during warming", count)
 }
 
 func (c *IPAllocator) reconcile(a any) error {
+	log.Debugf("reconciling %s", a)
 	if nn, ok := a.(types.NamespacedName); ok {
 		return c.reconcileServiceEntry(nn)
+	}
+	if key, ok := a.(remoteServiceKey); ok {
+		return c.reconcileRemoteService(key)
 	}
 	if conflict, ok := a.(conflictDetectedEvent); ok {
 		return c.resolveConflict(conflict)
 	}
 
 	return nil
+}
+
+func (c *IPAllocator) reconcileRemoteService(key remoteServiceKey) error {
+	log.Infof("handling remote service %s from network %s", key.service, key.network)
+	service := c.remoteServices.GetKey(key.resourceName())
+	if service == nil {
+		return c.deleteRemoteServiceAddresses(key)
+	}
+	// try to allocate
+	return c.allocateRemoteServiceAddresses(key)
+}
+
+func remoteServiceOwner(key remoteServiceKey) types.NamespacedName {
+	return types.NamespacedName{Namespace: string(key.network), Name: key.service.String()}
+}
+
+func (c *IPAllocator) allocateRemoteServiceAddresses(key remoteServiceKey) error {
+	for _, address := range c.remoteAddressIndex.Lookup(key) {
+		ip, err := netip.ParseAddr(address.Name)
+		if err == nil && ip.Is4() {
+			return nil
+		}
+	}
+
+	owner := remoteServiceOwner(key)
+	address, err := c.v4allocator.allocateNext(owner)
+	if err != nil {
+		return fmt.Errorf("allocating IPv4 address for remote service %s: %v", key, err)
+	}
+
+	resource := &k8snetworkingv1.IPAddress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: address.String(),
+			Labels: map[string]string{
+				originalServiceNameLabel:      key.service.Name,
+				originalServiceNamespaceLabel: key.service.Namespace,
+			},
+			Annotations: map[string]string{originalNetworkAnnotation: string(key.network)},
+		},
+		Spec: k8snetworkingv1.IPAddressSpec{ParentRef: &k8snetworkingv1.ParentReference{
+			Resource:  "services",
+			Namespace: c.systemNamespace,
+			Name:      allocationParentServiceName,
+		}},
+	}
+	if _, err := c.ipAddressWriter.Create(resource); err != nil {
+		c.freeAddresses([]netip.Addr{address}, owner)
+		return fmt.Errorf("creating IPAddress %s for remote service %s: %v", address, key, err)
+	}
+	return nil
+}
+
+func (c *IPAllocator) deleteRemoteServiceAddresses(key remoteServiceKey) error {
+	owner := remoteServiceOwner(key)
+	var errs error
+	for _, address := range c.remoteAddressIndex.Lookup(key) {
+		if err := controllers.IgnoreNotFound(c.ipAddressWriter.Delete(address.Name, "")); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("deleting IPAddress %s for remote service %s: %v", address.Name, key, err))
+			continue
+		}
+		if ip, err := netip.ParseAddr(address.Name); err == nil {
+			c.freeAddresses([]netip.Addr{ip}, owner)
+		}
+	}
+	return errs
 }
 
 func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
@@ -334,6 +620,7 @@ func (c *IPAllocator) freeAddresses(addrs []netip.Addr, owner types.NamespacedNa
 }
 
 func (c *IPAllocator) markUsedOrQueueConflict(maybeMappedAddrs []netip.Addr, owner types.NamespacedName) {
+	log.Debugf("marking used or queueing conflict for %s, owner: %s", maybeMappedAddrs, owner)
 	conflictingAddrs := []netip.Addr{}
 	for _, maybeMappedAddr := range maybeMappedAddrs {
 		a := maybeMappedAddr.Unmap()
@@ -348,6 +635,7 @@ func (c *IPAllocator) markUsedOrQueueConflict(maybeMappedAddrs []netip.Addr, own
 		}
 	}
 	if len(conflictingAddrs) > 0 {
+		log.Debugf("conflicting addresses: %s, owner: %s", conflictingAddrs, owner)
 		c.queue.Add(newConflictDetectedEvent(owner, conflictingAddrs))
 	}
 }

@@ -29,9 +29,12 @@ import (
 	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/features"
 	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvr"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -84,7 +87,14 @@ func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) ipAllocate
 	}
 
 	se := clienttest.NewDirectClient[*networkingv1alpha3.ServiceEntry, networkingv1alpha3.ServiceEntry, *networkingv1alpha3.ServiceEntryList](t, c)
-	ipController := ipallocate.NewIPAllocator(s, c)
+	meshConfig := meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())
+	multiclusterController := multicluster.NewController(multicluster.ControllerOptions{
+		Client:          c,
+		ClusterID:       c.ClusterID(),
+		SystemNamespace: meshConfig.Mesh().RootNamespace,
+		MeshConfig:      meshConfig,
+	})
+	ipController := ipallocate.NewIPAllocator(s, c, multiclusterController, meshConfig, meshConfig.Mesh().RootNamespace)
 	// these would normally be the first addresses consumed, we should check that warming works by asserting that we get their nexts when we reconcile
 	se.CreateOrUpdateStatus(
 		&networkingv1alpha3.ServiceEntry{
@@ -110,6 +120,7 @@ func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) ipAllocate
 			}},
 		},
 	)
+	assert.NoError(t, multiclusterController.Run(s))
 	go ipController.Run(s)
 	c.RunAndWait(s)
 	retry.UntilOrFail(t, ipController.HasSynced, retry.Delay(time.Millisecond))
