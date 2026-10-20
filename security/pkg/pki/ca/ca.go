@@ -573,6 +573,11 @@ func renewSelfSignedCaSecret(client corev1.CoreV1Interface, namespace, caCertNam
 		return loadSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caOpts)
 	}
 
+	oldCertOptions, err := util.GetCertOptionsFromExistingCert(caSecret.Data[CACertFile])
+	if err != nil {
+		pkiCaLog.Warnf("Failed to generate cert options from existing root certificate (%v), "+
+			"new root certificate may not match old root certificate", err)
+	}
 	options := util.CertOptions{
 		TTL:           caCertTTL,
 		SignerPrivPem: caSecret.Data[CAPrivateKeyFile],
@@ -582,6 +587,10 @@ func renewSelfSignedCaSecret(client corev1.CoreV1Interface, namespace, caCertNam
 		RSAKeySize:    caRSAKeySize,
 		IsDualUse:     dualUse,
 	}
+	// options should be consistent with the one used in createSelfSignedCaSecret().
+	// This is to make sure when renewing the root cert, we don't make unnecessary changes
+	// to the certificate or add extra fields to the certificate.
+	options = util.MergeCertOptions(options, oldCertOptions)
 	pemCert, pemKey, err := util.GenRootCertFromExistingKey(options)
 	if err != nil {
 		return fmt.Errorf("unable to generate CA cert from existing key for renewal: %w", err)
