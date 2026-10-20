@@ -1245,6 +1245,68 @@ func checkCert(t *testing.T, s *Server, cert, key []byte) bool {
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
 }
 
+// TestInitIstiodCerts_SecretCreatedLate: istiod cert from an external source (e.g. cert-manager
+// istio-csr) not ready at startup should still get picked up once it shows up.
+func TestInitIstiodCerts_SecretCreatedLate(t *testing.T) {
+	// no istiod CA, no known provider
+	test.SetForTest(t, &features.EnableCAServer, false)
+	test.SetForTest(t, &features.PilotCertProvider, constants.CertProviderIstiod)
+
+	// cert paths are relative - use an empty temp dir
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+	// mount dir exists even for an unset "optional: true" Secret volume
+	if err := os.MkdirAll(filepath.Dir(constants.DefaultPilotTLSCert), os.ModePerm); err != nil {
+		t.Fatalf("MkdirAll(%v) failed: %v", constants.DefaultPilotTLSCert, err)
+	}
+
+	stop := make(chan struct{})
+	s := &Server{
+		fileWatcher:             filewatcher.NewWatcher(),
+		server:                  server.New(),
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
+	}
+	defer func() {
+		close(stop)
+		_ = s.fileWatcher.Close()
+	}()
+
+	args := &PilotArgs{Namespace: "istio-system"}
+	if err := s.initIstiodCerts(args, "istiod.istio-system.svc"); err != nil {
+		t.Fatalf("initIstiodCerts failed: %v", err)
+	}
+
+	if _, err := s.getIstiodCertificate(nil); err == nil {
+		t.Fatal("expected no cert to be loaded yet, but one was found")
+	}
+
+	if err := s.server.Start(stop); err != nil {
+		t.Fatalf("Could not invoke startFuncs: %v", err)
+	}
+
+	// secret created late
+	if err := loadCertFilesAtPaths(TLSFSLoadPaths{
+		constants.DefaultPilotTLSCert,
+		constants.DefaultPilotTLSKey,
+		constants.DefaultPilotTLSCaCertAlternatePath,
+	}); err != nil {
+		t.Fatalf("loadCertFilesAtPaths failed: %v", err)
+	}
+
+	g := NewWithT(t)
+
+	// should be picked up without a restart
+	g.Eventually(func() error {
+		_, err := s.getIstiodCertificate(nil)
+		return err
+	}, "10s", "100ms").Should(Succeed())
+
+	if !checkCert(t, s, testcerts.ServerCert, testcerts.ServerKey) {
+		t.Errorf("Istiod certificate does not match the expectation")
+	}
+}
+
 func TestGetDNSNames(t *testing.T) {
 	tests := []struct {
 		name             string
