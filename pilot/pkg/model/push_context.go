@@ -183,12 +183,15 @@ type gatewayIndex struct {
 	namespace map[string][]config.Config
 	// all contains all gateways.
 	all []config.Config
+	// parentGateways maps synthesized Istio Gateway configs back to their Kubernetes Gateway parent.
+	parentGateways map[string]types.NamespacedName
 }
 
 func newGatewayIndex() gatewayIndex {
 	return gatewayIndex{
-		namespace: map[string][]config.Config{},
-		all:       []config.Config{},
+		namespace:      map[string][]config.Config{},
+		all:            []config.Config{},
+		parentGateways: map[string]types.NamespacedName{},
 	}
 }
 
@@ -2402,6 +2405,12 @@ func (ps *PushContext) initGateways(env *Environment) {
 	gatewayConfigs := env.List(gvk.Gateway, NamespaceAll)
 
 	sortConfigByCreationTime(gatewayConfigs)
+	ps.gatewayIndex.parentGateways = make(map[string]types.NamespacedName)
+	for _, gatewayConfig := range gatewayConfigs {
+		if parent, found := kubernetesGatewayParent(gatewayConfig); found {
+			ps.gatewayIndex.parentGateways[gatewayConfig.Namespace+"/"+gatewayConfig.Name] = parent
+		}
+	}
 
 	if features.ScopeGatewayToNamespace {
 		ps.gatewayIndex.namespace = make(map[string][]config.Config)
@@ -2414,6 +2423,29 @@ func (ps *PushContext) initGateways(env *Environment) {
 	} else {
 		ps.gatewayIndex.all = gatewayConfigs
 	}
+}
+
+func kubernetesGatewayParent(gatewayConfig config.Config) (types.NamespacedName, bool) {
+	if parent := gatewayConfig.Annotations[constants.InternalGatewayParent]; parent != "" {
+		namespace, name, found := strings.Cut(parent, "/")
+		if found && namespace != "" && name != "" {
+			return types.NamespacedName{Namespace: namespace, Name: name}, true
+		}
+	}
+	for parent := range strings.SplitSeq(gatewayConfig.Annotations[constants.InternalParentNames], ",") {
+		encoded, found := strings.CutPrefix(parent, gvk.KubernetesGateway.Kind+"/")
+		if !found {
+			continue
+		}
+		namespaceSeparator := strings.LastIndexByte(encoded, '.')
+		if namespaceSeparator < 0 {
+			continue
+		}
+		nameAndSection, namespace := encoded[:namespaceSeparator], encoded[namespaceSeparator+1:]
+		name, _, _ := strings.Cut(nameAndSection, "/")
+		return types.NamespacedName{Namespace: namespace, Name: name}, true
+	}
+	return types.NamespacedName{}, false
 }
 
 func (ps *PushContext) initAmbient(env *Environment) {
