@@ -181,6 +181,8 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string, istioOwnedCNI
 				shouldStopCleanup = false
 				return nil
 			}
+			// IsForbidden is required because during an uninstall, the ServiceAccount and associated RBAC will be deleted concurrently.
+			// The service token wiil usually outlive the permissions which causes the 403 (Forbidden).
 			if errors.IsUnauthorized(err) || errors.IsForbidden(err) {
 				log.Infof("permission to get parent DaemonSet %s has been revoked manually or due to uninstall, this is not an upgrade, "+
 					"shutting down normally", dsName)
