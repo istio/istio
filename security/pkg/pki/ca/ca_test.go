@@ -413,7 +413,7 @@ func TestConcurrentRenewSelfSignedIstioCA(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
 			caOpts, err := NewSelfSignedIstioCAOptions(ctx, 0,
-				testCaCertTTL, testDefaultCertTTL, testRootCertCheckInverval, testMaxCertTTL, testOrg, false, false,
+				testCaCertTTL, testRootCertCheckInverval, testDefaultCertTTL, testMaxCertTTL, testOrg, false, false,
 				testCaNamespace, client.CoreV1(), testRootCertFile, false, testRSAKeySize)
 			if err != nil {
 				t.Errorf("NewSelfSignedIstioCAOptions got unexpected error: %v", err)
@@ -468,7 +468,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
 	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
-		testCaCertTTL, testDefaultCertTTL, testRootCertCheckInverval, testMaxCertTTL, testOrg, false, false,
+		testCaCertTTL, testRootCertCheckInverval, testDefaultCertTTL, testMaxCertTTL, testOrg, false, false,
 		testCaNamespace, client.CoreV1(), testRootCertFile, false, testRSAKeySize)
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
@@ -483,7 +483,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	ctx1 := t.Context()
 	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
-		testCaCertTTL, testDefaultCertTTL, testRootCertCheckInverval, testMaxCertTTL, testOrg, false, false,
+		testCaCertTTL, testRootCertCheckInverval, testDefaultCertTTL, testMaxCertTTL, testOrg, false, false,
 		testCaNamespace, client.CoreV1(), testRootCertFile, false, testRSAKeySize)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -527,7 +527,7 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 			ctx0, cancel0 := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel0()
 			caOpts, err := NewSelfSignedIstioCAOptions(ctx0, 0,
-				testCaCertTTL, testDefaultCertTTL, testRootCertCheckInverval, testMaxCertTTL, testOrg, false, false,
+				testCaCertTTL, testRootCertCheckInverval, testDefaultCertTTL, testMaxCertTTL, testOrg, false, false,
 				testCaNamespace, client.CoreV1(), testRootCertFile, false, testRSAKeySize)
 			if err != nil {
 				t.Errorf("NewSelfSignedIstioCAOptions got unexpected error: %v", err)
