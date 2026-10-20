@@ -976,12 +976,17 @@ func (s *Server) initIstiodCertLoader() error {
 	if err := s.loadIstiodCert(); err != nil {
 		return fmt.Errorf("first time load IstiodCert failed: %v", err)
 	}
+	s.watchIstiodCertReload()
+	return nil
+}
+
+// watchIstiodCertReload keeps Server.istiodCert in sync with istiodCertBundleWatcher.
+func (s *Server) watchIstiodCertReload() {
 	_, watchCh := s.istiodCertBundleWatcher.AddWatcher()
 	s.addStartFunc("reload certs", func(stop <-chan struct{}) error {
 		go s.reloadIstiodCert(watchCh, stop)
 		return nil
 	})
-	return nil
 }
 
 // initIstiodCerts creates Istiod certificates to be used by gRPC and webhook TLS servers
@@ -1034,7 +1039,8 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 		// The new behavior appears safer - IMO we may also do a fatal unless provider is
 		// set to "none" because it is not clear what the user intends.
 
-		// Skip invoking initIstiodCertLoader - we have no cert.
+		// no cert yet - watch in case one shows up later (e.g. cert-manager istio-csr)
+		s.watchForLateCustomTLSCerts()
 		return nil
 	}
 
