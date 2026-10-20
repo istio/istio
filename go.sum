@@ -35,8 +35,8 @@ github.com/Masterminds/sprig/v3 v3.3.0 h1:mQh0Yrg1XPo6vjYXgtf5OtijNAKJRNcTdOOGZe
 github.com/Masterminds/sprig/v3 v3.3.0/go.mod h1:Zy1iXRYNqNLUolqCpL4uhk6SHUMAOSCzdgBfDb35Lz0=
 github.com/VividCortex/ewma v1.2.0 h1:f58SaIzcDXrSy3kWaHNvuJgJ3Nmz59Zji6XoJR/q1ow=
 github.com/VividCortex/ewma v1.2.0/go.mod h1:nz4BbCtbLyFDeC9SUHbtcT5644juEuWfUAUnGx7j5l4=
-github.com/agentgateway/agentgateway/api v0.0.0-20260501213430-773586679f1c h1:igUj4euaEp7RTTeILcEAF2belOGaHCOyeLLL0P2jaLs=
-github.com/agentgateway/agentgateway/api v0.0.0-20260501213430-773586679f1c/go.mod h1:5NfezCthG8NwhlxD9zOZJq9tm7PmPBK7PowNiwUBZVQ=
+github.com/agentgateway/agentgateway/api v0.0.0-20261002153356-ea5608642b9d h1:uvIBu+vUGX+DmaUz6ObIvU/NlXYgkOt5UyRlpdS/xfI=
+github.com/agentgateway/agentgateway/api v0.0.0-20261002153356-ea5608642b9d/go.mod h1:ADe1zg3EFCuNDBKERVvxZ6pgUtqCOImKXm2NzTHTcsw=
 github.com/alecholmes/xfccparser v0.4.0 h1:IFB4bP34oorjcV3n8utZtBhEwlAw9rZ43pb4LgT23Vo=
 github.com/alecholmes/xfccparser v0.4.0/go.mod h1:J9fzzUOtjw74IwNdGVbjnOVj1UDlwGQj1zZzgQRlRDY=
 github.com/alecthomas/assert/v2 v2.11.0 h1:2Q9r3ki8+JYXvGsDyBXwH3LcJ+WK5D0gc5E8vS6K3D0=

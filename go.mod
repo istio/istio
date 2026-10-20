@@ -8,7 +8,7 @@ require (
 	github.com/KimMachineGun/automemlimit v1.0.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/agentgateway/agentgateway/api v0.0.0-20260501213430-773586679f1c
+	github.com/agentgateway/agentgateway/api v0.0.0-20261002153356-ea5608642b9d
 	github.com/alecholmes/xfccparser v0.4.0
 	github.com/cbeuw/connutil v1.0.1
 	github.com/cenkalti/backoff/v4 v4.3.0
