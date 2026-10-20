@@ -33,7 +33,7 @@ Builds run **inside the build container by default** (`BUILD_WITH_CONTAINER ?= 1
 `Makefile.overrides.mk`), so `make` plus a container runtime is the only requirement.
 
 ```bash
-make build                   # Compile all Go binaries
+make build                   # Compile the standard Go binaries
 make docker                  # Build container images
 make docker.push             # Push images (set HUB= and TAG=)
 BUILD_WITH_CONTAINER=0 make  # Use the local Go toolchain instead of the container

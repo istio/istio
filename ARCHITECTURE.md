@@ -144,7 +144,7 @@ istio/
 
 Istiod is a modular monolith that dynamically configures all proxies in the mesh. Its pipeline has three stages:
 
-1. **Config Ingestion** — Watches 20+ Kubernetes resource types (Services, Endpoints, Istio CRDs like VirtualService, DestinationRule, Gateway) via `ConfigStore` and `ServiceDiscovery` interfaces. Sources include CRD client (`pkg/config/crd`), filesystem, and xDS.
+1. **Config Ingestion** — Watches 20+ Kubernetes resource types (Services, Endpoints, Istio CRDs like VirtualService, DestinationRule, Gateway) via `ConfigStore` and `ServiceDiscovery` interfaces. Sources include CRD client (`pilot/pkg/config/kube/crdclient`), filesystem, and xDS.
 
 1. **Config Translation** — Converts internal models into Envoy configuration (Listeners, Routes, Clusters, Endpoints). Core logic is in `pilot/pkg/networking/core/`.
 
@@ -217,7 +217,7 @@ Configuration changes in Kubernetes trigger an xDS push. Istiod debounces rapid 
 - **Kubernetes API** — Primary source of truth for services, endpoints, and Istio CRDs. All components interact with the Kubernetes API via `pkg/kube/`.
 - **Gateway API** — Kubernetes SIG-Network API for gateways, supported as a first-class config source. Translation in `pkg/config/gateway/`.
 - **SPIFFE / SPIRE** — Identity framework. Istio issues SPIFFE-compliant X.509 SVIDs for workload-to-workload mTLS.
-- **Prometheus / Grafana / Jaeger** — Observability stack. Addon manifests in `manifests/addons/`.
+- **Prometheus / Grafana / Jaeger** — Observability stack. Addon manifests in `samples/addons/`.
 
 ## Deployment & Infrastructure
 
