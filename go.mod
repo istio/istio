@@ -19,9 +19,9 @@ require (
 	github.com/containernetworking/plugins v1.9.1
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/cli v29.9.0+incompatible
-	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20261003070529-6b14e001be9b
-	github.com/envoyproxy/go-control-plane/envoy v1.39.1-0.20261003070529-6b14e001be9b
+	github.com/docker/cli v29.5.2+incompatible
+	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20261013120021-5c5ac772744b
+	github.com/envoyproxy/go-control-plane/envoy v1.40.0
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.19.0
 	github.com/felixge/fgprof v0.9.5

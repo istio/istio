@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/labels"
@@ -234,7 +235,8 @@ func waitForNode(t test.Failer, c *FakeController, name string) {
 
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
-	t.Parallel()
+	test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, false)
+	test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, false)
 	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 
 	ns := "default"
@@ -331,6 +333,92 @@ func TestPodCacheEvents(t *testing.T) {
 	}
 	if handled != 4 {
 		t.Errorf("notified workload handler %d times, want %d", handled, 5)
+	}
+}
+
+func TestPodCacheUnhealthyWorkloadEvents(t *testing.T) {
+	for _, flags := range []struct {
+		auto   bool
+		global bool
+	}{
+		{auto: false, global: false},
+		{auto: true, global: false},
+		{auto: false, global: true},
+		{auto: true, global: true},
+	} {
+		t.Run(fmt.Sprintf("auto=%v/global=%v", flags.auto, flags.global), func(t *testing.T) {
+			test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, flags.auto)
+			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, flags.global)
+			c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+			sendUnhealthy := flags.auto || flags.global
+			type workloadEvent struct {
+				Event  model.Event
+				Health model.HealthStatus
+			}
+			var events []workloadEvent
+			c.AppendWorkloadHandler(func(wi *model.WorkloadInstance, event model.Event) {
+				assert.Equal(t, wi.Endpoint.SendUnhealthyEndpoints, sendUnhealthy)
+				events = append(events, workloadEvent{Event: event, Health: wi.Endpoint.HealthStatus})
+			})
+			pod := &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "pod", Namespace: "default"},
+				Status: v1.PodStatus{
+					Phase:      v1.PodRunning,
+					Conditions: []v1.PodCondition{{Type: v1.PodReady, Status: v1.ConditionFalse}},
+				},
+			}
+			var want []workloadEvent
+			apply := func(next *v1.Pod, event model.Event, registered bool) {
+				t.Helper()
+				assert.NoError(t, c.pods.onEvent(pod, next, event))
+				pod = next
+				assert.Equal(t, events, want)
+				assert.Equal(t, len(c.pods.getPodKeys("172.0.3.35")) > 0, registered)
+			}
+			// Even with unhealthy endpoints enabled, pods need an IP.
+			apply(pod, model.EventAdd, false)
+			pod.Status.PodIP = "172.0.3.35"
+			if sendUnhealthy {
+				want = append(want, workloadEvent{model.EventAdd, model.UnHealthy})
+			}
+			apply(pod, model.EventAdd, sendUnhealthy)
+
+			ready := pod.DeepCopy()
+			ready.Status.Conditions[0].Status = v1.ConditionTrue
+			want = append(want, workloadEvent{model.EventUpdate, model.Healthy})
+			apply(ready, model.EventUpdate, true)
+
+			unready := pod.DeepCopy()
+			unready.Status.Conditions[0].Status = v1.ConditionFalse
+			event := model.EventDelete
+			if sendUnhealthy {
+				event = model.EventUpdate
+			}
+			want = append(want, workloadEvent{event, model.UnHealthy})
+			apply(unready, model.EventUpdate, sendUnhealthy)
+
+			ready = pod.DeepCopy()
+			ready.Status.Conditions[0].Status = v1.ConditionTrue
+			want = append(want, workloadEvent{model.EventUpdate, model.Healthy})
+			apply(ready, model.EventUpdate, true)
+
+			terminating := pod.DeepCopy()
+			terminating.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			want = append(want, workloadEvent{model.EventDelete, model.Healthy})
+			apply(terminating, model.EventUpdate, false)
+			// The final delete must not notify handlers twice.
+			apply(pod, model.EventDelete, false)
+
+			// An eviction can remove the IP at the same time the pod becomes terminal.
+			active := ready.DeepCopy()
+			want = append(want, workloadEvent{model.EventAdd, model.Healthy})
+			apply(active, model.EventAdd, true)
+			failed := pod.DeepCopy()
+			failed.Status.Phase = v1.PodFailed
+			failed.Status.PodIP = ""
+			want = append(want, workloadEvent{model.EventDelete, model.Healthy})
+			apply(failed, model.EventUpdate, false)
+		})
 	}
 }
 
