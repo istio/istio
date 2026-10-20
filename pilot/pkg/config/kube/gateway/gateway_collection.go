@@ -193,6 +193,7 @@ func ListenerSetCollection(
 				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
+				meta[constants.InternalGatewayParent] = config.NamespacedName(parentGwObj).String()
 
 				// For unmanaged (manual deployment) parent Gateways, we have no idea what service accounts
 				// the gateway workloads will use, so we must not enforce service account restrictions.
