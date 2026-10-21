@@ -215,7 +215,7 @@ func getTemplateReplacer() *strings.Replacer {
 
 func checkMetric(cl cluster.Cluster, p prometheus.Instance, query string, excluded []string) error {
 	query = getTemplateReplacer().Replace(query)
-	value, _, err := p.APIForCluster(cl).QueryRange(context.Background(), query, promv1.Range{
+	value, _, _, err := p.APIForCluster(cl).QueryRange(context.Background(), query, promv1.Range{
 		Start: time.Now().Add(-time.Minute),
 		End:   time.Now(),
 		Step:  time.Second,
