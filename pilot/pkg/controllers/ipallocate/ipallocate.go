@@ -28,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -355,24 +356,30 @@ func (c *IPAllocator) populateControllerDatastructures() {
 		c.checkInSpecAddresses(serviceentry)
 		c.markUsedOrQueueConflict(autoallocate.GetAddressesFromServiceEntry(serviceentry), owner)
 	}
-	for _, address := range c.ipAddressClient.List(metav1.NamespaceAll, klabels.Everything()) {
+	hasOriginalService, err := klabels.NewRequirement(originalServiceNameLabel, selection.Exists, nil)
+	if err != nil {
+		panic(fmt.Sprintf("invalid IPAddress label requirement: %v", err))
+	}
+	for _, address := range c.ipAddressClient.List(metav1.NamespaceAll, klabels.NewSelector().Add(*hasOriginalService)) {
 		ip, err := netip.ParseAddr(address.Name)
 		if err != nil {
 			continue
 		}
-		// can use config.NamespacedName here
-		owner := types.NamespacedName{Name: "IPAddress/" + address.Name}
+		namespace := address.Labels[originalServiceNamespaceLabel]
+		remoteNetwork, hasNetwork := address.Annotations[originalNetworkAnnotation]
+		if namespace == "" || !hasNetwork {
+			c.markUsedOrQueueConflict([]netip.Addr{ip}, types.NamespacedName{Name: "IPAddress/" + address.Name})
+			continue
+		}
 		key := remoteServiceKey{
-			network: network.ID(address.Annotations[originalNetworkAnnotation]),
-			service: types.NamespacedName{
-				Namespace: address.Labels[originalServiceNamespaceLabel],
-				Name:      address.Labels[originalServiceNameLabel],
-			},
+			network: network.ID(remoteNetwork),
+			service: types.NamespacedName{Namespace: namespace, Name: address.Labels[originalServiceNameLabel]},
 		}
-		if addresses := c.remoteAddressIndex.Lookup(key); len(addresses) > 0 {
-			owner = remoteServiceOwner(key)
+		c.markUsedOrQueueConflict([]netip.Addr{ip}, remoteServiceOwner(key))
+		if c.remoteServices.GetKey(key.resourceName()) == nil {
+			// The service was removed while this controller wasn't running; reconcile deletes the IPAddress.
+			c.queue.Add(key)
 		}
-		c.markUsedOrQueueConflict([]netip.Addr{ip}, owner)
 	}
 
 	log.Debugf("discovered %v during warming", count)
@@ -399,7 +406,6 @@ func (c *IPAllocator) reconcileRemoteService(key remoteServiceKey) error {
 	if service == nil {
 		return c.deleteRemoteServiceAddresses(key)
 	}
-	// try to allocate
 	return c.allocateRemoteServiceAddresses(key)
 }
 
