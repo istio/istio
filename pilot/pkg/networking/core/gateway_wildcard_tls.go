@@ -15,6 +15,10 @@
 package core
 
 import (
+	"strconv"
+	"strings"
+
+	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -25,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/match"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/route"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -33,6 +38,10 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/util/sets"
 )
+
+// gatewayWildcardTLSInternalName is the name of the internal listener of all wildcard DYNAMIC_DNS destinations of
+// ISTIO_MUTUAL gateway servers, and of the cluster that sends to it.
+const gatewayWildcardTLSInternalName = "wildcard_tls_internal"
 
 // gatewayWildcardTLSTarget is a wildcard DYNAMIC_DNS destination of an ISTIO_MUTUAL gateway server. As on a
 // waypoint, the real host is only visible on an internal listener, after the gateway terminates the mTLS.
@@ -46,9 +55,15 @@ type gatewayWildcardTLSTarget struct {
 	subset string
 }
 
-// name is the name of the internal listener, and of the cluster that sends to it.
+// name is the name of the filter chain of the target on the internal listener.
 func (t gatewayWildcardTLSTarget) name() string {
 	return model.BuildSubsetKey(model.TrafficDirectionOutboundWildcardTLS, t.subset, t.service.Hostname, t.port)
+}
+
+// key identifies the target to the internal listener, as "<host>:<port>". The subset is not part of it: a dynamic
+// forward proxy cluster has no subsets.
+func (t gatewayWildcardTLSTarget) key() string {
+	return string(t.service.Hostname) + ":" + strconv.Itoa(t.port)
 }
 
 // gatewayWildcardDestination returns the wildcard DYNAMIC_DNS service and upstream port when wildcard TLS is
@@ -88,63 +103,89 @@ func gatewayWildcardTLSTargetForServer(
 	}, true
 }
 
-// gatewayWildcardTLSTargets returns the distinct targets of all servers of the gateway. Listeners and clusters
-// are both built from this list, so they always agree.
-func gatewayWildcardTLSTargets(node *model.Proxy) []gatewayWildcardTLSTarget {
-	mg := node.MergedGateway
-	if !features.EnableWildcardHostServiceEntriesForTLS || mg == nil {
-		return nil
-	}
-	var targets []gatewayWildcardTLSTarget
-	seen := sets.New[string]()
-	for _, port := range mg.ServerPorts {
-		merged := mg.MergedServers[port]
-		if merged == nil {
-			continue
-		}
-		for _, server := range merged.Servers {
-			if server.GetTls().GetMode() != networking.ServerTLSSettings_ISTIO_MUTUAL {
-				continue
-			}
-			routes, _, ok := gatewayTCPRoutes(node, server, mg.GatewayNameForServer[server])
-			if !ok {
-				continue
-			}
-			target, ok := gatewayWildcardTLSTargetForServer(node, server, routes)
-			if !ok || seen.InsertContains(target.dfpCluster) {
-				continue
-			}
-			targets = append(targets, target)
-		}
-	}
-	return targets
-}
-
-// buildGatewayWildcardTLSFilters builds the network filters of the ISTIO_MUTUAL gateway chain. The chain hands the
-// peer identity and original addresses to the internal listener and has no authorization filters: on this chain,
-// the SNI is the mesh mTLS SNI, so AuthorizationPolicy is applied on the internal listener instead.
+// buildGatewayWildcardTLSFilters builds the network filters of the ISTIO_MUTUAL gateway chain, and records the target
+// for the internal listener. The chain hands the peer identity, the original addresses and the target to the internal
+// listener and has no authorization filters: on this chain, the SNI is the mesh mTLS SNI, so AuthorizationPolicy is
+// applied on the internal listener instead.
 func (lb *ListenerBuilder) buildGatewayWildcardTLSFilters(target gatewayWildcardTLSTarget, port *model.Port) []*listener.Filter {
+	key := target.key()
+	if lb.gatewayWildcardTLSTargetKeys == nil {
+		lb.gatewayWildcardTLSTargetKeys = sets.New[string]()
+	}
+	if !lb.gatewayWildcardTLSTargetKeys.InsertContains(key) {
+		lb.gatewayWildcardTLSTargets = append(lb.gatewayWildcardTLSTargets, target)
+	}
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       target.dfpCluster,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: target.name()},
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: gatewayWildcardTLSInternalName},
 		// The internal listener applies the idle timeout, as on waypoints. A timeout here could close the connection
 		// before the one configured for the destination.
 		IdleTimeout: istio_route.Notimeout,
-		// The peer identity is only known once the downstream TLS handshake completes. No application data is
-		// read before then, so no early data needs to be buffered.
+		// The peer identity and the target are only set once the downstream TLS handshake completes. No application
+		// data is read before then, so no early data needs to be buffered.
 		UpstreamConnectMode: tcp.UpstreamConnectMode_ON_DOWNSTREAM_TLS_HANDSHAKE,
 		MaxEarlyDataBytes:   wrappers.UInt32(0),
 	}
 	class := model.OutboundListenerClass(lb.node.Type)
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class, nil)
-	return lb.buildCompleteNetworkFiltersWithAuthz(class, port.Port,
-		[]*listener.Filter{xdsfilters.GatewayDownstreamPeerFilter, tcpFilter}, true, nil, nil, nil)
+	return lb.buildCompleteNetworkFiltersWithAuthz(class, port.Port, []*listener.Filter{
+		xdsfilters.GatewayDownstreamPeerFilter,
+		xdsfilters.BuildGatewayWildcardTLSTargetFilter(key),
+		tcpFilter,
+	}, true, nil, nil, nil)
 }
 
-// buildGatewayWildcardTLSInternalListener builds the internal listener of a target. It restores the original
-// addresses, reads the SNI of the application TLS, accepts only SNIs under the wildcard host, applies
-// AuthorizationPolicy with the peer identity from filter state, and resolves the SNI with the dynamic forward proxy.
-func (lb *ListenerBuilder) buildGatewayWildcardTLSInternalListener(target gatewayWildcardTLSTarget) *listener.Listener {
+// buildGatewayWildcardTLSInternalListener builds the internal listener of all targets, as the waypoint main_internal
+// listener. It restores the original addresses, reads the SNI of the application TLS, and selects the chain of the
+// target set by the gateway chain. Each chain accepts only SNIs under its wildcard host, applies AuthorizationPolicy
+// with the peer identity from filter state, and resolves the SNI with the dynamic forward proxy. A connection without
+// a known target or with another SNI matches no chain and is closed.
+func (lb *ListenerBuilder) buildGatewayWildcardTLSInternalListener() *listener.Listener {
+	chains := make([]*listener.FilterChain, 0, len(lb.gatewayWildcardTLSTargets))
+	targets := make(map[string]*matcher.Matcher_OnMatch, len(lb.gatewayWildcardTLSTargets))
+	for _, target := range lb.gatewayWildcardTLSTargets {
+		chains = append(chains, &listener.FilterChain{
+			Name:    target.name(),
+			Filters: lb.buildGatewayWildcardTLSInternalFilters(target),
+		})
+		// As on sidecars, only SNIs under the wildcard host are forwarded.
+		targets[target.key()] = match.ToMatcher(&matcher.Matcher{
+			MatcherType: &matcher.Matcher_MatcherList_{MatcherList: &matcher.Matcher_MatcherList{
+				Matchers: []*matcher.Matcher_MatcherList_FieldMatcher{{
+					Predicate: &matcher.Matcher_MatcherList_Predicate{
+						MatchType: &matcher.Matcher_MatcherList_Predicate_SinglePredicate_{
+							SinglePredicate: &matcher.Matcher_MatcherList_Predicate_SinglePredicate{
+								Input: match.SNI,
+								Matcher: &matcher.Matcher_MatcherList_Predicate_SinglePredicate_ValueMatch{
+									ValueMatch: &matcher.StringMatcher{
+										MatchPattern: &matcher.StringMatcher_Suffix{Suffix: strings.TrimPrefix(string(target.service.Hostname), "*")},
+									},
+								},
+							},
+						},
+					},
+					OnMatch: match.ToChain(target.name()),
+				}},
+			}},
+		})
+	}
+	return &listener.Listener{
+		Name:              gatewayWildcardTLSInternalName,
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		ListenerFilters:   []*listener.ListenerFilter{xdsfilters.OriginalDestination, xdsfilters.TLSInspector},
+		TrafficDirection:  core.TrafficDirection_OUTBOUND,
+		FilterChains:      chains,
+		FilterChainMatcher: &matcher.Matcher{
+			MatcherType: &matcher.Matcher_MatcherTree_{MatcherTree: &matcher.Matcher_MatcherTree{
+				Input:    match.GatewayWildcardTLSTargetFilterStateInput,
+				TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{ExactMatchMap: &matcher.Matcher_MatcherTree_MatchMap{Map: targets}},
+			}},
+		},
+	}
+}
+
+// buildGatewayWildcardTLSInternalFilters builds the network filters of the internal chain of a target.
+func (lb *ListenerBuilder) buildGatewayWildcardTLSInternalFilters(target gatewayWildcardTLSTarget) []*listener.Filter {
 	destinationRule := CastDestinationRule(lb.node.SidecarScope.DestinationRule(
 		model.TrafficDirectionOutbound, lb.node, target.service.Hostname).GetRule())
 	tcpPool := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp()
@@ -163,31 +204,13 @@ func (lb *ListenerBuilder) buildGatewayWildcardTLSInternalListener(target gatewa
 	var filters []*listener.Filter
 	filters = append(filters, authz.NewBuilder(authz.Custom, lb.push, lb.node, true).BuildTCP()...)
 	filters = append(filters, authz.NewBuilder(authz.Local, lb.push, lb.node, true).BuildTCP()...)
-	filters = append(filters,
+	return append(filters,
 		buildSNIDFPFilter(target.port, target.service, util.SelectDNSLookupFamily(lb.node.IPAddresses)),
 		tcpFilter)
-
-	return &listener.Listener{
-		Name:              target.name(),
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		ListenerFilters:   []*listener.ListenerFilter{xdsfilters.OriginalDestination, xdsfilters.TLSInspector},
-		TrafficDirection:  core.TrafficDirection_OUTBOUND,
-		// As on sidecars, only SNIs under the wildcard host are forwarded.
-		FilterChains: []*listener.FilterChain{{
-			Name:             target.name(),
-			FilterChainMatch: &listener.FilterChainMatch{ServerNames: []string{string(target.service.Hostname)}},
-			Filters:          filters,
-		}},
-	}
 }
 
-// buildGatewayWildcardTLSClusters builds the clusters that send the ISTIO_MUTUAL gateway chains to their internal
-// listeners.
-func buildGatewayWildcardTLSClusters(node *model.Proxy) []*cluster.Cluster {
-	targets := gatewayWildcardTLSTargets(node)
-	clusters := make([]*cluster.Cluster, 0, len(targets))
-	for _, target := range targets {
-		clusters = append(clusters, buildInternalUpstreamCluster(target.name(), target.name(), false))
-	}
-	return clusters
+// buildGatewayWildcardTLSInternalCluster builds the cluster that sends the ISTIO_MUTUAL gateway chains to the internal
+// listener. As the waypoint main_internal cluster, it does not depend on the targets, so it never changes with them.
+func buildGatewayWildcardTLSInternalCluster() *cluster.Cluster {
+	return buildInternalUpstreamCluster(gatewayWildcardTLSInternalName, gatewayWildcardTLSInternalName, false)
 }
