@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -177,6 +178,10 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 			// See below, where we disable KeyComparison as well
 			leaseKey = ""
 		}
+		var owners []metav1.OwnerReference
+		if l.perRevision {
+			owners = l.revisionOwnerReferences()
+		}
 		lock = &k8sresourcelock.LeaseLock{
 			LeaseMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
 			Client:    l.client.CoordinationV1(),
@@ -184,6 +189,7 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 				Identity: l.name,
 				Key:      leaseKey,
 			},
+			OwnerReferences: owners,
 		}
 	}
 
@@ -207,6 +213,39 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 	}
 
 	return k8sleaderelection.NewLeaderElector(config)
+}
+
+// revisionOwnerReferences returns an owner reference to the revision's istiod Deployment (istiod-<revision>).
+// Per-revision Leases are created at runtime, so tools like Helm do not know about them. Owning them by the
+// Deployment lets the Kubernetes garbage collector clean them up when the revision is removed.
+// This is best effort: if the Deployment cannot be read (missing, or no RBAC), the Lease is simply left without an owner.
+func (l *LeaderElection) revisionOwnerReferences() []metav1.OwnerReference {
+	name := istiodDeploymentName(l.revision)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	d, err := l.client.AppsV1().Deployments(l.namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Infof("leader election %v: not setting ownerReference, Deployment %s/%s not found", l.electionID, l.namespace, name)
+		} else {
+			log.Warnf("leader election %v: not setting ownerReference to Deployment %s/%s: %v", l.electionID, l.namespace, name, err)
+		}
+		return nil
+	}
+	return []metav1.OwnerReference{{
+		APIVersion: "apps/v1",
+		Kind:       "Deployment",
+		Name:       d.Name,
+		UID:        d.UID,
+	}}
+}
+
+// istiodDeploymentName mirrors the naming of the istiod Deployment in the istio-discovery chart.
+func istiodDeploymentName(revision string) string {
+	if revision == "" || revision == "default" {
+		return "istiod"
+	}
+	return "istiod-" + revision
 }
 
 func LocationPrioritizedComparison(currentLeaderRevision string, l *LeaderElection) bool {

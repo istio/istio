@@ -23,14 +23,17 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -142,6 +145,38 @@ func TestPerRevisionElection(t *testing.T) {
 	_, stop4 := createPerRevisionElection(t, "pod4", "not-foo", watcher, true, client)
 	close(stop3)
 	close(stop4)
+}
+
+func TestPerRevisionElectionOwnerReference(t *testing.T) {
+	cm := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "istiod-foo", Namespace: "ns", UID: "uid-1"}}
+	client := fake.NewClientset(cm)
+	watcher := &fakeDefaultWatcher{"foo"}
+	_, stop := createPerRevisionElection(t, "pod1", "foo", watcher, true, client)
+	lease, err := client.CoordinationV1().Leases("ns").Get(context.Background(), testLock+"-foo", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, lease.OwnerReferences, []metav1.OwnerReference{{APIVersion: "apps/v1", Kind: "Deployment", Name: "istiod-foo", UID: "uid-1"}})
+	close(stop)
+
+	// Owner recreated with a new UID (e.g. reinstall): the existing Lease is re-pointed at it.
+	assert.NoError(t, client.AppsV1().Deployments("ns").Delete(context.Background(), "istiod-foo", metav1.DeleteOptions{}))
+	cm2 := cm.DeepCopy()
+	cm2.UID = "uid-2"
+	_, err = client.AppsV1().Deployments("ns").Create(context.Background(), cm2, metav1.CreateOptions{})
+	assert.NoError(t, err)
+	_, stop = createPerRevisionElection(t, "pod2", "foo", watcher, true, client)
+	lease, err = client.CoordinationV1().Leases("ns").Get(context.Background(), testLock+"-foo", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, lease.OwnerReferences[0].UID, types.UID("uid-2"))
+	close(stop)
+}
+
+func TestPerRevisionElectionNoOwner(t *testing.T) {
+	client := fake.NewClientset()
+	_, stop := createPerRevisionElection(t, "pod1", "foo", &fakeDefaultWatcher{"foo"}, true, client)
+	lease, err := client.CoordinationV1().Leases("ns").Get(context.Background(), testLock+"-foo", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, len(lease.OwnerReferences), 0)
+	close(stop)
 }
 
 func TestPrioritizedLeaderElection(t *testing.T) {

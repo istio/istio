@@ -33,5 +33,11 @@ rules:
 - apiGroups: ["coordination.k8s.io"]
   resources: ["leases"]
   verbs: ["get", "update", "patch", "create"]
+
+# To set an ownerReference from the per-revision leader election Leases to this revision's istiod Deployment
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  resourceNames: ["istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}"]
+  verbs: ["get"]
 {{- end }}
 {{- end }}
