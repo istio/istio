@@ -223,22 +223,24 @@ func TestGenerateDeltas_RoleNamespace(t *testing.T) {
 		wantError     bool
 	}{
 		{
-			name: "proxy with role pointing to other-ns should get other-ns resource",
+			name: "proxy with incorrect role ns should fail",
 			proxy: &model.Proxy{
-				Labels: map[string]string{},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "other-ns"},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
-					Namespace: "wrong-namespace", // This should be ignored
+					Namespace: "other-ns",
 					Raw: map[string]any{
-						"role": "other-ns~gw", // This specifies the correct namespace
+						"role": "wrong-namespace~gw", // wrong-namespace should cause a failure
 					},
 				},
 			},
 			wantResources: []string{"resource-1", "global-resource"},
-			wantError:     false,
+			wantError:     true,
 		},
 		{
-			name: "proxy with label should use proxy namespace",
+			name: "proxy with label should use verified identity namespace",
 			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
 				Labels: map[string]string{
 					gatewayNameLabel: "gw",
 				},
@@ -252,7 +254,8 @@ func TestGenerateDeltas_RoleNamespace(t *testing.T) {
 		{
 			name: "proxy without gateway name should error",
 			proxy: &model.Proxy{
-				Labels: map[string]string{},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
 					Namespace: "default",
 					Raw:       map[string]any{},
