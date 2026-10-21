@@ -57,7 +57,7 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 			name: "gateway name from role fallback - same namespace",
 			proxy: &model.Proxy{
 				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
-				Labels: map[string]string{},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
 					Namespace: "default",
 					Raw: map[string]any{
@@ -75,7 +75,7 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 			name: "gateway name from role fallback - different namespace rejected",
 			proxy: &model.Proxy{
 				VerifiedIdentity: &spiffe.Identity{Namespace: "other-ns"},
-				Labels: map[string]string{},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
 					Namespace: "other-ns",
 					Raw: map[string]any{
@@ -83,7 +83,7 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 					},
 				},
 			},
-			wantNN: types.NamespacedName{},
+			wantNN:  types.NamespacedName{},
 			wantErr: true,
 		},
 		{
@@ -110,7 +110,7 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 			name: "no gateway name available",
 			proxy: &model.Proxy{
 				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
-				Labels: map[string]string{},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
 					Namespace: "default",
 					Raw:       map[string]any{},
@@ -123,7 +123,7 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 			name: "invalid role format - missing tilde",
 			proxy: &model.Proxy{
 				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
-				Labels: map[string]string{},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
 					Namespace: "default",
 					Raw: map[string]any{
@@ -138,7 +138,7 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 			name: "role is not a string",
 			proxy: &model.Proxy{
 				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
-				Labels: map[string]string{},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
 					Namespace: "default",
 					Raw: map[string]any{
