@@ -141,13 +141,6 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		watchedServices = sets.NewWithLength[host.Name](len(scopedServices))
 	}
 	for cluster := range watched.ResourceNames {
-		// A VirtualService change can drop a gateway wildcard TLS target while its service stays, so the
-		// internal clusters not rebuilt are deleted.
-		if features.EnableWildcardHostServiceEntriesForTLS && scopeChanged &&
-			strings.HasPrefix(cluster, string(model.TrafficDirectionOutboundWildcardTLS)+"|") {
-			deletedClusters.Insert(cluster)
-			continue
-		}
 		// Fast path: most watched clusters belong to services unaffected by this push.
 		// Inbound and default clusters have no hostname, so they always take the full parse.
 		if scopedServices == nil {
@@ -379,7 +372,10 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		if proxy.Type == model.Router && proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher)...)
 		}
-		clusters = append(clusters, buildGatewayWildcardTLSClusters(proxy)...)
+		// Depends only on the flag, so delta pushes never need to add or remove it.
+		if features.EnableWildcardHostServiceEntriesForTLS && proxy.Type == model.Router {
+			clusters = append(clusters, buildGatewayWildcardTLSInternalCluster())
+		}
 		clusters = append(clusters, patcher.insertedClusters()...)
 		// Ingress gateway needs the clusters necessary for Double HBONE communications
 		// that happen cross cluster. A request arrives at the ingress and the LB

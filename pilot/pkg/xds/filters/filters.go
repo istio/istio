@@ -85,6 +85,11 @@ const (
 	// for incoming HBONE connections. This header when set to waypoint indicates that request has been processed
 	// by a waypoint already and therfore L7 policies have been applied already and we should skip them.
 	RequestSourceFilterStateKey = "io.istio.source"
+
+	// GatewayWildcardTLSTargetFilterStateKey is a filter state key where a gateway stores the wildcard
+	// DYNAMIC_DNS destination of an ISTIO_MUTUAL connection, as "<host>:<port>". The internal listener selects
+	// the filter chain of that destination with it.
+	GatewayWildcardTLSTargetFilterStateKey = "io.istio.gateway_wildcard_tls_target"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -867,6 +872,22 @@ func buildDynamicForwardProxyFilter(dnsCacheConfigName string, lookupFamily clus
 						Name:            dnsCacheConfigName,
 						DnsLookupFamily: lookupFamily,
 					},
+				},
+			}),
+		},
+	}
+}
+
+// BuildGatewayWildcardTLSTargetFilter hands the wildcard DYNAMIC_DNS destination of a gateway connection to the
+// internal listener, which selects the filter chain of the destination with it. Like the peer identity, it is set
+// once the downstream TLS handshake completes.
+func BuildGatewayWildcardTLSTargetFilter(target string) *listener.Filter {
+	return &listener.Filter{
+		Name: "wildcard_tls_target",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&sfsnetwork.Config{
+				OnDownstreamTlsHandshake: []*sfsvalue.FilterStateValue{
+					sharedFilterStateValue(GatewayWildcardTLSTargetFilterStateKey, "istio.hashable_string", target),
 				},
 			}),
 		},

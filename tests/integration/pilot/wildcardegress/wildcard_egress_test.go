@@ -173,7 +173,8 @@ func TestEgressGatewayWildcardDynamicDNS(t *testing.T) {
 
 // routeViaEgressGatewayMutualTLS sends TLS traffic for the wildcard host from sidecars to the egress gateway inside
 // Istio mTLS. The gateway terminates the mTLS and forwards the application TLS to a wildcard DYNAMIC_DNS
-// ServiceEntry. The DestinationRule SNI selects the gateway server.
+// ServiceEntry. The DestinationRule SNI selects the gateway server: any name under the server's wildcard host works,
+// and it is neither resolved nor sent upstream, because the application SNI stays inside the mTLS.
 const routeViaEgressGatewayMutualTLS = `
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry

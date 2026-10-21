@@ -26,15 +26,19 @@ import (
 	rbacnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	snidfp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	network "github.com/envoyproxy/go-control-plane/envoy/extensions/matching/common_inputs/network/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -475,6 +479,20 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 			xdstest.ValidateListeners(t, listeners)
 			xdstest.ValidateClusters(t, clusters)
 
+			internalClusters := slices.Filter(clusters, func(c *cluster.Cluster) bool {
+				return internalListenerTarget(clusters, c.Name) != ""
+			})
+			if !enabled {
+				g.Expect(internalClusters).To(BeEmpty())
+				g.Expect(xdstest.ExtractListener(gatewayWildcardTLSInternalName, listeners)).To(BeNil())
+			} else {
+				// As the waypoint main_internal cluster, a single internal cluster serves all targets.
+				g.Expect(slices.Map(internalClusters, func(c *cluster.Cluster) string { return c.Name })).
+					To(ConsistOf(gatewayWildcardTLSInternalName))
+				g.Expect(internalListenerTarget(clusters, gatewayWildcardTLSInternalName)).To(Equal(gatewayWildcardTLSInternalName))
+			}
+			inner := xdstest.ExtractListener(gatewayWildcardTLSInternalName, listeners)
+
 			for _, wildcard := range []string{"*.wikipedia.org", "*.github.com", "*.example.org"} {
 				dfpCluster := "outbound|443||" + wildcard
 				outer := findMutualTLSChain(t, listeners, wildcard)
@@ -487,32 +505,37 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 					continue
 				}
 
-				// Outer chain: no RBAC, hands off the caller identity and original addresses.
+				// Outer chain: no RBAC, hands off the caller identity, the original addresses and the target.
 				g.Expect(filterNames(outer)).NotTo(ContainElement(wellknown.RoleBasedAccessControl))
 				g.Expect(handedOffKeys(outer)).To(ContainElements(
 					"io.istio.peer_principal",
 					"envoy.filters.listener.original_dst.remote_ip",
 					"envoy.filters.listener.original_dst.local_ip",
+					xdsfilters.GatewayWildcardTLSTargetFilterStateKey,
 				))
+				target := wildcard + ":443"
+				g.Expect(handedOffValue(outer, xdsfilters.GatewayWildcardTLSTargetFilterStateKey)).To(Equal(target))
+				// No application data is read before the peer identity is known.
+				g.Expect(outerTCP.GetUpstreamConnectMode()).To(Equal(tcp.UpstreamConnectMode_ON_DOWNSTREAM_TLS_HANDSHAKE))
+				g.Expect(outerTCP.GetMaxEarlyDataBytes().GetValue()).To(BeZero())
+				g.Expect(outerTCP.GetCluster()).To(Equal(gatewayWildcardTLSInternalName))
 
-				g.Expect(outerTCP.GetCluster()).NotTo(Equal(dfpCluster))
-				internalName := internalListenerTarget(clusters, outerTCP.GetCluster())
-				g.Expect(internalName).NotTo(BeEmpty(), "cluster %s must point to an internal listener", outerTCP.GetCluster())
-				// The name follows the standard cluster key format, so tools such as istioctl can parse it.
-				dir, subset, hostname, port := model.ParseSubsetKey(internalName)
-				g.Expect(dir).To(Equal(model.TrafficDirectionOutboundWildcardTLS))
-				g.Expect(subset).To(BeEmpty())
-				g.Expect(hostname).To(Equal(host.Name(wildcard)))
-				g.Expect(port).To(Equal(443))
-				inner := xdstest.ExtractListener(internalName, listeners)
 				g.Expect(inner).NotTo(BeNil())
 				g.Expect(inner.GetInternalListener()).NotTo(BeNil())
 				g.Expect(xdstest.ExtractListenerFilters(inner)).To(HaveKey(wellknown.OriginalDestination))
 				g.Expect(xdstest.ExtractListenerFilters(inner)).To(HaveKey(wellknown.TLSInspector))
 
-				g.Expect(inner.FilterChains).To(HaveLen(1))
-				innerChain := inner.FilterChains[0]
-				g.Expect(innerChain.GetFilterChainMatch().GetServerNames()).To(ConsistOf(wildcard))
+				// The chain is selected by the target, then limited to SNIs under the wildcard host.
+				innerChain, suffix := gatewayWildcardTLSChain(t, inner, target)
+				g.Expect(innerChain).NotTo(BeNil(), "internal chain for %s", target)
+				g.Expect(suffix).To(Equal(wildcard[1:]))
+				g.Expect(innerChain.GetFilterChainMatch()).To(BeNil())
+				// The chain name follows the standard cluster key format, so tools such as istioctl can parse it.
+				dir, subset, hostname, port := model.ParseSubsetKey(innerChain.Name)
+				g.Expect(dir).To(Equal(model.TrafficDirectionOutboundWildcardTLS))
+				g.Expect(subset).To(BeEmpty())
+				g.Expect(hostname).To(Equal(host.Name(wildcard)))
+				g.Expect(port).To(Equal(443))
 
 				names := filterNames(innerChain)
 				rbacIdx := slices.Index(names, wellknown.RoleBasedAccessControl)
@@ -531,6 +554,12 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 				g.Expect(rbacJSON).To(ContainSubstring(`"key":"io.istio.peer_principal"`))
 				g.Expect(rbacJSON).To(ContainSubstring(`"requestedServerName"`))
 				g.Expect(rbacJSON).NotTo(ContainSubstring(`"authenticated"`))
+			}
+			if enabled {
+				g.Expect(inner.FilterChains).To(HaveLen(3))
+				// A connection with an unknown or missing target matches no chain and is closed.
+				g.Expect(inner.GetFilterChainMatcher().GetOnNoMatch()).To(BeNil())
+				g.Expect(inner.GetDefaultFilterChain()).To(BeNil())
 			}
 		})
 	}
@@ -668,6 +697,46 @@ func handedOffKeys(fc *listener.FilterChain) []string {
 		}
 	}
 	return keys
+}
+
+// handedOffValue returns the value that the chain sets for a filter-state key after the downstream TLS handshake.
+func handedOffValue(fc *listener.FilterChain, key string) string {
+	for _, f := range fc.Filters {
+		cfg := &sfsnetwork.Config{}
+		if f.GetTypedConfig().UnmarshalTo(cfg) != nil {
+			continue
+		}
+		for _, v := range cfg.GetOnDownstreamTlsHandshake() {
+			if v.GetObjectKey() == key {
+				return v.GetFormatString().GetTextFormatSource().GetInlineString()
+			}
+		}
+	}
+	return ""
+}
+
+// gatewayWildcardTLSChain returns the chain of the internal listener selected for a target, and the SNI suffix
+// that the chain is limited to.
+func gatewayWildcardTLSChain(t *testing.T, l *listener.Listener, target string) (*listener.FilterChain, string) {
+	onMatch := l.GetFilterChainMatcher().GetMatcherTree().GetExactMatchMap().GetMap()[target]
+	matchers := onMatch.GetMatcher().GetMatcherList().GetMatchers()
+	if len(matchers) != 1 {
+		return nil, ""
+	}
+	predicate := matchers[0].GetPredicate().GetSinglePredicate()
+	if !predicate.GetInput().GetTypedConfig().MessageIs(&network.ServerNameInput{}) {
+		t.Fatalf("SNI predicate expected, got %v", predicate.GetInput())
+	}
+	action := &wrappers.StringValue{}
+	if err := matchers[0].GetOnMatch().GetAction().GetTypedConfig().UnmarshalTo(action); err != nil {
+		t.Fatal(err)
+	}
+	for _, fc := range l.FilterChains {
+		if fc.Name == action.GetValue() {
+			return fc, predicate.GetValueMatch().GetSuffix()
+		}
+	}
+	return nil, ""
 }
 
 // internalListenerTarget returns the internal listener that the named cluster sends to, if any.
