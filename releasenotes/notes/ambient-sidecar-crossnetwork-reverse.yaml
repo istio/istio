@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 57877
+  - 60716
+releaseNotes:
+  - |
+    **Added** experimental support for ambient clients to reach sidecar workloads on a remote
+    network, enabled with `AMBIENT_ENABLE_MULTI_NETWORK_SIDECAR_BRIDGE` (which additionally requires
+    `AMBIENT_ENABLE_MULTI_NETWORK`). The destination sidecar must advertise
+    `networking.istio.io/tunnel=http`. Cross-network inner CONNECT carries the service hostname as
+    the authority, since a pod address from another network cannot be restored locally, so the
+    receiving sidecar routes those by authority to its own listening port.

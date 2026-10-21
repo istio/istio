@@ -146,6 +146,7 @@ func TestMain(m *testing.M) {
 				cfg.SkipDeployCrossClusterSecrets = false
 				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK"] = "true"
 				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK_INGRESS"] = "true"
+				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK_SIDECAR_BRIDGE"] = "true"
 				cfg.Values["pilot.env.AMBIENT_ENABLE_BAGGAGE"] = "true"
 			}
 		}, cert.CreateCASecretAlt)).
