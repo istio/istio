@@ -278,7 +278,18 @@ func TestOwnedCNIConfigInstall(t *testing.T) {
 					t.Fatalf("failed to list cluster nodes: %v", err)
 				} else {
 					node := nodes.Items[0].Name
-					listCNIConfigOnHostCmd := fmt.Sprintf("kubectl debug node/%s -n %s --image=busybox -- sleep 120", node, cniNs)
+					img := fmt.Sprintf("%s/app:%s", t.Settings().Image.Hub, t.Settings().Image.Tag)
+					tmpDir := t.CreateTmpDirectoryOrFail("custom")
+					customFile := filepath.Join(tmpDir, "custom.yaml")
+					os.WriteFile(customFile, []byte(`
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  runAsNonRoot: false
+  allowPrivilegeEscalation: true
+`), os.ModePerm)
+					listCNIConfigOnHostCmd := fmt.Sprintf("kubectl debug node/%s -n %s --image=%s --custom=%s -- sleep infinity",
+						node, cniNs, img, customFile)
 					out, err := shell.Execute(true, listCNIConfigOnHostCmd)
 					if err != nil {
 						t.Fatalf("failed to list CNI config from node %v: %v", node, err)
@@ -309,7 +320,7 @@ func TestOwnedCNIConfigInstall(t *testing.T) {
 					if slices.Equal(expected, files) {
 						return nil
 					}
-					return fmt.Errorf("config mistmatch, found %s", stdout)
+					return fmt.Errorf("config mismatch, found %s", stdout)
 				}
 
 				getIstioPlugin := func(filename string) (map[string]any, error) {
@@ -501,9 +512,8 @@ func TestOwnedCNIConfigInstall(t *testing.T) {
 
 				t.NewSubTest("uninstall").Run(func(t framework.TestContext) {
 					// uninstall istio-cni
-					if err := h.DeleteChart(CniReleaseName, cniNs); err == nil {
-					} else {
-						t.Errorf("failed to delete %s release: %v", CniReleaseName, err)
+					if err := h.DeleteChart(CniReleaseName, cniNs); err != nil {
+						t.Fatalf("failed to delete %s release: %v", CniReleaseName, err)
 					}
 
 					// verify the owned cni is removed
