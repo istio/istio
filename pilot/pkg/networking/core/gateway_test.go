@@ -4125,7 +4125,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 		expectedListener listenertest.ListenerTest
 	}{
 		{
-			// RBAC must run before the SNI DFP filter, so a denied connection never triggers DNS resolution.
+			// RBAC runs before the SNI DFP filter and tcp_proxy, so no data of a denied connection is forwarded.
 			name:        "TLS passthrough to wildcard DYNAMIC_DNS with RBAC",
 			configs:     wildcardPassthroughConfigs,
 			wildcardTLS: true,
