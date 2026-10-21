@@ -247,8 +247,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			buildOuterConnectOriginateListener(builder.push, builder.node))
 	}
 
-	for _, target := range gatewayWildcardTLSTargets(builder.node) {
-		listeners = append(listeners, builder.buildGatewayWildcardTLSInternalListener(target))
+	// The gateway chains above recorded their wildcard TLS targets, so the routes are walked once.
+	if len(builder.gatewayWildcardTLSTargets) > 0 {
+		listeners = append(listeners, builder.buildGatewayWildcardTLSInternalListener())
 	}
 
 	builder.gatewayListeners = listeners

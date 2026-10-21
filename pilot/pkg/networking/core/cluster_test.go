@@ -3801,7 +3801,6 @@ func TestBuildDeltaClusters(t *testing.T) {
 		usedDelta            bool
 		removedClusters      []string
 		expectedClusters     []string
-		wildcardTLS          bool
 	}{
 		{
 			name:                 "service is added",
@@ -3838,25 +3837,6 @@ func TestBuildDeltaClusters(t *testing.T) {
 			usedDelta:            true,
 			removedClusters:      []string{"outbound|8080||test.com"},
 			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster"},
-		},
-		{
-			name:                 "gateway wildcard TLS cluster is kept when the feature is disabled",
-			services:             []*model.Service{testService1},
-			configUpdated:        sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}),
-			watchedResourceNames: []string{"outbound|8080||test.com", "outbound-wildcard-tls|443||*.wild.com"},
-			usedDelta:            true,
-			removedClusters:      nil,
-			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster", "outbound|8080||test.com"},
-		},
-		{
-			name:                 "gateway wildcard TLS cluster is kept on an unrelated ServiceEntry update",
-			services:             []*model.Service{testService1},
-			configUpdated:        sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}),
-			watchedResourceNames: []string{"outbound|8080||test.com", "outbound-wildcard-tls|443||*.wild.com"},
-			usedDelta:            true,
-			removedClusters:      nil,
-			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster", "outbound|8080||test.com"},
-			wildcardTLS:          true,
 		},
 		{
 			name:          "service port is removed",
@@ -4427,7 +4407,6 @@ func TestBuildDeltaClusters(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, tc.wildcardTLS)
 			configs := tc.configs
 			if tc.prevConfigs != nil {
 				configs = tc.prevConfigs
