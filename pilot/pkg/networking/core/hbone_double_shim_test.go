@@ -87,7 +87,7 @@ func doubleShimProxy(cg *ConfigGenTest, kind model.NodeType, enabled bool) *mode
 		Type:   kind,
 		Labels: map[string]string{label.GatewayManaged.Name: controller, "istio": "ingressgateway"},
 		Metadata: &model.NodeMetadata{
-			Network: "network1", EnableHBONEOriginationShim: model.StringBool(enabled),
+			Network: "network1", EnableHBONEConnectWait: model.StringBool(enabled),
 		},
 	})
 }
@@ -118,6 +118,7 @@ func TestHBONEDoubleShimListeners(t *testing.T) {
 						t.Fatal("missing native nested listeners")
 					}
 					assert.Equal(t, shim != nil, enabled)
+					assert.Equal(t, xdstest.ExtractListener(util.HBONEOuterOriginationShimListener, listeners) != nil, enabled)
 					assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationShimListener, listeners) != nil, enabled)
 					assert.Equal(t, outer.FilterChains[0].Filters[0].Name, wellknown.TCPProxy)
 					if !enabled {
@@ -233,6 +234,7 @@ func TestHBONEDoubleShimPairing(t *testing.T) {
 						}
 						wantShim := enabled && tt.shim
 						assert.Equal(t, transport.Name == util.HBONEOriginationShimTransport, wantShim)
+						assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, wantShim)
 						if !enabled {
 							stockService = c
 						}
@@ -290,10 +292,21 @@ func TestHBONEDoubleShimPairing(t *testing.T) {
 							t.Fatal("missing nested H2 clusters")
 						}
 						innerEndpoint := inner.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetEnvoyInternalAddress()
-						assert.Equal(t, innerEndpoint.GetServerListenerName(), DoubleHBONEOuterConnectOriginate)
-						socket := &internal.InternalUpstreamTransport{}
-						assert.NoError(t, inner.TransportSocket.GetTypedConfig().UnmarshalTo(socket))
-						assert.Equal(t, socket.TransportSocket.Name, "tls")
+						var innerTLS *core.TransportSocket
+						if enabled {
+							assert.Equal(t, innerEndpoint.GetServerListenerName(), util.HBONEOuterOriginationShimListener)
+							assert.Equal(t, inner.TransportSocket.Name, util.HBONEOriginationShimTransport)
+							wrapped := &udpa.TypedStruct{}
+							assert.NoError(t, inner.TransportSocket.GetTypedConfig().UnmarshalTo(wrapped))
+							innerTLS = &core.TransportSocket{}
+							assert.NoError(t, protomarshal.StructToMessageSlow(wrapped.Value.Fields["transport_socket"].GetStructValue(), innerTLS))
+						} else {
+							assert.Equal(t, innerEndpoint.GetServerListenerName(), DoubleHBONEOuterConnectOriginate)
+							socket := &internal.InternalUpstreamTransport{}
+							assert.NoError(t, inner.TransportSocket.GetTypedConfig().UnmarshalTo(socket))
+							innerTLS = socket.TransportSocket
+						}
+						assert.Equal(t, innerTLS.Name, "tls")
 						assert.Equal(t, outer.TransportSocket.Name, "tls")
 						assert.Equal(t, outer.GetOriginalDstLbConfig().GetUpstreamPortOverride().GetValue(), uint32(model.HBoneInboundListenPort))
 						if !enabled {
@@ -301,6 +314,7 @@ func TestHBONEDoubleShimPairing(t *testing.T) {
 						}
 						assert.Equal(t, outer, stockOuter)
 						for _, nested := range []*cluster.Cluster{inner, outer} {
+							assert.Equal(t, nested.UpstreamConfig == nil, true)
 							assert.Equal(t, len(nested.TypedExtensionProtocolOptions), 1)
 							options := &http.HttpProtocolOptions{}
 							assert.NoError(t, nested.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"].UnmarshalTo(options))

@@ -42,23 +42,23 @@ func TestHBONEDoubleShimEligibility(t *testing.T) {
 						}
 						p := &model.Proxy{
 							Type: kind, Labels: map[string]string{label.GatewayManaged.Name: controller},
-							Metadata: &model.NodeMetadata{EnableHBONEOriginationShim: true},
+							Metadata: &model.NodeMetadata{EnableHBONEConnectWait: true},
 						}
 						resources := global && native && (kind == model.Waypoint || (kind == model.Router && send))
 						assert.Equal(t, model.ShouldCreateDoubleHBONEResources(p), resources)
 						want := (kind == model.Waypoint || send) && (!global || resources)
-						assert.Equal(t, HBONEOriginationShimEnabled(p), want)
-						p.Metadata.EnableHBONEOriginationShim = false
-						assert.Equal(t, HBONEOriginationShimEnabled(p), false)
-						p.Metadata.EnableHBONEOriginationShim = true
+						assert.Equal(t, HBONEConnectWaitEnabled(p), want)
+						p.Metadata.EnableHBONEConnectWait = false
+						assert.Equal(t, HBONEConnectWaitEnabled(p), false)
+						p.Metadata.EnableHBONEConnectWait = true
 						p.Metadata.DisableHBONESend = true
-						assert.Equal(t, HBONEOriginationShimEnabled(p), false)
+						assert.Equal(t, HBONEConnectWaitEnabled(p), false)
 						p.Metadata.DisableHBONESend = false
 						if global {
 							p.Labels = nil
-							assert.Equal(t, HBONEOriginationShimEnabled(p), false)
+							assert.Equal(t, HBONEConnectWaitEnabled(p), false)
 							p.Labels = map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayEastWestControllerLabel}
-							assert.Equal(t, HBONEOriginationShimEnabled(p), false)
+							assert.Equal(t, HBONEConnectWaitEnabled(p), false)
 						}
 					})
 				}

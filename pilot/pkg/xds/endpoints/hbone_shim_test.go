@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestHBONEOriginationShimEndpointScope(t *testing.T) {
+func TestHBONEConnectWaitEndpointScope(t *testing.T) {
 	test.SetForTest(t, &features.EnableHBONESend, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
 	for _, tt := range []struct {
@@ -45,10 +45,10 @@ func TestHBONEOriginationShimEndpointScope(t *testing.T) {
 			}
 			b := EndpointBuilder{
 				clusterName: name, dir: tt.direction, service: service,
-				proxy: &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{EnableHBONEOriginationShim: true}},
+				proxy: &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{EnableHBONEConnectWait: true}},
 			}
-			b.populateHBONEOriginationShim()
-			assert.Equal(t, b.hboneOriginationShim, tt.want)
+			b.populateHBONEConnectWait()
+			assert.Equal(t, b.hboneConnectWait, tt.want)
 		})
 	}
 }
