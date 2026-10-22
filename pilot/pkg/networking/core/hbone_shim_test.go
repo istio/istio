@@ -176,6 +176,7 @@ func TestHBONEOriginationShimPairing(t *testing.T) {
 			for _, kind := range []model.NodeType{model.Waypoint, model.Router, model.SidecarProxy} {
 				for _, enabled := range []bool{false, true} {
 					proxy := shimTestProxy(cg, kind, enabled)
+					proxy.Metadata.EnableHBONERejectionHandling = true
 					cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
 					direction, subset := model.TrafficDirectionOutbound, tt.subset
 					var subsetPolicy *networking.TrafficPolicy
@@ -211,6 +212,7 @@ func TestHBONEOriginationShimPairing(t *testing.T) {
 						t.Fatal("missing HBONE transport")
 					}
 					wantShim := enabled && tt.shim
+					assert.Equal(t, c.UpstreamConfig != nil, wantShim)
 					assert.Equal(t, transport.Name == util.HBONEOriginationShimTransport, wantShim)
 					clusterName := model.BuildSubsetKey(direction, subset, svc.Hostname, port.Port)
 					eb := endpoints.NewEndpointBuilder(clusterName, proxy, cg.PushContext())

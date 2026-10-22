@@ -274,6 +274,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	if localCluster.cluster.GetType() == cluster.Cluster_EDS &&
 		util.UseHBONEOriginationShim(cb.hboneShim, svc, policy) {
 		localCluster.cluster.TransportSocket = util.WaypointHBONEOriginationShimTransportSocket()
+		cb.applyHBONERejectionHandling(localCluster.cluster)
 	}
 
 	cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
@@ -378,12 +379,13 @@ func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, 
 	// RawBufferTransport we want to wrap a TLS transport socket.
 	tlsCtx := buildCommonConnectTLSContext(proxy, push)
 	sec_model.EnforceCompliance(tlsCtx)
-	transportSocket := util.InternalUpstreamTransportSocket("internal_upstream_with_tls", &core.TransportSocket{
+	innerTLS := &core.TransportSocket{
 		Name: "tls",
 		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tlsv3.UpstreamTlsContext{
 			CommonTlsContext: tlsCtx,
 		})},
-	})
+	}
+	transportSocket := util.InternalUpstreamTransportSocket("internal_upstream_with_tls", innerTLS)
 
 	c := &cluster.Cluster{
 		Name:                 DoubleHBONEInnerConnectOriginate,
@@ -399,6 +401,20 @@ func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, 
 		TransportSocket:               transportSocket,
 	}
 
+	if cb.hboneRejectionHandling {
+		// Gate inner TLS on the outer CONNECT and preserve an outer rejection.
+		if wrapped, err := protomarshal.ToJSONMap(innerTLS); err != nil {
+			log.Errorf("cannot configure outer HBONE rejection handling: %v", err)
+		} else {
+			c.TransportSocket = &core.TransportSocket{
+				Name: util.HBONEOriginationShimTransport,
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.TypedStructWithFields(
+					util.HBONEOriginationShimUpstreamConfigType, map[string]any{"transport_socket": wrapped},
+				)},
+			}
+			c.LoadAssignment.Endpoints = util.BuildInternalEndpoint(util.HBONEOuterOriginationShimListener, nil)
+		}
+	}
 	c.AltStatName = util.DelimitedStatsPrefix(DoubleHBONEInnerConnectOriginate)
 
 	return c

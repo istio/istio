@@ -152,6 +152,14 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 			l = append(l, shim)
 		}
 		if model.ShouldCreateDoubleHBONEResources(node) {
+			if util.HBONERejectionHandlingEnabled(node) {
+				outer := buildOuterConnectOriginateListener(push, node)
+				if shim, err := wrapHBONEOriginationShimListener(outer, util.HBONEOuterOriginationShimListener); err != nil {
+					log.Errorf("failed to build outer HBONE origination shim listener: %v", err)
+				} else {
+					l = append(l, shim)
+				}
+			}
 			inner := buildInnerConnectOriginateListener(push, node)
 			if shim, err := wrapHBONEOriginationShimListener(inner, util.HBONEInnerOriginationShimListener); err != nil {
 				log.Errorf("failed to build inner HBONE origination shim listener: %v", err)

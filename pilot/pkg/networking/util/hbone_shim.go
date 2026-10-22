@@ -25,6 +25,9 @@ import (
 )
 
 const (
+	HBONERejectionPool                     = "envoy.upstreams.istio_hbone"
+	HBONERejectionPoolType                 = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.ConnectionPoolConfig"
+	HBONEOuterOriginationShimListener      = "outer_connect_originate_hbone_shim"
 	HBONEOriginationShimListener           = "connect_originate_hbone_shim"
 	HBONEInnerOriginationShimListener      = "inner_connect_originate_hbone_shim"
 	HBONEOriginationShimFilter             = "envoy.filters.network.istio_hbone"
@@ -85,4 +88,10 @@ func HBONEOriginationShimTransportSocket(metadata []*internalupstream.InternalUp
 			HBONEOriginationShimUpstreamConfigType, map[string]any{"passthrough_metadata": passthrough},
 		)},
 	}
+}
+
+// HBONERejectionHandlingEnabled is a separate capability so older shim images
+// never receive configuration for an extension they do not contain.
+func HBONERejectionHandlingEnabled(proxy *model.Proxy) bool {
+	return HBONEOriginationShimEnabled(proxy) && bool(proxy.Metadata.EnableHBONERejectionHandling)
 }
