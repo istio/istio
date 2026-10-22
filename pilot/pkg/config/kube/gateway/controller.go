@@ -125,6 +125,7 @@ type TypedResource struct {
 type Outputs struct {
 	Gateways                krt.Collection[Gateway]
 	GatewayConfigs          krt.Collection[config.Config]
+	GatewayBackendTLS       krt.Collection[GatewayBackendTLS]
 	VirtualServices         krt.Collection[config.Config]
 	ReferenceGrants         gatewaycommon.ReferenceGrants
 	DestinationRules        krt.Collection[config.Config]
@@ -277,7 +278,7 @@ func NewController(
 
 	// GatewaysStatus is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
-	GatewaysStatus, Gateways := GatewayCollection(
+	GatewaysStatus, Gateways, GatewayBackendTLS := GatewayCollection(
 		inputs.Gateways,
 		ListenerSets,
 		GatewayListenerConflicts,
@@ -419,6 +420,7 @@ func NewController(
 		ReferenceGrants:         ReferenceGrants,
 		Gateways:                Gateways,
 		GatewayConfigs:          GatewayConfigs,
+		GatewayBackendTLS:       GatewayBackendTLS,
 		VirtualServices:         VirtualServices,
 		DestinationRules:        DestinationRules,
 		InferencePools:          InferencePools,
@@ -442,6 +444,14 @@ func NewController(
 					Kind:      kind.Gateway,
 					Name:      t.Name,
 					Namespace: t.Namespace,
+				}
+			}), false),
+		outputs.GatewayBackendTLS.RegisterBatch(pushXds(xdsUpdater,
+			func(t GatewayBackendTLS) model.ConfigKey {
+				return model.ConfigKey{
+					Kind:      kind.Gateway,
+					Name:      t.ParentGateway.Name,
+					Namespace: t.ParentGateway.Namespace,
 				}
 			}), false),
 		outputs.InferencePools.Register(func(e krt.Event[InferencePool]) {
@@ -666,4 +676,11 @@ func (c *Controller) inRevision(obj any) bool {
 		return false
 	}
 	return config.LabelsInRevision(object.GetLabels(), c.revision)
+}
+
+// Retrieve Backend TLS configuration configured on a Kubernetes Gateway.
+func (c *Controller) GetGatewayBackendClientCertificateRef(parentGateway types.NamespacedName) gatewayv1.SecretObjectReference {
+	// TODO(ericdbishop): change return type to avoid dependency.
+	backendTLS := c.outputs.GatewayBackendTLS.GetKey(parentGateway.String())
+	return backendTLS.ClientCertificateRef
 }
