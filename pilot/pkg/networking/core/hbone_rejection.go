@@ -22,12 +22,10 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
-// Apply only after the service has opted into the shim transport. The adapter
-// supports HTTP and TCP consumers and passes through ordinary transport failures.
-func (cb *ClusterBuilder) applyHBONERejectionHandling(c *cluster.Cluster) {
-	if !cb.hboneRejectionHandling || c.UpstreamConfig != nil {
-		return
-	}
+// Required on application clusters using the shim transport. The adapter handles
+// permanent CONNECT rejections for HTTP and TCP consumers, and passes through
+// ordinary transport failures, including failures of non-HBONE transport matches.
+func applyHBONERejectionHandling(c *cluster.Cluster) {
 	c.UpstreamConfig = &core.TypedExtensionConfig{
 		Name:        util.HBONERejectionPool,
 		TypedConfig: protoconv.TypedStructWithFields(util.HBONERejectionPoolType, map[string]any{}),

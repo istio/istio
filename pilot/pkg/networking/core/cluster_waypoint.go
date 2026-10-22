@@ -272,9 +272,9 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
 	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
 	if localCluster.cluster.GetType() == cluster.Cluster_EDS &&
-		util.UseHBONEOriginationShim(cb.hboneShim, svc, policy) {
+		util.UseHBONEConnectWait(cb.hboneConnectWait, svc, policy) {
 		localCluster.cluster.TransportSocket = util.WaypointHBONEOriginationShimTransportSocket()
-		cb.applyHBONERejectionHandling(localCluster.cluster)
+		applyHBONERejectionHandling(localCluster.cluster)
 	}
 
 	cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
@@ -401,7 +401,7 @@ func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, 
 		TransportSocket:               transportSocket,
 	}
 
-	if cb.hboneRejectionHandling {
+	if cb.hboneConnectWait {
 		// Gate inner TLS on the outer CONNECT and preserve an outer rejection.
 		if wrapped, err := protomarshal.ToJSONMap(innerTLS); err != nil {
 			log.Errorf("cannot configure outer HBONE rejection handling: %v", err)

@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** experimental HBONE CONNECT wait for sidecars, waypoints, and ingress
+  gateways using a proxy containing the contrib Istio HBONE filter, transport socket,
+  and connection pool. Set `ISTIO_META_ENABLE_HBONE_CONNECT_WAIT: "true"` in
+  `proxyMetadata` to delay application connection readiness until CONNECT acceptance.
+  Transient establishment failures can use configured `connect-failure` retries;
+  CONNECT 4xx responses return the same status to HTTP clients without retries.
+  Supports single HBONE and native double-HBONE origination on waypoints and ingress.

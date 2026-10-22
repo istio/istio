@@ -138,7 +138,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 		l = append(l, buildConnectOriginateListener(push, node, class))
 	}
 
-	if util.HBONEOriginationShimEnabled(node) {
+	if util.HBONEConnectWaitEnabled(node) {
 		class := istionetworking.ListenerClassSidecarOutbound
 		if node.IsWaypointProxy() {
 			class = istionetworking.ListenerClassSidecarInbound
@@ -152,13 +152,11 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 			l = append(l, shim)
 		}
 		if model.ShouldCreateDoubleHBONEResources(node) {
-			if util.HBONERejectionHandlingEnabled(node) {
-				outer := buildOuterConnectOriginateListener(push, node)
-				if shim, err := wrapHBONEOriginationShimListener(outer, util.HBONEOuterOriginationShimListener); err != nil {
-					log.Errorf("failed to build outer HBONE origination shim listener: %v", err)
-				} else {
-					l = append(l, shim)
-				}
+			outer := buildOuterConnectOriginateListener(push, node)
+			if shim, err := wrapHBONEOriginationShimListener(outer, util.HBONEOuterOriginationShimListener); err != nil {
+				log.Errorf("failed to build outer HBONE origination shim listener: %v", err)
+			} else {
+				l = append(l, shim)
 			}
 			inner := buildInnerConnectOriginateListener(push, node)
 			if shim, err := wrapHBONEOriginationShimListener(inner, util.HBONEInnerOriginationShimListener); err != nil {

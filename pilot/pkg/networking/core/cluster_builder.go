@@ -130,24 +130,23 @@ type ClusterBuilder struct {
 	// Proxy related information used to build clusters.
 	// The fields below that influence cluster configuration must be reflected in clusterCache
 	// to ensure accurate differentiation and caching of clusters.
-	metadataCerts          *metadataCerts      // Client certificates specified in metadata.
-	clusterID              string              // Cluster in which proxy is running.
-	proxyID                string              // Identifier that uniquely identifies a proxy.
-	proxyMetadata          *model.NodeMetadata // Metadata of the proxy.
-	proxyVersion           *model.IstioVersion // Version of Proxy.
-	proxyType              model.NodeType      // Indicates whether the proxy is sidecar or gateway.
-	sidecarScope           *model.SidecarScope // Computed sidecar for the proxy.
-	passThroughBindIPs     []string            // Passthrough IPs to be used while building clusters.
-	supportsIPv4           bool                // Whether Proxy IPs has IPv4 address.
-	supportsIPv6           bool                // Whether Proxy IPs has IPv6 address.
-	hboneRejectionHandling bool                // Must also be included in clusterCache.
-	hboneShim              bool                // Must also be included in clusterCache.
-	sendHbone              bool                // Does the proxy support HBONE
-	locality               *core.Locality      // Locality information of proxy.
-	proxyLabels            map[string]string   // Proxy labels.
-	proxyView              model.ProxyView     // Proxy view of endpoints.
-	proxyIPAddresses       []string            // IP addresses on which proxy is listening on.
-	configNamespace        string              // Proxy config namespace.
+	metadataCerts      *metadataCerts      // Client certificates specified in metadata.
+	clusterID          string              // Cluster in which proxy is running.
+	proxyID            string              // Identifier that uniquely identifies a proxy.
+	proxyMetadata      *model.NodeMetadata // Metadata of the proxy.
+	proxyVersion       *model.IstioVersion // Version of Proxy.
+	proxyType          model.NodeType      // Indicates whether the proxy is sidecar or gateway.
+	sidecarScope       *model.SidecarScope // Computed sidecar for the proxy.
+	passThroughBindIPs []string            // Passthrough IPs to be used while building clusters.
+	supportsIPv4       bool                // Whether Proxy IPs has IPv4 address.
+	supportsIPv6       bool                // Whether Proxy IPs has IPv6 address.
+	hboneConnectWait   bool                // Must also be included in clusterCache.
+	sendHbone          bool                // Does the proxy support HBONE
+	locality           *core.Locality      // Locality information of proxy.
+	proxyLabels        map[string]string   // Proxy labels.
+	proxyView          model.ProxyView     // Proxy view of endpoints.
+	proxyIPAddresses   []string            // IP addresses on which proxy is listening on.
+	configNamespace    string              // Proxy config namespace.
 	// PushRequest to look for updates.
 	req                       *model.PushRequest
 	cache                     model.XdsCache
@@ -159,24 +158,23 @@ type ClusterBuilder struct {
 // NewClusterBuilder builds an instance of ClusterBuilder.
 func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
 	cb := &ClusterBuilder{
-		proxyID:                proxy.ID,
-		proxyMetadata:          proxy.Metadata,
-		proxyType:              proxy.Type,
-		proxyVersion:           model.ParseIstioVersion(proxy.Metadata.IstioVersion),
-		sidecarScope:           proxy.SidecarScope,
-		passThroughBindIPs:     getPassthroughBindIPs(proxy.GetIPMode()),
-		supportsIPv4:           proxy.SupportsIPv4(),
-		supportsIPv6:           proxy.SupportsIPv6(),
-		sendHbone:              features.EnableHBONESend || proxy.IsWaypointProxy(),
-		hboneRejectionHandling: util.HBONERejectionHandlingEnabled(proxy),
-		hboneShim:              util.HBONEOriginationShimEnabled(proxy),
-		locality:               proxy.Locality,
-		proxyLabels:            proxy.Labels,
-		proxyView:              proxy.GetView(),
-		proxyIPAddresses:       proxy.IPAddresses,
-		configNamespace:        proxy.ConfigNamespace,
-		req:                    req,
-		cache:                  cache,
+		proxyID:            proxy.ID,
+		proxyMetadata:      proxy.Metadata,
+		proxyType:          proxy.Type,
+		proxyVersion:       model.ParseIstioVersion(proxy.Metadata.IstioVersion),
+		sidecarScope:       proxy.SidecarScope,
+		passThroughBindIPs: getPassthroughBindIPs(proxy.GetIPMode()),
+		supportsIPv4:       proxy.SupportsIPv4(),
+		supportsIPv6:       proxy.SupportsIPv6(),
+		sendHbone:          features.EnableHBONESend || proxy.IsWaypointProxy(),
+		hboneConnectWait:   util.HBONEConnectWaitEnabled(proxy),
+		locality:           proxy.Locality,
+		proxyLabels:        proxy.Labels,
+		proxyView:          proxy.GetView(),
+		proxyIPAddresses:   proxy.IPAddresses,
+		configNamespace:    proxy.ConfigNamespace,
+		req:                req,
+		cache:              cache,
 	}
 	if proxy.Metadata != nil {
 		if proxy.Metadata.TLSClientCertChain != "" {

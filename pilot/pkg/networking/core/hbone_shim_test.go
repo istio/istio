@@ -42,7 +42,7 @@ import (
 func shimTestProxy(cg *ConfigGenTest, kind model.NodeType, enabled bool) *model.Proxy {
 	return cg.SetupProxy(&model.Proxy{
 		Type:     kind,
-		Metadata: &model.NodeMetadata{EnableHBONEOriginationShim: model.StringBool(enabled)},
+		Metadata: &model.NodeMetadata{EnableHBONEConnectWait: model.StringBool(enabled)},
 		Labels:   map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 	})
 }
@@ -176,7 +176,6 @@ func TestHBONEOriginationShimPairing(t *testing.T) {
 			for _, kind := range []model.NodeType{model.Waypoint, model.Router, model.SidecarProxy} {
 				for _, enabled := range []bool{false, true} {
 					proxy := shimTestProxy(cg, kind, enabled)
-					proxy.Metadata.EnableHBONERejectionHandling = true
 					cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
 					direction, subset := model.TrafficDirectionOutbound, tt.subset
 					var subsetPolicy *networking.TrafficPolicy

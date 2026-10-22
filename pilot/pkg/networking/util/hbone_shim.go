@@ -36,11 +36,11 @@ const (
 	HBONEOriginationShimUpstreamConfigType = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.UpstreamConfig"
 )
 
-// HBONEOriginationShimEnabled is an explicit capability opt-in for custom proxy images.
-// The POC supports single HBONE on Envoy sidecars, waypoints, and ingress gateways,
-// and double HBONE on proxies with native double-HBONE resources.
-func HBONEOriginationShimEnabled(proxy *model.Proxy) bool {
-	if proxy == nil || proxy.Metadata == nil || !bool(proxy.Metadata.EnableHBONEOriginationShim) ||
+// HBONEConnectWaitEnabled opts a proxy into the complete HBONE CONNECT wait configuration.
+// Supports single HBONE on sidecars, waypoints, and ingress gateways, and double HBONE
+// on proxies with native double-HBONE resources.
+func HBONEConnectWaitEnabled(proxy *model.Proxy) bool {
+	if proxy == nil || proxy.Metadata == nil || !bool(proxy.Metadata.EnableHBONEConnectWait) ||
 		bool(proxy.Metadata.DisableHBONESend) || proxy.IsProxylessGrpc() || proxy.IsAmbientEastWestGateway() {
 		return false
 	}
@@ -53,10 +53,10 @@ func HBONEOriginationShimEnabled(proxy *model.Proxy) bool {
 		((proxy.Type == model.SidecarProxy || proxy.Type == model.Router) && features.EnableHBONESend)
 }
 
-// UseHBONEOriginationShim must be applied to both CDS and EDS. Unsupported traffic keeps
+// UseHBONEConnectWait must be applied to both CDS and EDS. Unsupported traffic keeps
 // the original internal transport and listener; it must never be paired with half of the shim.
-// Restrict the POC to EDS services without application TLS or PROXY protocol origination.
-func UseHBONEOriginationShim(enabled bool, service *model.Service, policy *networking.TrafficPolicy) bool {
+// Restrict CONNECT wait to EDS services without application TLS or PROXY protocol origination.
+func UseHBONEConnectWait(enabled bool, service *model.Service, policy *networking.TrafficPolicy) bool {
 	if !enabled || service == nil || service.Resolution != model.ClientSideLB || policy.GetProxyProtocol() != nil {
 		return false
 	}
@@ -88,10 +88,4 @@ func HBONEOriginationShimTransportSocket(metadata []*internalupstream.InternalUp
 			HBONEOriginationShimUpstreamConfigType, map[string]any{"passthrough_metadata": passthrough},
 		)},
 	}
-}
-
-// HBONERejectionHandlingEnabled is a separate capability so older shim images
-// never receive configuration for an extension they do not contain.
-func HBONERejectionHandlingEnabled(proxy *model.Proxy) bool {
-	return HBONEOriginationShimEnabled(proxy) && bool(proxy.Metadata.EnableHBONERejectionHandling)
 }

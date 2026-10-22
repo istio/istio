@@ -249,7 +249,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				addr := net.JoinHostPort(gwAddr, strconv.Itoa(gwPort))
 				svcPort := b.servicePort(b.port)
 				listenerName := innerConnectOriginate
-				if b.hboneOriginationShim {
+				if b.hboneConnectWait {
 					listenerName = util.HBONEInnerOriginationShimListener
 				}
 
