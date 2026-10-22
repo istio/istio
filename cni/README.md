@@ -49,9 +49,15 @@ Workload interception lives in the pod network namespace. Host health probes add
 
 ### Local host probe routes
 
-The local-route option requires a datapath that performs a FIB lookup and falls back
-to the host stack for local destinations. The routes make the probe SNAT markers
-local destinations; kernel conntrack, not the routes themselves, reverses the SNAT.
+The experimental, default-disabled local-route option provides compatibility
+between ambient health probes and Cilium BPF host-routing configurations that
+bypass host netfilter on the probe-reply path. Istio's probe replies must return
+to the host stack so kernel conntrack can reverse the probe SNAT.
+
+The routes make the probe SNAT markers local destinations, causing compatible
+Cilium datapaths to pass replies to the host stack rather than forward them out
+of the node. This requires a datapath that performs a FIB lookup and falls back
+to the host stack for local destinations; the routes do not reverse SNAT themselves.
 This option does not repair missing host SNAT rules or change the primary CNI's settings.
 Configure it through the CNI chart's `env` map:
 
