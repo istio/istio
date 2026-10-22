@@ -14,12 +14,7 @@
 
 package krt
 
-import (
-	"k8s.io/apimachinery/pkg/types"
-
-	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/slices"
-)
+import "istio.io/istio/pkg/slices"
 
 func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *T {
 	res := Fetch[T](ctx, c, opts...)
@@ -54,15 +49,9 @@ func PartialFetchComparable[T any, S comparable](ctx HandlerContext, cc Collecti
 	}, opts...)
 }
 
-func extractNamespacedName[T controllers.ComparableObject](t T) types.NamespacedName {
-	return types.NamespacedName{
-		Namespace: t.GetNamespace(),
-		Name:      t.GetName(),
-	}
-}
-
-func ResourceExists[T controllers.ComparableObject](ctx HandlerContext, cc Collection[T], key string) bool {
-	return len(PartialFetchComparable(ctx, cc, extractNamespacedName, FilterKey(key))) > 0
+// ResourceExists checks whether a key exists, subscribing to additions and deletions but suppressing updates with the same key.
+func ResourceExists[T any](ctx HandlerContext, cc Collection[T], key string) bool {
+	return len(PartialFetchComparable(ctx, cc, GetKey[T], FilterKey(key))) > 0
 }
 
 // Fetch runs a query against the provided collection and subscribes to updates.

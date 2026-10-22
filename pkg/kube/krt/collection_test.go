@@ -730,6 +730,36 @@ func TestCollectionFetchWithSuppressChange(t *testing.T) {
 	tt.WaitOrdered("add/static", "update/static")
 }
 
+func TestResourceExistsResourceNamer(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	source := krt.NewMutableCollection[SimplePod](nil, nil, opts.WithName("SimplePod")...)
+	counts := atomic.NewUint64(0)
+	key := "namespace/name"
+	exists := krt.NewSingleton(func(ctx krt.HandlerContext) *Static {
+		counts.Inc()
+		return &Static{Value: strconv.FormatBool(krt.ResourceExists(ctx, source.AsCollection(), key))}
+	}, opts.WithName("Exists")...)
+
+	assert.Equal(t, exists.AsCollection().WaitUntilSynced(stop), true)
+	assert.Equal(t, exists.Get(), &Static{Value: "false"})
+	assert.Equal(t, counts.Load(), uint64(1))
+
+	pod := SimplePod{Named: Named{Namespace: "namespace", Name: "name"}, IP: "v1"}
+	source.UpdateObject(pod)
+	assert.EventuallyEqual(t, exists.Get, &Static{Value: "true"})
+	assert.Equal(t, counts.Load(), uint64(2))
+
+	pod.IP = "v2"
+	source.UpdateObject(pod)
+	assert.Equal(t, exists.Get(), &Static{Value: "true"})
+	assert.Consistently(t, counts.Load, uint64(2))
+
+	source.DeleteObject(key)
+	assert.EventuallyEqual(t, exists.Get, &Static{Value: "false"})
+	assert.Equal(t, counts.Load(), uint64(3))
+}
+
 func TestCollectionMultipleFetchKeys(t *testing.T) {
 	stop := test.NewStop(t)
 	opts := testOptions(t)
