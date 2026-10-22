@@ -183,15 +183,12 @@ type gatewayIndex struct {
 	namespace map[string][]config.Config
 	// all contains all gateways.
 	all []config.Config
-	// parentGateways maps synthesized Istio Gateway configs back to their Kubernetes Gateway parent.
-	parentGateways map[string]types.NamespacedName
 }
 
 func newGatewayIndex() gatewayIndex {
 	return gatewayIndex{
-		namespace:      map[string][]config.Config{},
-		all:            []config.Config{},
-		parentGateways: map[string]types.NamespacedName{},
+		namespace: map[string][]config.Config{},
+		all:       []config.Config{},
 	}
 }
 
@@ -2405,12 +2402,6 @@ func (ps *PushContext) initGateways(env *Environment) {
 	gatewayConfigs := env.List(gvk.Gateway, NamespaceAll)
 
 	sortConfigByCreationTime(gatewayConfigs)
-	ps.gatewayIndex.parentGateways = make(map[string]types.NamespacedName)
-	for _, gatewayConfig := range gatewayConfigs {
-		if parent, found := kubernetesGatewayParent(gatewayConfig); found {
-			ps.gatewayIndex.parentGateways[gatewayConfig.Namespace+"/"+gatewayConfig.Name] = parent
-		}
-	}
 
 	if features.ScopeGatewayToNamespace {
 		ps.gatewayIndex.namespace = make(map[string][]config.Config)
@@ -2425,6 +2416,8 @@ func (ps *PushContext) initGateways(env *Environment) {
 	}
 }
 
+// kubernetesGatewayParent returns the Kubernetes Gateway parent for a given
+// Istio Gateway config, and a boolean representing whether a parentGateway exists.
 func kubernetesGatewayParent(gatewayConfig config.Config) (types.NamespacedName, bool) {
 	if parent := gatewayConfig.Annotations[constants.InternalGatewayParent]; parent != "" {
 		namespace, name, found := strings.Cut(parent, "/")
@@ -2478,6 +2471,8 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	}
 
 	for _, cfg := range configs {
+		// TODO(ericdbishop): Retrieve client cert ref from gateway api controller.
+		// Use kubernetesGatewayParent to get parent for current config
 		gw := cfg.Spec.(*networking.Gateway)
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
 			gwsvcs := strings.Split(gwsvcstr, ",")
