@@ -304,13 +304,9 @@ type NodeMetadata struct {
 	// Note: this only impacts sidecars and gateways; ztunnel and waypoint proxy unconditionally use HBONE.
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
 
-	// EnableHBONEOriginationShim opts a custom sidecar, waypoint, or gateway proxy into the experimental
-	// contrib Istio HBONE shim. The binary must contain both shim extensions.
-	EnableHBONEOriginationShim StringBool `json:"ENABLE_HBONE_ORIGINATION_SHIM,omitempty"`
-
-	// EnableHBONERejectionHandling opts into permanent CONNECT rejection handling.
-	// Requires the new shim pool adapter and nested transport support in the proxy.
-	EnableHBONERejectionHandling StringBool `json:"ENABLE_HBONE_REJECTION_HANDLING,omitempty"`
+	// EnableHBONEConnectWait delays upstream connection readiness until HBONE CONNECT acceptance.
+	// Requires the contrib Istio HBONE filter, transport socket, and connection pool in the proxy.
+	EnableHBONEConnectWait StringBool `json:"ENABLE_HBONE_CONNECT_WAIT,omitempty"`
 
 	// DisableHBONESend, will disable sending HBONE.
 	// Warning: If this is enabled, ambient may break; use with caution.

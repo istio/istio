@@ -621,7 +621,7 @@ func TestIngressUseWaypoint(t *testing.T) {
 				Type: model.Router, ConfigNamespace: "default",
 				IPAddresses: []string{"3.0.0.3"},
 				Metadata: &model.NodeMetadata{
-					EnableHBONEOriginationShim: model.StringBool(shim),
+					EnableHBONEConnectWait: model.StringBool(shim),
 				},
 			})
 			listenerName := "connect_originate"
@@ -646,6 +646,7 @@ func TestIngressUseWaypoint(t *testing.T) {
 				}
 			}
 			assert.Equal(t, found, true)
+			assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, shim)
 			assert.Equal(t, c.LoadBalancingPolicy == nil, true)
 			listeners := d.Listeners(ingressProxy)
 			assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationShimListener, listeners) != nil, shim)

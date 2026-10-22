@@ -68,7 +68,7 @@ func TestHBONEOriginationShimOutbound(t *testing.T) {
 				assert.Equal(t, len(stockEndpoints), 1)
 				assert.Equal(t, len(stockEndpoints[0].LbEndpoints), 3)
 				proxy := cg.SetupProxy(&model.Proxy{Type: kind, Metadata: &model.NodeMetadata{
-					EnableHBONEOriginationShim: true,
+					EnableHBONEConnectWait: true,
 				}})
 				clusters := xdstest.ExtractClusters(cg.Clusters(proxy))
 				c := clusters[name]
@@ -76,6 +76,8 @@ func TestHBONEOriginationShimOutbound(t *testing.T) {
 					t.Fatal("missing service or outer HBONE cluster")
 				}
 				assert.Equal(t, c.GetType(), cluster.Cluster_EDS)
+				assert.Equal(t, c.GetUpstreamConfig().GetName(), util.HBONERejectionPool)
+				assert.Equal(t, stock.UpstreamConfig == nil, true)
 				assert.Equal(t, len(c.TransportSocketMatches), len(stock.TransportSocketMatches))
 				found := false
 				for i, match := range c.TransportSocketMatches {
