@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagent
+package routing
 
 import (
 	"crypto/rand"
@@ -28,8 +28,11 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/pkg/file"
 )
+
+var log = scopes.CNIAgent
 
 // hostProbeRoute holds the host-local lock until shutdown, preventing an old agent
 // from deleting a replacement agent's route during an overlapping restart.
@@ -46,13 +49,16 @@ type hostProbeRouteState struct {
 	Priority  int
 }
 
-type hostProbeRoutes []*hostProbeRoute
+// HostProbeRoutes holds the ownership locks for the configured probe routes.
+type HostProbeRoutes []*hostProbeRoute
 
-func configureHostProbeRoutes(runDir string, ipv4, ipv6 netip.Addr, enabled, enableIPv6 bool) (_ hostProbeRoutes, retErr error) {
-	var routes hostProbeRoutes
+// ConfigureHostProbeRoutes configures probe routes in the current network namespace.
+// The caller must enter the host network namespace before calling it.
+func ConfigureHostProbeRoutes(runDir string, ipv4, ipv6 netip.Addr, enabled, enableIPv6 bool) (_ HostProbeRoutes, retErr error) {
+	var routes HostProbeRoutes
 	defer func() {
 		if retErr != nil {
-			retErr = errors.Join(retErr, routes.rollback())
+			retErr = errors.Join(retErr, routes.Rollback())
 		}
 	}()
 	for _, cfg := range []struct {
@@ -74,7 +80,9 @@ func configureHostProbeRoutes(runDir string, ipv4, ipv6 netip.Addr, enabled, ena
 	return routes, nil
 }
 
-func (routes hostProbeRoutes) close(remove bool) error {
+// Close releases ownership locks, optionally removing owned routes.
+// The caller must enter the host network namespace when removing routes.
+func (routes HostProbeRoutes) Close(remove bool) error {
 	var err error
 	for _, route := range routes {
 		err = errors.Join(err, route.close(remove))
@@ -82,7 +90,9 @@ func (routes hostProbeRoutes) close(remove bool) error {
 	return err
 }
 
-func (routes hostProbeRoutes) rollback() error {
+// Rollback removes newly added routes but preserves inherited routes, then releases
+// ownership locks. The caller must enter the host network namespace.
+func (routes HostProbeRoutes) Rollback() error {
 	var err error
 	for _, route := range routes {
 		err = errors.Join(err, route.close(route.added))
@@ -101,6 +111,13 @@ func validHostProbeAddress(address netip.Addr, family int) bool {
 	}
 }
 
+// The manual experiments used these commands in the host network namespace:
+//
+//	ip route add local 169.254.7.127/32 dev lo table local
+//	ip -6 route add local fd16:9254:7127:1337:ffff:ffff:ffff:ffff/128 dev lo table local proto static metric 774913
+//
+// Managed routes use the configured probe addresses, proto static, and a persisted
+// random metric for ownership instead of the experiment's default or fixed metric.
 func (s hostProbeRouteState) route() (*netlink.Route, error) {
 	family, scope := unix.AF_INET, netlink.SCOPE_HOST
 	if s.Address.Is6() {

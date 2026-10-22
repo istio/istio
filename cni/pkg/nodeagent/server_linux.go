@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/cni/pkg/config"
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/iptables"
+	"istio.io/istio/cni/pkg/routing"
 	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/kube"
@@ -34,10 +35,10 @@ import (
 )
 
 func initMeshDataplane(client kube.Client, args AmbientArgs) (_ *meshDataplane, retErr error) {
-	var probeRoutes hostProbeRoutes
+	var probeRoutes routing.HostProbeRoutes
 	if err := util.RunAsHost(func() error {
 		var err error
-		probeRoutes, err = configureHostProbeRoutes(args.CNIAgentRunDir, HostProbeSNATIP, HostProbeSNATIPV6,
+		probeRoutes, err = routing.ConfigureHostProbeRoutes(args.CNIAgentRunDir, HostProbeSNATIP, HostProbeSNATIPV6,
 			EnableHostProbeLocalRoute, args.EnableIPv6)
 		return err
 	}); err != nil {
@@ -46,7 +47,7 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (_ *meshDataplane, 
 	defer func() {
 		if retErr != nil {
 			retErr = errors.Join(retErr, util.RunAsHost(func() error {
-				return probeRoutes.rollback()
+				return probeRoutes.Rollback()
 			}))
 		}
 	}()

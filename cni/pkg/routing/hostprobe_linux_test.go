@@ -12,20 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagent
+package routing
 
 import (
 	"encoding/json"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
+	// Run netlink operations in an isolated network namespace.
+	_ "github.com/howardjohn/unshare-go/netns"
+	"github.com/howardjohn/unshare-go/userns"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+var initialized sync.Once
+
+func setup(t *testing.T) {
+	t.Helper()
+	initialized.Do(func() {
+		assert.NoError(t, userns.WriteGroupMap(map[uint32]uint32{userns.OriginalGID(): 0}))
+	})
+}
 
 type probeRouteFamily struct {
 	name, ip, otherIP, stateFile string
@@ -266,40 +279,40 @@ func TestHostProbeRoutesDualStackLifecycle(t *testing.T) {
 	setup(t)
 	dir := t.TempDir()
 	ipv4, ipv6 := netip.MustParseAddr("169.254.240.1"), netip.MustParseAddr("fd16::1")
-	routes, err := configureHostProbeRoutes(dir, ipv4, ipv6, true, true)
+	routes, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
 	assert.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, routes.close(true)) })
+	t.Cleanup(func() { assert.NoError(t, routes.Close(true)) })
 	assert.Equal(t, len(routes), 2)
 	for _, route := range routes {
 		requireProbeRoutes(t, route.route, 1)
 	}
-	assert.NoError(t, routes.close(false))
+	assert.NoError(t, routes.Close(false))
 
-	v4Only, err := configureHostProbeRoutes(dir, ipv4, ipv6, true, false)
+	v4Only, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, false)
 	assert.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, v4Only.close(true)) })
+	t.Cleanup(func() { assert.NoError(t, v4Only.Close(true)) })
 	assert.Equal(t, len(v4Only), 1)
 	assert.Equal(t, v4Only[0].route.Equal(*routes[0].route), true)
 	requireProbeRoutes(t, routes[1].route, 0)
 	_, err = os.Stat(filepath.Join(dir, "host-probe-route-v6.json"))
 	assert.Equal(t, os.IsNotExist(err), true)
-	assert.NoError(t, v4Only.close(false))
+	assert.NoError(t, v4Only.Close(false))
 
-	both, err := configureHostProbeRoutes(dir, ipv4, ipv6, true, true)
+	both, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
 	assert.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, both.close(true)) })
+	t.Cleanup(func() { assert.NoError(t, both.Close(true)) })
 	assert.Equal(t, both[0].added, false)
 	assert.Equal(t, both[1].added, true)
 	// A later startup failure preserves inherited IPv4 but removes newly added IPv6.
-	assert.NoError(t, both.rollback())
+	assert.NoError(t, both.Rollback())
 	requireProbeRoutes(t, routes[0].route, 1)
 	requireProbeRoutes(t, routes[1].route, 0)
 
-	last, err := configureHostProbeRoutes(dir, ipv4, ipv6, true, true)
+	last, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
 	assert.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, last.close(true)) })
-	assert.NoError(t, last.close(false))
-	disabled, err := configureHostProbeRoutes(dir, ipv4, ipv6, false, true)
+	t.Cleanup(func() { assert.NoError(t, last.Close(true)) })
+	assert.NoError(t, last.Close(false))
+	disabled, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, false, true)
 	assert.NoError(t, err)
 	assert.Equal(t, len(disabled), 0)
 	for _, route := range last {
@@ -327,7 +340,7 @@ func TestHostProbeRoutesPartialFailure(t *testing.T) {
 				v4 = old.route
 			}
 			held := startProbeRoute(t, dir, ipv6.String())
-			_, err = configureHostProbeRoutes(dir, ipv4, ipv6, true, true)
+			_, err = ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
 			assert.Error(t, err)
 			if inherited {
 				requireProbeRoutes(t, v4, 1)
@@ -337,9 +350,9 @@ func TestHostProbeRoutesPartialFailure(t *testing.T) {
 			requireProbeRoutes(t, held.route, 1)
 			assert.NoError(t, held.close(true))
 			// The failed attempt must also release the IPv4 lock.
-			retry, err := configureHostProbeRoutes(dir, ipv4, ipv6, true, true)
+			retry, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
 			assert.NoError(t, err)
-			t.Cleanup(func() { assert.NoError(t, retry.close(true)) })
+			t.Cleanup(func() { assert.NoError(t, retry.Close(true)) })
 			assert.Equal(t, len(retry), 2)
 		})
 	}
