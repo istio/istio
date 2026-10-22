@@ -202,3 +202,42 @@ The configuration tests cover mixed local/remote endpoints, gateway weights and
 metadata, listener and transport pairing, feature/capability gates, policies,
 application HTTP/1.1/HTTP/2/TCP, cache separation, and TLS retention.
 Live nested traffic, real identities and churn must be validated in a deployment.
+
+## Permanent CONNECT rejections
+
+New shim builds support an additional capability:
+
+```yaml
+proxyMetadata:
+  ENABLE_HBONE_ORIGINATION_SHIM: "true"
+  ENABLE_HBONE_REJECTION_HANDLING: "true"
+```
+
+Use this only with a proxy containing `envoy.upstreams.istio_hbone` and the new
+nested transport support, and with Istiod built from this branch. Leave the new
+flag unset on older images.
+
+The application cluster receives a pool adapter that stops permanent CONNECT
+rejections before router retry and outlier accounting. CONNECT 4xx, including
+403 and 429, returns a local HTTP response with that status or closes raw TCP.
+Other rejected non-5xx responses produce a local 502. CONNECT 500–599 retains
+configured connection-failure retries. A successful CONNECT followed by an
+application response retains the application's normal retry and health policy.
+
+For double HBONE, the inner HTTP/2 cluster's shim transport wraps the existing TLS
+socket and targets `outer_connect_originate_hbone_shim`. The outer shim gates inner
+TLS until outer CONNECT acceptance and preserves rejection status through both
+hops. Existing TLS identities, SNI, ALPN, listener headers and metadata remain in
+place. No EDS endpoint format changes or sidecar double-HBONE expansion are needed
+for this capability. Its value is included in the CDS cache key.
+
+Access logs distinguish tunnel denials using UF and
+`istio_hbone_connect_rejected:<status>` response details / upstream transport
+failure reason. Connection-failure counters can increase, but permanent denials
+are not reported to outlier detection. Local replies are not counted as application
+responses in service-cluster upstream HTTP status counters.
+
+This change aligns CONNECT status handling with ztunnel PR #2142's reviewed
+classification. It does not add typed classification for identity acquisition,
+certificate revocation or local workload-pool shutdown. Those causes still use
+Envoy's existing behavior.

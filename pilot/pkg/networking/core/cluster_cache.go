@@ -43,6 +43,7 @@ type clusterCache struct {
 	preserveHTTP1HeaderCase bool           // indicates whether the original case of HTTP/1.x headers should be preserved
 	proxyClusterID          string         // identifies the kubernetes cluster a proxy is in
 	proxyType               model.NodeType // identifies this proxy type
+	hboneRejectionHandling  bool
 	hboneShim               bool
 	hbone                   bool
 	proxyView               model.ProxyView
@@ -87,6 +88,7 @@ func (t *clusterCache) Key() any {
 	h.Write(Separator)
 	h.WriteString(strconv.FormatBool(t.supportsIPv4))
 	h.Write(Separator)
+	h.WriteString(strconv.FormatBool(t.hboneRejectionHandling))
 	h.WriteString(strconv.FormatBool(t.hboneShim))
 	h.Write(Separator)
 	h.WriteString(strconv.FormatBool(t.hbone))
@@ -206,6 +208,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		proxyType:               cb.proxyType,
 		proxyView:               cb.proxyView,
 		hbone:                   cb.sendHbone,
+		hboneRejectionHandling:  cb.hboneRejectionHandling,
 		hboneShim:               cb.hboneShim,
 		http2:                   port.Protocol.IsHTTP2(),
 		downstreamAuto:          cb.sidecarProxy() && port.Protocol.IsUnsupported(),
