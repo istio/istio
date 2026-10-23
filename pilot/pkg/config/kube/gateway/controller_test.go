@@ -31,7 +31,9 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -181,4 +183,56 @@ func TestListGatewayResourceAcrossRevisions(t *testing.T) {
 	assert.Equal(t, got.Name, "canary-gw"+"~"+constants.KubernetesGatewayName+"~default")
 	assert.Equal(t, got.Namespace, "ns1")
 	assert.Equal(t, got.Spec, any(expectedgw))
+}
+
+// TestHTTPRouteAndGRPCRouteWithSameName verifies that an HTTPRoute and a GRPCRoute that share a
+// name and namespace are both programmed when they attach to the same Gateway and hostname, even
+// when the GRPCRoute is created after the HTTPRoute. See https://github.com/istio/istio/issues/61191.
+func TestHTTPRouteAndGRPCRouteWithSameName(t *testing.T) {
+	controller := setupController(t,
+		&k8s.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "gwclass"},
+			Spec:       *gatewayClassSpec,
+		},
+		&k8s.Gateway{
+			ObjectMeta: metav1.ObjectMeta{Name: "gwspec", Namespace: "ns1"},
+			Spec:       *gatewaySpec,
+		},
+		&k8s.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: "app", Namespace: "ns1"},
+			Spec: k8s.HTTPRouteSpec{
+				CommonRouteSpec: k8s.CommonRouteSpec{ParentRefs: []k8s.ParentReference{{Name: "gwspec"}}},
+				Hostnames:       []k8s.Hostname{"test.cluster.local"},
+				Rules: []k8s.HTTPRouteRule{{
+					Matches: []k8s.HTTPRouteMatch{{
+						Path: &k8s.HTTPPathMatch{Type: ptr.Of(k8s.PathMatchPathPrefix), Value: ptr.Of("/http")},
+					}},
+				}},
+			},
+		})
+	dumpOnFailure(t, krt.GlobalDebugHandler)
+
+	routeCount := func() int {
+		total := 0
+		for _, c := range controller.List(gvk.VirtualService, "ns1") {
+			total += len(c.Spec.(*networking.VirtualService).Http)
+		}
+		return total
+	}
+	assert.EventuallyEqual(t, routeCount, 1)
+
+	// Create a GRPCRoute with the same name and namespace after the HTTPRoute has been processed.
+	clienttest.NewWriter[*k8s.GRPCRoute](t, controller.client).Create(&k8s.GRPCRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "app", Namespace: "ns1"},
+		Spec: k8s.GRPCRouteSpec{
+			CommonRouteSpec: k8s.CommonRouteSpec{ParentRefs: []k8s.ParentReference{{Name: "gwspec"}}},
+			Hostnames:       []k8s.Hostname{"test.cluster.local"},
+			Rules: []k8s.GRPCRouteRule{{
+				Matches: []k8s.GRPCRouteMatch{{
+					Method: &k8s.GRPCMethodMatch{Service: ptr.Of("grpc.health.v1.Health"), Method: ptr.Of("Check")},
+				}},
+			}},
+		},
+	})
+	assert.EventuallyEqual(t, routeCount, 2)
 }

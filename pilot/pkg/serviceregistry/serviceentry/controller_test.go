@@ -26,10 +26,12 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 
 	"istio.io/api/label"
+	metav1alpha1 "istio.io/api/meta/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -83,6 +85,16 @@ func deleteConfigs(configs []*config.Config, store model.ConfigStore, t testing.
 }
 
 type Event = xdsfake.Event
+
+// nolint: unparam
+func makeWorkloadEntryInstanceWithServiceAccount(cfg *config.Config, workloadName string, addresses []string, port int,
+	svcPort *networking.ServicePort, svcLabels map[string]string, serviceAccount string,
+) *WorkloadServiceInstance {
+	i := makeInstanceWithServiceAccount(cfg, workloadName, addresses, port, svcPort, svcLabels, serviceAccount)
+	i.Endpoint.HealthStatus = model.Healthy
+	i.Endpoint.SendUnhealthyEndpoints = features.DefaultSendUnhealthyEndpoints.Load() || features.GlobalSendUnhealthyEndpoints.Load()
+	return i
+}
 
 func initServiceDiscovery(t test.Failer) (model.ConfigStore, *Controller, *xdsfake.Updater) {
 	return initServiceDiscoveryWithOpts(t, false)
@@ -154,6 +166,64 @@ func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Opti
 	client.RunAndWait(stop)
 	go controller.Run(stop)
 	return istioStore, controller, xdsUpdater
+}
+
+func TestWorkloadEntryHealthEvents(t *testing.T) {
+	for _, workloadOnly := range []bool{false, true} {
+		for _, flags := range []struct{ auto, global bool }{{false, false}, {true, false}, {false, true}, {true, true}} {
+			t.Run(fmt.Sprintf("workloadOnly=%v/auto=%v/global=%v", workloadOnly, flags.auto, flags.global), func(t *testing.T) {
+				test.SetForTest(t, &features.WorkloadEntryHealthChecks, true)
+				test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, flags.auto)
+				test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, flags.global)
+				store, sd, _ := initServiceDiscoveryWithOpts(t, workloadOnly)
+				type workloadEvent struct {
+					Event         model.Event
+					Health        model.HealthStatus
+					SendUnhealthy bool
+				}
+				events := assert.NewTracker[workloadEvent](t)
+				sd.AppendWorkloadHandler(func(wi *model.WorkloadInstance, event model.Event) {
+					events.Record(workloadEvent{event, wi.Endpoint.HealthStatus, wi.Endpoint.SendUnhealthyEndpoints})
+				})
+				cfg := config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.WorkloadEntry,
+						Name:             "workload",
+						Namespace:        "default",
+						Annotations:      map[string]string{status.WorkloadEntryHealthCheckAnnotation: "true"},
+					},
+					Spec: &networking.WorkloadEntry{Address: "2.2.2.2", Labels: map[string]string{"app": "wle"}},
+				}
+				sendUnhealthy := flags.auto || flags.global
+				// A health checked entry without status starts unhealthy.
+				createConfigs([]*config.Config{&cfg}, store, t)
+				if sendUnhealthy {
+					events.WaitOrdered(workloadEvent{model.EventAdd, model.UnHealthy, true})
+				}
+				cfg = status.UpdateIstioConfigCondition(cfg, &metav1alpha1.IstioCondition{Type: status.ConditionHealthy, Status: status.StatusTrue})
+				createConfigs([]*config.Config{&cfg}, store, t)
+				event := model.EventAdd
+				if sendUnhealthy {
+					event = model.EventUpdate
+				}
+				events.WaitOrdered(workloadEvent{event, model.Healthy, sendUnhealthy})
+				cfg = status.UpdateIstioConfigCondition(cfg, &metav1alpha1.IstioCondition{Type: status.ConditionHealthy, Status: status.StatusFalse})
+				createConfigs([]*config.Config{&cfg}, store, t)
+				if sendUnhealthy {
+					events.WaitOrdered(workloadEvent{model.EventUpdate, model.UnHealthy, true})
+				} else {
+					events.WaitOrdered(workloadEvent{model.EventDelete, model.Healthy, false})
+				}
+				// With health checks disabled, the same unhealthy status is ignored.
+				test.SetForTest(t, &features.WorkloadEntryHealthChecks, false)
+				cfg.Spec.(*networking.WorkloadEntry).Address = "3.3.3.3"
+				createConfigs([]*config.Config{&cfg}, store, t)
+				events.WaitOrdered(workloadEvent{event, model.Healthy, sendUnhealthy})
+				deleteConfigs([]*config.Config{&cfg}, store, t)
+				events.WaitOrdered(workloadEvent{model.EventDelete, model.Healthy, sendUnhealthy})
+			})
+		}
+	}
 }
 
 func TestServiceDiscoveryServices(t *testing.T) {
@@ -238,10 +308,10 @@ func TestServiceDiscoveryServiceDeleteOverlapping(t *testing.T) {
 		})
 
 	expected := []*WorkloadServiceInstance{
-		makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
+		makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
 			selector.Spec.(*networking.ServiceEntry).Ports[0],
 			map[string]string{"app": "wle"}, "default"),
-		makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
+		makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
 			selector.Spec.(*networking.ServiceEntry).Ports[1],
 			map[string]string{"app": "wle"}, "default"),
 	}
@@ -794,10 +864,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		createConfigs([]*config.Config{wle}, store, t)
 
 		instances := []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0],
 				map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
 		}
@@ -819,10 +889,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		}()
 
 		instances := []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(updated, "wl", []string{"2.2.2.2"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(updated, "wl", []string{"2.2.2.2"}, 444,
 				updated.Spec.(*networking.ServiceEntry).Ports[0],
 				map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(updated, "wl", []string{"2.2.2.2"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(updated, "wl", []string{"2.2.2.2"}, 445,
 				updated.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
 		}
@@ -845,10 +915,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 
 	t.Run("restore service entry host", func(t *testing.T) {
 		instances := []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0],
 				map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
 		}
@@ -890,10 +960,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		// Add a WLE, we expect this to update
 		createConfigs([]*config.Config{dnsWle}, store, t)
 		instances := []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(dnsSelector, "dnswl", []string{"4.4.4.4"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(dnsSelector, "dnswl", []string{"4.4.4.4"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0],
 				map[string]string{"app": "dns-wle"}, "default"),
-			makeInstanceWithServiceAccount(dnsSelector, "dnswl", []string{"4.4.4.4"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(dnsSelector, "dnswl", []string{"4.4.4.4"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "dns-wle"}, "default"),
 		}
@@ -912,16 +982,16 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		// Add a different WLE
 		createConfigs([]*config.Config{wle2}, store, t)
 		instances := []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
 		}
 		expectProxyInstances(t, sd, instances, []string{"2.2.2.2"})
 		instances = append(instances,
-			makeInstanceWithServiceAccount(selector, "wl2", []string{"3.3.3.3"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl2", []string{"3.3.3.3"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl2", []string{"3.3.3.3"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl2", []string{"3.3.3.3"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"))
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(
@@ -935,16 +1005,16 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		// Add a WLE with host address. Should be ignored by static service entry.
 		createConfigs([]*config.Config{wle3}, store, t)
 		instances := []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
 		}
 		expectProxyInstances(t, sd, instances, []string{"2.2.2.2"})
 		instances = append(instances,
-			makeInstanceWithServiceAccount(selector, "wl2", []string{"3.3.3.3"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl2", []string{"3.3.3.3"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl2", []string{"3.3.3.3"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl2", []string{"3.3.3.3"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"))
 		expectServiceInstances(t, sd, selector, 0, instances)
 		// The workload produces no instance, so nothing is pushed for it.
@@ -955,9 +1025,9 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		// Delete the configs, it should be gone
 		deleteConfigs([]*config.Config{wle2}, store, t)
 		instances := []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
 		}
 		expectProxyInstances(t, sd, instances, []string{"2.2.2.2"})
@@ -974,9 +1044,9 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		// Add the config back
 		createConfigs([]*config.Config{wle}, store, t)
 		instances = []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
 		}
 		expectProxyInstances(t, sd, instances, []string{"2.2.2.2"})
@@ -998,9 +1068,9 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		// Update the configs
 		createConfigs([]*config.Config{updated}, store, t)
 		instances := []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(selector, "wl", []string{"9.9.9.9"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"9.9.9.9"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl", []string{"9.9.9.9"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"9.9.9.9"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
 		}
 		// Old IP is gone
@@ -1101,10 +1171,10 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		// Add a WLE, we expect this to update
 		createConfigs([]*config.Config{wle}, store, t)
 		instances := []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0],
 				map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
 		}
@@ -1139,16 +1209,16 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		// add a wle, expect this to be an add
 		createConfigs([]*config.Config{wle3}, store, t)
 		instances := []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0],
 				map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl", []string{"2.2.2.2"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl3", []string{"3.3.3.3"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl3", []string{"3.3.3.3"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0],
 				map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl3", []string{"3.3.3.3"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl3", []string{"3.3.3.3"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
 		}
@@ -1163,10 +1233,10 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 
 		createConfigs([]*config.Config{wle2}, store, t)
 		instances = []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(selector, "wl3", []string{"3.3.3.3"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl3", []string{"3.3.3.3"}, 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0],
 				map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "wl3", []string{"3.3.3.3"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selector, "wl3", []string{"3.3.3.3"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
 		}
@@ -1242,10 +1312,10 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		createConfigs([]*config.Config{wle}, store, t)
 
 		instances := []*WorkloadServiceInstance{
-			makeInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 444,
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0],
 				map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 445,
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
 		}
@@ -1266,9 +1336,9 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
 			makeInstanceWithServiceAccount(selectorDNS, "additional-name", []string{"4.4.4.4"}, 445,
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 444,
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 445,
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
 		}
 
@@ -1308,9 +1378,9 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
 			makeInstanceWithServiceAccount(selectorDNS, "additional-name-with-mulAddrs", []string{"3.3.3.3", "2001:1::1"}, 445,
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 444,
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 445,
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
 		}
 
@@ -1331,9 +1401,9 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
 			makeInstanceWithServiceAccount(selectorDNS, "another-name", []string{"2.2.2.2"}, 445,
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 444,
+			makeWorkloadEntryInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 444,
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 445,
+			makeWorkloadEntryInstanceWithServiceAccount(selectorDNS, "wl", []string{"postman-echo.com"}, 445,
 				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
 		}
 
