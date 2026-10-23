@@ -148,6 +148,9 @@ func (s *InformerHandlers) Start() {
 	// Wait for all events to be queued
 	kube.WaitForCacheSync("informer", s.ctx.Done(), s.pods.HasSynced, s.namespaces.HasSynced)
 	go s.queue.Run(s.ctx.Done())
+	if ReconcileEnrollmentInterval > 0 {
+		go s.enqueueEnrollmentChecks(ReconcileEnrollmentInterval)
+	}
 	// Note that we are explicitly *not* doing
 	// 'kube.WaitForCacheSync("informer queue", s.ctx.Done(), s.queue.HasSynced)'
 	// here, because we cannot successfully process the event queue until a ztunnel connects.
@@ -211,7 +214,32 @@ func (s *InformerHandlers) isNamespaceExcluded(namespace string) bool {
 	return excluded
 }
 
+// enrollmentCheck is the periodic enrollment check. It goes through the event queue, so it never runs
+// alongside the informer adding a pod to the mesh or removing one from it.
+type enrollmentCheck struct{}
+
+func (s *InformerHandlers) enqueueEnrollmentChecks(interval time.Duration) {
+	log.Infof("checking ambient enrollment every %v", interval)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			s.queue.Add(enrollmentCheck{})
+		}
+	}
+}
+
 func (s *InformerHandlers) reconcile(input any) error {
+	if _, ok := input.(enrollmentCheck); ok {
+		// Not returned for a retry: the next check covers whatever this one could not fix.
+		if err := s.dataplane.ReconcileEnrollment(s.ctx, s.GetActiveAmbientPodSnapshot()); err != nil {
+			log.Errorf("failed to reconcile ambient enrollment: %v", err)
+		}
+		return nil
+	}
 	event := input.(controllers.Event)
 
 	defer EventTotals.With(eventTypeTag.Value(event.Event.String())).Increment()
@@ -340,6 +368,13 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 			if len(podIPs) > 0 && !slices.EqualUnordered(podIPs, util.GetPodIPsIfPresent(oldPod)) {
 				if err := s.dataplane.SyncHostProbeIPSet(currentPod, podIPs); err != nil {
 					log.Warnf("failed to sync host probe ipset for enrolled pod, will retry: %v", err)
+					return err
+				}
+				// A new pod IP is the observable side of a replaced sandbox: the pod keeps its UID,
+				// so nothing else reports that the network namespace this pod was enrolled in - and
+				// with it its redirection rules and its ztunnel proxy - is gone.
+				if err := s.dataplane.ReconcileEnrollment(s.ctx, []*corev1.Pod{currentPod}); err != nil {
+					log.Warnf("failed to reconcile enrollment for pod, will retry: %v", err)
 					return err
 				}
 			}
