@@ -71,6 +71,39 @@ import (
 // Avoid using "istiod" as it is implicitly considered clusterLocal
 var testSvcHost = "test.istio-system.svc.cluster.local"
 
+func TestGRPCRDSSubscriptions(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{Services: []*model.Service{{
+		Hostname:       "service.default.svc.cluster.local",
+		DefaultAddress: "10.0.0.1",
+		Attributes:     model.ServiceAttributes{Name: "service", Namespace: "default"},
+		Ports: model.PortList{
+			{Name: "grpc", Port: 8080, Protocol: protocol.GRPC},
+			{Name: "grpc-other", Port: 9090, Protocol: protocol.GRPC},
+		},
+	}}})
+	ads := s.ConnectADS().WithType(v3.RouteType).WithMetadata(model.NodeMetadata{Generator: "grpc"})
+	const (
+		first  = "outbound|8080||service.default.svc.cluster.local"
+		second = "outbound|9090||service.default.svc.cluster.local"
+	)
+	req := &discovery.DiscoveryRequest{}
+	for _, names := range [][]string{{first}, {first, second}} {
+		req.ResourceNames = names
+		res := ads.RequestResponseAck(t, req)
+		var got []string
+		for _, resource := range res.Resources {
+			rc := &route.RouteConfiguration{}
+			if err := resource.UnmarshalTo(rc); err != nil {
+				t.Fatal(err)
+			}
+			got = append(got, rc.Name)
+		}
+		if !slices.EqualUnordered(got, names) {
+			t.Fatalf("expected routes %v, got %v", names, got)
+		}
+	}
+}
+
 // Local integration tests for proxyless gRPC.
 // The tests will start an in-process Istiod, using the memory store, and use
 // proxyless grpc servers and clients to validate the config generation.

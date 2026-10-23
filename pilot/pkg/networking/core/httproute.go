@@ -365,7 +365,11 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	var routeCache *istio_route.Cache
-	if listenerPort > 0 && features.EnableRDSCaching {
+	// EnableRDSCaching only guards adding entries to the cache; xdsCache.Get/Add below still go through the
+	// shared cache implementation, which is a no-op unless EnableXDSCaching is also on. Check both here so the
+	// cache-key computation and lookup are skipped entirely when caching is disabled, rather than doing the work
+	// and then discarding it.
+	if listenerPort > 0 && features.EnableXDSCaching && features.EnableRDSCaching {
 		// sort services, ensure that routeCache calculation result is stable
 		services = make([]*model.Service, 0, len(servicesByName))
 		for _, svc := range servicesByName {
@@ -387,6 +391,12 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			VirtualServices: virtualServices,
 			EnvoyFilterKeys: efKeys,
 		}
+		// Compute a conservative dependency set before building route protos. This lets a cache hit
+		// skip VirtualHost and Route construction entirely.
+		routeCache.DestinationRules = istio_route.DestinationRuleDependencies(push, node, virtualServices, services)
+		if resource := xdsCache.Get(routeCache); resource != nil && !features.EnableUnsafeAssertions {
+			return nil, resource, routeCache
+		}
 	}
 
 	// This is hack to keep consistent with previous behavior.
@@ -397,16 +407,9 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 	mostSpecificWildcardVsIndex := egressListener.MostSpecificWildcardVirtualServiceIndex()
 	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push,
+	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(node, push,
 		servicesByName, virtualServices, listenerPort, mostSpecificWildcardVsIndex,
 	)
-
-	if features.EnableRDSCaching {
-		resource := xdsCache.Get(routeCache)
-		if resource != nil && !features.EnableUnsafeAssertions {
-			return nil, resource, routeCache
-		}
-	}
 
 	vHostPortMap := make(map[int][]*route.VirtualHost)
 	vhosts := sets.String{}

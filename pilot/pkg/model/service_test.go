@@ -55,7 +55,7 @@ func TestNewAddressInfo(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := NewAddressInfo(tt.address)
-			wantAddress := protoconv.MessageToAny(tt.address)
+			wantAddress := protoconv.MessageToAnyDeterministic(tt.address)
 			assert.Equal(t, got.Marshaled, wantAddress)
 			assert.Equal(t, got.Version, strconv.FormatUint(xxhash.Sum64(wantAddress.Value), 16))
 
@@ -63,8 +63,34 @@ func TestNewAddressInfo(t *testing.T) {
 				assert.Equal(t, got.MarshaledWorkload, nil)
 				return
 			}
-			assert.Equal(t, got.MarshaledWorkload, protoconv.MessageToAny(tt.wantMarshaledWorkload))
+			assert.Equal(t, got.MarshaledWorkload, protoconv.MessageToAnyDeterministic(tt.wantMarshaledWorkload))
 		})
+	}
+}
+
+// The pre-marshaled bytes back Equals and Version, so two builds of the same workload must
+// produce identical bytes. Workload.services is a map, which only holds if map keys are sorted.
+func TestNewAddressInfoStable(t *testing.T) {
+	mk := func() *workloadapi.Address {
+		svcs := make(map[string]*workloadapi.PortList, 6)
+		for i := range 6 {
+			svcs["ns/svc-"+strconv.Itoa(i)+".ns.svc.cluster.local"] = &workloadapi.PortList{
+				Ports: []*workloadapi.Port{{ServicePort: 80, TargetPort: 8080}},
+			}
+		}
+		return &workloadapi.Address{Type: &workloadapi.Address_Workload{Workload: &workloadapi.Workload{
+			Uid: "cluster/ns/wl", Name: "wl", Namespace: "ns", Services: svcs,
+		}}}
+	}
+	first := NewAddressInfo(mk())
+	for range 200 {
+		got := NewAddressInfo(mk())
+		assert.Equal(t, got.Marshaled.Value, first.Marshaled.Value)
+		assert.Equal(t, got.MarshaledWorkload.Value, first.MarshaledWorkload.Value)
+		assert.Equal(t, got.Version, first.Version)
+		a := WorkloadInfo{Workload: first.GetWorkload(), MarshaledAddress: first.Marshaled}
+		b := WorkloadInfo{Workload: got.GetWorkload(), MarshaledAddress: got.Marshaled}
+		assert.Equal(t, a.Equals(&b), true)
 	}
 }
 
@@ -683,6 +709,7 @@ func TestGetAllAddresses(t *testing.T) {
 		name                   string
 		service                *Service
 		ipMode                 IPMode
+		nodeType               NodeType
 		dualStackEnabled       bool
 		ambientEnabled         bool
 		autoAllocationEnabled  bool
@@ -788,6 +815,34 @@ func TestGetAllAddresses(t *testing.T) {
 			expectedExtraAddresses: []string{},
 		},
 		{
+			name: "IPv4 mode, waypoint proxy, auto-allocation enabled, expected both auto-allocated addresses",
+			service: &Service{
+				DefaultAddress:           "0.0.0.0",
+				AutoAllocatedIPv4Address: "240.240.0.1",
+				AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+			},
+			ipMode:                 IPv4,
+			nodeType:               Waypoint,
+			ambientEnabled:         true,
+			autoAllocationEnabled:  true,
+			expectedAddresses:      []string{"240.240.0.1", "2001:2::f0f0:e351"},
+			expectedExtraAddresses: []string{"2001:2::f0f0:e351"},
+		},
+		{
+			name: "IPv6 mode, waypoint proxy, auto-allocation enabled, expected both auto-allocated addresses",
+			service: &Service{
+				DefaultAddress:           "0.0.0.0",
+				AutoAllocatedIPv4Address: "240.240.0.1",
+				AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+			},
+			ipMode:                 IPv6,
+			nodeType:               Waypoint,
+			ambientEnabled:         true,
+			autoAllocationEnabled:  true,
+			expectedAddresses:      []string{"240.240.0.1", "2001:2::f0f0:e351"},
+			expectedExtraAddresses: []string{"2001:2::f0f0:e351"},
+		},
+		{
 			name: "IPv6 mode, auto-allocation enabled, expected auto-allocated address",
 			service: &Service{
 				DefaultAddress:           "0.0.0.0",
@@ -890,7 +945,7 @@ func TestGetAllAddresses(t *testing.T) {
 			if tc.ambientEnabled {
 				test.SetForTest(t, &features.EnableAmbient, true)
 			}
-			proxy := &Proxy{Metadata: &NodeMetadata{ClusterID: "id"}, ipMode: tc.ipMode}
+			proxy := &Proxy{Metadata: &NodeMetadata{ClusterID: "id"}, ipMode: tc.ipMode, Type: tc.nodeType}
 			if tc.autoAllocationEnabled {
 				proxy.Metadata.DNSCapture = true
 				proxy.Metadata.DNSAutoAllocate = true
@@ -1310,6 +1365,32 @@ func TestGetTrafficDistribution(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInfoEqualsPointers(t *testing.T) {
+	t.Run("service", func(t *testing.T) {
+		var nilInfo *ServiceInfo
+		assert.Equal(t, nilInfo.Equals(nil), true)
+		assert.Equal(t, nilInfo.Equals(&ServiceInfo{}), false)
+
+		first := &ServiceInfo{Service: &workloadapi.Service{Namespace: "ns", Hostname: "svc.example.com"}}
+		second := &ServiceInfo{Service: &workloadapi.Service{Namespace: "ns", Hostname: "svc.example.com"}}
+		assert.Equal(t, first.Equals(second), true)
+		second.Scope = Global
+		assert.Equal(t, first.Equals(second), false)
+	})
+
+	t.Run("workload", func(t *testing.T) {
+		var nilInfo *WorkloadInfo
+		assert.Equal(t, nilInfo.Equals(nil), true)
+		assert.Equal(t, nilInfo.Equals(&WorkloadInfo{}), false)
+
+		first := &WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/ns/pod"}}
+		second := &WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/ns/pod"}}
+		assert.Equal(t, first.Equals(second), true)
+		second.Source.Kind = kind.Pod
+		assert.Equal(t, first.Equals(second), false)
+	})
 }
 
 func TestServiceInfoWaypointConditions(t *testing.T) {

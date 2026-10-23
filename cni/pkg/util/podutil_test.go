@@ -15,6 +15,7 @@
 package util
 
 import (
+	"net/netip"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,6 +25,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -112,6 +114,65 @@ func TestGetPodIPsIfNoPodIPPresent(t *testing.T) {
 
 	podIPs := GetPodIPsIfPresent(pod)
 	assert.Equal(t, len(podIPs), 0)
+}
+
+func TestGetPodIPsIfPresentSkipsInvalidIPs(t *testing.T) {
+	tests := []struct {
+		name   string
+		status corev1.PodStatus
+		want   []netip.Addr
+	}{
+		{
+			name: "invalid PodIPs entry",
+			status: corev1.PodStatus{
+				PodIPs: []corev1.PodIP{{IP: "not-an-ip"}, {IP: "2.2.2.2"}},
+			},
+			want: []netip.Addr{netip.MustParseAddr("2.2.2.2")},
+		},
+		{
+			name: "invalid legacy PodIP",
+			status: corev1.PodStatus{
+				PodIP: "not-an-ip",
+			},
+			want: nil,
+		},
+		{
+			name: "mixed IPv4 and IPv6 entries",
+			status: corev1.PodStatus{
+				PodIPs: []corev1.PodIP{{IP: "2.2.2.2"}, {IP: "2001:db8::invalid"}, {IP: "2001:db8::1"}},
+			},
+			want: []netip.Addr{netip.MustParseAddr("2.2.2.2"), netip.MustParseAddr("2001:db8::1")},
+		},
+		{
+			name: "all PodIPs invalid",
+			status: corev1.PodStatus{
+				PodIPs: []corev1.PodIP{{IP: ""}, {IP: "not-an-ip"}},
+			},
+		},
+		{
+			name: "PodIPs still preferred over legacy PodIP",
+			status: corev1.PodStatus{
+				PodIP:  "2.2.2.2",
+				PodIPs: []corev1.PodIP{{IP: "not-an-ip"}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+				},
+				Status: tt.status,
+			}
+
+			if got := GetPodIPsIfPresent(pod); !slices.Equal(got, tt.want) {
+				t.Fatalf("GetPodIPsIfPresent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestEnablementSelectorMatches(t *testing.T) {

@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -26,6 +25,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -98,7 +98,7 @@ type DeploymentController struct {
 	listenerSets        kclient.Informer[*gateway.ListenerSet]
 	listenerSetByParent kclient.Index[types.NamespacedName, *gateway.ListenerSet]
 
-	clients         map[schema.GroupVersionResource]getter
+	clients         map[schema.GroupVersionResource]Getter
 	injectConfig    func() inject.WebhookConfig
 	deployments     kclient.Client[*appsv1.Deployment]
 	services        kclient.Client[*corev1.Service]
@@ -133,7 +133,7 @@ func NewDeploymentController(
 	dc := &DeploymentController{
 		client:    client,
 		clusterID: clusterID,
-		clients:   map[schema.GroupVersionResource]getter{},
+		clients:   map[schema.GroupVersionResource]Getter{},
 		env:       env,
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
@@ -385,7 +385,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	if d.namespaces != nil {
 		ns = d.namespaces.Get(gw.Namespace, "")
 	}
-	proxyUID, proxyGID := inject.GetProxyIDs(ns)
+	proxyUID, proxyGID := inject.GetProxyIDs(ns, nil, nil)
 
 	defaultName := GetDefaultName(gw.Name, &gw.Spec, gi.DisableNameSuffix)
 
@@ -740,7 +740,7 @@ func applyOverlay(object string, overlaysList []map[string]string) (string, erro
 		a.CreationTimestamp == b.CreationTimestamp &&
 		a.DeletionTimestamp == b.DeletionTimestamp &&
 		a.DeletionGracePeriodSeconds == b.DeletionGracePeriodSeconds &&
-		reflect.DeepEqual(a.OwnerReferences, b.OwnerReferences) &&
+		apiequality.Semantic.DeepEqual(a.OwnerReferences, b.OwnerReferences) &&
 		slices.Equal(a.Finalizers, b.Finalizers)) {
 		return "", fmt.Errorf("illegal metadata change")
 	}
@@ -980,11 +980,11 @@ func sanitizeListenerNameForPort(s string) string {
 type UntypedWrapper[T controllers.ComparableObject] struct {
 	reader kclient.Reader[T]
 }
-type getter interface {
+type Getter interface {
 	Get(name, namespace string) controllers.Object
 }
 
-func NewUntypedWrapper[T controllers.ComparableObject](c kclient.Client[T]) getter {
+func NewUntypedWrapper[T controllers.ComparableObject](c kclient.Client[T]) Getter {
 	return UntypedWrapper[T]{c}
 }
 
@@ -997,7 +997,7 @@ func (u UntypedWrapper[T]) Get(name, namespace string) controllers.Object {
 	return res
 }
 
-var _ getter = UntypedWrapper[*corev1.Service]{}
+var _ Getter = UntypedWrapper[*corev1.Service]{}
 
 // strategicMergePatchYAML is a small fork of strategicpatch.StrategicMergePatch to allow YAML patches
 // This avoids expensive conversion from YAML to JSON

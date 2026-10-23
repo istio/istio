@@ -18,11 +18,12 @@ import (
 	"sort"
 	"strings"
 
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -102,7 +103,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 
 func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDRs []string,
 	service *model.Service, bind string, listenPort *model.Port,
-	gateways sets.String, configs []*config.Config, headlessPodCIDR bool,
+	gateways sets.String, configs []*config.Config, headlessPodCIDR bool, precomputedFilters *precomputedNetworkFilters,
 ) []*filterChainOpts {
 	if !listenPort.Protocol.IsTLS() {
 		return nil
@@ -155,10 +156,12 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 					matchHash := hashRuntimeTLSMatchPredicates(match)
 					if !matchHasBeenHandled.Contains(matchHash) {
 						out = append(out, &filterChainOpts{
-							metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
+							metadata:         precomputedFilters.getOrBuildMetadata(cfg),
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   lb.buildOutboundNetworkFilters(tls.Route, listenPort, cfg.Meta, false),
+							networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{cfg, tls}, func() []*listener.Filter {
+								return lb.buildOutboundNetworkFilters(tls.Route, listenPort, cfg.Meta, false)
+							}),
 						})
 						hasTLSMatch = true
 					}
@@ -172,22 +175,6 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 	if !hasTLSMatch {
 		var sniHosts []string
 
-		// In case of a sidecar config with user defined port, if the user specified port is not the same as the
-		// service's port, then pick the service port if and only if the service has only one port. If service
-		// has multiple ports, then route to a cluster with the listener port (i.e. sidecar defined port) - the
-		// traffic will most likely blackhole.
-		port := listenPort.Port
-		if len(service.Ports) == 1 {
-			port = service.Ports[0].Port
-		}
-
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
-		statPrefix := clusterName
-		// If stat name is configured, use it to build the stat prefix.
-		if len(push.Mesh.OutboundClusterStatName) != 0 {
-			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname),
-				"", &model.Port{Port: port}, 0, &service.Attributes)
-		}
 		// Use the hostname as the SNI value if and only:
 		// 1) if the destination is a CIDR;
 		// 2) or if we have an empty destination VIP (i.e. which we should never get in case some platform adapter improper handlings);
@@ -223,13 +210,12 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 				sniHosts = append(sniHosts, alt...)
 			}
 		}
-		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
-			model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
 			destinationCIDRs: destinationCIDRs,
-			networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply, false, service),
+			networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{}, func() []*listener.Filter {
+				return buildDefaultRouteNetworkFilters(lb, service, listenPort)
+			}),
 		})
 	}
 
@@ -238,7 +224,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 
 func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDRs []string,
 	service *model.Service, listenPort *model.Port,
-	gateways sets.String, configs []*config.Config,
+	gateways sets.String, configs []*config.Config, precomputedFilters *precomputedNetworkFilters,
 ) []*filterChainOpts {
 	if listenPort.Protocol.IsTLS() {
 		return nil
@@ -262,9 +248,11 @@ TcpLoop:
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{
-					metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
+					metadata:         precomputedFilters.getOrBuildMetadata(cfg),
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false),
+					networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{cfg, tcp}, func() []*listener.Filter {
+						return lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false)
+					}),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -286,9 +274,11 @@ TcpLoop:
 					// (this is similar to virtual hosts in http) and create filter chain match accordingly.
 					if len(match.DestinationSubnets) == 0 || listenPort.Port == 0 {
 						out = append(out, &filterChainOpts{
-							metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
+							metadata:         precomputedFilters.getOrBuildMetadata(cfg),
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false),
+							networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{cfg, tcp}, func() []*listener.Filter {
+								return lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false)
+							}),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -300,7 +290,9 @@ TcpLoop:
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false),
+					networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{cfg, tcp}, func() []*listener.Filter {
+						return lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false)
+					}),
 				})
 
 				// If at this point there is a filter chain generated with the same CIDR match as the
@@ -318,30 +310,38 @@ TcpLoop:
 	}
 
 	if !defaultRouteAdded {
-		// In case of a sidecar config with user defined port, if the user specified port is not the same as the
-		// service's port, then pick the service port if and only if the service has only one port. If service
-		// has multiple ports, then route to a cluster with the listener port (i.e. sidecar defined port) - the
-		// traffic will most likely blackhole.
-		port := listenPort.Port
-		if len(service.Ports) == 1 {
-			port = service.Ports[0].Port
-		}
-
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
-		statPrefix := clusterName
-		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
-			model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
-		// If stat name is configured, use it to build the stat prefix.
-		if len(push.Mesh.OutboundClusterStatName) != 0 {
-			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "",
-				&model.Port{Port: port}, 0, &service.Attributes)
-		}
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: destinationCIDRs,
-			networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply, false, service),
+			networkFilters: precomputedFilters.getOrBuild(networkFiltersKey{}, func() []*listener.Filter {
+				return buildDefaultRouteNetworkFilters(lb, service, listenPort)
+			}),
 		})
 	}
 
 	return out
+}
+
+// buildDefaultRouteNetworkFilters builds the network filters routing to the service itself, for TCP and TLS ports
+// without a matching VirtualService route.
+func buildDefaultRouteNetworkFilters(lb *ListenerBuilder, service *model.Service, listenPort *model.Port) []*listener.Filter {
+	// In case of a sidecar config with user defined port, if the user specified port is not the same as the
+	// service's port, then pick the service port if and only if the service has only one port. If service
+	// has multiple ports, then route to a cluster with the listener port (i.e. sidecar defined port) - the
+	// traffic will most likely blackhole.
+	port := listenPort.Port
+	if len(service.Ports) == 1 {
+		port = service.Ports[0].Port
+	}
+
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+	statPrefix := clusterName
+	// If stat name is configured, use it to build the stat prefix.
+	if len(lb.push.Mesh.OutboundClusterStatName) != 0 {
+		statPrefix = telemetry.BuildStatPrefix(lb.push.Mesh.OutboundClusterStatName, string(service.Hostname), "",
+			&model.Port{Port: port}, 0, &service.Attributes)
+	}
+	destinationRule := CastDestinationRule(lb.node.SidecarScope.DestinationRule(
+		model.TrafficDirectionOutbound, lb.node, service.Hostname).GetRule())
+	return lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
+		listenPort, destinationRule, tunnelingconfig.Apply, false, service)
 }

@@ -1,8 +1,7 @@
 # This configs KinD to spin up a k8s cluster with testing optimized config
-# This should be used to create K8s clusters with versions >= 1.28
+# This should be used to create K8s clusters with versions <= 1.35
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-featureGates: {}
 kubeadmConfigPatches:
 - |
   apiVersion: kubeadm.k8s.io/v1beta3

@@ -49,8 +49,8 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2026-08-30T19-01-37
-ISTIO_BASE_REGISTRY ?= registry.istio.io/release
+BASE_VERSION ?= master-2026-10-21T15-15-01
+ISTIO_BASE_REGISTRY ?= docker.io/istio
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org

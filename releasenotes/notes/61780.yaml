@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61780
+releaseNotes:
+  - |
+    **Fixed** an issue where a waypoint proxy would not retain both IPv4 and IPv6 addresses for a
+    ServiceEntry's autoallocated dual-stack VIP, causing traffic to one address family to be dropped.

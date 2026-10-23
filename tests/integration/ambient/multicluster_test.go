@@ -23,11 +23,15 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -50,6 +54,7 @@ type workload struct {
 	namespace     namespace.Instance
 	replicas      int32
 	serviceLabels map[string]string
+	subsetLabels  map[string]string
 }
 
 func TestMulticlusterFailover(t *testing.T) {
@@ -324,6 +329,325 @@ spec:
 	})
 }
 
+func TestIngressToRemoteSidecar(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
+			t.Skip("this test is ambient multi-network specific")
+		}
+		if len(t.Clusters()) < 2 {
+			t.Fatal("ingress to remote sidecar test requires at least 2 clusters")
+		}
+
+		local := t.Clusters()[0]
+		var remote cluster.Cluster
+		for _, c := range t.Clusters() {
+			if c.NetworkName() != local.NetworkName() {
+				remote = c
+				break
+			}
+		}
+		if remote == nil {
+			t.Skip("ingress to remote sidecar test requires clusters on different networks")
+		}
+
+		for _, c := range []cluster.Cluster{local, remote} {
+			_, err := c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().
+				Get(t.Context(), "istio-sidecar-injector", metav1.GetOptions{})
+			if kerrors.IsNotFound(err) {
+				t.Skipf("sidecar injection webhook is not installed in cluster %s", c.Name())
+			}
+			if err != nil {
+				t.Fatalf("failed checking sidecar injection webhook in cluster %s: %v", c.Name(), err)
+			}
+		}
+
+		ns := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "ingress-remote-sidecar",
+			Inject: true,
+		})
+		sidecarLabels := map[string]string{
+			"sidecar.istio.io/inject":       "true",
+			label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
+		}
+		globalService := map[string]string{"istio.io/global": "true"}
+		workloads := deployWorkloadsOrFail(t, []workload{
+			{
+				serviceName:   "remote-sidecar",
+				cluster:       local,
+				namespace:     ns,
+				replicas:      0,
+				serviceLabels: globalService,
+				subsetLabels:  sidecarLabels,
+			},
+			{
+				serviceName:   "remote-sidecar",
+				cluster:       remote,
+				namespace:     ns,
+				replicas:      1,
+				serviceLabels: globalService,
+				subsetLabels:  sidecarLabels,
+			},
+		})
+
+		remoteBackends := workloads.ForCluster(remote.Name())
+		if len(remoteBackends) != 1 {
+			t.Fatalf("expected 1 remote sidecar instance in cluster %s, got %d", remote.Name(), len(remoteBackends))
+		}
+		remoteBackend := remoteBackends[0]
+		if !remoteBackend.Config().HasSidecar() {
+			t.Fatal("remote backend echo config does not enable sidecar injection")
+		}
+		remoteWorkloads := remoteBackend.WorkloadsOrFail(t)
+		if len(remoteWorkloads) != 1 {
+			t.Fatalf("expected 1 remote sidecar workload, got %d", len(remoteWorkloads))
+		}
+		remoteWorkload := remoteWorkloads[0]
+		if remoteWorkload.Sidecar() == nil {
+			t.Fatalf("remote workload %s does not have an injected sidecar", remoteWorkload.PodName())
+		}
+
+		// When ambient enabled ingress should work with or without HBONE enabled in sidecars, but the
+		// reason why we check this here is because I want to cover a case when remote sidecar has both
+		// HBONE and sidecar-style mTLS enabled.
+		//
+		// When that happens, ingress gateway must prefer mTLS, becaue sidecar don't support
+		// HBONE connections targeting services and when connection goes to a remote network through E/W
+		// gateway, ambient uses service hostname as a target instead of individual workload IP.
+		pod, err := remote.Kube().CoreV1().Pods(ns.Name()).Get(t.Context(), remoteWorkload.PodName(), metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("failed getting remote sidecar pod %s: %v", remoteWorkload.PodName(), err)
+		}
+		if got := pod.Labels["networking.istio.io/tunnel"]; got != "http" {
+			t.Fatalf("remote sidecar pod networking.istio.io/tunnel label = %q, want %q", got, "http")
+		}
+		// istio-proxy is an init container when native sidecars are in use, so search both lists.
+		proxy := inject.FindSidecar(pod)
+		if proxy == nil {
+			t.Fatalf("remote sidecar pod %s has no istio-proxy container", remoteWorkload.PodName())
+		}
+		hboneEnabled := false
+		for _, env := range proxy.Env {
+			if env.Name == "ISTIO_META_ENABLE_HBONE" && env.Value == "true" {
+				hboneEnabled = true
+				break
+			}
+		}
+		if !hboneEnabled {
+			t.Fatal("remote sidecar pod does not have ISTIO_META_ENABLE_HBONE=true")
+		}
+
+		t.ConfigIstio().Eval(ns.Name(), map[string]string{
+			"Destination": remoteBackend.Config().ClusterLocalFQDN(),
+		}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: remote-sidecar
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: remote-sidecar
+spec:
+  gateways:
+  - remote-sidecar
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+
+		t.ConfigKube(remote).Eval(ns.Name(), map[string]string{
+			"Namespace": ns.Name(),
+			"Network":   remote.NetworkName(),
+		}, `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: istio-mtls-eastwestgateway
+    istio: eastwestgateway
+    istio.io/rev: default
+    release: istio
+    topology.istio.io/network: {{.Network}}
+  name: istio-mtls-eastwestgateway
+  namespace: {{.Namespace}}
+spec:
+  selector:
+    matchLabels:
+      app: istio-mtls-eastwestgateway
+      istio: eastwestgateway
+      topology.istio.io/network: {{.Network}}
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: gateway
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: istio-mtls-eastwestgateway
+        chart: gateways
+        heritage: Tiller
+        istio: eastwestgateway
+        release: istio
+        sidecar.istio.io/inject: "true"
+        topology.istio.io/network: {{.Network}}
+    spec:
+      containers:
+      - env:
+        - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+          value: {{.Network}}
+        - name: ISTIO_META_UNPRIVILEGED_POD
+          value: "true"
+        image: auto
+        name: istio-proxy
+        ports:
+        - containerPort: 15021
+          protocol: TCP
+        - containerPort: 15443
+          protocol: TCP
+        - containerPort: 15012
+          protocol: TCP
+        - containerPort: 15017
+          protocol: TCP
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /etc/istio/ingressgateway-certs
+          name: ingressgateway-certs
+          readOnly: true
+        - mountPath: /etc/istio/ingressgateway-ca-certs
+          name: ingressgateway-ca-certs
+          readOnly: true
+      securityContext:
+        runAsGroup: 1337
+        runAsNonRoot: true
+        runAsUser: 1337
+      volumes:
+      - name: ingressgateway-certs
+        secret:
+          optional: true
+          secretName: istio-ingressgateway-certs
+      - name: ingressgateway-ca-certs
+        secret:
+          optional: true
+          secretName: istio-ingressgateway-ca-certs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    istio.io/rev: default
+    release: istio
+  name: istio-mtls-eastwestgateway-sds
+  namespace: {{.Namespace}}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - watch
+  - list
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    istio.io/rev: default
+    release: istio
+  name: istio-mtls-eastwestgateway-sds
+  namespace: {{.Namespace}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: istio-mtls-eastwestgateway-sds
+subjects:
+- kind: ServiceAccount
+  name: default
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations: null
+  labels:
+    app: istio-mtls-eastwestgateway
+    istio: eastwestgateway
+    istio.io/rev: default
+    release: istio
+    topology.istio.io/network: {{.Network}}
+  name: istio-mtls-eastwestgateway
+  namespace: {{.Namespace}}
+spec:
+  ports:
+  - name: status-port
+    port: 15021
+    targetPort: 15021
+  - name: tls
+    port: 15443
+    targetPort: 15443
+  - name: tls-istiod
+    port: 15012
+    targetPort: 15012
+  - name: tls-webhook
+    port: 15017
+    targetPort: 15017
+  selector:
+    app: istio-mtls-eastwestgateway
+    istio: eastwestgateway
+    topology.istio.io/network: {{.Network}}
+  type: LoadBalancer`).ApplyOrFail(t)
+
+		if err := retry.UntilSuccess(func() error {
+			pods, err := remote.Kube().CoreV1().Pods(ns.Name()).List(t.Context(), metav1.ListOptions{LabelSelector: "app=istio-mtls-eastwestgateway"})
+			if err != nil {
+				return err
+			}
+			for _, p := range pods.Items {
+				if p.Status.Phase == corev1.PodRunning {
+					return nil
+				}
+			}
+			return fmt.Errorf("no ready pods for %v app=istio-mtls-eastwestgateway", pods.Items)
+		}, retry.Timeout(2*time.Minute), retry.BackoffDelay(time.Second)); err != nil {
+			t.Errorf("failed waiting for mTLS east-west gateway to be ready: %v", err)
+		}
+
+		i.IngressFor(local).CallOrFail(t, echo.CallOptions{
+			Port: echo.Port{
+				Protocol:    protocol.HTTP,
+				ServicePort: 80,
+			},
+			Scheme: scheme.HTTP,
+			Check: check.And(
+				check.OK(),
+				check.Cluster(remote.Name()),
+			),
+			Retry: echo.Retry{
+				Options: []retry.Option{retry.Timeout(2 * time.Minute), retry.Delay(time.Second)},
+			},
+		})
+	})
+}
+
 func deployWorkloadsOrFail(t framework.TestContext, workloads []workload) echo.Instances {
 	t.Helper()
 
@@ -338,6 +662,7 @@ func deployWorkloadsOrFail(t framework.TestContext, workloads []workload) echo.I
 			Subsets: []echo.SubsetConfig{{
 				Version:  w.serviceName,
 				Replicas: 1,
+				Labels:   w.subsetLabels,
 			}},
 		})
 	}

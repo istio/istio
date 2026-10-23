@@ -35,11 +35,11 @@ func TestCustomRegistration(t *testing.T) {
 	gvk := v1.SchemeGroupVersion.WithKind("NetworkPolicy")
 	Register[*v1.NetworkPolicy](
 		gvr, gvk,
-		func(c ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error) {
-			return c.Kube().NetworkingV1().NetworkPolicies(namespace).List(context.Background(), o)
+		func(ctx context.Context, c ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().NetworkingV1().NetworkPolicies(namespace).List(ctx, o)
 		},
-		func(c ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
-			return c.Kube().NetworkingV1().NetworkPolicies(namespace).Watch(context.Background(), o)
+		func(ctx context.Context, c ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().NetworkingV1().NetworkPolicies(namespace).Watch(ctx, o)
 		},
 		func(c ClientGetter, namespace string) ktypes.WriteAPI[*v1.NetworkPolicy] {
 			return c.Kube().NetworkingV1().NetworkPolicies(namespace)

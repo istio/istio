@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -145,7 +146,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 		},
 	}
 	for _, svc := range services {
-		if !reflect.DeepEqual(svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname]) {
+		if !apiequality.Semantic.DeepEqual(svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname]) {
 			t.Fatalf("Service %s ClusterVIPs actual %v, expected %v", svc.Hostname,
 				svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname])
 		}
@@ -164,7 +165,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 		},
 	}
 	for _, svc := range services {
-		if !reflect.DeepEqual(svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname]) {
+		if !apiequality.Semantic.DeepEqual(svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname]) {
 			t.Fatalf("Service %s ClusterVIPs actual %v, expected %v", svc.Hostname,
 				svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname])
 		}
@@ -764,13 +765,13 @@ func TestMergeServiceWithSameTrustDomain(t *testing.T) {
 		"cluster-1": {"10.1.0.1"},
 		"cluster-2": {"10.2.0.1"},
 	}
-	if !reflect.DeepEqual(mergedSvc.ClusterVIPs.Addresses, expectedClusterVIPs) {
+	if !apiequality.Semantic.DeepEqual(mergedSvc.ClusterVIPs.Addresses, expectedClusterVIPs) {
 		t.Errorf("ClusterVIPs mismatch.\nGot: %v\nWant: %v",
 			mergedSvc.ClusterVIPs.Addresses, expectedClusterVIPs)
 	}
 
 	expectedServiceAccounts := []string{"spiffe://cluster.local/ns/default/sa/test-sa"}
-	if !reflect.DeepEqual(mergedSvc.ServiceAccounts, expectedServiceAccounts) {
+	if !apiequality.Semantic.DeepEqual(mergedSvc.ServiceAccounts, expectedServiceAccounts) {
 		t.Errorf("ServiceAccounts mismatch.\nGot: %v\nWant: %v",
 			mergedSvc.ServiceAccounts, expectedServiceAccounts)
 	}
@@ -820,7 +821,7 @@ func TestMergeServiceWithDistinctTrustDomains(t *testing.T) {
 		"cluster-east": {"10.1.0.1"},
 		"cluster-west": {"10.2.0.1"},
 	}
-	if !reflect.DeepEqual(mergedSvc.ClusterVIPs.Addresses, expectedClusterVIPs) {
+	if !apiequality.Semantic.DeepEqual(mergedSvc.ClusterVIPs.Addresses, expectedClusterVIPs) {
 		t.Errorf("ClusterVIPs mismatch.\nGot: %v\nWant: %v",
 			mergedSvc.ClusterVIPs.Addresses, expectedClusterVIPs)
 	}
@@ -829,7 +830,7 @@ func TestMergeServiceWithDistinctTrustDomains(t *testing.T) {
 		"spiffe://mesh.east/ns/default/sa/test-sa",
 		"spiffe://mesh.west/ns/default/sa/test-sa",
 	}
-	if !reflect.DeepEqual(mergedSvc.ServiceAccounts, expectedServiceAccounts) {
+	if !apiequality.Semantic.DeepEqual(mergedSvc.ServiceAccounts, expectedServiceAccounts) {
 		t.Errorf("ServiceAccounts mismatch.\nGot: %v\nWant: %v",
 			mergedSvc.ServiceAccounts, expectedServiceAccounts)
 	}

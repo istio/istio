@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** `VirtualService` validation skipping the remaining gateway names after an entry without a namespace
+  in `gateways` and in HTTP/TLS/TCP match `gateways`. Invalid gateway names listed after
+  such an entry are now rejected.

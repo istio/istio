@@ -30,6 +30,7 @@ type mapCollection[T any, U any] struct {
 	collection     internalCollection[T]
 	mapFunc        func(T) U
 	metadata       Metadata
+	discardEqual   bool
 }
 
 // nolint: unused // (not true, used in func declared to implement an interface)
@@ -42,8 +43,27 @@ type mappedIndexer[T any, U any] struct {
 var _ collectionTrait[any] = &mapCollection[any, any]{}
 
 // nolint: unused // (not true, its to implement an interface)
-func (m *mappedIndexer[T, U]) Lookup(k string) []U {
-	keys := m.indexer.Lookup(k)
+// LookupFiltered returns objects matching the key and filter. A nil filter returns all objects for the key.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
+func (m *mappedIndexer[T, U]) LookupFiltered(k string, filter func(U) bool) []U {
+	if filter != nil {
+		var res []U
+		m.indexer.LookupFiltered(k, func(obj T) bool {
+			mapped := m.mapFunc(obj)
+			if EnableAssertions {
+				assertKeyMatch(obj, mapped, m.fromCollection)
+			}
+			if filter(mapped) {
+				res = append(res, mapped)
+			}
+			return false
+		})
+		return res
+	}
+	keys := m.indexer.LookupFiltered(k, nil)
 	res := make([]U, 0, len(keys))
 	for _, obj := range keys {
 		if EnableAssertions {
@@ -64,6 +84,11 @@ func (m *mapCollection[T, U]) GetKey(k string) *U {
 	return nil
 }
 
+// ListFiltered returns objects accepted by filter. A nil filter returns all objects.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (m *mapCollection[T, U]) ListFiltered(filter func(U) bool) []U {
 	if filter != nil {
 		var res []U
@@ -105,9 +130,14 @@ func (m *mapCollection[T, U]) RegisterBatch(handler func([]Event[U]), runExistin
 			if o.New != nil {
 				e.New = ptr.Of(m.mapFunc(*o.New))
 			}
+			if m.discardEqual && e.Old != nil && e.New != nil && Equal(*e.Old, *e.New) {
+				continue
+			}
 			events = append(events, e)
 		}
-		handler(events)
+		if len(events) > 0 {
+			handler(events)
+		}
 	}, runExistingState)
 }
 
@@ -158,6 +188,7 @@ func (m *mapCollection[T, U]) WaitUntilSynced(stop <-chan struct{}) bool {
 }
 
 // MapCollection creates a new collection to map Collection[T] -> Collection[U]
+// All events are forwarded by default. WithMapDiscardEqual suppresses unchanged mapped updates.
 // Warning: It is not OK to use a mapFunc which changes how the Collection is keyed.
 func MapCollection[T, U any](
 	collection Collection[T],
@@ -179,6 +210,7 @@ func MapCollection[T, U any](
 		collection:     ic,
 		mapFunc:        mapFunc,
 		metadata:       metadata,
+		discardEqual:   o.mapDiscardEqual,
 	}
 	maybeRegisterCollectionForDebugging[U](m, o.debugger)
 	if o.debugger != nil && o.stopProvided {

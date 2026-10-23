@@ -599,6 +599,10 @@ type IstioEndpoint struct {
 
 	// If in k8s, the node where the pod resides
 	NodeName string
+
+	// When true, ztunnel traffic interception is set up for the workload, so it supports
+	// receiving HBONE traffic
+	CapturedByZtunnel bool
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
@@ -1020,8 +1024,8 @@ type AmbientIndexes interface {
 		currentSubs sets.String,
 	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
-	ServicesForWaypoint(WaypointKey) []ServiceInfo
-	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
+	ServicesForWaypoint(WaypointKey) []*ServiceInfo
+	WorkloadsForWaypoint(WaypointKey) []*WorkloadInfo
 	// ServiceScope returns service information for services matching the key.
 	// The key idenitifies a service and is in form of namespace/hostname string.
 	ServiceInfo(key string) *ServiceInfo
@@ -1140,7 +1144,7 @@ func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []WorkloadAuthorizatio
 	return nil
 }
 
-func (u NoopAmbientIndexes) ServicesForWaypoint(WaypointKey) []ServiceInfo {
+func (u NoopAmbientIndexes) ServicesForWaypoint(WaypointKey) []*ServiceInfo {
 	return nil
 }
 
@@ -1148,7 +1152,7 @@ func (u NoopAmbientIndexes) Waypoint(string, string) []netip.Addr {
 	return nil
 }
 
-func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
+func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []*WorkloadInfo {
 	return nil
 }
 
@@ -1178,10 +1182,12 @@ type AddressInfo struct {
 // NewAddressInfo builds an AddressInfo from an Address, pre-marshaling it and computing the
 // content-based Version.
 func NewAddressInfo(addr *workloadapi.Address) AddressInfo {
-	marshaled := protoconv.MessageToAny(addr)
+	// The marshaled bytes are compared in Equals and hashed into Version, so they must be stable.
+	// Workload has a map field (services) and the vtprotobuf marshal does not sort map keys.
+	marshaled := protoconv.MessageToAnyDeterministic(addr)
 	var marshaledWorkload *anypb.Any
 	if workload := addr.GetWorkload(); workload != nil {
-		marshaledWorkload = protoconv.MessageToAny(workload)
+		marshaledWorkload = protoconv.MessageToAnyDeterministic(workload)
 	}
 	return AddressInfo{
 		Address:           addr,
@@ -1285,11 +1291,11 @@ type ServiceInfo struct {
 	VisibilityConfigured bool
 }
 
-func (i ServiceInfo) GetLabelSelector() map[string]string {
+func (i *ServiceInfo) GetLabelSelector() map[string]string {
 	return i.LabelSelector.Labels
 }
 
-func (i ServiceInfo) GetStatusTarget() TypedObject {
+func (i *ServiceInfo) GetStatusTarget() TypedObject {
 	return i.Source
 }
 
@@ -1358,7 +1364,7 @@ func (c *Condition) Equals(v *Condition) bool {
 		c.Status == v.Status
 }
 
-func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
+func (i *ServiceInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
 	set := ConditionSet{
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
@@ -1476,19 +1482,22 @@ func (i WaypointBindingStatus) Equals(other WaypointBindingStatus) bool {
 		ptr.Equal(i.Error, other.Error)
 }
 
-func (i ServiceInfo) NamespacedName() types.NamespacedName {
+func (i *ServiceInfo) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: i.Service.Name, Namespace: i.Service.Namespace}
 }
 
-func (i ServiceInfo) GetName() string {
+func (i *ServiceInfo) GetName() string {
 	return i.Service.Name
 }
 
-func (i ServiceInfo) GetNamespace() string {
+func (i *ServiceInfo) GetNamespace() string {
 	return i.Service.Namespace
 }
 
-func (i ServiceInfo) Equals(other ServiceInfo) bool {
+func (i *ServiceInfo) Equals(other *ServiceInfo) bool {
+	if i == nil || other == nil {
+		return i == other
+	}
 	return equalUsingPremarshaled(i.Service, i.MarshaledAddress, other.Service, other.MarshaledAddress) &&
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
@@ -1499,12 +1508,12 @@ func (i ServiceInfo) Equals(other ServiceInfo) bool {
 		i.VisibilityConfigured == other.VisibilityConfigured
 }
 
-func (i ServiceInfo) ResourceName() string {
+func (i *ServiceInfo) ResourceName() string {
 	return serviceResourceName(i.Service)
 }
 
 // WaypointRef returns the waypoint this service is attached to, if any.
-func (i ServiceInfo) WaypointRef() *workloadapi.GatewayAddress {
+func (i *ServiceInfo) WaypointRef() *workloadapi.GatewayAddress {
 	return i.Service.GetWaypoint()
 }
 
@@ -1542,7 +1551,10 @@ type WorkloadInfo struct {
 	Waypoint  WaypointBindingStatus
 }
 
-func (i WorkloadInfo) Equals(other WorkloadInfo) bool {
+func (i *WorkloadInfo) Equals(other *WorkloadInfo) bool {
+	if i == nil || other == nil {
+		return i == other
+	}
 	return equalUsingPremarshaled(i.Workload, i.MarshaledAddress, other.Workload, other.MarshaledAddress) &&
 		maps.Equal(i.Labels, other.Labels) &&
 		i.Source == other.Source &&
@@ -1564,11 +1576,11 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 	}
 }
 
-func (i WorkloadInfo) GetStatusTarget() TypedObject {
+func (i *WorkloadInfo) GetStatusTarget() TypedObject {
 	return i.Source
 }
 
-func (i WorkloadInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
+func (i *WorkloadInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
 	set := ConditionSet{
 		WaypointBound: nil,
 	}
@@ -1588,12 +1600,12 @@ func (i WorkloadInfo) GetConditions(currentConditions map[string]Condition) Cond
 	return set
 }
 
-func (i WorkloadInfo) ResourceName() string {
+func (i *WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
 }
 
 // WaypointRef returns the waypoint this workload is attached to, if any.
-func (i WorkloadInfo) WaypointRef() *workloadapi.GatewayAddress {
+func (i *WorkloadInfo) WaypointRef() *workloadapi.GatewayAddress {
 	return i.Workload.GetWaypoint()
 }
 
@@ -1775,7 +1787,7 @@ func ExtractWorkloadsFromAddresses(addrs []AddressInfo) []WorkloadInfo {
 	})
 }
 
-func SortWorkloadsByCreationTime(workloads []WorkloadInfo) []WorkloadInfo {
+func SortWorkloadsByCreationTime(workloads []*WorkloadInfo) []*WorkloadInfo {
 	sort.SliceStable(workloads, func(i, j int) bool {
 		if workloads[i].CreationTime.Equal(workloads[j].CreationTime) {
 			return workloads[i].Workload.Uid < workloads[j].Workload.Uid
@@ -1917,19 +1929,22 @@ func ParseSubsetKeyHostname(s string) (hostname string) {
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname host.Name, port int) {
 	sep := "|"
-	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
-	// Since we do not want every callsite to implement the logic to differentiate between the two forms
-	// we add an alternate parser here.
-	if strings.HasPrefix(s, trafficDirectionOutboundSrvPrefix) ||
-		strings.HasPrefix(s, trafficDirectionInboundSrvPrefix) {
-		sep = "_."
-	}
 
 	// Format: dir|port|subset|hostname
-	dir, s, ok := strings.Cut(s, sep)
+	dir, rest, ok := strings.Cut(s, sep)
 	if !ok {
-		return direction, subsetName, hostname, port
+		// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
+		// Since we do not want every callsite to implement the logic to differentiate between the two forms
+		// we add an alternate parser here.
+		if !IsDNSSrvSubsetKey(s) {
+			return
+		}
+		sep = "_."
+		if dir, rest, ok = strings.Cut(s, sep); !ok {
+			return
+		}
 	}
+	s = rest
 	direction = TrafficDirection(dir)
 
 	p, s, ok := strings.Cut(s, sep)
@@ -2039,6 +2054,7 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 	}
+	usedAutoAllocatedIPs := false
 	if len(addresses) == 0 && nodeUsesAutoallocatedIPs(node) {
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
@@ -2046,8 +2062,10 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 		if s.AutoAllocatedIPv6Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv6Address)
 		}
+		usedAutoAllocatedIPs = true
 	}
-	if (!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual {
+	skipFilter := usedAutoAllocatedIPs && node.Type == Waypoint
+	if !skipFilter && ((!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual) {
 		addresses = netutil.FilterAddressesByIPFamily(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 	}
 	if len(addresses) > 0 {

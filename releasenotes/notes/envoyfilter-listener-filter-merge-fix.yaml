@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an `EnvoyFilter` `LISTENER_FILTER` `MERGE` patch corrupting the listener filters
+    shared by all proxies and being applied to listener filters that did not match
+    `match.listener.listenerFilter`.

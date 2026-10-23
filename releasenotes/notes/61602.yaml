@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** the Istio CNI agent panicking when a pod's status contained an invalid IP address.
+    Invalid addresses are now logged and skipped.

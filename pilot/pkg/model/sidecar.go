@@ -195,10 +195,17 @@ type SidecarScope struct {
 	// be forwarded.
 	OutboundTrafficPolicy *networking.OutboundTrafficPolicy
 
-	// Set of known configs this sidecar depends on.
+	// Set of known configs this sidecar depends on. Service and DestinationRule dependencies are
+	// answered from servicesByHostname and destinationRulesByNames instead.
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
 	configDependencies sets.Set[ConfigHash]
+
+	// VirtualServices bound to each gateway selected by this scope. Gateway names are namespace/name.
+	gatewayVirtualServices map[string][]*config.Config
+	// The VirtualServices above as dependencies. Kept separate from configDependencies, which
+	// gateway scopes share with their namespace scope.
+	gatewayConfigDependencies sets.Set[ConfigHash]
 
 	// Function that will initialize the sidecar scope. This is used to
 	// defer the initialization of the sidecar scope until the first time
@@ -218,9 +225,10 @@ func (sc *SidecarScope) MarshalJSON() ([]byte, error) {
 		"egressListenerServices": slices.Map(sc.EgressListeners, func(e *IstioEgressListenerWrapper) []*Service {
 			return e.services
 		}),
-		"servicesByHostname": sc.servicesByHostname,
-		"sidecar":            sc.Sidecar,
-		"destinationRules":   sc.destinationRules,
+		"servicesByHostname":     sc.servicesByHostname,
+		"sidecar":                sc.Sidecar,
+		"destinationRules":       sc.destinationRules,
+		"gatewayVirtualServices": sc.gatewayVirtualServices,
 	}, "", "  ")
 }
 
@@ -266,7 +274,7 @@ type IstioEgressListenerWrapper struct {
 
 const defaultSidecar = "default-sidecar"
 
-// DefaultSidecarScopeForGateway builds a SidecarScope contains services and destinationRules for a given gateway/waypoint.
+// DefaultSidecarScopeForGateway builds a SidecarScope containing services and destination rules for a gateway.
 func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *SidecarScope {
 	services := ps.servicesExportedToNamespace(configNamespace)
 	out := &SidecarScope{
@@ -286,12 +294,40 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 
 	out.selectAuthnPolicies(ps, configNamespace)
 
-	// waypoint need to get vses from the egress listener
-	defaultEgressListener := &IstioEgressListenerWrapper{
-		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
-	}
-	out.EgressListeners = []*IstioEgressListenerWrapper{defaultEgressListener}
 	out.initFunc = func() {}
+
+	return out
+}
+
+// gatewaySidecarScope extends the initialized namespace scope of a router or ambient east-west gateway
+// with the VirtualServices bound to its gateway set. The common indexes, including the mesh egress
+// listener of a waypoint base, are immutable and shared with the namespace scope.
+func gatewaySidecarScope(ps *PushContext, base *SidecarScope, gateways []string) *SidecarScope {
+	out := *base
+	out.Version = ps.PushVersion
+	out.gatewayVirtualServices = make(map[string][]*config.Config, len(gateways))
+	for _, gateway := range gateways {
+		virtualServices := ps.virtualServicesForGateway(base.Namespace, gateway)
+		out.gatewayVirtualServices[gateway] = virtualServices
+		if out.gatewayConfigDependencies == nil {
+			out.gatewayConfigDependencies = sets.NewWithLength[ConfigHash](len(virtualServices))
+		}
+		for _, vs := range virtualServices {
+			out.gatewayConfigDependencies.Insert(ConfigKey{
+				Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name,
+			}.HashCode())
+		}
+	}
+	return &out
+}
+
+// DefaultSidecarScopeForWaypoint extends the gateway scope with mesh VirtualServices for waypoint routing.
+func DefaultSidecarScopeForWaypoint(ps *PushContext, configNamespace string) *SidecarScope {
+	out := DefaultSidecarScopeForGateway(ps, configNamespace)
+
+	out.EgressListeners = []*IstioEgressListenerWrapper{{
+		virtualServices: ps.virtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
+	}}
 
 	return out
 }
@@ -373,7 +409,15 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 		return serviceMatchingVirtualServicePorts(s, ports)
 	}
 
-	servicesAdded := make(map[host.Name]sidecarServiceIndex)
+	imported := 0
+	for _, ilw := range sc.EgressListeners {
+		imported += len(ilw.services)
+	}
+	servicesAdded := make(map[host.Name]sidecarServiceIndex, imported)
+	sc.services = make([]*Service, 0, imported)
+	if len(sc.servicesByHostname) == 0 {
+		sc.servicesByHostname = make(map[host.Name]*Service, imported)
+	}
 	for _, ilw := range sc.EgressListeners {
 		// First add the explicitly requested services, which take priority
 		for _, s := range ilw.services {
@@ -459,30 +503,10 @@ func (sc *SidecarScope) selectDestinationRules(ps *PushContext, configNamespace 
 			sc.destinationRules[s.Hostname] = drList
 			for _, dr := range drList {
 				for _, key := range dr.from {
-					sc.AddConfigDependencies(ConfigKey{
-						Kind:      kind.DestinationRule,
-						Name:      key.Name,
-						Namespace: key.Namespace,
-					}.HashCode())
-
 					sc.destinationRulesByNames[key] = dr.rule
 				}
 			}
 		}
-		sc.AddConfigDependencies(
-			ConfigKey{
-				Kind:      kind.ServiceEntry,
-				Name:      string(s.Hostname),
-				Namespace: s.Attributes.Namespace,
-			}.HashCode(),
-			// we do not directly depend on endpoints, but this is needed
-			// to only filter service endpoint updates for services we care about
-			ConfigKey{
-				Kind:      kind.Endpoints,
-				Name:      string(s.Hostname),
-				Namespace: s.Attributes.Namespace,
-			}.HashCode(),
-		)
 	}
 }
 
@@ -671,6 +695,7 @@ func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardVirtualServiceIndex()
 
 // DependsOnConfig determines if the proxy depends on the given config.
 // Returns whether depends on this config or this kind of config is not scoped(unknown to be depended) here.
+// Gateway-specific scopes also depend on the VirtualServices bound to their gateways.
 func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	if sc == nil {
 		return true
@@ -686,7 +711,28 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 		return true
 	}
 
-	return sc.configDependencies.Contains(config.HashCode())
+	switch config.Kind {
+	case kind.ServiceEntry, kind.Endpoints:
+		// Both are keyed by service hostname and namespace.
+		if svc := sc.servicesByHostname[host.Name(config.Name)]; svc != nil && svc.Attributes.Namespace == config.Namespace {
+			return true
+		}
+	case kind.DestinationRule:
+		if _, f := sc.destinationRulesByNames[types.NamespacedName{Name: config.Name, Namespace: config.Namespace}]; f {
+			return true
+		}
+	}
+
+	// Dependencies added through AddConfigDependencies still apply.
+	hash := config.HashCode()
+	return sc.configDependencies.Contains(hash) || sc.gatewayConfigDependencies.Contains(hash)
+}
+
+// GatewayVirtualServices returns the VirtualServices bound to the namespace/name gateway in this scope.
+// Only the gateway-specific scopes of routers and ambient east-west gateways carry them. SetSidecarScope
+// selects those scopes from the proxy's merged gateways, so it must run after SetGatewaysForProxy.
+func (sc *SidecarScope) GatewayVirtualServices(gateway string) []*config.Config {
+	return sc.gatewayVirtualServices[gateway]
 }
 
 func (sc *SidecarScope) GetService(hostname host.Name) *Service {

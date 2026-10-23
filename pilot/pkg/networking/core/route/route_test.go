@@ -1486,7 +1486,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 			Services: exampleService,
 		})
-		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
+		vhosts := route.BuildSidecarVirtualHostWrapper(node(cg), cg.PushContext(), serviceRegistry,
 			[]*config.Config{}, 8080, map[host.Name]types.NamespacedName{},
 		)
 		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).NotTo(BeNil())
@@ -1506,7 +1506,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 			Services: exampleService,
 		})
-		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
+		vhosts := route.BuildSidecarVirtualHostWrapper(node(cg), cg.PushContext(), serviceRegistry,
 			[]*config.Config{}, 8080, map[host.Name]types.NamespacedName{},
 		)
 
@@ -1542,7 +1542,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			"*.hello.example.org": virtualServiceWithNestedWildcardHost.NamespacedName(),
 		}
 
-		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
+		vhosts := route.BuildSidecarVirtualHostWrapper(node(cg), cg.PushContext(), serviceRegistry,
 			[]*config.Config{
 				&virtualServiceWithWildcardHost,
 				&virtualServiceWithNestedWildcardHost,
@@ -1736,7 +1736,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			"*.hello.example.org": virtualServiceWithNestedWildcardHost.NamespacedName(),
 		}
 
-		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
+		vhosts := route.BuildSidecarVirtualHostWrapper(node(cg), cg.PushContext(), serviceRegistry,
 			[]*config.Config{&virtualServiceWithGoogleWildcardHost}, 80, wildcardIndex,
 		)
 		// The service hosts (*.example.org and goodbye.hello.example.org) and the unattached VS host (*.google.com)
@@ -1753,6 +1753,25 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			g.Expect(vhost.Routes).To(HaveLen(1))
 		}
 	})
+}
+
+func TestBuildHTTPRoutesSharesConfigMetadata(t *testing.T) {
+	routes, err := route.BuildHTTPRoutesForVirtualService(
+		&model.Proxy{Metadata: &model.NodeMetadata{Namespace: "default"}},
+		virtualServiceWithCatchAllRoute,
+		8080,
+		sets.New("some-gateway"),
+		buildRouteOpts(nil, nil),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(routes) != 2 {
+		t.Fatalf("got %d routes, want 2", len(routes))
+	}
+	if routes[0].Metadata != routes[1].Metadata {
+		t.Fatal("routes from the same VirtualService must share config metadata")
+	}
 }
 
 func loadBalancerPolicy(name string) *networking.LoadBalancerSettings_ConsistentHash {

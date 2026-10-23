@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/workloadapi"
@@ -32,7 +33,7 @@ import (
 // serviceEDS captures the inputs that affect gateway EDS for a waypoint-bound service.
 type serviceEDS struct {
 	ServiceKey       string
-	WaypointInstance []model.WorkloadInfo
+	WaypointInstance []*model.WorkloadInfo
 	UseWaypoint      bool
 	// Included so weight changes trigger EDS for the bound service.
 	WeightedWaypoints []*workloadapi.WeightedWaypoint
@@ -98,11 +99,11 @@ func weightedWaypointEqual(a, b *workloadapi.WeightedWaypoint) bool {
 // Ideally, the information we are using in Envoy and the event trigger are using the same data directly.
 func RegisterEdsShim(
 	xdsUpdater model.XDSUpdater,
-	Workloads krt.Collection[model.WorkloadInfo],
+	Workloads krt.Collection[*model.WorkloadInfo],
 	Namespaces krt.Collection[model.NamespaceInfo],
-	WorkloadsByServiceKey krt.Index[string, model.WorkloadInfo],
-	Services krt.Collection[model.ServiceInfo],
-	ServicesByAddress krt.Index[networkAddress, model.ServiceInfo],
+	WorkloadsByServiceKey krt.Index[string, *model.WorkloadInfo],
+	Services krt.Collection[*model.ServiceInfo],
+	ServicesByAddress krt.Index[networkAddress, *model.ServiceInfo],
 	opts krt.OptionsBuilder,
 ) {
 	// Helps us avoid race conditions in tests.
@@ -111,8 +112,8 @@ func RegisterEdsShim(
 	multiNetworkEnabled := features.EnableAmbientMultiNetwork
 	ServiceEds := krt.NewCollection(
 		Services,
-		func(ctx krt.HandlerContext, svc model.ServiceInfo) *serviceEDS {
-			useWaypoint := ingressUseWaypoint(svc, krt.FetchOne(ctx, Namespaces, krt.FilterKey(svc.Service.Namespace)))
+		func(ctx krt.HandlerContext, svc *model.ServiceInfo) *serviceEDS {
+			useWaypoint := ingressUseWaypoint(*svc, krt.FetchOne(ctx, Namespaces, krt.FilterKey(svc.Service.Namespace)))
 			if !useWaypoint && (!multiNetworkEnabled || svc.Scope != model.Global) {
 				// Currently, we only need this for ingress/east west gateway -> waypoint usage
 				// If we extend this to sidecars, etc we can drop this.
@@ -122,7 +123,7 @@ func RegisterEdsShim(
 				return nil
 			}
 			// Track every waypoint whose endpoints can appear in the gateway CLA.
-			var workloads []model.WorkloadInfo
+			var workloads []*model.WorkloadInfo
 			for _, wp := range serviceOwningWaypoints(svc) {
 				var waypointServiceKey string
 				switch addr := wp.Destination.(type) {
@@ -135,16 +136,22 @@ func RegisterEdsShim(
 						network: wAddress.Network,
 						ip:      mustByteIPToString(wAddress.Address),
 					}
-					waypointSvc := krt.FetchOne(ctx, Services, krt.FilterIndex(ServicesByAddress, serviceKey))
-					if waypointSvc == nil {
+					waypointSvcs := krt.Fetch(ctx, Services, krt.FilterIndex(ServicesByAddress, serviceKey))
+					if len(waypointSvcs) != 1 {
+						if len(waypointSvcs) > 1 {
+							log.Warnf("service %v: waypoint address %v is claimed by %d services (%v); "+
+								"its waypoint endpoints will not be updated until the collision is resolved",
+								svc.ResourceName(), serviceKey, len(waypointSvcs),
+								slices.Map(waypointSvcs, (*model.ServiceInfo).ResourceName))
+						}
 						continue
 					}
-					waypointServiceKey = waypointSvc.ResourceName()
+					waypointServiceKey = waypointSvcs[0].ResourceName()
 				}
 				workloads = append(workloads, WorkloadsByServiceKey.Fetch(ctx, waypointServiceKey)...)
 			}
 			// for comparison in Equals
-			workloads = slices.SortBy(workloads, func(i model.WorkloadInfo) string {
+			workloads = slices.SortBy(workloads, func(i *model.WorkloadInfo) string {
 				return i.Workload.Uid
 			})
 			return &serviceEDS{
@@ -164,15 +171,15 @@ func RegisterEdsShim(
 
 func (a *index) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
 	res := []model.ServiceWaypointInfo{}
-	var svcs []model.ServiceInfo
+	var svcs []*model.ServiceInfo
 	if key == "" {
 		svcs = a.services.List()
-	} else {
-		svcs = ptr.ToList(a.services.GetKey(key))
+	} else if svc := ptr.Flatten(a.services.GetKey(key)); svc != nil {
+		svcs = []*model.ServiceInfo{svc}
 	}
 	for _, s := range svcs {
 		wp := s.Service.GetWaypoint()
-		useWaypoint := ingressUseWaypoint(s, a.namespaces.GetKey(s.Service.Namespace))
+		useWaypoint := ingressUseWaypoint(*s, a.namespaces.GetKey(s.Service.Namespace))
 		wi := model.ServiceWaypointInfo{
 			Service:            s.Service,
 			IngressUseWaypoint: useWaypoint,

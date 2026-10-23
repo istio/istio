@@ -70,12 +70,19 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 	return fetch[T](ctx, cc, false, opts...)
 }
 
+// FetchSorted runs a query against the provided collection, subscribes to updates, and sorts the result by key.
+func FetchSorted[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T {
+	return slices.SortBy(Fetch(ctx, cc, opts...), GetKey)
+}
+
 func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool, opts ...FetchOption) []T {
 	c := cc.internal()
+	if dc, ok := c.(interface{ isDisabled() bool }); ok && dc.isDisabled() {
+		return nil
+	}
 	d := &dependency{
 		id:             c.uid(),
 		collectionName: c.name(),
-		filter:         &filter{},
 	}
 	for _, o := range opts {
 		o(d)
@@ -101,35 +108,34 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 	// Compute the matching objects. General scans push filtering into the collection implementation so selective queries
 	// don't allocate a full-size intermediate list. Key and index filters use their more specific lookup paths below.
 	var list []T
-	matches := func(i T) bool {
-		o := c.augment(i)
-		return d.filter.Matches(o, true)
+	var matches func(i T) bool
+	if d.filter.needsMatching(true) {
+		matches = func(i T) bool {
+			o := c.augment(i)
+			return d.filter.Matches(o, true)
+		}
 	}
-	prefiltered := false
 	if !d.filter.keys.IsNil() {
 		// If they fetch a set of keys, directly Get these. Usually this is a single resource.
 		list = make([]T, 0, d.filter.keys.Len())
 		for _, k := range d.filter.keys.List() {
-			if i := c.GetKey(k); i != nil {
+			if i := c.GetKey(k); i != nil && (matches == nil || matches(*i)) {
 				list = append(list, *i)
 			}
 		}
 	} else if d.filter.index != nil {
 		// Otherwise from an index; fetch from there. Often this is a list of a namespace
-		list = d.filter.index.list().([]T)
+		list = d.filter.index.lookup.listFiltered(matches).([]T)
 	} else {
 		// Otherwise get everything
 		list = c.ListFiltered(matches)
-		prefiltered = true
 	}
-	if !prefiltered {
-		list = slices.FilterInPlace(list, matches)
-	}
+	// Removed redundant filtering as it is already handled above.
 	if log.DebugEnabled() {
 		log.WithLabels(
 			"parent", parent,
 			"fetch", c.name(),
-			"filter", d.filter,
+			"filter", &d.filter,
 			"size", len(list),
 		).Debugf("Fetch")
 	}

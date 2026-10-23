@@ -154,6 +154,14 @@ type Inputs struct {
 	InferencePools       krt.Collection[*inferencev1.InferencePool]
 }
 
+// FeatureFlags is a snapshot of the feature flags taken when the controller is built. Route
+// conversion runs on krt goroutines that are not joined on shutdown, so it reads these rather
+// than the globals, and agrees with the collections the flags selected.
+type FeatureFlags struct {
+	EnableAlphaGatewayAPI              bool
+	EnableGatewayAPIInferenceExtension bool
+}
+
 var _ model.GatewayController = &Controller{}
 
 func NewController(
@@ -164,6 +172,10 @@ func NewController(
 ) *Controller {
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "gateway", options.KrtDebugger)
+	flags := FeatureFlags{
+		EnableAlphaGatewayAPI:              features.EnableAlphaGatewayAPI,
+		EnableGatewayAPIInferenceExtension: features.EnableGatewayAPIInferenceExtension,
+	}
 
 	tw := revisions.NewTagWatcher(kc, options.Revision, options.SystemNamespace)
 	c := &Controller{
@@ -210,7 +222,7 @@ func NewController(
 		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
 		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
 	}
-	if features.EnableAlphaGatewayAPI {
+	if flags.EnableAlphaGatewayAPI {
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
 		inputs.Backends = buildClient[*gatewayx.XBackend](c, kc, gvr.XBackend, opts, "informer/XBackend")
 	} else {
@@ -219,7 +231,7 @@ func NewController(
 		inputs.Backends = krt.NewStaticCollection[*gatewayx.XBackend](nil, nil, opts.WithName("disable/XBackend")...)
 	}
 
-	if features.EnableGatewayAPIInferenceExtension {
+	if flags.EnableGatewayAPIInferenceExtension {
 		inputs.InferencePools = buildClient[*inferencev1.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
 	} else {
 		// If disabled, still build a collection but make it always empty
@@ -303,7 +315,7 @@ func NewController(
 		controllers.WithReconciler(c.reconcileShadowService(kc, InferencePools, inputs.Services)),
 		controllers.WithMaxAttempts(5))
 
-	if features.EnableGatewayAPIInferenceExtension {
+	if flags.EnableGatewayAPIInferenceExtension {
 		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 	}
 
@@ -320,6 +332,7 @@ func NewController(
 		ServiceEntries:  inputs.ServiceEntries,
 		Backends:        inputs.Backends,
 		InferencePools:  inputs.InferencePools,
+		Flags:           flags,
 		internalContext: c.gatewayContext,
 	}
 	tcpRoutes := TCPRouteCollection(

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61924
+releaseNotes:
+  - |
+    **Fixed** concurrent push context initialization when EDS debouncing is disabled.

@@ -21,6 +21,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"path"
 	"regexp"
@@ -30,6 +31,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwk"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -40,6 +42,7 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1261,6 +1264,37 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 		}
 	}
 
+	if bu := settings.GetBackendUtilization(); bu != nil {
+		for name, dur := range map[string]*durationpb.Duration{
+			"weightStabilizationPeriod": bu.GetWeightStabilizationPeriod(),
+			"weightExpirationPeriod":    bu.GetWeightExpirationPeriod(),
+			"weightUpdatePeriod":        bu.GetWeightUpdatePeriod(),
+		} {
+			if dur != nil && dur.AsDuration() < 0 {
+				errs = AppendValidation(errs, fmt.Errorf("%s must not be negative", name))
+			}
+		}
+		if p := bu.GetWeightUpdatePeriod(); p != nil && p.AsDuration() > 0 && p.AsDuration() < 100*time.Millisecond {
+			warn := "backendUtilization weightUpdatePeriod is less than the 100ms minimum and will be capped at 100ms"
+			scope.Warnf(warn)
+			errs = AppendValidation(errs, WrapWarning(errors.New(warn)))
+		}
+		for _, name := range bu.GetMetricNamesForComputingUtilization() {
+			if name == "" {
+				errs = AppendValidation(errs, fmt.Errorf("metricNamesForComputingUtilization entries must not be empty"))
+			}
+		}
+		// Envoy rejects a cluster combining load_balancing_policy with zone_aware_lb_config or
+		// locality_weighted_lb_config, so those are dropped when backendUtilization is used.
+		// Priority based failover still applies, but zone-aware routing and locality weighting do not.
+		if settings.GetLocalityLbSetting() != nil || settings.GetZoneAwareLbSetting() != nil {
+			warn := "backendUtilization is not compatible with localityLbSetting or zoneAwareLbSetting; " +
+				"zone-aware routing and locality weighting will not be applied"
+			scope.Warnf(warn)
+			errs = AppendValidation(errs, WrapWarning(errors.New(warn)))
+		}
+	}
+
 	if settings.LocalityLbSetting != nil && settings.ZoneAwareLbSetting != nil {
 		errs = AppendValidation(errs, fmt.Errorf("only one of localityLbSetting and zoneAwareLbSetting can be set"))
 	}
@@ -1345,9 +1379,9 @@ func IsNegativeDuration(in time.Duration) error {
 	return nil
 }
 
-func validatePolicyTargetReferences(targetRefs []*type_beta.PolicyTargetReference) (v Validation) {
+func validatePolicyTargetReferences(targetRefs []*type_beta.PolicyTargetReference, additionalAllowed ...config.GroupVersionKind) (v Validation) {
 	for _, r := range targetRefs {
-		v = AppendValidation(v, validatePolicyTargetReference(r))
+		v = AppendValidation(v, validatePolicyTargetReference(r, additionalAllowed...))
 	}
 	return v
 }
@@ -1360,7 +1394,7 @@ var allowedTargetRefs = []config.GroupVersionKind{
 	gvk.GatewayClass,
 }
 
-func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
+func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference, additionalAllowed ...config.GroupVersionKind) (v Validation) {
 	if targetRef == nil {
 		return v
 	}
@@ -1372,12 +1406,14 @@ func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (
 		v = appendErrorf(v, "targetRef namespace must not be set; cross namespace referencing is not supported")
 	}
 
-	canoncalGroup := targetRef.Group
-	if canoncalGroup == "" {
-		canoncalGroup = "core"
+	canonicalGroup := targetRef.Group
+	if canonicalGroup == "" {
+		canonicalGroup = "core"
 	}
-	allowed := slices.FindFunc(allowedTargetRefs, func(gvk config.GroupVersionKind) bool {
-		return gvk.Kind == targetRef.Kind && gvk.CanonicalGroup() == canoncalGroup
+	validTargetRefs := append([]config.GroupVersionKind(nil), allowedTargetRefs...)
+	validTargetRefs = append(validTargetRefs, additionalAllowed...)
+	allowed := slices.FindFunc(validTargetRefs, func(gvk config.GroupVersionKind) bool {
+		return gvk.Kind == targetRef.Kind && gvk.CanonicalGroup() == canonicalGroup
 	}) != nil
 
 	if !allowed {
@@ -1442,10 +1478,32 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 		var warnings Warning
 		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef(), in.GetTargetRefs())
 		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
-		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef())
-		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs())
+		var additionalTargetRefs []config.GroupVersionKind
+		if features.EnableGatewayAPIHTTPRouteAuth {
+			// HTTPRoute is only a valid targetRef when the feature is enabled.
+			additionalTargetRefs = append(additionalTargetRefs, gvk.HTTPRoute)
+		}
+		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef(), additionalTargetRefs...)
+		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs(), additionalTargetRefs...)
 		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation, targetRefsValidation)
 		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
+
+		if features.EnableGatewayAPIHTTPRouteAuth && hasHTTPRouteTargetRef(in) {
+			switch in.GetAction() {
+			case security_beta.AuthorizationPolicy_ALLOW, security_beta.AuthorizationPolicy_DENY:
+				// Allowed
+			default:
+				errs = appendErrors(errs,
+					fmt.Errorf("Only ALLOW/DENY actions are supported for HTTPRoute targetRefs, got %s", in.GetAction().String()))
+			}
+			// An HTTPRoute targetRef scopes the policy to individual routes. Mixing it with another
+			// kind would also apply the policy workload-wide, silently widening an ALLOW beyond
+			// the targeted route.
+			if hasNonHTTPRouteTargetRef(in) {
+				errs = appendErrors(errs,
+					fmt.Errorf("an HTTPRoute targetRef must not be combined with targetRefs of other kinds"))
+			}
+		}
 
 		if in.Action == security_beta.AuthorizationPolicy_CUSTOM {
 			if in.Rules == nil {
@@ -1645,6 +1703,41 @@ var ValidateRequestAuthentication = RegisterValidateFunc("ValidateRequestAuthent
 		}
 		return errs.Unwrap()
 	})
+
+func isHTTPRouteTargetRef(ref *type_beta.PolicyTargetReference) bool {
+	if ref == nil {
+		return false
+	}
+	return ref.Kind == gvk.HTTPRoute.Kind &&
+		config.CanonicalGroup(ref.GetGroup()) == gvk.HTTPRoute.CanonicalGroup()
+}
+
+func hasNonHTTPRouteTargetRef(in *security_beta.AuthorizationPolicy) bool {
+	if ref := in.GetTargetRef(); ref != nil && !isHTTPRouteTargetRef(ref) {
+		return true
+	}
+	for _, ref := range in.GetTargetRefs() {
+		if !isHTTPRouteTargetRef(ref) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasHTTPRouteTargetRef(in *security_beta.AuthorizationPolicy) bool {
+	targetRef := in.GetTargetRef()
+	if isHTTPRouteTargetRef(targetRef) {
+		return true
+	}
+
+	for _, ref := range in.GetTargetRefs() {
+		if isHTTPRouteTargetRef(ref) {
+			return true
+		}
+	}
+
+	return false
+}
 
 // warnPrivateJwksKeys warns if inline Jwks contains private key material.
 // Envoy only needs public keys for token verification.
@@ -2411,7 +2504,7 @@ func validateGatewayNames(gatewayNames []string, gatewaySemantics bool) (errs Va
 					"using legacy gatewayName format %q; prefer the <namespace>/<name> format: %q", gatewayName, recommended)))
 			}
 			errs = AppendValidation(errs, agent.ValidateFQDN(gatewayName))
-			return errs
+			continue
 		}
 
 		if len(parts[0]) == 0 || len(parts[1]) == 0 {
@@ -2591,7 +2684,7 @@ func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort)
 }
 
 func validateHTTPStatus(status int32) error {
-	if status < 200 || status > 600 {
+	if status < 200 || status > 599 {
 		return fmt.Errorf("HTTP status %d is not in range 200-599", status)
 	}
 	return nil
@@ -2964,6 +3057,12 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 		for _, address := range serviceEntry.Addresses {
 			cidrFound = cidrFound || strings.Contains(address, "/")
 			errs = AppendValidation(errs, agent.ValidateIPSubnet(address))
+			if isBroadAddress(address) {
+				errs = AppendValidation(errs, WrapWarning(fmt.Errorf(
+					"address %s is a catch-all or very broad CIDR; with resolution NONE it applies to all workloads "+
+						"matching exportTo and can bypass outboundTrafficPolicy REGISTRY_ONLY; "+
+						"consider a narrower CIDR and exportTo: [\".\"]", address)))
+			}
 		}
 
 		if cidrFound {
@@ -3576,4 +3675,21 @@ func validateTrafficExtensionMatch(selectors []*extensions.TrafficSelector) erro
 		}
 	}
 	return nil
+}
+
+// isBroadAddress returns true for catch-all addresses (0.0.0.0, ::) and for CIDRs that are very broad:
+// shorter than /8, or with an unspecified network (0.0.0.0/N), which the listener builder treats as match-all.
+func isBroadAddress(address string) bool {
+	if addr, err := netip.ParseAddr(address); err == nil {
+		return addr.Unmap().IsUnspecified()
+	}
+	prefix, err := netip.ParsePrefix(address)
+	if err != nil {
+		return false
+	}
+	if prefix.Bits() < 8 {
+		return true
+	}
+	addr := prefix.Masked().Addr().Unmap()
+	return addr.IsUnspecified() && prefix.Bits() < addr.BitLen()
 }

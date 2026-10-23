@@ -17,11 +17,11 @@ package controller
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -312,7 +312,7 @@ func expectConfigMap(t *testing.T, configmaps kclient.Client[*v1.ConfigMap], nam
 		if cm == nil {
 			return fmt.Errorf("not found")
 		}
-		if !reflect.DeepEqual(cm.Data, data) {
+		if !apiequality.Semantic.DeepEqual(cm.Data, data) {
 			return fmt.Errorf("data mismatch, expected %+v got %+v", data, cm.Data)
 		}
 		return nil

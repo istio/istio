@@ -208,6 +208,9 @@ func updateTimestampAnnotations(t framework.TestContext) {
 			}
 
 			// Update annotations to force the mounted configmap refresh
+			if pod.Annotations == nil {
+				pod.Annotations = map[string]string{}
+			}
 			pod.Annotations["timestamp"] = ts
 			if _, err := c.Kube().CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
 				t.Fatalf("failed to update pod %s: %v", pod.Name, err)

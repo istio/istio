@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 60609
+releaseNotes:
+- |
+  **Fixed** an issue where enabling ambient multi-network for ingress gateways
+  broke ingress gateway routing to sidecar pods; the issue prevented sidecar
+  and ambient co-existing in the same Istio multi-network deployment.
