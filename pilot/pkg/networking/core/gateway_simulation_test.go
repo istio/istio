@@ -2661,7 +2661,7 @@ func TestGatewayWildcardDynamicDNS(t *testing.T) {
 		},
 		Type: model.Router,
 	}
-	runSimulationTest(t, egressGateway, xds.FakeOptions{}, simulationTest{
+	cases := []simulationTest{{
 		name: "tls passthrough to wildcard DYNAMIC_DNS service entry",
 		config: `
 apiVersion: networking.istio.io/v1
@@ -2726,5 +2726,100 @@ spec:
 				ClusterMatched:  "outbound|443||*.destination1.com",
 			},
 		}},
-	})
+	}, {
+		name: "tls passthrough route with SNI hosts wider than the wildcard DYNAMIC_DNS service entry",
+		config: `
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard
+  namespace: default
+spec:
+  hosts:
+  - '*.destination1.com'
+  location: MESH_EXTERNAL
+  resolution: DYNAMIC_DNS
+  ports:
+  - number: 443
+    name: tls
+    protocol: TLS
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: egressgateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: tls
+      number: 443
+      protocol: TLS
+    tls:
+      mode: PASSTHROUGH
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: wildcard
+  namespace: default
+spec:
+  gateways:
+  - istio-system/egressgateway
+  hosts:
+  - '*.destination1.com'
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - '*.destination1.com'
+    route:
+    - destination:
+        host: '*.destination1.com'
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: all-sni
+  namespace: default
+spec:
+  gateways:
+  - istio-system/egressgateway
+  hosts:
+  - '*'
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - '*'
+    route:
+    - destination:
+        host: '*.destination1.com'
+        port:
+          number: 443
+`,
+		calls: []simulation.Expect{{
+			Name: "host under the wildcard host",
+			Call: simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "foo.destination1.com"},
+			Result: simulation.Result{
+				ListenerMatched: "0.0.0.0_443",
+				ClusterMatched:  "outbound|443||*.destination1.com",
+			},
+		}, {
+			Name: "host outside the wildcard host",
+			Call: simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "other.com"},
+			Result: simulation.Result{
+				Error: simulation.ErrNoFilterChain,
+			},
+		}},
+	}}
+	for _, tt := range cases {
+		runSimulationTest(t, egressGateway, xds.FakeOptions{}, tt)
+	}
 }
