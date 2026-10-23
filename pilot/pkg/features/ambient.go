@@ -53,6 +53,13 @@ var (
 		false, false,
 		"If enabled, HBONE will be preferred when sending to destinations. ")
 
+	// Downstream patch for https://github.com/istio/istio/issues/54921.
+	EnableHeadlessHBONESend = registerAmbient(
+		"PILOT_ENABLE_HEADLESS_HBONE_SEND",
+		false, false,
+		"If enabled, sidecars send HBONE to the pods of a headless Kubernetes service on TCP ports when every pod "+
+			"supports HBONE and at least one pod cannot accept Istio mTLS, for example during a sidecar to ambient migration.")
+
 	DefaultAllowFromWaypoint = registerAmbient(
 		"PILOT_AUTO_ALLOW_WAYPOINT_POLICY",
 		false, false,

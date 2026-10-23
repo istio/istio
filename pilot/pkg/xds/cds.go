@@ -78,6 +78,11 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	// However, if ServiceUpdate is also present, the service definition changed
 	// (ports, labels, etc.) and we need to push CDS.
 	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
+	// Downstream patch for https://github.com/istio/istio/issues/54921: with headless HBONE, a sidecar's headless
+	// cluster depends on which endpoints exist, so endpoint-only updates must still refresh CDS.
+	if features.EnableHeadlessHBONESend && proxy.Type == model.SidecarProxy {
+		headlessOnly = false
+	}
 
 	relevantUpdates := make(sets.Set[model.ConfigKey])
 	filtered := false
