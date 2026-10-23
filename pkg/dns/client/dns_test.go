@@ -274,8 +274,10 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 		{
 			name: "success: wild card with with search namespace chained pointer correctly",
 			host: "foo.wildcard.ns1.svc.cluster.local.",
-			expected: append(cname("foo.wildcard.ns1.svc.cluster.local.", "*.wildcard."),
-				a("*.wildcard.", []netip.Addr{netip.MustParseAddr("10.10.10.10")})...),
+			// No CNAME: a CNAME target of "*.wildcard." would be an illegal DNS name (RFC 1035
+			// 3.3.1); answer directly under the queried name instead, as for the non-search-suffixed
+			// wildcard case above.
+			expected: a("foo.wildcard.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("10.10.10.10")}),
 		},
 		{
 			name:     "success: wild card with domain returns A record correctly",
@@ -288,10 +290,9 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 			expected: a("foo.foons.svc.mesh.company.net.", []netip.Addr{netip.MustParseAddr("10.1.2.3")}),
 		},
 		{
-			name: "success: wild card with search domain returns A record correctly",
-			host: "foo.svc.mesh.company.net.ns1.svc.cluster.local.",
-			expected: append(cname("foo.svc.mesh.company.net.ns1.svc.cluster.local.", "*.svc.mesh.company.net."),
-				a("*.svc.mesh.company.net.", []netip.Addr{netip.MustParseAddr("10.1.2.3")})...),
+			name:     "success: wild card with search domain returns A record correctly",
+			host:     "foo.svc.mesh.company.net.ns1.svc.cluster.local.",
+			expected: a("foo.svc.mesh.company.net.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("10.1.2.3")}),
 		},
 		{
 			name:      "success: TypeAAAA query returns AAAA records only",
