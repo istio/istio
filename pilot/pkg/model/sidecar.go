@@ -175,9 +175,9 @@ type SidecarScope struct {
 	// import, for use by CDS calculation. servicesByHostname holds the merged service per hostname of this union.
 	services           []*Service
 	servicesByHostname map[host.Name]*Service
-	// unmergedEgressServices holds the egress listener services, in listener order, of hostnames whose
-	// servicesByHostname entry is not their only egress listener service, as nil for VirtualService destinations
-	// the listeners don't import. Nil if egress listener services were never collected.
+	// Egress listener services per hostname, in listener order, stored only when they differ from
+	// servicesByHostname[h]. A nil value marks a hostname that only comes from a VirtualService. Nil if egress
+	// listener services were never collected.
 	unmergedEgressServices map[host.Name][]*Service
 
 	// Destination rules imported across all egress listeners. This

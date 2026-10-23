@@ -30,7 +30,7 @@ import (
 )
 
 // nameIndex holds every candidate for each name offered by Delta NDS resources, so that an update only recomputes
-// the names it touches. It is only accessed by the writer; DNS queries read the LookupTable it last published.
+// the names it touches. It is only accessed by the writer; DNS queries read only the published LookupTable.
 type nameIndex struct {
 	// search is the first search namespace with a trailing dot, or empty.
 	search     string
