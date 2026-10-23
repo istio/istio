@@ -60,7 +60,6 @@ var (
 	rerouteVirtInterfacesKey = annotation.IoIstioRerouteVirtualInterfaces.Name
 
 	annotationRegistry = map[string]*annotationParam{
-		"inject":                     {injectAnnotationKey, "", alwaysValidFunc},
 		"status":                     {sidecarStatusKey, "", alwaysValidFunc},
 		"redirectMode":               {sidecarInterceptModeKey, defaultRedirectMode, validateInterceptionMode},
 		"ports":                      {sidecarPortListKey, "", validatePortList},

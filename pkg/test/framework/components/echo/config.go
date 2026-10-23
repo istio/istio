@@ -310,12 +310,15 @@ func (c Config) IsStatefulSet() bool {
 	return c.StatefulSet
 }
 
-// IsNaked checks if the config has no sidecar.
+// IsNaked checks if the config has no proxy at all - no sidecar, and in ambient mode, not
+// captured by ztunnel either.
+// Note: inject=false alone doesn't mean naked - waypoint/captured apps set it too, just to
+// keep the sidecar away, but ztunnel still protects them.
 // Note: instances that mix subsets with and without sidecars are considered 'naked'.
 func (c Config) IsNaked() bool {
 	for _, s := range c.Subsets {
-		if s.Annotations != nil && s.Annotations[annotation.SidecarInject.Name] == "false" {
-			// Sidecar injection is disabled - it's naked.
+		if s.Labels != nil && s.Labels[label.SidecarInject.Name] == "false" && !c.ZTunnelCaptured() {
+			// no sidecar, no ztunnel - naked.
 			return true
 		}
 	}
@@ -328,14 +331,12 @@ func (c Config) IsAllNaked() bool {
 		// No subsets - default to not-naked.
 		return false
 	}
-	// if ANY subset has a sidecar, not naked.
+	// if any subset has a sidecar, or is ztunnel-captured, not naked.
 	for _, s := range c.Subsets {
-		if s.Annotations == nil || s.Annotations[annotation.SidecarInject.Name] != "false" {
-			// Sidecar injection is enabled - it's not naked.
+		if s.Labels == nil || s.Labels[label.SidecarInject.Name] != "false" || c.ZTunnelCaptured() {
 			return false
 		}
 	}
-	// All subsets were annotated indicating no sidecar injection.
 	return true
 }
 

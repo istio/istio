@@ -2364,7 +2364,11 @@ func TestInitPushContext(t *testing.T) {
 
 func TestGatewayAndWaypointSidecarScopes(t *testing.T) {
 	meshVirtualService := &config.Config{
-		GroupVersionKind: gvk.VirtualService, Name: "mesh-route", Namespace: "default",
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "mesh-route",
+			Namespace:        "default",
+		},
 		Spec: &networking.VirtualService{Hosts: []string{"example.com"}},
 	}
 	for _, order := range [][]NodeType{

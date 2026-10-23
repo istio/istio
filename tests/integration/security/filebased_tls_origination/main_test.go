@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/annotation"
+	ilabel "istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
@@ -200,8 +201,8 @@ func setupApps(ctx resource.Context, appNs namespace.Getter,
 		},
 		// Do not inject, as we are testing non-Istio TLS here
 		Subsets: []echo.SubsetConfig{{
-			Version:     "v1",
-			Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+			Version: "v1",
+			Labels:  map[string]string{ilabel.SidecarInject.Name: "false"},
 		}},
 		Cluster: ctx.Clusters().Default(),
 	}
@@ -246,8 +247,8 @@ func setupApps(ctx resource.Context, appNs namespace.Getter,
 			Hostname: "external-service.default.svc",
 		},
 		Subsets: []echo.SubsetConfig{{
-			Version:     "v1",
-			Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+			Version: "v1",
+			Labels:  map[string]string{ilabel.SidecarInject.Name: "false"},
 		}},
 		Cluster: ctx.Clusters().Default(),
 	}

@@ -278,19 +278,31 @@ func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
 	return ValidateProxyAddress(strings.Replace(d.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
 }
 
+// validateConfigMapCredential ensures a configmap:// credential reference matches the namespace of
+// the configuration that references it. An empty configNamespace means the caller has no namespace
+// context (for example ProxyConfig on the agent), in which case the reference cannot be resolved
+// safely and is rejected.
+func validateConfigMapCredential(field, name, configNamespace string) error {
+	if !strings.HasPrefix(name, credentials.KubernetesConfigMapTypeURI) {
+		return nil
+	}
+	rn, err := credentials.ParseResourceName(name, configNamespace, "", "")
+	if err != nil {
+		return fmt.Errorf("invalid configmap:// %s: %v", field, err)
+	}
+	if rn.Namespace != configNamespace || configNamespace == "" {
+		return fmt.Errorf("invalid configmap:// %s: namespace must match the configuration namespace %q", field, configNamespace)
+	}
+	return nil
+}
+
 func ValidateTLS(configNamespace string, settings *networking.ClientTLSSettings) (errs error) {
 	if settings == nil {
 		return errs
 	}
 
-	if settings.CredentialName != "" && strings.HasPrefix(settings.CredentialName, credentials.KubernetesConfigMapTypeURI) {
-		rn, err := credentials.ParseResourceName(settings.CredentialName, configNamespace, "", "")
-		if err != nil {
-			errs = AppendErrors(errs, fmt.Errorf("invalid configmap:// credentialName: %v", err))
-		} else if rn.Namespace != configNamespace || configNamespace == "" {
-			errs = AppendErrors(errs, fmt.Errorf("invalid configmap:// credentialName: namespace must match the configuration namespace %q", configNamespace))
-		}
-	}
+	errs = AppendErrors(errs, validateConfigMapCredential("credentialName", settings.CredentialName, configNamespace))
+	errs = AppendErrors(errs, validateConfigMapCredential("caCertCredentialName", settings.CaCertCredentialName, configNamespace))
 
 	if settings.GetInsecureSkipVerify().GetValue() {
 		if settings.Mode == networking.ClientTLSSettings_SIMPLE {
@@ -306,6 +318,25 @@ func ValidateTLS(configNamespace string, settings *networking.ClientTLSSettings)
 			if settings.CaCertificates != "" || settings.SubjectAltNames != nil {
 				errs = AppendErrors(errs, fmt.Errorf("cannot specify CaCertificates or SubjectAltNames when InsecureSkipVerify is set true"))
 			}
+		}
+
+		// Unlike CredentialName, CaCertCredentialName unambiguously supplies a CA, so it conflicts
+		// with InsecureSkipVerify in every mode.
+		if settings.CaCertCredentialName != "" {
+			errs = AppendErrors(errs, fmt.Errorf("cannot specify CaCertCredentialName when InsecureSkipVerify is set true"))
+		}
+	}
+
+	// This validation for caCertCredentialName must precede the early return below.
+	if settings.CaCertCredentialName != "" {
+		if settings.Mode != networking.ClientTLSSettings_SIMPLE && settings.Mode != networking.ClientTLSSettings_MUTUAL {
+			errs = AppendErrors(errs, fmt.Errorf("caCertCredentialName is only supported for SIMPLE and MUTUAL TLS modes"))
+		}
+		if settings.CaCertificates != "" {
+			errs = AppendErrors(errs, fmt.Errorf("cannot specify both caCertificates and caCertCredentialName"))
+		}
+		if settings.CaCrl != "" {
+			errs = AppendErrors(errs, fmt.Errorf("CRL is not supported with caCertCredentialName. CRL has to be specified in the credential"))
 		}
 	}
 

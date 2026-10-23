@@ -3948,6 +3948,66 @@ func TestValidateServiceEntries(t *testing.T) {
 		labels  map[string]string
 	}{
 		{
+			name: "broad address unspecified ipv4", in: &networking.ServiceEntry{
+				Hosts:      []string{"bypass.external"},
+				Addresses:  []string{"0.0.0.0"},
+				Ports:      []*networking.ServicePort{{Number: 19999, Protocol: "TCP", Name: "tcp"}},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "broad address unspecified ipv6", in: &networking.ServiceEntry{
+				Hosts:      []string{"bypass.external"},
+				Addresses:  []string{"::"},
+				Ports:      []*networking.ServicePort{{Number: 19999, Protocol: "TCP", Name: "tcp"}},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "broad CIDR catch-all", in: &networking.ServiceEntry{
+				Hosts:      []string{"bypass.external"},
+				Addresses:  []string{"0.0.0.0/0"},
+				Ports:      []*networking.ServicePort{{Number: 19999, Protocol: "TCP", Name: "tcp"}},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "broad CIDR catch-all ipv6", in: &networking.ServiceEntry{
+				Hosts:      []string{"bypass.external"},
+				Addresses:  []string{"::/0"},
+				Ports:      []*networking.ServicePort{{Number: 19999, Protocol: "TCP", Name: "tcp"}},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "broad CIDR unspecified /8", in: &networking.ServiceEntry{
+				Hosts:      []string{"bypass.external"},
+				Addresses:  []string{"0.0.0.0/8"},
+				Ports:      []*networking.ServicePort{{Number: 19999, Protocol: "TCP", Name: "tcp"}},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "broad CIDR short prefix", in: &networking.ServiceEntry{
+				Hosts:      []string{"bypass.external"},
+				Addresses:  []string{"10.0.0.0/7"},
+				Ports:      []*networking.ServicePort{{Number: 19999, Protocol: "TCP", Name: "tcp"}},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
 			name: "discovery type DNS", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
 				Ports: []*networking.ServicePort{

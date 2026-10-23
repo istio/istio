@@ -20,8 +20,8 @@ require (
 	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v29.5.2+incompatible
-	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20261003070529-6b14e001be9b
-	github.com/envoyproxy/go-control-plane/envoy v1.39.1-0.20261003070529-6b14e001be9b
+	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20261017072358-cded3a6731eb
+	github.com/envoyproxy/go-control-plane/envoy v1.40.1-0.20261017072358-cded3a6731eb
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.19.0
 	github.com/felixge/fgprof v0.9.5
@@ -44,7 +44,7 @@ require (
 	github.com/hashicorp/go-version v1.9.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/howardjohn/unshare-go v0.5.0
-	github.com/klauspost/compress v1.18.6
+	github.com/klauspost/compress v1.19.1
 	github.com/lestrrat-go/jwx v1.2.31
 	github.com/mattn/go-isatty v0.0.22
 	github.com/miekg/dns v1.1.72
@@ -55,10 +55,10 @@ require (
 	github.com/pires/go-proxyproto v0.12.0
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240409071808-615f978279ca
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
-	github.com/prometheus/client_golang v1.23.2
+	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/client_model v0.6.3
 	github.com/prometheus/common v0.71.0
-	github.com/prometheus/procfs v0.21.0
+	github.com/prometheus/procfs v0.21.1
 	github.com/prometheus/prometheus v0.311.3
 	github.com/quic-go/quic-go v0.59.1
 	github.com/ryanuber/go-glob v1.0.0
@@ -96,8 +96,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v4 v4.2.0
-	istio.io/api v1.31.0-alpha.1.0.20260928195158-409e35b92127
-	istio.io/client-go v1.31.0-alpha.1.0.20260928195457-15cb8ceac95b
+	istio.io/api v1.32.0-alpha.0.0.20261021201554-855754b46d81
+	istio.io/client-go v1.32.0-alpha.0.0.20261021201855-5a3fa7c63379
 	k8s.io/api v0.36.1
 	k8s.io/apiextensions-apiserver v0.36.1
 	k8s.io/apimachinery v0.36.1

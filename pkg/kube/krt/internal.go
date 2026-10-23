@@ -108,7 +108,7 @@ type dependency struct {
 	id             collectionUID
 	collectionName string
 	// Filter over the collection
-	filter *filter
+	filter filter
 }
 
 type erasedEventHandler = func(o []Event[any])

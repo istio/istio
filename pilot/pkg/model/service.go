@@ -1929,19 +1929,22 @@ func ParseSubsetKeyHostname(s string) (hostname string) {
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname host.Name, port int) {
 	sep := "|"
-	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
-	// Since we do not want every callsite to implement the logic to differentiate between the two forms
-	// we add an alternate parser here.
-	if strings.HasPrefix(s, trafficDirectionOutboundSrvPrefix) ||
-		strings.HasPrefix(s, trafficDirectionInboundSrvPrefix) {
-		sep = "_."
-	}
 
 	// Format: dir|port|subset|hostname
-	dir, s, ok := strings.Cut(s, sep)
+	dir, rest, ok := strings.Cut(s, sep)
 	if !ok {
-		return direction, subsetName, hostname, port
+		// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
+		// Since we do not want every callsite to implement the logic to differentiate between the two forms
+		// we add an alternate parser here.
+		if !IsDNSSrvSubsetKey(s) {
+			return
+		}
+		sep = "_."
+		if dir, rest, ok = strings.Cut(s, sep); !ok {
+			return
+		}
 	}
+	s = rest
 	direction = TrafficDirection(dir)
 
 	p, s, ok := strings.Cut(s, sep)
@@ -2051,6 +2054,7 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 	}
+	usedAutoAllocatedIPs := false
 	if len(addresses) == 0 && nodeUsesAutoallocatedIPs(node) {
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
@@ -2058,8 +2062,10 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 		if s.AutoAllocatedIPv6Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv6Address)
 		}
+		usedAutoAllocatedIPs = true
 	}
-	if (!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual {
+	skipFilter := usedAutoAllocatedIPs && node.Type == Waypoint
+	if !skipFilter && ((!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual) {
 		addresses = netutil.FilterAddressesByIPFamily(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 	}
 	if len(addresses) > 0 {

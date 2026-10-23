@@ -264,7 +264,7 @@ func newController(
 		}
 	}
 
-	s.buildCollections()
+	s.buildCollections(features.GlobalSendUnhealthyEndpoints.Load() || features.DefaultSendUnhealthyEndpoints.Load())
 
 	if !s.workloadEntryController {
 		// Register EDS/XDS push handlers
@@ -280,14 +280,20 @@ func newController(
 	return s
 }
 
-func (s *Controller) buildCollections() {
+func (s *Controller) buildCollections(sendUnhealthy bool) {
 	wleWorkloads := krt.NewCollection(s.inputs.WorkloadEntries, func(ctx krt.HandlerContext, cfg config.Config) **model.WorkloadInstance {
-		if features.WorkloadEntryHealthChecks && !isHealthy(cfg) {
+		healthy := !features.WorkloadEntryHealthChecks || isHealthy(cfg)
+		if !healthy && !sendUnhealthy {
 			return nil
 		}
 
 		we := ConvertWorkloadEntry(cfg)
 		wi := convertWorkloadEntryToWorkloadInstance(ctx, we, cfg.Meta, s.inputs.MeshConfig, cfg.Namespace, s.clusterID, s.networkIDCallback)
+		wi.Endpoint.HealthStatus = model.Healthy
+		if !healthy {
+			wi.Endpoint.HealthStatus = model.UnHealthy
+		}
+		wi.Endpoint.SendUnhealthyEndpoints = sendUnhealthy
 		return &wi
 	}, s.opts.WithName("outputs/WorkloadsFromWLE")...)
 
@@ -499,23 +505,6 @@ func (s *Controller) GetService(hostname host.Name) *model.Service {
 
 	sortServicesByCreationTime(res)
 	return res[0].Service
-}
-
-// ResyncEDS will do a full EDS update. This is needed for some tests where we have many configs loaded without calling
-// the config handlers.
-// This should probably not be used in production code.
-func (s *Controller) ResyncEDS() {
-	if s.workloadEntryController {
-		return
-	}
-
-	shard := model.ShardKeyFromRegistry(s)
-	for _, io := range s.outputs.ServiceInstancesByNamespaceHost.List() {
-		instances := slices.Map(io.Instances, func(i *WorkloadServiceInstance) *model.IstioEndpoint {
-			return i.Endpoint
-		})
-		s.XdsUpdater.EDSUpdate(shard, io.Hostname, io.Namespace, instances)
-	}
 }
 
 // GetProxyServiceTargets lists service targets co-located with a given proxy

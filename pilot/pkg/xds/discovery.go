@@ -59,6 +59,31 @@ type DebounceOptions struct {
 
 	// enableEDSDebounce indicates whether EDS pushes should be debounced.
 	enableEDSDebounce bool
+
+	// enableWDSDebounce indicates whether WDS pushes should be debounced.
+	enableWDSDebounce bool
+}
+
+func (o DebounceOptions) shouldDebounce(req *model.PushRequest) bool {
+	if req.Forced || len(req.ConfigsUpdated) == 0 {
+		return true
+	}
+	for cfg := range req.ConfigsUpdated {
+		switch cfg.Kind {
+		case kind.Endpoints:
+			if o.enableEDSDebounce {
+				return true
+			}
+		case kind.Address:
+			if o.enableWDSDebounce {
+				return true
+			}
+		default:
+			return true
+		}
+	}
+	// Every updated kind permits bypassing debounce.
+	return false
 }
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's xds APIs
@@ -162,6 +187,7 @@ func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string
 			DebounceAfter:     features.DebounceAfter,
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
+			enableWDSDebounce: features.EnableWDSDebounce,
 		},
 		Cache:              env.Cache,
 		DiscoveryStartTime: processStartTime,
@@ -422,8 +448,8 @@ func debounce(
 			if len(r.Reason) == 0 {
 				r.Reason = model.NewReasonStats(model.UnknownTrigger)
 			}
-			if !opts.enableEDSDebounce && !r.Forced && model.OnlyHasConfigsOfKind(r.ConfigsUpdated, kind.Endpoints) {
-				// trigger push now, just for EDS
+			if !opts.shouldDebounce(r) {
+				// Trigger EDS and/or WDS pushes immediately, reusing the current push context.
 				go func(req *model.PushRequest) {
 					pushFn(req, false)
 					updateSent.Inc()
