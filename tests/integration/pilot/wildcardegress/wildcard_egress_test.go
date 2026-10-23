@@ -34,13 +34,28 @@ type gatewayPorts struct {
 	serverPort string
 	// routePort is empty to leave the port unset.
 	routePort string
+	// subset is the DestinationRule subset of the gateway route destination, if any.
+	subset string
 }
 
 var gatewayPortCases = []gatewayPorts{
 	{name: "server port 443", serverPort: "443", routePort: "443"},
 	// The upstream port is the ServiceEntry port (443), not the server port.
 	{name: "server port 80 without route port", serverPort: "80"},
+	{name: "server port 443 with subset", serverPort: "443", routePort: "443", subset: "v1"},
 }
+
+// wildcardSubset defines a subset of the wildcard host.
+const wildcardSubset = `
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: wildcard-subsets
+spec:
+  host: "{{.WildcardHost}}"
+  subsets:
+  - name: {{.Subset}}
+`
 
 // routeViaEgressGateway sends TLS traffic for the wildcard host from sidecars to the egress gateway,
 // which passes it through to a wildcard DYNAMIC_DNS ServiceEntry resolved by Envoy's dynamic forward proxy.
@@ -103,6 +118,9 @@ spec:
     route:
     - destination:
         host: "{{.WildcardHost}}"
+{{- if .Subset }}
+        subset: {{.Subset}}
+{{- end }}
 {{- if .RoutePort }}
         port:
           number: {{.RoutePort}}
@@ -149,7 +167,9 @@ func TestEgressGatewayWildcardDynamicDNS(t *testing.T) {
 						"EgressNamespace": settings.EgressGatewayServiceNamespace,
 						"ServerPort":      ports.serverPort,
 						"RoutePort":       ports.routePort,
+						"Subset":          ports.subset,
 					}
+					applySubset(t, args)
 					t.ConfigIstio().Eval(apps.Namespace.Name(), args, routeViaEgressGateway).ApplyOrFail(t)
 
 					// Barrier: calls fail only once they go through the egress gateway.
@@ -166,6 +186,14 @@ func TestEgressGatewayWildcardDynamicDNS(t *testing.T) {
 							c.CallOrFail(t, httpsCall(host, check.OK()))
 						}
 					})
+					if ports.subset != "" {
+						t.NewSubTest("route to a removed subset fails").Run(func(t framework.TestContext) {
+							applySubset(t, map[string]string{"WildcardHost": args["WildcardHost"], "Subset": "other"})
+							for _, c := range client {
+								c.CallOrFail(t, httpsCall(host, check.Error()))
+							}
+						})
+					}
 				})
 			}
 		})
@@ -344,6 +372,9 @@ spec:
     route:
     - destination:
         host: "{{.WildcardHost}}"
+{{- if .Subset }}
+        subset: {{.Subset}}
+{{- end }}
 {{- if .RoutePort }}
         port:
           number: {{.RoutePort}}
@@ -405,7 +436,9 @@ func TestEgressGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 						"OtherPrincipal":   other.Config().SpiffeIdentity(),
 						"ServerPort":       ports.serverPort,
 						"RoutePort":        ports.routePort,
+						"Subset":           ports.subset,
 					}
+					applySubset(t, args)
 					t.ConfigIstio().Eval(apps.Namespace.Name(), args, routeViaEgressGatewayMutualTLS).ApplyOrFail(t)
 
 					// Barrier: calls fail only once they go through the egress gateway.
@@ -513,6 +546,13 @@ func TestEgressGatewayMutualTLSWildcardDynamicDNSRejectsOtherSNI(t *testing.T) {
 				}
 			})
 		})
+}
+
+// applySubset applies the DestinationRule subset of the wildcard host, if the case has one.
+func applySubset(t framework.TestContext, args map[string]string) {
+	if args["Subset"] != "" {
+		t.ConfigIstio().Eval(apps.Namespace.Name(), args, wildcardSubset).ApplyOrFail(t)
+	}
 }
 
 // httpsCall calls the host on port 443 with the host as SNI.

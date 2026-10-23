@@ -831,6 +831,92 @@ spec:
 	}
 }
 
+// TestDeltaGatewayWildcardTLSSubsets checks that incremental pushes add and remove the dynamic forward proxy cluster of
+// a DestinationRule subset of a wildcard DYNAMIC_DNS ServiceEntry on a gateway.
+func TestDeltaGatewayWildcardTLSSubsets(t *testing.T) {
+	test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+	const (
+		v1 = "outbound|443|v1|*.shared.com"
+		v2 = "outbound|443|v2|*.shared.com"
+	)
+	destinationRule := func(subsets ...string) string {
+		dr := `apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata: {name: shared, namespace: istio-system}
+spec:
+  host: "*.shared.com"
+  subsets:
+`
+		for _, subset := range subsets {
+			dr += fmt.Sprintf("  - name: %s\n", subset)
+		}
+		return dr
+	}
+	configs := strings.Join([]string{`apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata: {name: shared, namespace: istio-system}
+spec:
+  hosts: ["*.shared.com"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  location: MESH_EXTERNAL
+  resolution: DYNAMIC_DNS
+`, `apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata: {name: egressgateway, namespace: istio-system}
+spec:
+  selector: {istio: egressgateway}
+  servers:
+  - port: {number: 443, name: tls, protocol: TLS}
+    hosts: ["*/*.shared.com"]
+    tls: {mode: ISTIO_MUTUAL}
+`, `apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata: {name: shared, namespace: istio-system}
+spec:
+  hosts: ["*.shared.com"]
+  gateways: ["istio-system/egressgateway"]
+  tcp:
+  - match: [{port: 443}]
+    route: [{destination: {host: "*.shared.com", subset: v1, port: {number: 443}}}]
+`, destinationRule("v1", "v2")}, "---\n")
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: configs})
+	s.EnsureSynced(t)
+
+	const id = "router~10.0.0.1~egressgateway.istio-system~istio-system.svc.cluster.local"
+	meta := model.NodeMetadata{Labels: map[string]string{"istio": "egressgateway"}, Namespace: "istio-system"}
+	sent := func() sets.String {
+		for _, c := range s.Discovery.AllClients() {
+			p := c.Proxy()
+			p.RLock()
+			w, ok := p.DeepCloneWatchedResourcesLocked()[v3.ClusterType]
+			names := w.ResourceNames.Copy()
+			p.RUnlock()
+			if ok {
+				return names
+			}
+		}
+		return nil
+	}
+	cds := s.ConnectDeltaADS().WithID(id).WithMetadata(meta).WithType(v3.ClusterType)
+	cds.Request(&discovery.DeltaDiscoveryRequest{})
+	cds.ExpectResponse()
+	go cds.DrainResponses()
+	assert.Equal(t, sent().Contains(v1), true)
+	assert.Equal(t, sent().Contains(v2), true)
+
+	if _, err := s.Store().Update(parseConfig(t, destinationRule("v1"))); err != nil {
+		t.Fatal(err)
+	}
+	retry.UntilSuccessOrFail(t, func() error {
+		if sent().Contains(v2) {
+			return fmt.Errorf("cluster %s not removed", v2)
+		}
+		return nil
+	}, retry.Timeout(5*time.Second))
+	s.EnsureSynced(t)
+	assert.Equal(t, sent().Contains(v1), true)
+}
+
 // deleteShared deletes the config named "shared".
 func deleteShared(kind config.GroupVersionKind, ns string) func(s *xds.FakeDiscoveryServer) {
 	return func(s *xds.FakeDiscoveryServer) {

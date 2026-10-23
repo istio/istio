@@ -17,6 +17,7 @@ releaseNotes:
       forwarded. For these servers, `AuthorizationPolicy` is not applied on the mTLS connection itself. As on waypoints, use `remoteIpBlocks` (not `ipBlocks`) to match the client
       address. Also as on waypoints, the TCP idle timeout is applied once, after the mTLS is terminated, and not on the mTLS
       connection itself.
+    The route destination can name a `DestinationRule` subset of the wildcard host; the subset's traffic policy applies.
     Weighted routes to the wildcard host are not supported.
     This feature is alpha. It is possible to spoof SNI for TLS connections that match the wildcard host. E.g. a client connecting to
     `foo.example.com` could connect via SE `*.example.com` while having SNI set to `bar.example.com`. Use it only with trusted clients.

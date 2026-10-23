@@ -507,10 +507,15 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 				// Apply DestinationRule settings
 				destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
-				cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil)
+				subsetClusters := cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil)
 
 				if patched := cp.patch([]host.Name{service.Hostname}, dfpCluster.build()); patched != nil {
 					resources = append(resources, patched)
+				}
+				for _, ss := range subsetClusters {
+					if patched := cp.patch([]host.Name{service.Hostname}, ss); patched != nil {
+						resources = append(resources, patched)
+					}
 				}
 			}
 			continue
