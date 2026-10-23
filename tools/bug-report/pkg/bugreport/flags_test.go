@@ -16,6 +16,7 @@ package bugreport
 
 import (
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -115,4 +116,66 @@ func TestExcludeFlagCommaHandling(t *testing.T) {
 		t.Fatalf("expected at least 2 exclude specs, got %d", len(config.Exclude))
 	}
 	assert.Equal(t, config.Exclude[1].Namespaces, []string{"my-app-ns", "my-other-ns"})
+}
+
+func TestTimeFilterFlags(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		wantFilter bool
+		wantWindow time.Duration
+	}{
+		{
+			name:       "no time flags",
+			args:       nil,
+			wantFilter: false,
+		},
+		{
+			name:       "duration only",
+			args:       []string{"--duration", "30m"},
+			wantFilter: true,
+			wantWindow: 30 * time.Minute,
+		},
+		{
+			name:       "duration with end-time",
+			args:       []string{"--duration", "30m", "--end-time", "2026-01-01T12:00:00Z"},
+			wantFilter: true,
+			wantWindow: 30 * time.Minute,
+		},
+		{
+			name:       "start-time only",
+			args:       []string{"--start-time", "2026-01-01T00:00:00Z"},
+			wantFilter: true,
+		},
+		{
+			name:       "end-time only",
+			args:       []string{"--end-time", "2026-01-01T00:00:00Z"},
+			wantFilter: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset global state for each test case.
+			included = nil
+			excluded = nil
+			gConfig = &config2.BugReportConfig{}
+
+			cmd := &cobra.Command{Use: "test"}
+			addFlags(cmd, gConfig)
+			if err := cmd.ParseFlags(tt.args); err != nil {
+				t.Fatal(err)
+			}
+
+			config, err := parseConfig()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			assert.Equal(t, config.TimeFilterApplied, tt.wantFilter)
+			if tt.wantWindow != 0 {
+				assert.Equal(t, config.EndTime.Sub(config.StartTime), tt.wantWindow)
+			}
+		})
+	}
 }
