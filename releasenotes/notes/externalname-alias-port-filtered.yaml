@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 61519
+
+releaseNotes:
+  - |
+    **Fixed** a bug where traffic sent through an `ExternalName` service failed with
+    `503 cluster_not_found` when the request used a port that the `ExternalName` service
+    did not declare.
