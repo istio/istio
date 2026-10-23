@@ -44,6 +44,12 @@ type nameEntry struct {
 	ipv4, ipv6 []netip.Addr
 }
 
+// newNameEntry sorts the parsed IPs so that reordered IPs give identical records; answers are shuffled per query.
+func newNameEntry(info *dnsProto.NameTable_NameInfo) *nameEntry {
+	ipv4, ipv6 := netutil.ParseIPsSplitToV4V6(info.Ips)
+	return &nameEntry{info: info, ipv4: slices.SortFunc(ipv4, netip.Addr.Compare), ipv6: slices.SortFunc(ipv6, netip.Addr.Compare)}
+}
+
 func (e *nameEntry) hasAddresses() bool {
 	return len(e.ipv4) > 0 || len(e.ipv6) > 0
 }
@@ -163,8 +169,7 @@ func (idx *nameIndex) add(resource string, nt *dnsProto.NameTable, dirty sets.St
 		if info == nil {
 			continue
 		}
-		ipv4, ipv6 := netutil.ParseIPsSplitToV4V6(info.Ips)
-		entry := &nameEntry{info: info, ipv4: ipv4, ipv6: ipv6}
+		entry := newNameEntry(info)
 		offer(source, entry, true, source)
 		for _, alias := range info.Aliases {
 			offer(alias, entry, false, source)

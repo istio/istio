@@ -27,7 +27,6 @@ import (
 
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/maps"
-	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -70,6 +69,9 @@ func TestApplyNameTables(t *testing.T) {
 		"details.ns1.svc.cluster.local": {Table: map[string]*dnsProto.NameTable_NameInfo{
 			"details.ns1.svc.cluster.local": kube("10.0.0.2", "details", "details.ns1", "details.ns1.svc"),
 		}},
+		"multi.example.com": {Table: map[string]*dnsProto.NameTable_NameInfo{
+			"multi.example.com": {Ips: []string{"192.0.2.9", "192.0.2.8"}, Registry: "External"},
+		}},
 	}, nil)
 	lt := h.lookupTable.Load().(*LookupTable)
 	check := func(cases map[string]string) {
@@ -89,6 +91,7 @@ func TestApplyNameTables(t *testing.T) {
 		"details.ns1.ns1.svc.cluster.local.":     "192.0.2.3",
 		"details.ns1.":                           "10.0.0.2",
 		"details.ns1.svc.cluster.local.":         "10.0.0.2",
+		"multi.example.com.":                     "192.0.2.8,192.0.2.9",
 		"productpage.ns1.ns1.svc.cluster.local.": "cname:productpage.ns1.,10.0.0.1",
 		"unknown.":                               "",
 	})
@@ -112,12 +115,15 @@ func TestApplyNameTables(t *testing.T) {
 		"foo.wildcard.com.":                  "",
 	})
 
-	// Unchanged resources, unknown removals and losing candidates publish nothing.
+	// Unchanged resources, unknown removals, reordered IPs and losing candidates publish nothing.
 	h.ApplyNameTables(map[string]*dnsProto.NameTable{
 		"details.ns1.svc.cluster.local": {Table: map[string]*dnsProto.NameTable_NameInfo{
 			"details.ns1.svc.cluster.local": kube("10.0.0.2", "details", "details.ns1", "details.ns1.svc"),
 		}},
 		"shadow": {Table: map[string]*dnsProto.NameTable_NameInfo{"details.ns1.svc.cluster.local": external("192.0.2.6")}},
+		"multi.example.com": {Table: map[string]*dnsProto.NameTable_NameInfo{
+			"multi.example.com": {Ips: []string{"192.0.2.8", "192.0.2.9"}, Registry: "External"},
+		}},
 	}, []string{"productpage"})
 	h.ApplyNameTables(map[string]*dnsProto.NameTable{
 		"shadow": {Table: map[string]*dnsProto.NameTable_NameInfo{"details.ns1.svc.cluster.local": external("192.0.2.7")}},
@@ -232,8 +238,7 @@ func referenceTable(searchNamespaces []string, resources map[string]*dnsProto.Na
 			if info == nil {
 				continue
 			}
-			ipv4, ipv6 := netutil.ParseIPsSplitToV4V6(info.Ips)
-			entry := &nameEntry{info: info, ipv4: ipv4, ipv6: ipv6}
+			entry := newNameEntry(info)
 			if !entry.hasAddresses() {
 				continue
 			}
