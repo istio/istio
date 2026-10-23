@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/miekg/dns"
+	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	dnsProto "istio.io/istio/pkg/dns/proto"
@@ -31,7 +32,6 @@ import (
 // nameIndex holds every candidate for each name offered by Delta NDS resources, so that an update only recomputes
 // the names it touches. It is only accessed by the writer; DNS queries read the LookupTable it last published.
 type nameIndex struct {
-	table *LookupTable
 	// search is the first search namespace with a trailing dot, or empty.
 	search     string
 	resources  map[string][]*nameCandidate
@@ -82,12 +82,6 @@ type nameRecord struct {
 
 func newNameIndex(searchNamespaces []string) *nameIndex {
 	idx := &nameIndex{
-		table: &LookupTable{
-			allHosts: sets.String{},
-			name4:    map[string][]dns.RR{},
-			name6:    map[string][]dns.RR{},
-			cname:    map[string][]dns.RR{},
-		},
 		resources:  map[string][]*nameCandidate{},
 		candidates: map[string][]*nameCandidate{},
 	}
@@ -104,6 +98,9 @@ func (idx *nameIndex) apply(updated map[string]*dnsProto.NameTable, removed []st
 		idx.remove(resource, dirty)
 	}
 	for resource, nt := range updated {
+		if idx.unchanged(resource, nt) {
+			continue
+		}
 		idx.remove(resource, dirty)
 		idx.add(resource, nt, dirty)
 	}
@@ -120,6 +117,25 @@ func (idx *nameIndex) apply(updated map[string]*dnsProto.NameTable, removed []st
 		records = append(records, idx.record(name))
 	}
 	return records
+}
+
+// unchanged reports whether nt holds exactly the entries the resource already offers, so applying it changes no name.
+func (idx *nameIndex) unchanged(resource string, nt *dnsProto.NameTable) bool {
+	offers, found := idx.resources[resource]
+	if !found {
+		return false
+	}
+	sources := 0
+	for _, c := range offers {
+		if !c.exact {
+			continue
+		}
+		sources++
+		if !proto.Equal(c.entry.info, nt.GetTable()[c.source]) {
+			return false
+		}
+	}
+	return sources == len(nt.GetTable())
 }
 
 func (idx *nameIndex) remove(resource string, dirty sets.String) {

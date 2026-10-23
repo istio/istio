@@ -211,41 +211,37 @@ func BuildNameTablesByHostname(cfg Config, only sets.String) map[string]*dnsProt
 	if cfg.Node == nil || cfg.Node.SidecarScope == nil {
 		return nil
 	}
-	groups := egressServiceGroups(cfg.Node.SidecarScope, only)
+	scope := cfg.Node.SidecarScope
 	aliases := newAliasContext(cfg.Node)
-	out := make(map[string]*dnsProto.NameTable, len(groups))
-	for hostname, services := range groups {
+	size := len(only)
+	if size == 0 {
+		size = len(scope.Services())
+	}
+	out := make(map[string]*dnsProto.NameTable, size)
+	build := func(hostname host.Name) {
+		services := scope.ServicesForEgressHostname(hostname)
+		if len(services) == 0 {
+			return
+		}
 		nt := buildNameTableForServices(cfg, services)
 		if len(nt.Table) == 0 {
-			continue
+			return
 		}
 		for name, info := range nt.Table {
 			info.Aliases = aliases.forEntry(name, info)
 		}
-		out[hostname] = nt
+		out[hostname.String()] = nt
+	}
+	if len(only) > 0 {
+		for hostname := range only {
+			build(host.Name(hostname))
+		}
+	} else {
+		for _, svc := range scope.Services() {
+			build(svc.Hostname)
+		}
 	}
 	return out
-}
-
-// egressServiceGroups returns the egress listener services per hostname, limited to only if it is non-empty.
-func egressServiceGroups(scope *model.SidecarScope, only sets.String) map[string][]*model.Service {
-	if len(only) > 0 {
-		groups := make(map[string][]*model.Service, len(only))
-		for hostname := range only {
-			if services := scope.ServicesForEgressHostname(host.Name(hostname)); len(services) > 0 {
-				groups[hostname] = services
-			}
-		}
-		return groups
-	}
-	groups := make(map[string][]*model.Service)
-	for _, el := range scope.EgressListeners {
-		for _, svc := range el.Services() {
-			hostname := svc.Hostname.String()
-			groups[hostname] = append(groups[hostname], svc)
-		}
-	}
-	return groups
 }
 
 // aliasContext holds the proxy's namespace and domain, parsed the same way as the agent's LocalDNSServer.

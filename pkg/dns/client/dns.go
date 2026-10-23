@@ -87,6 +87,15 @@ type LookupTable struct {
 	cname map[string][]dns.RR
 }
 
+func newLookupTable() *LookupTable {
+	return &LookupTable{
+		allHosts: sets.String{},
+		name4:    map[string][]dns.RR{},
+		name6:    map[string][]dns.RR{},
+		cname:    map[string][]dns.RR{},
+	}
+}
+
 const (
 	// In case the client decides to honor the TTL, keep it low so that we can always serve
 	// the latest IP for a host.
@@ -219,14 +228,13 @@ func (h *LocalDNSServer) StartDNS() {
 }
 
 func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
-	lookupTable := &LookupTable{
-		allHosts: sets.String{},
-		name4:    map[string][]dns.RR{},
-		name6:    map[string][]dns.RR{},
-		cname:    map[string][]dns.RR{},
-	}
+	lookupTable := newLookupTable()
 	h.BuildAlternateHosts(nt, lookupTable.buildDNSAnswers)
+	h.indexMu.Lock()
+	// A full table replaces any Delta NDS state.
+	h.nameIndex = nil
 	h.lookupTable.Store(lookupTable)
+	h.indexMu.Unlock()
 	h.nameTable.Store(nt)
 	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
@@ -238,24 +246,24 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 func (h *LocalDNSServer) ApplyNameTables(updated map[string]*dnsProto.NameTable, removed []string) {
 	h.indexMu.Lock()
 	defer h.indexMu.Unlock()
+	var lookupTable *LookupTable
 	if h.nameIndex == nil {
+		// Start from an empty table rather than one published by UpdateLookupTable.
 		h.nameIndex = newNameIndex(h.searchNamespaces)
+		lookupTable = newLookupTable()
 	}
-	lookupTable := h.nameIndex.table.clone()
 	records := h.nameIndex.apply(updated, removed)
+	if lookupTable == nil {
+		if len(records) == 0 {
+			return
+		}
+		lookupTable = h.lookupTable.Load().(*LookupTable).clone()
+	}
 	for _, r := range records {
 		lookupTable.set(r)
 	}
-	h.nameIndex.table = lookupTable
 	h.lookupTable.Store(lookupTable)
 	log.Debugf("updated %d names from %d resources, %d removed", len(records), len(updated), len(removed))
-}
-
-// ResetNameIndex drops the Delta NDS state so that a legacy table can replace it.
-func (h *LocalDNSServer) ResetNameIndex() {
-	h.indexMu.Lock()
-	defer h.indexMu.Unlock()
-	h.nameIndex = nil
 }
 
 // BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and

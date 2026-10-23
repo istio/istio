@@ -627,7 +627,6 @@ func (h *ndsDeltaHandler) apply(resources []*discovery.Resource, removed []strin
 			return err
 		}
 		h.resources = sets.New[string]()
-		h.dnsServer.ResetNameIndex()
 		h.dnsServer.UpdateLookupTable(&table)
 		return nil
 	}

@@ -112,7 +112,16 @@ func TestApplyNameTables(t *testing.T) {
 		"foo.wildcard.com.":                  "",
 	})
 
-	h.ResetNameIndex()
+	// Unchanged resources and unknown removals publish nothing.
+	h.ApplyNameTables(map[string]*dnsProto.NameTable{
+		"details.ns1.svc.cluster.local": {Table: map[string]*dnsProto.NameTable_NameInfo{
+			"details.ns1.svc.cluster.local": kube("10.0.0.2", "details", "details.ns1", "details.ns1.svc"),
+		}},
+	}, []string{"productpage"})
+	if h.lookupTable.Load().(*LookupTable) != lt {
+		t.Fatal("unchanged resources must not publish a new table")
+	}
+
 	h.UpdateLookupTable(&dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{"a.example.com": external("192.0.2.4")}})
 	if _, resolved := h.NameTableSnapshot(); resolved {
 		t.Fatal("legacy table must not be reported as resolved")

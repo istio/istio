@@ -175,9 +175,10 @@ type SidecarScope struct {
 	// import, for use by CDS calculation. servicesByHostname holds the merged service per hostname of this union.
 	services           []*Service
 	servicesByHostname map[host.Name]*Service
-	// servicesByEgressHostname holds every egress listener service per hostname, unmerged and in listener
-	// order. Unlike servicesByHostname, it excludes VirtualService destinations the listeners don't import.
-	servicesByEgressHostname map[host.Name][]*Service
+	// unmergedEgressServices holds the egress listener services, in listener order, of hostnames whose
+	// servicesByHostname entry is not their only egress listener service, as nil for VirtualService destinations
+	// the listeners don't import. Nil if egress listener services were never collected.
+	unmergedEgressServices map[host.Name][]*Service
 
 	// Destination rules imported across all egress listeners. This
 	// contains the computed set based on public/private destination rules
@@ -422,12 +423,31 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 	if len(sc.servicesByHostname) == 0 {
 		sc.servicesByHostname = make(map[host.Name]*Service, imported)
 	}
-	sc.servicesByEgressHostname = make(map[host.Name][]*Service, imported)
+	sc.unmergedEgressServices = make(map[host.Name][]*Service)
+	// appendDestination appends a VirtualService destination, recording the hostname's egress listener services
+	// if the destination adds or changes its merged service.
+	appendDestination := func(s *Service) {
+		prev, found := servicesAdded[s.Hostname]
+		sc.appendSidecarServices(servicesAdded, s)
+		if _, f := sc.unmergedEgressServices[s.Hostname]; f {
+			return
+		}
+		if !found {
+			sc.unmergedEgressServices[s.Hostname] = nil
+		} else if servicesAdded[s.Hostname].svc != prev.svc {
+			sc.unmergedEgressServices[s.Hostname] = []*Service{prev.svc}
+		}
+	}
 	for _, ilw := range sc.EgressListeners {
 		// First add the explicitly requested services, which take priority
 		for _, s := range ilw.services {
+			prev, found := servicesAdded[s.Hostname]
 			sc.appendSidecarServices(servicesAdded, s)
-			sc.servicesByEgressHostname[s.Hostname] = append(sc.servicesByEgressHostname[s.Hostname], s)
+			if services, f := sc.unmergedEgressServices[s.Hostname]; f {
+				sc.unmergedEgressServices[s.Hostname] = append(services, s)
+			} else if found {
+				sc.unmergedEgressServices[s.Hostname] = []*Service{prev.svc, s}
+			}
 		}
 
 		// Infer more possible destinations from virtual services
@@ -448,7 +468,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 				if s, ok := byNamespace[configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
 					if matchedSvc := serviceMatchingPort(s, ilw, ports); matchedSvc != nil {
-						sc.appendSidecarServices(servicesAdded, matchedSvc)
+						appendDestination(matchedSvc)
 					}
 				} else {
 					// We couldn't find the hostname in our config namespace
@@ -466,7 +486,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 					}
 					if ns := pickNamespace(ps, byNamespace, configNamespace); ns != "" {
 						if matchedSvc := serviceMatchingPort(byNamespace[ns], ilw, ports); matchedSvc != nil {
-							sc.appendSidecarServices(servicesAdded, matchedSvc)
+							appendDestination(matchedSvc)
 						}
 					}
 				}
@@ -808,9 +828,19 @@ func (sc *SidecarScope) ServicesByHostname() map[host.Name]*Service {
 	return sc.servicesByHostname
 }
 
-// ServicesForEgressHostname returns the unmerged egress listener services for the hostname, in listener order.
+// ServicesForEgressHostname returns the egress listener services for the hostname, in listener order and without
+// the merging applied to ServicesByHostname.
 func (sc *SidecarScope) ServicesForEgressHostname(hostname host.Name) []*Service {
-	return sc.servicesByEgressHostname[hostname]
+	if sc.unmergedEgressServices == nil {
+		return nil
+	}
+	if services, f := sc.unmergedEgressServices[hostname]; f {
+		return services
+	}
+	if svc := sc.servicesByHostname[hostname]; svc != nil {
+		return []*Service{svc}
+	}
+	return nil
 }
 
 // Testing Only. This allows tests to inject a config without having the mock.
