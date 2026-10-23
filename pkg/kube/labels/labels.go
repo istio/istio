@@ -22,6 +22,9 @@ import (
 	"istio.io/istio/pkg/model"
 )
 
+// IstioComponentLabel indicates which Istio component a resource belongs to.
+const IstioComponentLabel = "operator.istio.io/component"
+
 var (
 	// These are the labels that are checked for canonical service name and revision.
 	// Note: the order of these labels is important.
