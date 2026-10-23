@@ -106,7 +106,7 @@ type virtualServiceIndex struct {
 	publicByGateway map[string][]*config.Config
 
 	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
-	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
+	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG or PILOT_ENABLE_DELTA_RDS is enabled
 	destinationsByGateway map[string]sets.String
 
 	// Map of VS hostname -> referenced hostnames
@@ -120,7 +120,7 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		exportedToNamespaceByGateway: map[types.NamespacedName][]*config.Config{},
 		referencedDestinations:       map[string]sets.String{},
 	}
-	if features.FilterGatewayClusterConfig {
+	if features.FilterGatewayClusterConfig || features.EnableDeltaRDS {
 		out.destinationsByGateway = make(map[string]sets.String)
 	}
 	return out
@@ -935,6 +935,13 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, namespace strin
 	patches := ps.EnvoyFilters(proxy)
 	namespaced, hosts := ps.extraServicesForProxy(proxy, patches, nil)
 	return hosts.Contains(hostname) || namespaced.Contains(NamespacedHostname{Hostname: host.Name(hostname), Namespace: namespace})
+}
+
+// GatewayDestinationHosts returns the destination hostnames referenced by VirtualServices bound to
+// the given gateway (namespace/name), precomputed when FilterGatewayClusterConfig or EnableDeltaRDS
+// is enabled. Returns nil otherwise.
+func (ps *PushContext) GatewayDestinationHosts(gatewayName string) sets.String {
+	return ps.virtualServiceIndex.destinationsByGateway[gatewayName]
 }
 
 // wellknownProviders is a list of all known providers.
@@ -1786,7 +1793,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 	ps.virtualServiceIndex.publicByGateway = map[string][]*config.Config{}
 	ps.virtualServiceIndex.referencedDestinations = map[string]sets.String{}
 
-	if features.FilterGatewayClusterConfig {
+	if features.FilterGatewayClusterConfig || features.EnableDeltaRDS {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
 	}
 
@@ -1831,7 +1838,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 			}
 		}
 
-		if features.FilterGatewayClusterConfig {
+		if features.FilterGatewayClusterConfig || features.EnableDeltaRDS {
 			for _, gw := range gwNames {
 				if gw == constants.IstioMeshGateway {
 					continue

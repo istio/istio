@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** an experimental `PILOT_ENABLE_DELTA_RDS` environment variable, defaulting to `false`. When enabled,
+    RDS computes a true delta for eligible config changes (only the route configurations affected by the change)
+    instead of rebuilding every route configuration currently watched by the proxy.
