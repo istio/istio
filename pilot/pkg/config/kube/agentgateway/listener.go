@@ -330,21 +330,25 @@ func buildTLS(
 			// This is required in the API, should be rejected in validation
 			return dummyTLS, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
 		}
-		tlsRes, err := buildSecretReference(ctx, tls.CertificateRefs[0], gw, secrets)
-		if err != nil {
-			return dummyTLS, err
+		certRef := tls.CertificateRefs[0]
+		// Check the ReferenceGrant before resolving the Secret, so a missing grant takes precedence over a missing Secret.
+		certSource := types.NamespacedName{
+			Namespace: ptr.OrDefault((*string)(certRef.Namespace), namespace),
+			Name:      string(certRef.Name),
 		}
-		// If we are going to send a cert, validate we can access it
-		sameNamespace := tlsRes.Source.Namespace == namespace
 		objectKind := schematypes.GvkFromObject(gw)
-		if !sameNamespace && !AgwSecretAllowed(grants, ctx, objectKind, gvk.Secret, tlsRes.Source, namespace) {
+		if certSource.Namespace != namespace && !AgwSecretAllowed(grants, ctx, objectKind, gvk.Secret, certSource, namespace) {
 			return dummyTLS, &ConfigError{
 				Reason: InvalidListenerRefNotPermitted,
 				Message: fmt.Sprintf(
 					"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
-					tls.CertificateRefs[0].Name, tlsRes.Source.Namespace, namespace,
+					certRef.Name, certSource.Namespace, namespace,
 				),
 			}
+		}
+		tlsRes, err := buildSecretReference(ctx, certRef, gw, secrets)
+		if err != nil {
+			return dummyTLS, err
 		}
 
 		if gatewayTLS != nil && gatewayTLS.Validation != nil && len(gatewayTLS.Validation.CACertificateRefs) > 0 {

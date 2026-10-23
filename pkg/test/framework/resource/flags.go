@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	gwConformanceConfig "sigs.k8s.io/gateway-api/conformance/utils/config"
 
@@ -262,6 +263,8 @@ func init() {
 
 func initGatewayConformanceTimeouts() {
 	defaults := gwConformanceConfig.DefaultTimeoutConfig()
+	// Cleanup waits for namespace deletion, including pod termination and finalization.
+	defaults.DeleteTimeout = 2 * time.Minute
 	settingsFromCommandLine.GatewayConformanceTimeoutConfig = defaults
 
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.CreateTimeout, "istio.test.gatewayConformance.createTimeout",

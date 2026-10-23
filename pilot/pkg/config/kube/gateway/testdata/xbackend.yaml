@@ -41,7 +41,7 @@ spec:
   externalHostname:
     hostname: secure.example.net
   port:
-    port: 80
+    number: 80
   protocol: HTTP
   tls:
     mode: ServerOnly
@@ -52,8 +52,7 @@ spec:
           group: ""
       hostname: auth.example.com
 ---
-# validation is optional on an XBackend (unlike BackendTLSPolicy), so SNI falls
-# back to the external hostname.
+# System CA validation with an explicit SNI hostname.
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackend
 metadata:
@@ -64,9 +63,12 @@ spec:
   externalHostname:
     hostname: google.com
   port:
-    port: 80
+    number: 80
   tls:
     mode: ServerOnly
+    validation:
+      wellKnownCACertificates: System
+      hostname: google.com
 ---
 # No TLS block at all: no DestinationRule should be produced.
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
@@ -79,8 +81,8 @@ spec:
   externalHostname:
     hostname: plaintext.example.net
   port:
-    port: 8080
-  protocol: HTTP2
+    number: 8080
+  protocol: H2C
 ---
 # Two Backends sharing an external hostname on different ports: the TLS settings of one
 # must not leak onto the other's port.
@@ -94,10 +96,13 @@ spec:
   externalHostname:
     hostname: shared.example.net
   port:
-    port: 443
+    number: 443
   protocol: HTTP
   tls:
     mode: ServerOnly
+    validation:
+      wellKnownCACertificates: System
+      hostname: shared.example.net
 ---
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackend
@@ -109,7 +114,7 @@ spec:
   externalHostname:
     hostname: shared.example.net
   port:
-    port: 8080
+    number: 8080
   protocol: HTTP
 ---
 # Client certificates are not supported; the Backend must be rejected.
@@ -123,7 +128,7 @@ spec:
   externalHostname:
     hostname: mtls.example.net
   port:
-    port: 443
+    number: 443
   tls:
     mode: ClientAndServer
     clientCertificateRef:
@@ -148,7 +153,7 @@ spec:
   externalHostname:
     hostname: tcp.example.net
   port:
-    port: 9000
+    number: 9000
   protocol: TCP
 ---
 # Referenced from another namespace, permitted by a ReferenceGrant.
@@ -162,9 +167,12 @@ spec:
   externalHostname:
     hostname: cross.example.net
   port:
-    port: 80
+    number: 80
   tls:
     mode: ServerOnly
+    validation:
+      wellKnownCACertificates: System
+      hostname: cross.example.net
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
@@ -197,7 +205,7 @@ spec:
           kind: XBackend
           name: external-https
 ---
-# An explicit backendRef.port matching the Backend is also accepted.
+# XBackend references omit port because the Backend declares it.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -213,9 +221,8 @@ spec:
         - group: gateway.networking.x-k8s.io
           kind: XBackend
           name: external-novalidation
-          port: 80
 ---
-# A conflicting backendRef.port is rejected.
+# A second route resolves its port from the Backend.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -231,7 +238,6 @@ spec:
         - group: gateway.networking.x-k8s.io
           kind: XBackend
           name: external-https
-          port: 8080
 ---
 # The referenced Backend does not exist.
 apiVersion: gateway.networking.k8s.io/v1
@@ -321,8 +327,7 @@ spec:
           kind: XBackend
           name: external-tcp
 ---
-# A TCPRoute referencing a Backend with a conflicting port is rejected, and the
-# invalid backend is dropped gracefully rather than aborting the rule.
+# A second TCPRoute resolves its port from the Backend.
 apiVersion: gateway.networking.k8s.io/v1
 kind: TCPRoute
 metadata:
@@ -338,4 +343,3 @@ spec:
         - group: gateway.networking.x-k8s.io
           kind: XBackend
           name: external-tcp
-          port: 9999

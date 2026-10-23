@@ -65,6 +65,12 @@ var conformanceNamespaces = []string{
 var skippedTests = map[string]string{
 	// The following tests were added in v1.5.0
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
+	// The following tests were added in v1.7.0
+	// Istio derives the upstream protocol from the Service port; the test Service has no appProtocol,
+	// so we send HTTP/1.1 (no h2 ALPN) to the TLS gRPC backend.
+	"BackendTLSPolicyGRPCRoute": "TODO",
+	// Backends have sidecars, which turn the connection error into a 503 response, so the gateway does not retry.
+	"HTTPRouteRetryConnectionError": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
@@ -163,13 +169,17 @@ func TestGatewayConformance(t *testing.T) {
 			csuite, err := suite.NewConformanceTestSuite(opts)
 			assert.NoError(t, err)
 			csuite.Setup(t, tests.ConformanceTests)
+			// Run marks the suite as finished in a t.Cleanup, so the report can only be generated after that.
+			// Cleanups run in reverse order, so register this before calling Run.
+			t.Cleanup(func() {
+				report, err := csuite.Report()
+				assert.NoError(t, err)
+				reportb, err := yaml.Marshal(report)
+				assert.NoError(t, err)
+				fp := filepath.Join(ctx.Settings().BaseDir, "istio-conformance.yaml")
+				t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
+				assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
+			})
 			assert.NoError(t, csuite.Run(t, tests.ConformanceTests))
-			report, err := csuite.Report()
-			assert.NoError(t, err)
-			reportb, err := yaml.Marshal(report)
-			assert.NoError(t, err)
-			fp := filepath.Join(ctx.Settings().BaseDir, "istio-conformance.yaml")
-			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
-			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
 		})
 }

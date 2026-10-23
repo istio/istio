@@ -539,7 +539,7 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
 	if enabled && features.EnableGatewayAPIStatus && statusManager != nil {
 		var q status.Queue = statusManager.CreateGenericController(func(status status.Manipulator, context any) {
-			status.SetInner(context)
+			status.SetInner(mergeLivePolicyStatus(status.Unwrap(), context))
 		})
 		c.status.SetQueue(q)
 	} else {
