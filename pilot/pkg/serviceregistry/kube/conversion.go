@@ -24,6 +24,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -212,6 +213,21 @@ func IsAutoPassthrough(gwLabels map[string]string, l v1.Listener) bool {
 		expectedPort = port
 	}
 	return fmt.Sprint(l.Port) == expectedPort
+}
+
+// IsMTLSTerminating reports whether a listener on an ambient east-west gateway terminates Istio
+// mTLS itself, which is how the sidecar-to-ambient bridge accepts sidecar traffic. Such a listener
+// is not a passthrough port even when IsAutoPassthrough would say so from its port number alone:
+// the gateway presents its own identity on it, so ordinary sidecar mTLS cannot be sent there.
+func IsMTLSTerminating(gatewayClass v1.ObjectName, l v1.Listener) bool {
+	if gatewayClass != constants.EastWestGatewayClassName || l.TLS == nil {
+		return false
+	}
+	// Terminate is the Gateway API default when no mode is set.
+	if l.TLS.Mode != nil && *l.TLS.Mode != v1.TLSModeTerminate {
+		return false
+	}
+	return string(l.TLS.Options[gatewaycommon.GatewayTLSTerminateModeKey]) == "ISTIO_MUTUAL"
 }
 
 func hasListenerMode(l v1.Listener, mode string) bool {
