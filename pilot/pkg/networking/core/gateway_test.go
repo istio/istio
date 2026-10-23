@@ -47,6 +47,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	config "istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -4817,6 +4818,184 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			listenertest.VerifyListeners(t, builder.gatewayListeners, listenertest.ListenersTest{
 				Listener: tt.expectedListener,
 			})
+		})
+	}
+}
+
+func TestGatewayTLSRouteFilterChains(t *testing.T) {
+	type routeConfig struct {
+		name    string
+		host    string
+		sni     []string
+		backend string
+		tcp     bool
+		legacy  bool
+	}
+	cases := []struct {
+		name       string
+		serverHost string
+		tlsMode    *networking.ServerTLSSettings
+		routes     []routeConfig
+		want       map[string]string
+	}{
+		{
+			name:       "terminate multiple routes",
+			serverHost: "*.example.com",
+			tlsMode:    &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE, CredentialName: "test"},
+			routes: []routeConfig{
+				{name: "first", host: "first.example.com", sni: []string{"first.example.com"}, backend: "first"},
+				{name: "second", host: "second.example.com", sni: []string{"second.example.com"}, backend: "second"},
+			},
+			want: map[string]string{"first.example.com": "first", "second.example.com": "second"},
+		},
+		{
+			name:       "terminate wildcard and exact routes",
+			serverHost: "*",
+			tlsMode:    &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE, CredentialName: "test"},
+			routes: []routeConfig{
+				{name: "wildcard", host: "*.example.com", sni: []string{"*.example.com"}, backend: "wildcard"},
+				{name: "exact", host: "first.example.com", sni: []string{"first.example.com"}, backend: "exact"},
+			},
+			want: map[string]string{"*.example.com": "wildcard", "first.example.com": "exact"},
+		},
+		{
+			name:       "terminate route with multiple hostnames",
+			serverHost: "*.example.com",
+			tlsMode:    &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE, CredentialName: "test"},
+			// The Gateway API controller creates a VirtualService per hostname, each retaining all SNI matches.
+			routes: []routeConfig{
+				{name: "route-0", host: "first.example.com", sni: []string{"first.example.com", "second.example.com"}, backend: "shared"},
+				{name: "route-1", host: "second.example.com", sni: []string{"first.example.com", "second.example.com"}, backend: "shared"},
+			},
+			want: map[string]string{"first.example.com": "shared", "second.example.com": "shared"},
+		},
+		{
+			name:       "terminate overlapping route hostnames",
+			serverHost: "*.example.com",
+			tlsMode:    &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE, CredentialName: "test"},
+			routes: []routeConfig{
+				{name: "first", host: "first.example.com", sni: []string{"first.example.com"}, backend: "first"},
+				{name: "second-0", host: "first.example.com", sni: []string{"first.example.com", "second.example.com"}, backend: "second"},
+				{name: "second-1", host: "second.example.com", sni: []string{"first.example.com", "second.example.com"}, backend: "second"},
+			},
+			want: map[string]string{"first.example.com": "first", "second.example.com": "second"},
+		},
+		{
+			name:       "mutual termination",
+			serverHost: "*.example.com",
+			tlsMode:    &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+			routes: []routeConfig{
+				{name: "first", host: "first.example.com", sni: []string{"first.example.com"}, backend: "first"},
+				{name: "second", host: "second.example.com", sni: []string{"second.example.com"}, backend: "second"},
+			},
+			want: map[string]string{"first.example.com": "first", "second.example.com": "second"},
+		},
+		{
+			name:       "passthrough multiple routes",
+			serverHost: "*.example.com",
+			tlsMode:    &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+			routes: []routeConfig{
+				{name: "first", host: "first.example.com", sni: []string{"first.example.com"}, backend: "first"},
+				{name: "second", host: "second.example.com", sni: []string{"second.example.com"}, backend: "second"},
+			},
+			want: map[string]string{"first.example.com": "first", "second.example.com": "second"},
+		},
+		{
+			name:       "passthrough repeated multi-host route",
+			serverHost: "*.example.com",
+			tlsMode:    &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+			routes: []routeConfig{
+				{name: "route-0", host: "first.example.com", sni: []string{"first.example.com", "second.example.com"}, backend: "shared"},
+				{name: "route-1", host: "second.example.com", sni: []string{"first.example.com", "second.example.com"}, backend: "shared"},
+			},
+			want: map[string]string{"first.example.com": "shared", "second.example.com": "shared"},
+		},
+		{
+			name:       "terminate TCP route",
+			serverHost: "*.example.com",
+			tlsMode:    &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE, CredentialName: "test"},
+			routes:     []routeConfig{{name: "tcp", host: "first.example.com", backend: "tcp", tcp: true}},
+			want:       map[string]string{"*.example.com": "tcp"},
+		},
+		{
+			name:       "plaintext TCP route",
+			serverHost: "*",
+			routes:     []routeConfig{{name: "tcp", host: "*", backend: "tcp", tcp: true}},
+			want:       map[string]string{"*": "tcp"},
+		},
+		{
+			name:       "legacy TLS VirtualService does not attach to terminating listener",
+			serverHost: "*.example.com",
+			tlsMode:    &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE, CredentialName: "test"},
+			routes:     []routeConfig{{name: "legacy", host: "first.example.com", sni: []string{"first.example.com"}, backend: "legacy", legacy: true}},
+			want:       map[string]string{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			serverProtocol := "TLS"
+			if tc.tlsMode == nil {
+				serverProtocol = "TCP"
+			}
+			configs := []config.Config{{
+				Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+				Spec: &networking.Gateway{Servers: []*networking.Server{{
+					Port:  &networking.Port{Name: "tls", Number: 9443, Protocol: serverProtocol},
+					Hosts: []string{tc.serverHost},
+					Tls:   tc.tlsMode,
+				}}},
+			}}
+			for i, r := range tc.routes {
+				vs := &networking.VirtualService{Hosts: []string{r.host}, Gateways: []string{"testns/gateway"}}
+				dest := []*networking.RouteDestination{{Destination: &networking.Destination{
+					Host: r.backend + ".example.com", Port: &networking.PortSelector{Number: 8080},
+				}}}
+				parentKind := "TLSRoute/"
+				if r.tcp {
+					parentKind = "TCPRoute/"
+					vs.Tcp = []*networking.TCPRoute{{Route: dest}}
+				} else {
+					vs.Tls = []*networking.TLSRoute{{Match: []*networking.TLSMatchAttributes{{SniHosts: r.sni}}, Route: dest}}
+				}
+				annotations := map[string]string{constants.InternalParentNames: parentKind + r.name + ".testns"}
+				if r.legacy {
+					annotations = nil
+				}
+				configs = append(configs, config.Config{
+					Meta: config.Meta{
+						Name: r.name, Namespace: "testns", GroupVersionKind: gvk.VirtualService,
+						Annotations: annotations, CreationTimestamp: time.Unix(int64(i), 0),
+					},
+					Spec: vs,
+				})
+			}
+			cg := NewConfigGenTest(t, TestOptions{Configs: configs})
+			proxy := cg.SetupProxy(&proxyGateway)
+			builder := cg.ConfigGen.buildGatewayListeners(NewListenerBuilder(proxy, cg.PushContext()))
+			xdstest.ValidateListeners(t, builder.gatewayListeners)
+			got := map[string]string{}
+			for _, l := range builder.gatewayListeners {
+				for _, fc := range l.FilterChains {
+					wantTLS := tc.tlsMode != nil && tc.tlsMode.Mode != networking.ServerTLSSettings_PASSTHROUGH
+					assert.Equal(t, fc.TransportSocket != nil, wantTLS, "downstream TLS termination")
+					tcp := xdstest.ExtractTCPProxy(t, fc)
+					sni := fc.GetFilterChainMatch().GetServerNames()
+					if len(sni) == 0 {
+						sni = []string{"*"}
+					}
+					for _, h := range sni {
+						if _, exists := got[h]; exists {
+							t.Fatalf("duplicate filter chain for SNI %q", h)
+						}
+						got[h] = tcp.GetCluster()
+					}
+				}
+			}
+			want := map[string]string{}
+			for h, backend := range tc.want {
+				want[h] = "outbound|8080||" + backend + ".example.com"
+			}
+			assert.Equal(t, got, want)
 		})
 	}
 }
