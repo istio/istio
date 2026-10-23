@@ -628,12 +628,18 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 }
 
 // Reconcile is called each time the `gatewayContext` may change. We use this to mark it as updated.
+// A push context built while a service registry is still loading lacks some services, and a
+// route to one of them would read BackendNotFound until a later push. So `gatewayContext` is
+// marked synced, which lets the collections that read it start computing, only once a push
+// context holds every service.
 func (c *Controller) Reconcile(ps *model.PushContext) {
 	ctx := gatewaycommon.NewGatewayContext(ps, c.cluster)
 	c.gatewayContext.Modify(func(i **atomic.Pointer[gatewaycommon.GatewayContext]) {
 		(*i).Store(&ctx)
 	})
-	c.gatewayContext.MarkSynced()
+	if ps.ServicesSynced() {
+		c.gatewayContext.MarkSynced()
+	}
 }
 
 func (c *Controller) Create(config config.Config) (revision string, err error) {

@@ -78,6 +78,10 @@ type serviceIndex struct {
 	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
 	// Call InstancesByPort directly when instances need to be filtered by actual labels.
 	instancesByPort map[string]map[int][]*IstioEndpoint
+
+	// synced is whether every service registry had loaded its initial state before the
+	// services in this index were read.
+	synced bool
 }
 
 func newServiceIndex() serviceIndex {
@@ -1545,6 +1549,9 @@ func (ps *PushContext) updateContext(
 // Caches list of services in the registry, and creates a map
 // of hostname to service
 func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.Set[ConfigKey]) {
+	// Read before the services, so a registry that finishes loading while they are read does not
+	// mark an incomplete list as complete.
+	ps.ServiceIndex.synced = env.ServicesSynced == nil || env.ServicesSynced()
 	// Sort the services in order of creation.
 	allServices := SortServicesByCreationTime(env.Services())
 	resolveServiceAliases(allServices, configsUpdate)
@@ -2642,6 +2649,12 @@ func (ps *PushContext) ServiceEndpoints(svcKey string) map[int][]*IstioEndpoint 
 	}
 
 	return nil
+}
+
+// ServicesSynced reports whether the services in this push context were read after every
+// service registry loaded its initial state.
+func (ps *PushContext) ServicesSynced() bool {
+	return ps.ServiceIndex.synced
 }
 
 // initKubernetesGateways initializes Kubernetes gateway-api objects
