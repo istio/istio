@@ -129,7 +129,7 @@ func (cfg *IptablesConfigurator) DeleteInpodRules(
 }
 
 func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope, kata bool) {
-	deleteCmds := [][]string{
+	deleteJumpsCmds := [][]string{
 		{"-t", "mangle", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
 		{"-t", "mangle", "-D", "OUTPUT", "-j", ChainInpodOutput},
 		{"-t", "nat", "-D", "OUTPUT", "-j", ChainInpodOutput},
@@ -137,38 +137,34 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope, kata
 		{"-t", "raw", "-D", "OUTPUT", "-j", ChainInpodOutput},
 		{"-t", "nat", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
 	}
-	// Usually, ISTIO_POSTRT exists only on the host netns, but in Kata, we also place it in the pod netns, so we need to delete it there too.
-	if kata {
-		deleteCmds = append(deleteCmds,
-			[]string{"-t", "nat", "-D", "POSTROUTING", "-j", ChainHostPostrouting},
-		)
-	}
-
 	// Flush, then delete, our created chains. These sometimes fail due to
 	// "Device or resource busy" or because they are optional given the iptables config.
-	deleteCmds = append(deleteCmds,
+	deleteFlushCmds := [][]string{
 		[]string{"-t", "mangle", "-F", ChainInpodPrerouting},
 		[]string{"-t", "mangle", "-F", ChainInpodOutput},
 		[]string{"-t", "nat", "-F", ChainInpodPrerouting},
 		[]string{"-t", "nat", "-F", ChainInpodOutput},
 		[]string{"-t", "raw", "-F", ChainInpodPrerouting},
 		[]string{"-t", "raw", "-F", ChainInpodOutput},
-	)
-	// Usually, ISTIO_POSTRT exists only on the host netns, but in Kata, we also place it in the pod netns, so we need to delete it there too.
-	if kata {
-		deleteCmds = append(deleteCmds,
-			[]string{"-t", "nat", "-F", ChainHostPostrouting},
-		)
 	}
-	deleteCmds = append(deleteCmds,
+
+	deleteCmds := [][]string{
 		[]string{"-t", "mangle", "-X", ChainInpodPrerouting},
 		[]string{"-t", "mangle", "-X", ChainInpodOutput},
 		[]string{"-t", "nat", "-X", ChainInpodPrerouting},
 		[]string{"-t", "nat", "-X", ChainInpodOutput},
 		[]string{"-t", "raw", "-X", ChainInpodPrerouting},
 		[]string{"-t", "raw", "-X", ChainInpodOutput},
-	)
+	}
+
+	// Usually, ISTIO_POSTRT exists only on the host netns, but in Kata, we also place it in the pod netns, so we need to delete it there too.
 	if kata {
+		deleteJumpsCmds = append(deleteJumpsCmds,
+			[]string{"-t", "nat", "-D", "POSTROUTING", "-j", ChainHostPostrouting},
+		)
+		deleteFlushCmds = append(deleteFlushCmds,
+			[]string{"-t", "nat", "-F", ChainHostPostrouting},
+		)
 		deleteCmds = append(deleteCmds,
 			[]string{"-t", "nat", "-X", ChainHostPostrouting},
 		)
@@ -177,12 +173,14 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope, kata
 	iptablesVariant := []dep.IptablesVersion{}
 	iptablesVariant = append(iptablesVariant, cfg.iptV)
 
-	if cfg.cfg.EnableIPv6 {
+	if cfg.cfg.EnableIPv6 && !kata {
 		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
 	}
 
+	cmds := append(deleteJumpsCmds, append(deleteFlushCmds, deleteCmds...)...)
+
 	for _, iptVer := range iptablesVariant {
-		for _, cmd := range deleteCmds {
+		for _, cmd := range cmds {
 			_, _ = cfg.ext.Run(log, true, iptablesconstants.IPTables, &iptVer, nil, cmd...)
 		}
 	}

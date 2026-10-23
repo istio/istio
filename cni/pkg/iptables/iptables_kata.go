@@ -32,6 +32,7 @@ const kataTapIface = "tap0_kata"
 
 type kataInpodConfig struct {
 	podGatewayV4 netip.Addr
+	podInterface string
 	podIPv4      []netip.Addr
 }
 
@@ -44,13 +45,20 @@ func (cfg *IptablesConfigurator) createInpodRulesKata(log *istiolog.Scope, podOv
 
 	// Capture the CNI-provided default gateway to SNAT kubelet probe traffic so replies
 	// from the guest return through the pod network namespace.
-	gatewayV4, _ := discoverDefaultGateway()
+	gatewayV4, _, podInterface := discoverDefaultGateway()
+	if gatewayV4.IsUnspecified() {
+		return fmt.Errorf("kata mode requires a default gateway for probe SNAT")
+	}
+	if podInterface == "" {
+		return fmt.Errorf("kata mode requires an interface for the default route")
+	}
 	podIPv4, podIPv6 := discoverPodIPs()
 	if len(podIPv6) > 0 {
 		return fmt.Errorf("kata mode does not support IPv6 pod addresses: %v", podIPv6)
 	}
 	kataCfg := kataInpodConfig{
 		podGatewayV4: gatewayV4,
+		podInterface: podInterface,
 		podIPv4:      podIPv4,
 	}
 
@@ -112,7 +120,6 @@ func (cfg *IptablesConfigurator) appendInpodRulesKata(
 
 	b.AppendRuleV4("PREROUTING", "mangle", "-j", ChainInpodPrerouting)
 	b.AppendRuleV4("OUTPUT", "mangle", "-j", ChainInpodOutput)
-	b.AppendRuleV4("OUTPUT", "nat", "-j", ChainInpodOutput)
 	if redirectDNS {
 		b.AppendRuleV4("PREROUTING", "raw", "-j", ChainInpodPrerouting)
 		b.AppendRuleV4("OUTPUT", "raw", "-j", ChainInpodOutput)
@@ -131,11 +138,11 @@ func (cfg *IptablesConfigurator) appendInpodRulesKata(
 		"-p", "tcp",
 		"-j", "ACCEPT",
 	)
-	// Mark TCP traffic entering on eth0 for local delivery to ztunnel.
+	// Mark TCP traffic entering on the default-route interface for local delivery to ztunnel.
 	// The policy rule for 0x111 uses table 100, whose local default route
 	// points to lo.
 	b.AppendRuleV4(ChainInpodPrerouting, "mangle",
-		"-i", "eth0",
+		"-i", kataCfg.podInterface,
 		"-p", "tcp",
 		"-j", "MARK",
 		"--set-xmark", inpodTproxyMark,
@@ -173,7 +180,7 @@ func (cfg *IptablesConfigurator) appendInpodRulesKata(
 		// delivers them to ztunnel's DNS proxy socket rather than forwarding
 		// them through tap0_kata to the guest.
 		b.AppendRuleV4(ChainInpodPrerouting, "mangle",
-			"-i", "eth0",
+			"-i", kataCfg.podInterface,
 			"-p", "udp",
 			"--sport", "53",
 			"-j", "MARK",
@@ -275,11 +282,12 @@ func (cfg *IptablesConfigurator) appendInpodRulesKata(
 	return b
 }
 
-// discoverDefaultGateway returns the IPv4 and IPv6 default-route gateways in
-// the current netns, if any. Used for kata-mode probe SNAT, where we need a
-// gateway address the guest VM is able to route back to.
-func discoverDefaultGateway() (netip.Addr, netip.Addr) {
+// discoverDefaultGateway returns the IPv4 and IPv6 default-route gateways,
+// along with the IPv4 default-route interface, in the current netns. It is
+// used for Kata-mode probe SNAT and host-facing traffic interception.
+func discoverDefaultGateway() (netip.Addr, netip.Addr, string) {
 	var v4, v6 netip.Addr
+	var v4Interface string
 	for _, family := range []int{unix.AF_INET, unix.AF_INET6} {
 		routes, err := netlink.RouteList(nil, family)
 		if err != nil {
@@ -301,12 +309,18 @@ func discoverDefaultGateway() (netip.Addr, netip.Addr) {
 			addr = addr.Unmap()
 			if family == unix.AF_INET && !v4.IsValid() {
 				v4 = addr
+				link, err := netlink.LinkByIndex(r.LinkIndex)
+				if err != nil {
+					log.Debugf("failed to find default-route interface %d: %v", r.LinkIndex, err)
+					continue
+				}
+				v4Interface = link.Attrs().Name
 			} else if family == unix.AF_INET6 && !v6.IsValid() {
 				v6 = addr
 			}
 		}
 	}
-	return v4, v6
+	return v4, v6, v4Interface
 }
 
 // discoverPodIPs returns non-loopback, non-link-local IPv4 and IPv6 addresses

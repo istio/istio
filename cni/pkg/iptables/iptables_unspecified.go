@@ -43,8 +43,8 @@ func DelLoopbackRoutes(cfg *config.AmbientConfig) error {
 	return errors.New("not implemented on this platform")
 }
 
-func discoverDefaultGateway() (netip.Addr, netip.Addr) {
-	return netip.Addr{}, netip.Addr{}
+func discoverDefaultGateway() (netip.Addr, netip.Addr, string) {
+	return netip.Addr{}, netip.Addr{}, ""
 }
 
 func discoverPodIPs() ([]netip.Addr, []netip.Addr) {

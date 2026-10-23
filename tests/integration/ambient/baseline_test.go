@@ -1,7 +1,6 @@
 //go:build integ
 
 // Copyright Istio Authors
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -3456,6 +3455,7 @@ func TestAPIServer(t *testing.T) {
 			token, err := cluster.Kube().CoreV1().ServiceAccounts(apps.Namespace.Name()).CreateToken(context.Background(), "default",
 				&authenticationv1.TokenRequest{
 					Spec: authenticationv1.TokenRequestSpec{
+						Audiences:         []string{"kubernetes.default.svc"},
 						ExpirationSeconds: ptr.Of(int64(600)),
 					},
 				}, metav1.CreateOptions{})
