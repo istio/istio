@@ -61,9 +61,9 @@ var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 	return s
 }()
 
-// cdsNeedsPush may return a new PushRequest with ConfigsUpdated filtered to only include configs that impact CDS,
+// CdsNeedsPush may return a new PushRequest with ConfigsUpdated filtered to only include configs that impact CDS,
 // this is done because cluster generator checks if only some specific types of configs are present to enable delta generation.
-func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushRequest, bool) {
+func CdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushRequest, bool) {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return req, res
 	}
@@ -133,7 +133,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	req, needsPush := cdsNeedsPush(req, proxy)
+	req, needsPush := CdsNeedsPush(req, proxy)
 	if !needsPush {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
@@ -144,7 +144,7 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req
 func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	req, needsPush := cdsNeedsPush(req, proxy)
+	req, needsPush := CdsNeedsPush(req, proxy)
 	if !needsPush {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
