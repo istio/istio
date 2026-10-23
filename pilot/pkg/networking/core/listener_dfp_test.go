@@ -298,6 +298,138 @@ func TestGatewayDynamicDNSFilters(t *testing.T) {
 	}
 }
 
+// TestGatewayDynamicDNSSNIHosts tests that a TLS passthrough route to a wildcard DYNAMIC_DNS ServiceEntry only gets an
+// SNI DFP chain when all its SNI hosts are under the ServiceEntry host, so the chain never forwards other SNIs.
+func TestGatewayDynamicDNSSNIHosts(t *testing.T) {
+	test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+	const wildcardHost = "*.destination1.com"
+	// otherWildcardHost is a second host of the same ServiceEntry, so it is a different service.
+	const otherWildcardHost = "*.destination2.com"
+	virtualService := func(name string, created time.Time, hosts, sniHosts []string) config.Config {
+		return config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: name, Namespace: "default", CreationTimestamp: created},
+			Spec: &networking.VirtualService{
+				Hosts:    hosts,
+				Gateways: []string{"egress-gw"},
+				Tls: []*networking.TLSRoute{{
+					Match: []*networking.TLSMatchAttributes{{Port: 443, SniHosts: sniHosts}},
+					Route: []*networking.RouteDestination{{
+						Destination: &networking.Destination{Host: wildcardHost, Port: &networking.PortSelector{Number: 443}},
+					}},
+				}},
+			},
+		}
+	}
+	now := time.Now()
+	cases := []struct {
+		name            string
+		gatewayHosts    []string // ["*"] if unset
+		virtualServices []config.Config
+		// wantServerNames are the server names of the SNI DFP chains.
+		wantServerNames [][]string
+	}{
+		{
+			name:            "SNI host under the wildcard host",
+			virtualServices: []config.Config{virtualService("vs", now, []string{wildcardHost}, []string{"a.destination1.com"})},
+			wantServerNames: [][]string{{"a.destination1.com"}},
+		},
+		{
+			name:            "all SNI hosts",
+			virtualServices: []config.Config{virtualService("vs", now, []string{"*"}, []string{"*"})},
+		},
+		{
+			name:            "all SNI hosts, gateway server limited to the wildcard host",
+			gatewayHosts:    []string{wildcardHost},
+			virtualServices: []config.Config{virtualService("vs", now, []string{"*"}, []string{"*"})},
+		},
+		{
+			name:            "wildcard host and all SNI hosts",
+			virtualServices: []config.Config{virtualService("vs", now, []string{"*"}, []string{wildcardHost, "*"})},
+		},
+		{
+			name:            "one SNI host outside the wildcard host",
+			virtualServices: []config.Config{virtualService("vs", now, []string{"*"}, []string{wildcardHost, "other.com"})},
+		},
+		{
+			name:            "unrelated SNI host",
+			virtualServices: []config.Config{virtualService("vs", now, []string{"other.com"}, []string{"other.com"})},
+		},
+		{
+			name:            "SNI host of another ServiceEntry host",
+			virtualServices: []config.Config{virtualService("vs", now, []string{otherWildcardHost}, []string{otherWildcardHost})},
+		},
+		{
+			name:            "no SNI hosts",
+			virtualServices: []config.Config{virtualService("vs", now, []string{"*"}, nil)},
+		},
+		{
+			name: "rejected route does not hide a later route with the same SNI host",
+			virtualServices: []config.Config{
+				virtualService("rejected", now, []string{"*"}, []string{wildcardHost, "other.com"}),
+				virtualService("accepted", now.Add(time.Second), []string{wildcardHost}, []string{wildcardHost}),
+			},
+			wantServerNames: [][]string{{wildcardHost}},
+		},
+		{
+			name: "rejected all-SNI route next to a route for the wildcard host",
+			virtualServices: []config.Config{
+				virtualService("all-sni", now, []string{"*"}, []string{"*"}),
+				virtualService("wildcard", now.Add(time.Second), []string{wildcardHost}, []string{wildcardHost}),
+			},
+			wantServerNames: [][]string{{wildcardHost}},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			gatewayHosts := tt.gatewayHosts
+			if gatewayHosts == nil {
+				gatewayHosts = []string{"*"}
+			}
+			configs := append([]config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Name: "wildcard-se", Namespace: "default"},
+					Spec: &networking.ServiceEntry{
+						Hosts:      []string{wildcardHost, otherWildcardHost},
+						Ports:      []*networking.ServicePort{{Number: 443, Name: "tls", Protocol: "TLS"}},
+						Location:   networking.ServiceEntry_MESH_EXTERNAL,
+						Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+					},
+				},
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Gateway, Name: "egress-gw", Namespace: "default"},
+					Spec: &networking.Gateway{
+						Selector: map[string]string{"istio": "egressgateway"},
+						Servers: []*networking.Server{{
+							Port:  &networking.Port{Number: 443, Name: "tls", Protocol: "TLS"},
+							Hosts: gatewayHosts,
+							Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+						}},
+					},
+				},
+			}, tt.virtualServices...)
+			cg := NewConfigGenTest(t, TestOptions{Configs: configs})
+			proxy := cg.SetupProxy(&model.Proxy{
+				Type:     model.Router,
+				Labels:   map[string]string{"istio": "egressgateway"},
+				Metadata: &model.NodeMetadata{Labels: map[string]string{"istio": "egressgateway"}},
+			})
+
+			listeners := cg.Listeners(proxy)
+			xdstest.ValidateListeners(t, listeners)
+			var serverNames [][]string
+			for _, l := range listeners {
+				for _, fc := range l.FilterChains {
+					if slices.ContainsFunc(fc.Filters, func(f *listener.Filter) bool { return f.Name == wellknown.SNIDynamicForwardProxy }) {
+						serverNames = append(serverNames, fc.GetFilterChainMatch().GetServerNames())
+					}
+				}
+			}
+			g.Expect(serverNames).To(Equal(tt.wantServerNames))
+		})
+	}
+}
+
 func TestGatewaySNIDFPFilter(t *testing.T) {
 	route := func(host string, port uint32, weight int32) *networking.RouteDestination {
 		d := &networking.RouteDestination{Destination: &networking.Destination{Host: host}, Weight: weight}

@@ -171,6 +171,102 @@ func TestEgressGatewayWildcardDynamicDNS(t *testing.T) {
 		})
 }
 
+// routeOtherHostViaEgressGateway sends TLS traffic for a host outside the wildcard host to the same passthrough
+// gateway server, where a route that matches all SNIs sends it to the wildcard DYNAMIC_DNS ServiceEntry.
+const routeOtherHostViaEgressGateway = `
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: other-host-via-egress-gateway
+spec:
+  hosts:
+  - "{{.OtherHost}}"
+  tls:
+  - match:
+    - port: 443
+      sniHosts: ["{{.OtherHost}}"]
+    route:
+    - destination:
+        host: {{.EgressService}}.{{.EgressNamespace}}.svc.cluster.local
+        port:
+          number: {{.ServerPort}}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: all-sni-at-egress-gateway
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - wildcard-egress
+  tls:
+  - match:
+    - port: {{.ServerPort}}
+      sniHosts: ["*"]
+    route:
+    - destination:
+        host: "{{.WildcardHost}}"
+        port:
+          number: {{.RoutePort}}
+`
+
+func TestEgressGatewayWildcardDynamicDNSRejectsOtherSNI(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			client := match.ServiceName(echo.NamespacedName{Name: "client", Namespace: apps.Namespace}).GetMatches(apps.All.Instances())
+			other := match.ServiceName(echo.NamespacedName{Name: "other-client", Namespace: apps.Namespace}).GetMatches(apps.All.Instances())
+			if len(client) == 0 || len(other) == 0 {
+				t.Fatal("client echoes not found")
+			}
+			if !hasIPv4(t, client) {
+				t.Skip("TODO: skipping test as wildcard DNS doesn't support resolving to IPv6 address")
+			}
+
+			host := apps.External.All.Config().ClusterLocalFQDN()
+			// other-client serves TLS on port 443 outside the wildcard host.
+			otherHost := other.Config().ClusterLocalFQDN()
+			settings := i.Settings()
+			args := map[string]string{
+				"WildcardHost":    "*." + apps.External.Namespace.Name() + ".svc.cluster.local",
+				"Host":            host,
+				"OtherHost":       otherHost,
+				"EgressLabel":     settings.EgressGatewayIstioLabel,
+				"EgressService":   settings.EgressGatewayServiceName,
+				"EgressNamespace": settings.EgressGatewayServiceNamespace,
+				"ServerPort":      "443",
+				"RoutePort":       "443",
+			}
+			t.NewSubTest("other host reachable without the egress gateway").Run(func(t framework.TestContext) {
+				for _, c := range client {
+					c.CallOrFail(t, httpsCall(otherHost, check.OK()))
+				}
+			})
+			t.ConfigIstio().Eval(apps.Namespace.Name(), args, routeViaEgressGateway, routeOtherHostViaEgressGateway).ApplyOrFail(t)
+
+			// Barrier: calls fail only once they go through the egress gateway.
+			deny := t.ConfigIstio().Eval(settings.EgressGatewayServiceNamespace, args, denySNIAtEgressGateway)
+			deny.ApplyOrFail(t, apply.NoCleanup)
+			t.NewSubTest("both hosts denied by AuthorizationPolicy at egress gateway").Run(func(t framework.TestContext) {
+				for _, c := range client {
+					c.CallOrFail(t, httpsCall(host, check.Error()))
+					c.CallOrFail(t, httpsCall(otherHost, check.Error()))
+				}
+			})
+			deny.DeleteOrFail(t)
+			t.NewSubTest("wildcard host reaches the gateway destination").Run(func(t framework.TestContext) {
+				for _, c := range client {
+					c.CallOrFail(t, httpsCall(host, check.OK()))
+				}
+			})
+			t.NewSubTest("host outside the wildcard host is not forwarded").Run(func(t framework.TestContext) {
+				for _, c := range client {
+					c.CallOrFail(t, httpsCall(otherHost, check.Error()))
+				}
+			})
+		})
+}
+
 // routeViaEgressGatewayMutualTLS sends TLS traffic for the wildcard host from sidecars to the egress gateway inside
 // Istio mTLS. The gateway terminates the mTLS and forwards the application TLS to a wildcard DYNAMIC_DNS
 // ServiceEntry. The DestinationRule SNI selects the gateway server: any name under the server's wildcard host works,
