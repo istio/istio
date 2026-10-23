@@ -36,6 +36,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -81,6 +82,11 @@ func gatewayWildcardDestination(
 	// Must match the port of the destination cluster.
 	_, _, _, port := model.ParseSubsetKey(istio_route.GetDestinationCluster(routes[0].Destination, svc, serverPort))
 	return svc, port
+}
+
+// sniHostsUnder returns true if there are SNI hosts and all of them are under the wildcard host.
+func sniHostsUnder(sniHosts []string, wildcardHost host.Name) bool {
+	return len(sniHosts) > 0 && !slices.ContainsFunc(sniHosts, func(h string) bool { return !host.Name(h).SubsetOf(wildcardHost) })
 }
 
 // gatewayWildcardTLSTargetForServer returns the target of an ISTIO_MUTUAL TLS server whose routes send to a

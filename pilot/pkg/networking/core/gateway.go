@@ -982,6 +982,15 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 				}
 				for i, match := range tls.Match {
 					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
+						// The SNI dynamic forward proxy resolves any SNI that the chain matches, so the chain must only
+						// match SNIs under the wildcard host. Checked first, so a skipped rule does not reserve its SNIs.
+						if svc, _ := gatewayWildcardDestination(lb.node, tls.Route, port.Port); svc != nil && !sniHostsUnder(match.SniHosts, svc.Hostname) {
+							log.Warnf(
+								"skipping VirtualService %s rule #%v on server port %d of gateway %s, SNI host names %v are not all under the destination host %s",
+								v.Meta.Name, i, port.Port, gatewayName, match.SniHosts, svc.Hostname)
+							model.RecordRejectedConfig(gatewayName)
+							continue
+						}
 						// Envoy will reject config that has multiple filter chain matches with the same matching rules
 						// To avoid this, we need to make sure we don't have duplicated SNI hosts, which will become
 						// SNI filter chain matches
