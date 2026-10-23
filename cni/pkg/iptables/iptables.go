@@ -140,21 +140,21 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope, kata
 	// Flush, then delete, our created chains. These sometimes fail due to
 	// "Device or resource busy" or because they are optional given the iptables config.
 	deleteFlushCmds := [][]string{
-		[]string{"-t", "mangle", "-F", ChainInpodPrerouting},
-		[]string{"-t", "mangle", "-F", ChainInpodOutput},
-		[]string{"-t", "nat", "-F", ChainInpodPrerouting},
-		[]string{"-t", "nat", "-F", ChainInpodOutput},
-		[]string{"-t", "raw", "-F", ChainInpodPrerouting},
-		[]string{"-t", "raw", "-F", ChainInpodOutput},
+		{"-t", "mangle", "-F", ChainInpodPrerouting},
+		{"-t", "mangle", "-F", ChainInpodOutput},
+		{"-t", "nat", "-F", ChainInpodPrerouting},
+		{"-t", "nat", "-F", ChainInpodOutput},
+		{"-t", "raw", "-F", ChainInpodPrerouting},
+		{"-t", "raw", "-F", ChainInpodOutput},
 	}
 
 	deleteCmds := [][]string{
-		[]string{"-t", "mangle", "-X", ChainInpodPrerouting},
-		[]string{"-t", "mangle", "-X", ChainInpodOutput},
-		[]string{"-t", "nat", "-X", ChainInpodPrerouting},
-		[]string{"-t", "nat", "-X", ChainInpodOutput},
-		[]string{"-t", "raw", "-X", ChainInpodPrerouting},
-		[]string{"-t", "raw", "-X", ChainInpodOutput},
+		{"-t", "mangle", "-X", ChainInpodPrerouting},
+		{"-t", "mangle", "-X", ChainInpodOutput},
+		{"-t", "nat", "-X", ChainInpodPrerouting},
+		{"-t", "nat", "-X", ChainInpodOutput},
+		{"-t", "raw", "-X", ChainInpodPrerouting},
+		{"-t", "raw", "-X", ChainInpodOutput},
 	}
 
 	// Usually, ISTIO_POSTRT exists only on the host netns, but in Kata, we also place it in the pod netns, so we need to delete it there too.
