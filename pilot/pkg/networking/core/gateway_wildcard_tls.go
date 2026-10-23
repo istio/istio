@@ -61,10 +61,13 @@ func (t gatewayWildcardTLSTarget) name() string {
 	return model.BuildSubsetKey(model.TrafficDirectionOutboundWildcardTLS, t.subset, t.service.Hostname, t.port)
 }
 
-// key identifies the target to the internal listener, as "<host>:<port>". The subset is not part of it: a dynamic
-// forward proxy cluster has no subsets.
+// key identifies the target to the internal listener, as "<host>:<port>", or "<host>:<port>/<subset>" for a subset.
 func (t gatewayWildcardTLSTarget) key() string {
-	return string(t.service.Hostname) + ":" + strconv.Itoa(t.port)
+	key := string(t.service.Hostname) + ":" + strconv.Itoa(t.port)
+	if t.subset != "" {
+		key += "/" + t.subset
+	}
+	return key
 }
 
 // gatewayWildcardDestination returns the wildcard DYNAMIC_DNS service and upstream port when wildcard TLS is

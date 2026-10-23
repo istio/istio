@@ -22,6 +22,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	dfpcluster "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dynamic_forward_proxy/v3"
 	dfp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
 	rbacnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
@@ -44,9 +45,11 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -695,6 +698,211 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestGatewayWildcardDynamicDNSSubsets tests that a gateway route to a subset of a wildcard DYNAMIC_DNS ServiceEntry
+// sends to a dynamic forward proxy cluster of that subset, as on waypoints.
+func TestGatewayWildcardDynamicDNSSubsets(t *testing.T) {
+	const (
+		wildcard = "*.wikipedia.org"
+		base     = "outbound|443||*.wikipedia.org"
+		v1       = "outbound|443|v1|*.wikipedia.org"
+		v2       = "outbound|443|v2|*.wikipedia.org"
+	)
+	serviceEntry := config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Name: "wikipedia", Namespace: "istio-system"},
+		Spec: &networking.ServiceEntry{
+			Hosts:      []string{wildcard},
+			Ports:      []*networking.ServicePort{{Number: 443, Name: "tls", Protocol: "TLS"}},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+		},
+	}
+	// Subset v1 has its own traffic policy.
+	destinationRule := func(subsets ...string) config.Config {
+		dr := &networking.DestinationRule{Host: wildcard}
+		for _, name := range subsets {
+			subset := &networking.Subset{Name: name}
+			if name == "v1" {
+				subset.TrafficPolicy = &networking.TrafficPolicy{
+					OutlierDetection: &networking.OutlierDetection{Consecutive_5XxErrors: wrappers.UInt32(3)},
+				}
+			}
+			dr.Subsets = append(dr.Subsets, subset)
+		}
+		return config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.DestinationRule, Name: "wikipedia", Namespace: "istio-system"},
+			Spec: dr,
+		}
+	}
+	gateway := func(mode networking.ServerTLSSettings_TLSmode, ports ...uint32) config.Config {
+		gw := &networking.Gateway{Selector: map[string]string{"istio": "egressgateway"}}
+		for _, port := range ports {
+			gw.Servers = append(gw.Servers, &networking.Server{
+				Port:  &networking.Port{Number: port, Name: fmt.Sprintf("tls-%d", port), Protocol: "TLS"},
+				Hosts: []string{wildcard},
+				Tls:   &networking.ServerTLSSettings{Mode: mode},
+			})
+		}
+		return config.Config{Meta: config.Meta{GroupVersionKind: gvk.Gateway, Name: "egressgateway", Namespace: "istio-system"}, Spec: gw}
+	}
+	destination := func(subset string) []*networking.RouteDestination {
+		return []*networking.RouteDestination{{Destination: &networking.Destination{
+			Host: wildcard, Subset: subset, Port: &networking.PortSelector{Number: 443},
+		}}}
+	}
+	passthroughRoute := config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "wikipedia", Namespace: "istio-system"},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{wildcard},
+			Gateways: []string{"istio-system/egressgateway"},
+			Tls: []*networking.TLSRoute{{
+				Match: []*networking.TLSMatchAttributes{{Port: 443, SniHosts: []string{wildcard}}},
+				Route: destination("v1"),
+			}},
+		},
+	}
+	// One ISTIO_MUTUAL server per subset of the same host and port.
+	mutualRoute := config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "wikipedia", Namespace: "istio-system"},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{wildcard},
+			Gateways: []string{"istio-system/egressgateway"},
+			Tcp: []*networking.TCPRoute{
+				{Match: []*networking.L4MatchAttributes{{Port: 443}}, Route: destination("v1")},
+				{Match: []*networking.L4MatchAttributes{{Port: 8443}}, Route: destination("v2")},
+			},
+		},
+	}
+	gatewayProxy := func() *model.Proxy {
+		return &model.Proxy{
+			Type:     model.Router,
+			Labels:   map[string]string{"istio": "egressgateway"},
+			Metadata: &model.NodeMetadata{Labels: map[string]string{"istio": "egressgateway"}, Namespace: "istio-system"},
+		}
+	}
+	dfpClusters := func(clusters []*cluster.Cluster) map[string]*cluster.Cluster {
+		res := map[string]*cluster.Cluster{}
+		for _, c := range clusters {
+			if c.GetClusterType().GetName() == "envoy.clusters.dynamic_forward_proxy" {
+				res[c.Name] = c
+			}
+		}
+		return res
+	}
+	dnsCache := func(g *WithT, c *cluster.Cluster) string {
+		cfg := &dfpcluster.ClusterConfig{}
+		g.Expect(c.GetClusterType().GetTypedConfig().UnmarshalTo(cfg)).To(Succeed())
+		return cfg.GetDnsCacheConfig().GetName()
+	}
+	passthroughConfigs := []config.Config{
+		serviceEntry, destinationRule("v1", "v2"), gateway(networking.ServerTLSSettings_PASSTHROUGH, 443), passthroughRoute,
+	}
+
+	t.Run("subset clusters", func(t *testing.T) {
+		g := NewWithT(t)
+		test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+		cg := NewConfigGenTest(t, TestOptions{Configs: passthroughConfigs})
+		clusters := cg.Clusters(cg.SetupProxy(gatewayProxy()))
+		xdstest.ValidateClusters(t, clusters)
+		dfp := dfpClusters(clusters)
+		g.Expect(dfp).To(HaveLen(3))
+		g.Expect(dfp).To(HaveKey(base))
+		g.Expect(dfp).To(HaveKey(v1))
+		g.Expect(dfp).To(HaveKey(v2))
+		// The subsets share the DNS cache of the host.
+		g.Expect(dnsCache(g, dfp[v1])).To(Equal(dnsCache(g, dfp[base])))
+		g.Expect(dnsCache(g, dfp[v2])).To(Equal(dnsCache(g, dfp[base])))
+		g.Expect(dfp[v1].GetMetadata().GetFilterMetadata()["istio"].GetFields()["subset"].GetStringValue()).To(Equal("v1"))
+		// The subset traffic policy applies only to its cluster.
+		g.Expect(dfp[v1].GetOutlierDetection().GetConsecutive_5Xx().GetValue()).To(Equal(uint32(3)))
+		g.Expect(dfp[base].GetOutlierDetection()).To(BeNil())
+		g.Expect(dfp[v2].GetOutlierDetection()).To(BeNil())
+	})
+
+	t.Run("flag off", func(t *testing.T) {
+		g := NewWithT(t)
+		test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, false)
+		cg := NewConfigGenTest(t, TestOptions{Configs: passthroughConfigs})
+		dfp := dfpClusters(cg.Clusters(cg.SetupProxy(gatewayProxy())))
+		g.Expect(dfp).To(HaveLen(1))
+		g.Expect(dfp).To(HaveKey(base))
+	})
+
+	t.Run("sidecar", func(t *testing.T) {
+		g := NewWithT(t)
+		test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+		cg := NewConfigGenTest(t, TestOptions{Configs: []config.Config{serviceEntry, destinationRule("v1", "v2")}})
+		dfp := dfpClusters(cg.Clusters(cg.SetupProxy(nil)))
+		g.Expect(dfp).To(HaveLen(1))
+		g.Expect(dfp).To(HaveKey(base))
+	})
+
+	t.Run("passthrough route", func(t *testing.T) {
+		g := NewWithT(t)
+		test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+		cg := NewConfigGenTest(t, TestOptions{Configs: passthroughConfigs})
+		proxy := cg.SetupProxy(gatewayProxy())
+		listeners := cg.Listeners(proxy)
+		xdstest.ValidateListeners(t, listeners)
+		dfp := dfpClusters(cg.Clusters(proxy))
+		var routed []string
+		for _, l := range listeners {
+			for _, fc := range l.FilterChains {
+				if slices.Contains(filterNames(fc), wellknown.SNIDynamicForwardProxy) {
+					routed = append(routed, xdstest.ExtractTCPProxy(t, fc).GetCluster())
+				}
+			}
+		}
+		g.Expect(routed).To(Equal([]string{v1}))
+		g.Expect(dfp).To(HaveKey(v1))
+	})
+
+	t.Run("istio mutual routes", func(t *testing.T) {
+		g := NewWithT(t)
+		test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+		cg := NewConfigGenTest(t, TestOptions{Configs: []config.Config{
+			serviceEntry, destinationRule("v1", "v2"), gateway(networking.ServerTLSSettings_ISTIO_MUTUAL, 443, 8443), mutualRoute,
+		}})
+		proxy := cg.SetupProxy(gatewayProxy())
+		listeners := cg.Listeners(proxy)
+		xdstest.ValidateListeners(t, listeners)
+		dfp := dfpClusters(cg.Clusters(proxy))
+		inner := xdstest.ExtractListener(gatewayWildcardTLSInternalName, listeners)
+		g.Expect(inner).NotTo(BeNil())
+		// Each subset has its own chain on the internal listener, which sends to the cluster of the subset.
+		g.Expect(inner.FilterChains).To(HaveLen(2))
+		for subset, dfpCluster := range map[string]string{"v1": v1, "v2": v2} {
+			chain, suffix := gatewayWildcardTLSChain(t, inner, wildcard+":443/"+subset)
+			g.Expect(chain).NotTo(BeNil(), "internal chain for subset %s", subset)
+			g.Expect(suffix).To(Equal(wildcard[1:]))
+			g.Expect(chain.Name).To(Equal("outbound-wildcard-tls|443|" + subset + "|" + wildcard))
+			g.Expect(xdstest.ExtractTCPProxy(t, chain).GetCluster()).To(Equal(dfpCluster))
+			g.Expect(dfp).To(HaveKey(dfpCluster))
+		}
+	})
+
+	t.Run("subset removed", func(t *testing.T) {
+		g := NewWithT(t)
+		test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+		cg := NewConfigGenTest(t, TestOptions{Configs: passthroughConfigs})
+		proxy := cg.SetupProxy(gatewayProxy())
+		next := []config.Config{
+			serviceEntry, destinationRule("v1"), gateway(networking.ServerTLSSettings_PASSTHROUGH, 443), passthroughRoute,
+		}
+		applyConfigDiff(t, cg, passthroughConfigs, next)
+		pc := model.NewPushContext()
+		pc.InitContext(cg.env, nil, nil)
+		cg.env.SetPushContext(pc)
+		proxy.SetGatewaysForProxy(cg.env.PushContext())
+		proxy.SetSidecarScope(cg.env.PushContext())
+		clusters, removed, delta := cg.DeltaClusters(proxy,
+			sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "wikipedia", Namespace: "istio-system"}),
+			&model.WatchedResource{ResourceNames: sets.New(base, v1, v2)})
+		g.Expect(delta).To(BeTrue())
+		g.Expect(removed).To(Equal([]string{v2}))
+		g.Expect(dfpClusters(clusters)).To(HaveKey(v1))
+	})
 }
 
 func TestGatewayMutualTLSWildcardIdleTimeout(t *testing.T) {
