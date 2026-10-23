@@ -233,6 +233,12 @@ func (s *Server) initFileCertificateWatches(tlsOptions TLSOptions) error {
 	if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
 		return fmt.Errorf("set keyCertBundle failed: %v", err)
 	}
+	return s.watchFileCertificates(tlsOptions)
+}
+
+// watchFileCertificates sets up fsnotify watches and the certificate rotation loop for the
+// given cert/key/ca files.
+func (s *Server) watchFileCertificates(tlsOptions TLSOptions) error {
 	for _, file := range []string{tlsOptions.CertFile, tlsOptions.KeyFile, tlsOptions.CaCertFile} {
 		log.Infof("adding watcher for certificate %s", file)
 		if err := s.fileWatcher.Add(file); err != nil {
@@ -275,6 +281,23 @@ func (s *Server) initFileCertificateWatches(tlsOptions TLSOptions) error {
 		return nil
 	})
 	return nil
+}
+
+// watchForLateCustomTLSCerts watches the well-known cert paths for a cert created later
+// (e.g. by cert-manager istio-csr).
+func (s *Server) watchForLateCustomTLSCerts() {
+	tlsOptions := TLSOptions{
+		CertFile:   constants.DefaultPilotTLSCert,
+		KeyFile:    constants.DefaultPilotTLSKey,
+		CaCertFile: constants.DefaultPilotTLSCaCertAlternatePath,
+	}
+	if err := s.watchFileCertificates(tlsOptions); err != nil {
+		log.Warnf("unable to watch for a certificate provisioned later: %v", err)
+		return
+	}
+	s.watchIstiodCertReload()
+	log.Infof("watching %s, %s, %s in case an externally-provisioned istiod certificate appears later",
+		tlsOptions.CertFile, tlsOptions.KeyFile, tlsOptions.CaCertFile)
 }
 
 func (s *Server) reloadIstiodCert(watchCh <-chan struct{}, stopCh <-chan struct{}) {
