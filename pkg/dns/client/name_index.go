@@ -237,6 +237,14 @@ func (table *LookupTable) set(r nameRecord) {
 	setOrDelete(table.cname, r.name, r.cname)
 }
 
+// holds reports whether the table already answers the record's name as the record does.
+func (table *LookupTable) holds(r nameRecord) bool {
+	return r.found == table.allHosts.Contains(r.name) &&
+		slices.EqualFunc(table.name4[r.name], r.a, dns.IsDuplicate) &&
+		slices.EqualFunc(table.name6[r.name], r.aaaa, dns.IsDuplicate) &&
+		slices.EqualFunc(table.cname[r.name], r.cname, dns.IsDuplicate)
+}
+
 func setOrDelete(m map[string][]dns.RR, name string, rrs []dns.RR) {
 	if len(rrs) == 0 {
 		delete(m, name)

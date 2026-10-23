@@ -112,15 +112,27 @@ func TestApplyNameTables(t *testing.T) {
 		"foo.wildcard.com.":                  "",
 	})
 
-	// Unchanged resources and unknown removals publish nothing.
+	// Unchanged resources, unknown removals and losing candidates publish nothing.
 	h.ApplyNameTables(map[string]*dnsProto.NameTable{
 		"details.ns1.svc.cluster.local": {Table: map[string]*dnsProto.NameTable_NameInfo{
 			"details.ns1.svc.cluster.local": kube("10.0.0.2", "details", "details.ns1", "details.ns1.svc"),
 		}},
+		"shadow": {Table: map[string]*dnsProto.NameTable_NameInfo{"details.ns1.svc.cluster.local": external("192.0.2.6")}},
 	}, []string{"productpage"})
+	h.ApplyNameTables(map[string]*dnsProto.NameTable{
+		"shadow": {Table: map[string]*dnsProto.NameTable_NameInfo{"details.ns1.svc.cluster.local": external("192.0.2.7")}},
+	}, nil)
 	if h.lookupTable.Load().(*LookupTable) != lt {
-		t.Fatal("unchanged resources must not publish a new table")
+		t.Fatal("unchanged answers must not publish a new table")
 	}
+	// Removing the winner reveals the latest answer of an unpublished losing candidate.
+	h.ApplyNameTables(nil, []string{"details.ns1.svc.cluster.local"})
+	lt = h.lookupTable.Load().(*LookupTable)
+	check(map[string]string{
+		"details.ns1.svc.cluster.local.":     "192.0.2.7",
+		"details.ns1.":                       "",
+		"details.ns1.ns1.svc.cluster.local.": "",
+	})
 
 	h.UpdateLookupTable(&dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{"a.example.com": external("192.0.2.4")}})
 	if _, resolved := h.NameTableSnapshot(); resolved {

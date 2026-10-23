@@ -254,10 +254,13 @@ func (h *LocalDNSServer) ApplyNameTables(updated map[string]*dnsProto.NameTable,
 	}
 	records := h.nameIndex.apply(updated, removed)
 	if lookupTable == nil {
+		// Skip names whose answers are unchanged, such as when only a losing candidate changed.
+		current := h.lookupTable.Load().(*LookupTable)
+		records = slices.FilterInPlace(records, func(r nameRecord) bool { return !current.holds(r) })
 		if len(records) == 0 {
 			return
 		}
-		lookupTable = h.lookupTable.Load().(*LookupTable).clone()
+		lookupTable = current.clone()
 	}
 	for _, r := range records {
 		lookupTable.set(r)
