@@ -369,6 +369,16 @@ func legacyTable(resources map[string]*dnsProto.NameTable) *dnsProto.NameTable {
 	return out
 }
 
+// benchServer returns a server for a proxy in ns0, without listeners or a dependency on the host's resolv.conf.
+func benchServer() *LocalDNSServer {
+	return &LocalDNSServer{
+		proxyNamespace:   "ns0",
+		proxyDomain:      "svc.cluster.local",
+		proxyDomainParts: []string{"svc", "cluster", "local"},
+		searchNamespaces: []string{"ns0.svc.cluster.local", "svc.cluster.local", "cluster.local"},
+	}
+}
+
 func BenchmarkNameTableUpdate(b *testing.B) {
 	for _, n := range []int{10_000, 100_000} {
 		resources := benchResources(n)
@@ -378,15 +388,8 @@ func BenchmarkNameTableUpdate(b *testing.B) {
 			info.Ips = []string{fmt.Sprintf("10.254.%d.%d", i>>8&0xff, i&0xff)}
 			return &dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{changed: info}}
 		}
-		newServer := func(b *testing.B) *LocalDNSServer {
-			h, err := NewLocalDNSServer("ns0", "ns0.svc.cluster.local", "localhost:0")
-			if err != nil {
-				b.Fatal(err)
-			}
-			return h
-		}
 		b.Run(fmt.Sprintf("names=%d/legacy-full", n), func(b *testing.B) {
-			h := newServer(b)
+			h := benchServer()
 			legacy := legacyTable(resources)
 			b.ReportAllocs()
 			for i := 0; b.Loop(); i++ {
@@ -395,7 +398,7 @@ func BenchmarkNameTableUpdate(b *testing.B) {
 			}
 		})
 		b.Run(fmt.Sprintf("names=%d/reference-full", n), func(b *testing.B) {
-			h := newServer(b)
+			h := benchServer()
 			state := maps.Clone(resources)
 			b.ReportAllocs()
 			for i := 0; b.Loop(); i++ {
@@ -405,7 +408,7 @@ func BenchmarkNameTableUpdate(b *testing.B) {
 			}
 		})
 		b.Run(fmt.Sprintf("names=%d/incremental", n), func(b *testing.B) {
-			h := newServer(b)
+			h := benchServer()
 			h.ApplyNameTables(resources, nil)
 			b.ReportAllocs()
 			for i := 0; b.Loop(); i++ {
@@ -414,7 +417,7 @@ func BenchmarkNameTableUpdate(b *testing.B) {
 		})
 		for _, pods := range []int{10, 100} {
 			b.Run(fmt.Sprintf("names=%d/incremental-headless-pods=%d", n, pods), func(b *testing.B) {
-				h := newServer(b)
+				h := benchServer()
 				h.ApplyNameTables(resources, nil)
 				b.ReportAllocs()
 				for i := 0; b.Loop(); i++ {
@@ -425,14 +428,12 @@ func BenchmarkNameTableUpdate(b *testing.B) {
 	}
 }
 
-// BenchmarkLookupDuringUpdates measures query latency with and without the table being updated continuously.
+// BenchmarkLookupDuringUpdates measures parallel lookup throughput with and without the table being updated
+// continuously. Like DNS queries, each lookup loads the published table.
 func BenchmarkLookupDuringUpdates(b *testing.B) {
 	for _, updating := range []bool{false, true} {
 		b.Run(fmt.Sprintf("updating=%v", updating), func(b *testing.B) {
-			h, err := NewLocalDNSServer("ns0", "ns0.svc.cluster.local", "localhost:0")
-			if err != nil {
-				b.Fatal(err)
-			}
+			h := benchServer()
 			h.ApplyNameTables(benchResources(10_000), nil)
 			var stop atomic.Bool
 			done := make(chan struct{})
@@ -442,11 +443,11 @@ func BenchmarkLookupDuringUpdates(b *testing.B) {
 					h.ApplyNameTables(map[string]*dnsProto.NameTable{"headless.ns0.svc.cluster.local": headlessResource(100, i)}, nil)
 				}
 			}()
-			lt := h.lookupTable.Load().(*LookupTable)
 			b.ReportAllocs()
+			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
-					lt.lookupHost(dns.TypeA, "svc1.ns1.svc.cluster.local.")
+					h.lookupTable.Load().(*LookupTable).lookupHost(dns.TypeA, "svc1.ns1.svc.cluster.local.")
 				}
 			})
 			stop.Store(true)
