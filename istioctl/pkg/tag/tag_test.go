@@ -17,6 +17,7 @@ package tag
 import (
 	"bytes"
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -719,6 +720,73 @@ func TestRemoveDefaultTagDeletesValidatingWebhook(t *testing.T) {
 	vwhs, _ := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
 	if len(vwhs.Items) != 0 {
 		t.Errorf("expected ValidatingWebhookConfiguration %q to be deleted, got %d", vwhBaseTemplateName, len(vwhs.Items))
+	}
+}
+
+func TestDeactivateIstioValidationWebhook(t *testing.T) {
+	// Tag-managed default validator as it exists after the apply: carries istio.io/tag=default and so is excluded
+	// by the selector. It must NOT be deactivated here.
+	alias := &admitv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: vwhBaseTemplateName,
+			Labels: map[string]string{
+				label.IoIstioRev.Name: "default",
+				label.IoIstioTag.Name: "default",
+			},
+		},
+		Webhooks: []admitv1.ValidatingWebhook{{Name: "validation.istio.io"}},
+	}
+	// Previous default install's validator (istio.io/rev=default, no istio.io/tag); must be deactivated in place.
+	prev := &admitv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-validator-istio-system",
+			Labels: map[string]string{label.IoIstioRev.Name: "default"},
+		},
+		Webhooks: []admitv1.ValidatingWebhook{
+			{Name: "validation.istio.io"},
+			{Name: "rev.validation.istio.io"},
+		},
+	}
+	// Unrelated per-revision validator; must be untouched.
+	other := &admitv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-validator-1-20-0-istio-system",
+			Labels: map[string]string{label.IoIstioRev.Name: "1-20-0"},
+		},
+		Webhooks: []admitv1.ValidatingWebhook{{Name: "validation.istio.io"}},
+	}
+	client := fake.NewClientset(alias, prev, other)
+
+	if err := DeactivateIstioValidationWebhook(context.Background(), client); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// The previous default install's validator is neutralized with NeverMatch selectors, not deleted.
+	got, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().
+		Get(context.Background(), "istio-validator-istio-system", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("expected istio-validator-istio-system to still exist: %v", err)
+	}
+	for _, wh := range got.Webhooks {
+		if !reflect.DeepEqual(wh.NamespaceSelector, util.NeverMatch) || !reflect.DeepEqual(wh.ObjectSelector, util.NeverMatch) {
+			t.Errorf("expected webhook %q to be deactivated with NeverMatch selectors, got ns=%v obj=%v",
+				wh.Name, wh.NamespaceSelector, wh.ObjectSelector)
+		}
+	}
+
+	// The tag-managed alias and the unrelated per-revision validator must be left as-is.
+	for _, name := range []string{vwhBaseTemplateName, "istio-validator-1-20-0-istio-system"} {
+		vwh, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().
+			Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("expected %q to still exist: %v", name, err)
+		}
+		for _, wh := range vwh.Webhooks {
+			if wh.NamespaceSelector != nil || wh.ObjectSelector != nil {
+				t.Errorf("expected %q webhook %q to be untouched, got ns=%v obj=%v",
+					name, wh.Name, wh.NamespaceSelector, wh.ObjectSelector)
+			}
+		}
 	}
 }
 
