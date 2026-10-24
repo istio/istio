@@ -678,9 +678,6 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 	return parents, parentRefs, meshResult, gwResult
 }
 
-// RouteContext defines a common set of inputs to a route collection. This should be built once per route translation and
-// not shared outside of that.
-// The embedded RouteContextInputs is typically based into a collection, then translated to a RouteContext with RouteContextInputs.WithCtx().
 // meshParentPort returns the Service port a mesh parent reference selects, or nil when it selects all of
 // them. A numeric port is used as given; otherwise a sectionName is resolved to the number of the Service
 // port it names, so a route bound to a port by name is scoped to that port instead of every port the
@@ -708,6 +705,9 @@ func meshParentPort(ctx RouteContext, ref types.NamespacedName, parent routePare
 	return nil
 }
 
+// RouteContext defines a common set of inputs to a route collection. This should be built once per route translation and
+// not shared outside of that.
+// The embedded RouteContextInputs is typically based into a collection, then translated to a RouteContext with RouteContextInputs.WithCtx().
 type RouteContext struct {
 	Krt krt.HandlerContext
 	RouteContextInputs

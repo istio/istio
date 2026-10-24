@@ -623,10 +623,6 @@ func waypointManagedByAnotherController(ctx RouteContext, parentRef parentRefere
 		class.Spec.ControllerName != k8s.GatewayController(features.ManagedGatewayController)
 }
 
-// servicePortSelected reports whether a route's parentRef port selectors pick out one of a Service's
-// ports. For a Service parent, sectionName is the port name and port the port number, and a reference that
-// selects no port at all must be reported detached rather than silently applied to every port. An unset
-// selector matches any port.
 // portSelectorString renders the port selectors of a parentRef for a status message, leaving out the ones
 // the reference did not set.
 func portSelectorString(sectionName k8s.SectionName, port k8s.PortNumber) string {
@@ -640,6 +636,10 @@ func portSelectorString(sectionName k8s.SectionName, port k8s.PortNumber) string
 	return strings.Join(parts, " and ")
 }
 
+// servicePortSelected reports whether a route's parentRef port selectors pick out one of a Service's ports.
+// For a Service parent, sectionName is the port name and port the port number, and a reference that selects
+// no port at all must be reported detached rather than silently applied to every port. An unset selector
+// matches any port.
 func servicePortSelected(svc *corev1.Service, sectionName k8s.SectionName, port k8s.PortNumber) bool {
 	if sectionName == "" && port == 0 {
 		return true
