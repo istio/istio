@@ -623,6 +623,36 @@ func waypointManagedByAnotherController(ctx RouteContext, parentRef parentRefere
 		class.Spec.ControllerName != k8s.GatewayController(features.ManagedGatewayController)
 }
 
+// portSelectorString renders the port selectors of a parentRef for a status message, leaving out the ones
+// the reference did not set.
+func portSelectorString(sectionName k8s.SectionName, port k8s.PortNumber) string {
+	parts := make([]string, 0, 2)
+	if sectionName != "" {
+		parts = append(parts, fmt.Sprintf("sectionName %q", sectionName))
+	}
+	if port != 0 {
+		parts = append(parts, fmt.Sprintf("port %v", port))
+	}
+	return strings.Join(parts, " and ")
+}
+
+// servicePortSelected reports whether a route's parentRef port selectors pick out one of a Service's ports.
+// For a Service parent, sectionName is the port name and port the port number, and a reference that selects
+// no port at all must be reported detached rather than silently applied to every port. An unset selector
+// matches any port.
+func servicePortSelected(svc *corev1.Service, sectionName k8s.SectionName, port k8s.PortNumber) bool {
+	if sectionName == "" && port == 0 {
+		return true
+	}
+	for _, sp := range svc.Spec.Ports {
+		if (sectionName == "" || string(sectionName) == sp.Name) &&
+			(port == 0 || int32(port) == sp.Port) {
+			return true
+		}
+	}
+	return false
+}
+
 func referenceAllowed(
 	ctx RouteContext,
 	parent *parentInfo,
@@ -647,6 +677,14 @@ func referenceAllowed(
 				Message: WaypointErrorMsgNoMatchingParent,
 			}
 			return parentErr, waypointErr
+		}
+
+		// First, as for a Gateway parent, make sure the parentRef actually selects a port.
+		if !servicePortSelected(svc, parentRef.SectionName, parentRef.Port) {
+			return &ParentError{
+				Reason:  ParentErrorNotAccepted,
+				Message: fmt.Sprintf("parent service: %q has no port matching %s", parentRef.Name, portSelectorString(parentRef.SectionName, parentRef.Port)),
+			}, nil
 		}
 
 		// check that the reference has the use-waypoint label
