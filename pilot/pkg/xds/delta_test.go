@@ -742,90 +742,100 @@ spec:
 			},
 		},
 	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
+	// The flags are set once per filter value, not per case: a push of a case's server can still run when the case
+	// ends, and a flag write races with it.
+	for _, filter := range []bool{false, true} {
+		t.Run(fmt.Sprintf("filter=%v", filter), func(t *testing.T) {
 			test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
-			test.SetForTest(t, &features.FilterGatewayClusterConfig, tt.filter)
-			configs := join(serviceEntry("shared", "*.shared.com"), serviceEntry("other", "*.other.com"), gateway,
-				gatewayRoute("shared", "team-a", "*.shared.com"))
-			if tt.teamBRoute {
-				configs = join(configs, gatewayRoute("shared", "team-b", "*.shared.com"))
-			}
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: configs})
-			s.EnsureSynced(t)
-
-			const id = "router~10.0.0.1~egressgateway.istio-system~istio-system.svc.cluster.local"
-			meta := model.NodeMetadata{Labels: map[string]string{"istio": "egressgateway"}, Namespace: "istio-system"}
-			// sent returns the resources of a type that the gateway has, as tracked by the server.
-			sent := func(typeURL string) sets.String {
-				for _, c := range s.Discovery.AllClients() {
-					// The server updates the watched resources while it pushes, so read them under the proxy lock.
-					p := c.Proxy()
-					p.RLock()
-					w, ok := p.DeepCloneWatchedResourcesLocked()[typeURL]
-					names := w.ResourceNames.Copy()
-					p.RUnlock()
-					if ok {
-						return names
+			test.SetForTest(t, &features.FilterGatewayClusterConfig, filter)
+			for _, tt := range cases {
+				if tt.filter != filter {
+					continue
+				}
+				t.Run(tt.name, func(t *testing.T) {
+					configs := join(serviceEntry("shared", "*.shared.com"), serviceEntry("other", "*.other.com"), gateway,
+						gatewayRoute("shared", "team-a", "*.shared.com"))
+					if tt.teamBRoute {
+						configs = join(configs, gatewayRoute("shared", "team-b", "*.shared.com"))
 					}
-				}
-				return nil
-			}
-			// internalChains returns the chain names of the internal listener as currently generated.
-			internalChains := func() []string {
-				l := xdstest.ExtractListener(internalName, s.Listeners(s.SetupProxy(&model.Proxy{
-					Type: model.Router, IPAddresses: []string{"10.0.0.1"}, ConfigNamespace: "istio-system", Labels: meta.Labels, Metadata: &meta,
-				})))
-				return slices.Map(l.GetFilterChains(), func(fc *listener.FilterChain) string { return fc.Name })
-			}
-			noPerTargetClusters := func() error {
-				for c := range sent(v3.ClusterType) {
-					if strings.HasPrefix(c, perTarget) {
-						return fmt.Errorf("per-target cluster %s sent", c)
-					}
-				}
-				return nil
-			}
-			lds := s.ConnectDeltaADS().WithID(id).WithMetadata(meta).WithType(v3.ListenerType)
-			cds := s.ConnectDeltaADS().WithID(id).WithMetadata(meta).WithType(v3.ClusterType)
-			lds.Request(&discovery.DeltaDiscoveryRequest{})
-			cds.Request(&discovery.DeltaDiscoveryRequest{})
-			lds.ExpectResponse()
-			cds.ExpectResponse()
-			go lds.DrainResponses()
-			go cds.DrainResponses()
-			assert.Equal(t, sent(v3.ListenerType).Contains(internalName), true)
-			assert.Equal(t, sent(v3.ClusterType).Contains(internalName), true)
-			assert.Equal(t, sent(v3.ClusterType).Contains(dfpCluster), true)
-			assert.NoError(t, noPerTargetClusters())
-			// ownClusters leaves out the clusters of the unrelated ServiceEntry that a case creates.
-			ownClusters := func() sets.String {
-				return sets.New(slices.Filter(sets.SortedList(sent(v3.ClusterType)), func(c string) bool {
-					return !strings.Contains(c, "unrelated")
-				})...)
-			}
-			clustersBefore := ownClusters()
+					s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: configs})
+					s.EnsureSynced(t)
 
-			tt.change(s)
-			retry.UntilSuccessOrFail(t, func() error {
-				if got := sent(v3.ListenerType).Contains(internalName); got != tt.listenerKept {
-					return fmt.Errorf("internal listener sent: %v, want %v", got, tt.listenerKept)
-				}
-				if got := slices.Contains(internalChains(), otherChain); got != tt.otherRouted {
-					return fmt.Errorf("internal chain %s: %v, want %v", otherChain, got, tt.otherRouted)
-				}
-				if tt.filter && sent(v3.ClusterType).Contains(dfpCluster) {
-					return fmt.Errorf("cluster %s not removed", dfpCluster)
-				}
-				return nil
-			}, retry.Timeout(5*time.Second))
-			s.EnsureSynced(t)
-			assert.Equal(t, sent(v3.ListenerType).Contains(internalName), tt.listenerKept)
-			// The internal cluster does not depend on the routes, so it is neither removed nor rebuilt per destination.
-			assert.Equal(t, sent(v3.ClusterType).Contains(internalName), true)
-			assert.NoError(t, noPerTargetClusters())
-			if tt.listenerKept {
-				assert.Equal(t, ownClusters(), clustersBefore)
+					const id = "router~10.0.0.1~egressgateway.istio-system~istio-system.svc.cluster.local"
+					meta := model.NodeMetadata{Labels: map[string]string{"istio": "egressgateway"}, Namespace: "istio-system"}
+					// sent returns the resources of a type that the gateway has, as tracked by the server.
+					sent := func(typeURL string) sets.String {
+						for _, c := range s.Discovery.AllClients() {
+							// The server updates the watched resources while it pushes, so read them under the proxy lock.
+							p := c.Proxy()
+							p.RLock()
+							w, ok := p.DeepCloneWatchedResourcesLocked()[typeURL]
+							names := w.ResourceNames.Copy()
+							p.RUnlock()
+							if ok {
+								return names
+							}
+						}
+						return nil
+					}
+					// internalChains returns the chain names of the internal listener as currently generated.
+					internalChains := func() []string {
+						l := xdstest.ExtractListener(internalName, s.Listeners(s.SetupProxy(&model.Proxy{
+							Type: model.Router, IPAddresses: []string{"10.0.0.1"}, ConfigNamespace: "istio-system", Labels: meta.Labels, Metadata: &meta,
+						})))
+						return slices.Map(l.GetFilterChains(), func(fc *listener.FilterChain) string { return fc.Name })
+					}
+					noPerTargetClusters := func() error {
+						for c := range sent(v3.ClusterType) {
+							if strings.HasPrefix(c, perTarget) {
+								return fmt.Errorf("per-target cluster %s sent", c)
+							}
+						}
+						return nil
+					}
+					lds := s.ConnectDeltaADS().WithID(id).WithMetadata(meta).WithType(v3.ListenerType)
+					cds := s.ConnectDeltaADS().WithID(id).WithMetadata(meta).WithType(v3.ClusterType)
+					lds.Request(&discovery.DeltaDiscoveryRequest{})
+					cds.Request(&discovery.DeltaDiscoveryRequest{})
+					lds.ExpectResponse()
+					cds.ExpectResponse()
+					go lds.DrainResponses()
+					go cds.DrainResponses()
+					stopPushesOnCleanup(t, s, lds.Cleanup, cds.Cleanup)
+					assert.Equal(t, sent(v3.ListenerType).Contains(internalName), true)
+					assert.Equal(t, sent(v3.ClusterType).Contains(internalName), true)
+					assert.Equal(t, sent(v3.ClusterType).Contains(dfpCluster), true)
+					assert.NoError(t, noPerTargetClusters())
+					// ownClusters leaves out the clusters of the unrelated ServiceEntry that a case creates.
+					ownClusters := func() sets.String {
+						return sets.New(slices.Filter(sets.SortedList(sent(v3.ClusterType)), func(c string) bool {
+							return !strings.Contains(c, "unrelated")
+						})...)
+					}
+					clustersBefore := ownClusters()
+
+					tt.change(s)
+					retry.UntilSuccessOrFail(t, func() error {
+						if got := sent(v3.ListenerType).Contains(internalName); got != tt.listenerKept {
+							return fmt.Errorf("internal listener sent: %v, want %v", got, tt.listenerKept)
+						}
+						if got := slices.Contains(internalChains(), otherChain); got != tt.otherRouted {
+							return fmt.Errorf("internal chain %s: %v, want %v", otherChain, got, tt.otherRouted)
+						}
+						if tt.filter && sent(v3.ClusterType).Contains(dfpCluster) {
+							return fmt.Errorf("cluster %s not removed", dfpCluster)
+						}
+						return nil
+					}, retry.Timeout(5*time.Second))
+					s.EnsureSynced(t)
+					assert.Equal(t, sent(v3.ListenerType).Contains(internalName), tt.listenerKept)
+					// The internal cluster does not depend on the routes, so it is neither removed nor rebuilt per destination.
+					assert.Equal(t, sent(v3.ClusterType).Contains(internalName), true)
+					assert.NoError(t, noPerTargetClusters())
+					if tt.listenerKept {
+						assert.Equal(t, ownClusters(), clustersBefore)
+					}
+				})
 			}
 		})
 	}
@@ -901,6 +911,7 @@ spec:
 	cds.Request(&discovery.DeltaDiscoveryRequest{})
 	cds.ExpectResponse()
 	go cds.DrainResponses()
+	stopPushesOnCleanup(t, s, cds.Cleanup)
 	assert.Equal(t, sent().Contains(v1), true)
 	assert.Equal(t, sent().Contains(v2), true)
 
@@ -915,6 +926,24 @@ spec:
 	}, retry.Timeout(5*time.Second))
 	s.EnsureSynced(t)
 	assert.Equal(t, sent().Contains(v1), true)
+}
+
+// stopPushesOnCleanup makes the test cleanup, before the flags set for the test are restored, wait for the push of the
+// last config change, close the streams and wait until the server drops them. A push of the server can still run after
+// the test ends, and a flag write then races with it.
+func stopPushesOnCleanup(t *testing.T, s *xds.FakeDiscoveryServer, closeStreams ...func()) {
+	t.Cleanup(func() {
+		s.EnsureSynced(t)
+		for _, closeStream := range closeStreams {
+			closeStream()
+		}
+		retry.UntilSuccessOrFail(t, func() error {
+			if n := len(s.Discovery.AllClients()); n != 0 {
+				return fmt.Errorf("%d clients still connected", n)
+			}
+			return nil
+		}, retry.Timeout(5*time.Second))
+	})
 }
 
 // deleteShared deletes the config named "shared".
