@@ -152,10 +152,13 @@ func (lb *ListenerBuilder) buildGatewayWildcardTLSFilters(target gatewayWildcard
 func (lb *ListenerBuilder) buildGatewayWildcardTLSInternalListener() *listener.Listener {
 	chains := make([]*listener.FilterChain, 0, len(lb.gatewayWildcardTLSTargets))
 	targets := make(map[string]*matcher.Matcher_OnMatch, len(lb.gatewayWildcardTLSTargets))
+	// The authorization filters do not depend on the target, so they are built once for all chains.
+	authzFilters := authz.NewBuilder(authz.Custom, lb.push, lb.node, true).BuildTCP()
+	authzFilters = append(authzFilters, authz.NewBuilder(authz.Local, lb.push, lb.node, true).BuildTCP()...)
 	for _, target := range lb.gatewayWildcardTLSTargets {
 		chains = append(chains, &listener.FilterChain{
 			Name:    target.name(),
-			Filters: lb.buildGatewayWildcardTLSInternalFilters(target),
+			Filters: lb.buildGatewayWildcardTLSInternalFilters(target, authzFilters),
 		})
 		// As on sidecars, only SNIs under the wildcard host are forwarded.
 		targets[target.key()] = match.ToMatcher(&matcher.Matcher{
@@ -193,8 +196,11 @@ func (lb *ListenerBuilder) buildGatewayWildcardTLSInternalListener() *listener.L
 	}
 }
 
-// buildGatewayWildcardTLSInternalFilters builds the network filters of the internal chain of a target.
-func (lb *ListenerBuilder) buildGatewayWildcardTLSInternalFilters(target gatewayWildcardTLSTarget) []*listener.Filter {
+// buildGatewayWildcardTLSInternalFilters builds the network filters of the internal chain of a target, after the
+// authorization filters shared by all chains.
+func (lb *ListenerBuilder) buildGatewayWildcardTLSInternalFilters(
+	target gatewayWildcardTLSTarget, authzFilters []*listener.Filter,
+) []*listener.Filter {
 	destinationRule := CastDestinationRule(lb.node.SidecarScope.DestinationRule(
 		model.TrafficDirectionOutbound, lb.node, target.service.Hostname).GetRule())
 	tcpPool := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp()
@@ -210,10 +216,7 @@ func (lb *ListenerBuilder) buildGatewayWildcardTLSInternalFilters(target gateway
 	maybeSetHashPolicy(destinationRule, tcpProxy, target.subset)
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassGateway, nil)
 
-	var filters []*listener.Filter
-	filters = append(filters, authz.NewBuilder(authz.Custom, lb.push, lb.node, true).BuildTCP()...)
-	filters = append(filters, authz.NewBuilder(authz.Local, lb.push, lb.node, true).BuildTCP()...)
-	return append(filters,
+	return append(lb.copyFilters(authzFilters),
 		buildSNIDFPFilter(target.port, target.service, util.SelectDNSLookupFamily(lb.node.IPAddresses)),
 		tcpFilter)
 }
