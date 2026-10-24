@@ -16,6 +16,7 @@ package request
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,16 +25,21 @@ import (
 
 // Command is a wrapper for making http requests to Pilot or Envoy via a CLI command.
 type Command struct {
-	Address string
-	Client  *http.Client
+	Address      string
+	Client       *http.Client
+	StrictStatus bool
 }
 
 // Do executes an http request using the specified arguments
 func (c *Command) Do(method, path, body string) error {
+	return c.DoContext(context.Background(), method, path, body)
+}
+
+func (c *Command) DoContext(ctx context.Context, method, path, body string) error {
 	bodyBuffer := bytes.NewBufferString(body)
 	path = strings.TrimPrefix(path, "/")
 	url := fmt.Sprintf("http://%v/%v", c.Address, path)
-	req, err := http.NewRequest(method, url, bodyBuffer)
+	req, err := http.NewRequestWithContext(ctx, method, url, bodyBuffer)
 	if err != nil {
 		return err
 	}
@@ -46,7 +52,7 @@ func (c *Command) Do(method, path, body string) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode > 399 && resp.StatusCode != 404 {
+	if (c.StrictStatus && (resp.StatusCode < 200 || resp.StatusCode >= 300)) || (resp.StatusCode > 399 && resp.StatusCode != 404) {
 		return fmt.Errorf("received unsuccessful status code %v: %v", resp.StatusCode, string(respBody))
 	}
 	fmt.Println(string(respBody))

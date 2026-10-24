@@ -19,13 +19,14 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"go.uber.org/atomic"
 
-	"istio.io/istio/pkg/http"
+	"istio.io/istio/pkg/envoy/admin"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -157,7 +158,7 @@ func (a *Agent) DrainNow() {
 // terminate starts exiting the process.
 func (a *Agent) terminate() {
 	log.Infof("Agent draining Proxy for termination")
-	if a.skipDrain.Load() {
+	if a.skipDrain.Load() || (admin.Restricted() && os.Getenv(admin.NativeEnv) == "true") {
 		log.Infof("Agent already drained, exiting immediately")
 		a.abortCh <- errAbort
 		return
@@ -238,7 +239,7 @@ func (a *Agent) terminate() {
 func (a *Agent) activeProxyConnections() (int, error) {
 	adminHost := net.JoinHostPort(a.localhost, strconv.Itoa(a.adminPort))
 	activeConnectionsURL := fmt.Sprintf("http://%s/stats?usedonly&filter=downstream_cx_active$", adminHost)
-	stats, err := http.DoHTTPGetWithTimeout(activeConnectionsURL, 2*time.Second)
+	stats, err := admin.Do(context.Background(), "GET", activeConnectionsURL, "", 2*time.Second)
 	if err != nil {
 		return -1, fmt.Errorf("unable to get listener stats from Envoy : %v", err)
 	}
