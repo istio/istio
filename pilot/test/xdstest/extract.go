@@ -326,6 +326,10 @@ func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]
 
 func ExtractListenerAddresses(l *listener.Listener) []string {
 	res := []string{}
+	if l.Address == nil {
+		// Internal listeners have no address.
+		return res
+	}
 	res = append(res, addressToString(l.Address, nil))
 	for _, aa := range l.AdditionalAddresses {
 		res = append(res, addressToString(aa.Address, nil))
