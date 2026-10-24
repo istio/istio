@@ -23,7 +23,7 @@ metadata:
   annotations:
     internal.istio.io/parents: HTTPRoute/multi-service.default
     internal.istio.io/route-semantics: gateway
-  name: default~8080~echo-1.default.svc.domain.suffix
+  name: default~34000~echo-1.default.svc.domain.suffix
   namespace: default
 spec:
   gateways:
@@ -32,7 +32,7 @@ spec:
   - echo-1.default.svc.domain.suffix
   http:
   - match:
-    - port: 8080
+    - port: 34000
     name: default.multi-service.0
     route:
     - destination:
