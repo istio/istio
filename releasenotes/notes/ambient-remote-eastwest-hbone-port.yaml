@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- https://github.com/istio/istio/issues/62113
+releaseNotes:
+- |
+  **Fixed** an issue in ambient multi-network where a remote cluster's east-west gateway was published
+  without its HBONE port, so `getNetworkGatewayAddress` dropped it and every cross-cluster
+  `SplitHorizonWorkload` was advertised to ztunnel with no network gateway address. Traffic to a
+  remote service now reaches the east-west gateway instead of falling back to passthrough.

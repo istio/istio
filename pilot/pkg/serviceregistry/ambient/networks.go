@@ -278,6 +278,7 @@ func remoteK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *gatewayv1.Gatew
 			if l.Protocol == "HBONE" && tlsModeTerminate {
 				networkGateway := base
 				networkGateway.Addr = addr.Value
+				networkGateway.HBONEPort = uint32(l.Port)
 				gateways = append(gateways, NetworkGateway{
 					NetworkGateway: networkGateway,
 					Source:         source,
