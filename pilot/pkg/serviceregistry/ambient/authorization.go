@@ -538,6 +538,15 @@ func httpSources(s *v1beta1.Source) []string {
 	if len(s.NotRequestPrincipals) > 0 {
 		foundUnsupportedSources = append(foundUnsupportedSources, "notRequestPrincipals")
 	}
+	// A Match has no trust domain field, and the values of a single field are OR'd, so folding the
+	// trust domain into Principals would widen a source that sets both. Report it instead, which is
+	// also how the equivalent `when: source.trustDomain` key is handled.
+	if len(s.TrustDomains) > 0 {
+		foundUnsupportedSources = append(foundUnsupportedSources, "trustDomains")
+	}
+	if len(s.NotTrustDomains) > 0 {
+		foundUnsupportedSources = append(foundUnsupportedSources, "notTrustDomains")
+	}
 
 	return foundUnsupportedSources
 }
