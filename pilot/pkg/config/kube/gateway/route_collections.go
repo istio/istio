@@ -681,7 +681,7 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 // meshParentPort returns the Service port a mesh parent reference selects, or nil when it selects all of
 // them. A numeric port is used as given; otherwise a sectionName is resolved to the number of the Service
 // port it names, so a route bound to a port by name is scoped to that port instead of every port the
-// Service exposes. ServiceEntry parents keep their existing behaviour: their ports are not Service ports.
+// Service exposes. ServiceEntry parents keep their existing behavior: their ports are not Service ports.
 func meshParentPort(ctx RouteContext, ref types.NamespacedName, parent routeParentReference) *gatewayv1.PortNumber {
 	if parent.InternalKind != gvk.Service {
 		return parent.OriginalReference.Port
@@ -699,7 +699,7 @@ func meshParentPort(ctx RouteContext, ref types.NamespacedName, parent routePare
 	}
 	for _, port := range svc.Spec.Ports {
 		if port.Name == sectionName {
-			return ptr.Of(gatewayv1.PortNumber(port.Port))
+			return ptr.Of(port.Port)
 		}
 	}
 	return nil

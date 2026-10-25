@@ -646,7 +646,7 @@ func servicePortSelected(svc *corev1.Service, sectionName k8s.SectionName, port 
 	}
 	for _, sp := range svc.Spec.Ports {
 		if (sectionName == "" || string(sectionName) == sp.Name) &&
-			(port == 0 || int32(port) == sp.Port) {
+			(port == 0 || port == sp.Port) {
 			return true
 		}
 	}
