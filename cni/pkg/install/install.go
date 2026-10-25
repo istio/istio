@@ -187,12 +187,52 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 		installLog.Infof("valid Istio config present in node-level CNI file %s, not modifying", in.cniConfigFilepath)
 	}
 
+	if missing := binDirMissingChainPlugins(in.cfg, in.cniConfigFilepath); len(missing) > 0 {
+		installLog.Warnf("cniBinDir has none of the chain's other plugins %v; if pods fail with "+
+			"\"failed to find plugin istio-cni\", set cniBinDir or global.platform to the runtime's CNI bin dir", missing)
+	}
+
 	// Only remove stale istio-owned config once the current config is in place.
 	if err := removeStaleIstioOwnedConfig(in.cfg); err != nil {
 		return copiedFiles, fmt.Errorf("remove stale istio-owned CNI config: %v", err)
 	}
 
 	return copiedFiles, nil
+}
+
+// binDirMissingChainPlugins returns the other plugins in the chain when none of them are in our bin dir.
+// The runtime must find those plugins somewhere it searches, so their absence usually means
+// cniBinDir is not a dir the runtime searches and istio-cni will not be found either.
+func binDirMissingChainPlugins(cfg *config.InstallConfig, cniConfigFilepath string) []string {
+	if !cfg.ChainedCNIPlugin || cniConfigFilepath == "" {
+		return nil
+	}
+	cniConfigMap, err := util.ReadCNIConfigMap(cniConfigFilepath)
+	if err != nil {
+		return nil
+	}
+	plugins, err := util.GetPlugins(cniConfigMap)
+	if err != nil {
+		return nil
+	}
+	var others []string
+	for _, rawPlugin := range plugins {
+		plugin, err := util.GetPlugin(rawPlugin)
+		if err != nil {
+			continue
+		}
+		pluginType, _ := plugin["type"].(string)
+		if pluginType == "" || pluginType == "istio-cni" {
+			continue
+		}
+		for _, dir := range cfg.CNIBinTargetDirs {
+			if file.Exists(filepath.Join(dir, pluginType)) {
+				return nil
+			}
+		}
+		others = append(others, pluginType)
+	}
+	return others
 }
 
 // Run starts the installation process, verifies the configuration, then sleeps.
