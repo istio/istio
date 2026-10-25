@@ -190,9 +190,11 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 		for _, codes := range r.Retry.Codes {
 			retryOn = append(retryOn, strconv.Itoa(int(codes)))
 		}
-		attempts := ptr.NonEmptyOrDefault(r.Retry.Attempts, 1)
 		vs.Retries = &istio.HTTPRetry{
-			Attempts:      int32(attempts),
+			// If unset, default is implementation specific.
+			// VirtualService.retry has no default when set -- users are expected to set it if they customize `retry`.
+			// However, the default retry if none are set is "2", so we use that as the default.
+			Attempts:      int32(ptr.OrDefault(r.Retry.Attempts, 2)),
 			PerTryTimeout: nil,
 			RetryOn:       strings.Join(retryOn, ","),
 		}

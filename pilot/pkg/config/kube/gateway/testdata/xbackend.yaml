@@ -52,7 +52,7 @@ spec:
           group: ""
       hostname: auth.example.com
 ---
-# System CA validation with an explicit SNI hostname.
+# System CA validation uses the external hostname as SNI.
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackend
 metadata:
@@ -188,7 +188,7 @@ spec:
     - group: gateway.networking.x-k8s.io
       kind: XBackend
 ---
-# The Backend declares the port, so backendRef.port may be omitted.
+# The Backend declares the port, so backendRef.port must be omitted.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -205,7 +205,7 @@ spec:
           kind: XBackend
           name: external-https
 ---
-# XBackend references omit port because the Backend declares it.
+# Route to a Backend using system CA validation.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -222,7 +222,7 @@ spec:
           kind: XBackend
           name: external-novalidation
 ---
-# A second route resolves its port from the Backend.
+# Another route to the same Backend resolves its declared port.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -327,7 +327,7 @@ spec:
           kind: XBackend
           name: external-tcp
 ---
-# A second TCPRoute resolves its port from the Backend.
+# Another TCPRoute resolves the port declared by the Backend.
 apiVersion: gateway.networking.k8s.io/v1
 kind: TCPRoute
 metadata:

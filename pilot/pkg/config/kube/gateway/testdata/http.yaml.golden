@@ -391,6 +391,7 @@ spec:
     - uri:
         prefix: /disable
     name: default.http-retry-request.2
+    retries: {}
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -401,7 +402,7 @@ spec:
         prefix: /empty
     name: default.http-retry-request.1
     retries:
-      attempts: 1
+      attempts: 2
       retryOn: connect-failure,refused-stream,unavailable,cancelled
     route:
     - destination:
