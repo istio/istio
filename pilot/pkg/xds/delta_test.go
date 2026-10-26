@@ -643,7 +643,7 @@ func TestDeltaUnsub(t *testing.T) {
 
 // TestDeltaGatewayWildcardTLSCleanup checks that ISTIO_MUTUAL gateway servers routing to wildcard DYNAMIC_DNS
 // ServiceEntries share one internal cluster, which never changes with the routes, and that incremental pushes remove
-// the internal listener once no server uses it.
+// the internal listener once no server uses it, and the internal cluster once the gateway has no ISTIO_MUTUAL server.
 func TestDeltaGatewayWildcardTLSCleanup(t *testing.T) {
 	const (
 		internalName = "wildcard_tls_internal"
@@ -702,6 +702,8 @@ spec:
 		listenerKept bool
 		// otherRouted is whether *.other.com has an internal chain after the change.
 		otherRouted bool
+		// clusterRemoved is whether the internal cluster is removed after the change.
+		clusterRemoved bool
 	}{
 		{
 			name:   "last VirtualService deleted",
@@ -727,6 +729,15 @@ spec:
 			listenerKept: true,
 			change: func(s *xds.FakeDiscoveryServer) {
 				if _, err := s.Store().Create(parseConfig(t, serviceEntry("unrelated", "*.unrelated.com"))); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name:           "ISTIO_MUTUAL servers removed",
+			clusterRemoved: true,
+			change: func(s *xds.FakeDiscoveryServer) {
+				if _, err := s.Store().Update(parseConfig(t, strings.ReplaceAll(gateway, "ISTIO_MUTUAL", "PASSTHROUGH"))); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -822,6 +833,9 @@ spec:
 						if got := slices.Contains(internalChains(), otherChain); got != tt.otherRouted {
 							return fmt.Errorf("internal chain %s: %v, want %v", otherChain, got, tt.otherRouted)
 						}
+						if got := sent(v3.ClusterType).Contains(internalName); got == tt.clusterRemoved {
+							return fmt.Errorf("internal cluster sent: %v, want %v", got, !tt.clusterRemoved)
+						}
 						if tt.filter && sent(v3.ClusterType).Contains(dfpCluster) {
 							return fmt.Errorf("cluster %s not removed", dfpCluster)
 						}
@@ -830,7 +844,7 @@ spec:
 					s.EnsureSynced(t)
 					assert.Equal(t, sent(v3.ListenerType).Contains(internalName), tt.listenerKept)
 					// The internal cluster does not depend on the routes, so it is neither removed nor rebuilt per destination.
-					assert.Equal(t, sent(v3.ClusterType).Contains(internalName), true)
+					assert.Equal(t, sent(v3.ClusterType).Contains(internalName), !tt.clusterRemoved)
 					assert.NoError(t, noPerTargetClusters())
 					if tt.listenerKept {
 						assert.Equal(t, ownClusters(), clustersBefore)

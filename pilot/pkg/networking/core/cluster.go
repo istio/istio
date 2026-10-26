@@ -372,8 +372,10 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		if proxy.Type == model.Router && proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher)...)
 		}
-		// Depends only on the flag, so delta pushes never need to add or remove it.
-		if features.EnableWildcardHostServiceEntriesForTLS && proxy.Type == model.Router {
+		// Does not depend on the routes. Gateway changes rebuild all clusters, so they add or remove it. A gateway
+		// Service port change can leave an unused one until the next full push.
+		if features.EnableWildcardHostServiceEntriesForTLS && proxy.Type == model.Router && proxy.MergedGateway != nil &&
+			proxy.MergedGateway.ContainsIstioMutualTLSGatewayServer {
 			clusters = append(clusters, buildGatewayWildcardTLSInternalCluster())
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
