@@ -872,7 +872,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		target := ptr.NonEmptyOrDefault(waypoint, net.JoinHostPort(address, strconv.Itoa(port)))
 		innerAddressName := connectOriginate
 		if b.hboneConnectWait {
-			innerAddressName = util.HBONEOriginationShimListener
+			innerAddressName = util.HBONEOriginationAdapterListener
 		}
 		if isEastWestGateway(b.proxy) {
 			innerAddressName = forwardInnerConnect

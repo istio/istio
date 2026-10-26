@@ -54,11 +54,11 @@ func WaypointInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.
 	return waypointInternalUpstreamTransportSocket(inner, false)
 }
 
-func WaypointHBONEOriginationShimTransportSocket() *core.TransportSocket {
+func WaypointHBONEOriginationAdapterTransportSocket() *core.TransportSocket {
 	return waypointInternalUpstreamTransportSocket(nil, true)
 }
 
-func waypointInternalUpstreamTransportSocket(inner *core.TransportSocket, shim bool) *core.TransportSocket {
+func waypointInternalUpstreamTransportSocket(inner *core.TransportSocket, adapter bool) *core.TransportSocket {
 	passthroughMetadata := []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
 		{
 			Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
@@ -83,8 +83,8 @@ func waypointInternalUpstreamTransportSocket(inner *core.TransportSocket, shim b
 		)
 	}
 
-	if shim {
-		return HBONEOriginationShimTransportSocket(passthroughMetadata)
+	if adapter {
+		return HBONEOriginationAdapterTransportSocket(passthroughMetadata)
 	}
 	return &core.TransportSocket{
 		Name: "internal_upstream",
@@ -101,11 +101,11 @@ func FullMetadataPassthroughInternalUpstreamTransportSocket(inner *core.Transpor
 	return fullMetadataPassthroughInternalUpstreamTransportSocket(inner, false)
 }
 
-func FullMetadataPassthroughHBONEOriginationShimTransportSocket() *core.TransportSocket {
+func FullMetadataPassthroughHBONEOriginationAdapterTransportSocket() *core.TransportSocket {
 	return fullMetadataPassthroughInternalUpstreamTransportSocket(nil, true)
 }
 
-func fullMetadataPassthroughInternalUpstreamTransportSocket(inner *core.TransportSocket, shim bool) *core.TransportSocket {
+func fullMetadataPassthroughInternalUpstreamTransportSocket(inner *core.TransportSocket, adapter bool) *core.TransportSocket {
 	passthroughMetadata := []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
 		{
 			Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
@@ -134,8 +134,8 @@ func fullMetadataPassthroughInternalUpstreamTransportSocket(inner *core.Transpor
 		)
 	}
 
-	if shim {
-		return HBONEOriginationShimTransportSocket(passthroughMetadata)
+	if adapter {
+		return HBONEOriginationAdapterTransportSocket(passthroughMetadata)
 	}
 	return &core.TransportSocket{
 		Name: "envoy.transport_sockets.internal_upstream",

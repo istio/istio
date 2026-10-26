@@ -250,7 +250,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				svcPort := b.servicePort(b.port)
 				listenerName := innerConnectOriginate
 				if b.hboneConnectWait {
-					listenerName = util.HBONEInnerOriginationShimListener
+					listenerName = util.HBONEInnerOriginationAdapterListener
 				}
 
 				gwEp = &endpoint.LbEndpoint{

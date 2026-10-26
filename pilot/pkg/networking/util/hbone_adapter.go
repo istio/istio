@@ -25,15 +25,15 @@ import (
 )
 
 const (
-	HBONERejectionPool                     = "envoy.upstreams.istio_hbone"
-	HBONERejectionPoolType                 = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.ConnectionPoolConfig"
-	HBONEOuterOriginationShimListener      = "outer_connect_originate_hbone_shim"
-	HBONEOriginationShimListener           = "connect_originate_hbone_shim"
-	HBONEInnerOriginationShimListener      = "inner_connect_originate_hbone_shim"
-	HBONEOriginationShimFilter             = "envoy.filters.network.istio_hbone"
-	HBONEOriginationShimTransport          = "envoy.transport_sockets.istio_hbone"
-	HBONEOriginationShimConfigType         = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.Config"
-	HBONEOriginationShimUpstreamConfigType = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.UpstreamConfig"
+	HBONERejectionPool                        = "envoy.upstreams.istio_hbone"
+	HBONERejectionPoolType                    = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.ConnectionPoolConfig"
+	HBONEOuterOriginationAdapterListener      = "outer_connect_originate_hbone_adapter"
+	HBONEOriginationAdapterListener           = "connect_originate_hbone_adapter"
+	HBONEInnerOriginationAdapterListener      = "inner_connect_originate_hbone_adapter"
+	HBONEOriginationAdapterFilter             = "envoy.filters.network.istio_hbone"
+	HBONEOriginationAdapterTransport          = "envoy.transport_sockets.istio_hbone"
+	HBONEOriginationAdapterConfigType         = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.Config"
+	HBONEOriginationAdapterUpstreamConfigType = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.UpstreamConfig"
 )
 
 // HBONEConnectWaitEnabled opts a proxy into the complete HBONE CONNECT wait configuration.
@@ -45,7 +45,7 @@ func HBONEConnectWaitEnabled(proxy *model.Proxy) bool {
 		return false
 	}
 	// Enabling the transport also affects remote EDS entries. Require the nested
-	// listeners and clusters before opting a multi-network proxy into the shim.
+	// listeners and clusters before opting a multi-network proxy into the adapter.
 	if features.EnableAmbientMultiNetwork && !model.ShouldCreateDoubleHBONEResources(proxy) {
 		return false
 	}
@@ -54,7 +54,7 @@ func HBONEConnectWaitEnabled(proxy *model.Proxy) bool {
 }
 
 // UseHBONEConnectWait must be applied to both CDS and EDS. Unsupported traffic keeps
-// the original internal transport and listener; it must never be paired with half of the shim.
+// the original internal transport and listener; it must never be paired with half of the adapter.
 // Restrict CONNECT wait to EDS services without application TLS or PROXY protocol origination.
 func UseHBONEConnectWait(enabled bool, service *model.Service, policy *networking.TrafficPolicy) bool {
 	if !enabled || service == nil || service.Resolution != model.ClientSideLB || policy.GetProxyProtocol() != nil {
@@ -68,9 +68,9 @@ func UseHBONEConnectWait(enabled bool, service *model.Service, policy *networkin
 	}
 }
 
-// HBONEOriginationShimTransportSocket carries the same host/cluster metadata as the
-// internal upstream transport. The shim itself supplies its raw buffer transport.
-func HBONEOriginationShimTransportSocket(metadata []*internalupstream.InternalUpstreamTransport_MetadataValueSource) *core.TransportSocket {
+// HBONEOriginationAdapterTransportSocket carries the same host/cluster metadata as the
+// internal upstream transport. The adapter itself supplies its raw buffer transport.
+func HBONEOriginationAdapterTransportSocket(metadata []*internalupstream.InternalUpstreamTransport_MetadataValueSource) *core.TransportSocket {
 	passthrough := make([]any, 0, len(metadata))
 	for _, source := range metadata {
 		kind := "host"
@@ -83,9 +83,9 @@ func HBONEOriginationShimTransportSocket(metadata []*internalupstream.InternalUp
 		})
 	}
 	return &core.TransportSocket{
-		Name: HBONEOriginationShimTransport,
+		Name: HBONEOriginationAdapterTransport,
 		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.TypedStructWithFields(
-			HBONEOriginationShimUpstreamConfigType, map[string]any{"passthrough_metadata": passthrough},
+			HBONEOriginationAdapterUpstreamConfigType, map[string]any{"passthrough_metadata": passthrough},
 		)},
 	}
 }

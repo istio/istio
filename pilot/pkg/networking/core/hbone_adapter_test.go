@@ -39,7 +39,7 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-func shimTestProxy(cg *ConfigGenTest, kind model.NodeType, enabled bool) *model.Proxy {
+func adapterTestProxy(cg *ConfigGenTest, kind model.NodeType, enabled bool) *model.Proxy {
 	return cg.SetupProxy(&model.Proxy{
 		Type:     kind,
 		Metadata: &model.NodeMetadata{EnableHBONEConnectWait: model.StringBool(enabled)},
@@ -47,7 +47,7 @@ func shimTestProxy(cg *ConfigGenTest, kind model.NodeType, enabled bool) *model.
 	})
 }
 
-func TestHBONEOriginationShimListener(t *testing.T) {
+func TestHBONEOriginationAdapterListener(t *testing.T) {
 	test.SetForTest(t, &features.EnableHBONESend, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
 	test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, false)
@@ -73,7 +73,7 @@ spec:
 `})
 		for _, kind := range []model.NodeType{model.Waypoint, model.Router, model.SidecarProxy} {
 			for _, enabled := range []bool{false, true} {
-				proxy := shimTestProxy(cg, kind, enabled)
+				proxy := adapterTestProxy(cg, kind, enabled)
 				class := istionetworking.ListenerClassSidecarOutbound
 				if kind == model.Waypoint {
 					class = istionetworking.ListenerClassSidecarInbound
@@ -87,7 +87,7 @@ spec:
 					if l.Name == ConnectOriginate {
 						foundLegacy = true
 					}
-					if l.Name != util.HBONEOriginationShimListener {
+					if l.Name != util.HBONEOriginationAdapterListener {
 						continue
 					}
 					found = true
@@ -98,10 +98,10 @@ spec:
 					original := legacy.FilterChains[0].Filters
 					assert.Equal(t, filters[:len(filters)-1], original[:len(original)-1])
 					terminal := filters[len(filters)-1]
-					assert.Equal(t, terminal.Name, util.HBONEOriginationShimFilter)
+					assert.Equal(t, terminal.Name, util.HBONEOriginationAdapterFilter)
 					wrapped := &udpa.TypedStruct{}
 					assert.NoError(t, terminal.GetTypedConfig().UnmarshalTo(wrapped))
-					assert.Equal(t, wrapped.TypeUrl, util.HBONEOriginationShimConfigType)
+					assert.Equal(t, wrapped.TypeUrl, util.HBONEOriginationAdapterConfigType)
 					tcpProxy := &tcp.TcpProxy{}
 					assert.NoError(t, protomarshal.StructToMessageSlow(wrapped.Value.Fields["tcp_proxy"].GetStructValue(), tcpProxy))
 					wantTCP := &tcp.TcpProxy{}
@@ -122,7 +122,7 @@ spec:
 
 // Exercise the actual CDS and EDS builders against the same effective DestinationRule.
 // A partial opt-in would produce a connection failure for every request to that cluster.
-func TestHBONEOriginationShimPairing(t *testing.T) {
+func TestHBONEOriginationAdapterPairing(t *testing.T) {
 	test.SetForTest(t, &features.EnableHBONESend, true)
 	test.SetForTest(t, &features.PreferHBONESend, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
@@ -138,10 +138,10 @@ func TestHBONEOriginationShimPairing(t *testing.T) {
 		policy  *networking.TrafficPolicy
 		subset  string
 		subsets []*networking.Subset
-		shim    bool
+		adapter bool
 	}{
-		{name: "raw", shim: true},
-		{name: "istio mutual", shim: true, policy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL}}},
+		{name: "raw", adapter: true},
+		{name: "istio mutual", adapter: true, policy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL}}},
 		{name: "application tls", policy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE}}},
 		{name: "application mtls", policy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{
 			Mode: networking.ClientTLSSettings_MUTUAL, ClientCertificate: "/cert", PrivateKey: "/key", CaCertificates: "/root",
@@ -154,7 +154,7 @@ func TestHBONEOriginationShimPairing(t *testing.T) {
 			Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE},
 		}}}},
 		{
-			name: "subset disables application tls", shim: true, subset: "v1",
+			name: "subset disables application tls", adapter: true, subset: "v1",
 			policy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE}},
 			subsets: []*networking.Subset{{Name: "v1", TrafficPolicy: &networking.TrafficPolicy{
 				Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
@@ -175,7 +175,7 @@ func TestHBONEOriginationShimPairing(t *testing.T) {
 			})
 			for _, kind := range []model.NodeType{model.Waypoint, model.Router, model.SidecarProxy} {
 				for _, enabled := range []bool{false, true} {
-					proxy := shimTestProxy(cg, kind, enabled)
+					proxy := adapterTestProxy(cg, kind, enabled)
 					cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
 					direction, subset := model.TrafficDirectionOutbound, tt.subset
 					var subsetPolicy *networking.TrafficPolicy
@@ -210,9 +210,9 @@ func TestHBONEOriginationShimPairing(t *testing.T) {
 					if transport == nil {
 						t.Fatal("missing HBONE transport")
 					}
-					wantShim := enabled && tt.shim
-					assert.Equal(t, c.UpstreamConfig != nil, wantShim)
-					assert.Equal(t, transport.Name == util.HBONEOriginationShimTransport, wantShim)
+					wantAdapter := enabled && tt.adapter
+					assert.Equal(t, c.UpstreamConfig != nil, wantAdapter)
+					assert.Equal(t, transport.Name == util.HBONEOriginationAdapterTransport, wantAdapter)
 					clusterName := model.BuildSubsetKey(direction, subset, svc.Hostname, port.Port)
 					eb := endpoints.NewEndpointBuilder(clusterName, proxy, cg.PushContext())
 					localities := eb.FromServiceEndpoints()
@@ -221,12 +221,12 @@ func TestHBONEOriginationShimPairing(t *testing.T) {
 					}
 					ep := localities[0].LbEndpoints[0].GetEndpoint()
 					wantListener := ConnectOriginate
-					if wantShim {
-						wantListener = util.HBONEOriginationShimListener
+					if wantAdapter {
+						wantListener = util.HBONEOriginationAdapterListener
 					}
 					assert.Equal(t, ep.Address.GetEnvoyInternalAddress().GetServerListenerName(), wantListener)
 					assert.Equal(t, ep.Address.GetEnvoyInternalAddress().GetEndpointId(), "10.0.0.2:8080")
-					// The shim and legacy traffic continue to use the identical outer mTLS/H2 cluster.
+					// The adapter and legacy traffic continue to use the identical outer mTLS/H2 cluster.
 					outer := cb.buildWaypointConnectOriginate(proxy, cg.PushContext())
 					assert.Equal(t, outer.TransportSocket.Name, "tls")
 					assert.Equal(t, outer.TypedExtensionProtocolOptions != nil, true)
@@ -236,18 +236,18 @@ func TestHBONEOriginationShimPairing(t *testing.T) {
 	}
 }
 
-func TestHBONEOriginationShimMetadata(t *testing.T) {
+func TestHBONEOriginationAdapterMetadata(t *testing.T) {
 	for _, baggage := range []bool{false, true} {
 		test.SetForTest(t, &features.EnableAmbientBaggage, baggage)
 		for _, pair := range [][2]*core.TransportSocket{
-			{util.WaypointInternalUpstreamTransportSocket(util.RawBufferTransport()), util.WaypointHBONEOriginationShimTransportSocket()},
-			{util.FullMetadataPassthroughInternalUpstreamTransportSocket(util.RawBufferTransport()), util.FullMetadataPassthroughHBONEOriginationShimTransportSocket()},
+			{util.WaypointInternalUpstreamTransportSocket(util.RawBufferTransport()), util.WaypointHBONEOriginationAdapterTransportSocket()},
+			{util.FullMetadataPassthroughInternalUpstreamTransportSocket(util.RawBufferTransport()), util.FullMetadataPassthroughHBONEOriginationAdapterTransportSocket()},
 		} {
 			original := &internalupstream.InternalUpstreamTransport{}
 			assert.NoError(t, pair[0].GetTypedConfig().UnmarshalTo(original))
 			wrapped := &udpa.TypedStruct{}
 			assert.NoError(t, pair[1].GetTypedConfig().UnmarshalTo(wrapped))
-			assert.Equal(t, wrapped.TypeUrl, util.HBONEOriginationShimUpstreamConfigType)
+			assert.Equal(t, wrapped.TypeUrl, util.HBONEOriginationAdapterUpstreamConfigType)
 			decoded := &internalupstream.InternalUpstreamTransport{}
 			assert.NoError(t, protomarshal.StructToMessageSlow(wrapped.Value, decoded))
 			assert.Equal(t, decoded.PassthroughMetadata, original.PassthroughMetadata)
@@ -255,7 +255,7 @@ func TestHBONEOriginationShimMetadata(t *testing.T) {
 	}
 }
 
-func TestHBONEOriginationShimCacheIsolation(t *testing.T) {
+func TestHBONEOriginationAdapterCacheIsolation(t *testing.T) {
 	test.SetForTest(t, &features.EnableHBONESend, true)
 	test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, false)
 	svc := &model.Service{Hostname: "app.default.svc.cluster.local", Attributes: model.ServiceAttributes{Namespace: "default"}}
@@ -265,14 +265,14 @@ func TestHBONEOriginationShimCacheIsolation(t *testing.T) {
 		t.Run(string(kind), func(t *testing.T) {
 			keys := make([][2]any, 0, 2)
 			for _, enabled := range []bool{false, true} {
-				proxy := shimTestProxy(cg, kind, enabled)
+				proxy := adapterTestProxy(cg, kind, enabled)
 				cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
 				cds := buildClusterKey(svc, port, cb, proxy, nil)
 				eds := endpoints.NewEndpointBuilder(model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port), proxy, cg.PushContext())
 				keys = append(keys, [2]any{cds.Key(), eds.Key()})
 			}
 			if keys[0][0] == keys[1][0] || keys[0][1] == keys[1][1] {
-				t.Fatal("shim and stock proxy share an xDS cache key")
+				t.Fatal("adapter and stock proxy share an xDS cache key")
 			}
 		})
 	}

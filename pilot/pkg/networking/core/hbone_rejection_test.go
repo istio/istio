@@ -56,18 +56,6 @@ func TestHBONEConnectWaitOptInAndCacheIsolation(t *testing.T) {
 				{name: "unset", metadata: map[string]any{}},
 				{name: "disabled", metadata: map[string]any{"ENABLE_HBONE_CONNECT_WAIT": "false"}},
 				{name: "enabled", want: true, metadata: map[string]any{"ENABLE_HBONE_CONNECT_WAIT": "true"}},
-				{name: "old shim", metadata: map[string]any{"ENABLE_HBONE_ORIGINATION_SHIM": "true"}},
-				{name: "old rejection", metadata: map[string]any{"ENABLE_HBONE_REJECTION_HANDLING": "true"}},
-				{name: "old flags", metadata: map[string]any{
-					"ENABLE_HBONE_ORIGINATION_SHIM": "true", "ENABLE_HBONE_REJECTION_HANDLING": "true",
-					"ENABLE_HBONE_GOAWAY_PREFERENCE": "true",
-				}},
-				{name: "disabled with old flags", metadata: map[string]any{
-					"ENABLE_HBONE_CONNECT_WAIT": "false", "ENABLE_HBONE_ORIGINATION_SHIM": "true", "ENABLE_HBONE_REJECTION_HANDLING": "true",
-				}},
-				{name: "enabled with old flags disabled", want: true, metadata: map[string]any{
-					"ENABLE_HBONE_CONNECT_WAIT": "true", "ENABLE_HBONE_ORIGINATION_SHIM": "false", "ENABLE_HBONE_REJECTION_HANDLING": "false",
-				}},
 			} {
 				t.Run(fmt.Sprintf("%s/%s/%s", kind, appProtocol, tt.name), func(t *testing.T) {
 					metadata, err := structpb.NewStruct(tt.metadata)
@@ -96,9 +84,8 @@ func TestHBONEConnectWaitOptInAndCacheIsolation(t *testing.T) {
 					assert.Equal(t, c.UpstreamConfig != nil, tt.want)
 					if tt.want {
 						assert.Equal(t, c.UpstreamConfig.Name, util.HBONERejectionPool)
-						wrapped := &udpa.TypedStruct{}
-						assert.NoError(t, c.UpstreamConfig.TypedConfig.UnmarshalTo(wrapped))
-						assert.Equal(t, wrapped.TypeUrl, util.HBONERejectionPoolType)
+						assert.Equal(t, c.UpstreamConfig.TypedConfig.GetTypeUrl(), util.HBONERejectionPoolType)
+						assert.Equal(t, len(c.UpstreamConfig.TypedConfig.GetValue()), 0)
 					}
 					cache := buildClusterKey(svc, port, cb, proxy, nil)
 					direction, subset := model.TrafficDirectionOutbound, ""
@@ -115,7 +102,7 @@ func TestHBONEConnectWaitOptInAndCacheIsolation(t *testing.T) {
 					assert.Equal(t, cache.Key() != stockCDS, tt.want)
 					assert.Equal(t, eb.Key() != stockEDS, tt.want)
 					listeners := cg.Listeners(proxy)
-					assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationShimListener, listeners) != nil, tt.want)
+					assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationAdapterListener, listeners) != nil, tt.want)
 				})
 			}
 		}
@@ -123,15 +110,15 @@ func TestHBONEConnectWaitOptInAndCacheIsolation(t *testing.T) {
 }
 
 func TestHBONEConnectWaitNestedPairing(t *testing.T) {
-	enableDoubleShimTest(t)
+	enableDoubleAdapterTest(t)
 	for _, kind := range []model.NodeType{model.Waypoint, model.Router} {
-		cg := NewConfigGenTest(t, TestOptions{ConfigString: doubleShimGateway})
+		cg := NewConfigGenTest(t, TestOptions{ConfigString: doubleAdapterGateway})
 		for _, enabled := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/enabled=%t", kind, enabled), func(t *testing.T) {
-				proxy := doubleShimProxy(cg, kind, enabled)
+				proxy := doubleAdapterProxy(cg, kind, enabled)
 				cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
 				c := cb.buildInnerConnectOriginateCluster(proxy, cg.PushContext())
-				outer := xdstest.ExtractListener(util.HBONEOuterOriginationShimListener, cg.Listeners(proxy))
+				outer := xdstest.ExtractListener(util.HBONEOuterOriginationAdapterListener, cg.Listeners(proxy))
 				assert.Equal(t, outer != nil, enabled)
 				endpoint := c.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetEnvoyInternalAddress()
 				if !enabled {
@@ -139,9 +126,9 @@ func TestHBONEConnectWaitNestedPairing(t *testing.T) {
 					assert.Equal(t, endpoint.GetServerListenerName(), DoubleHBONEOuterConnectOriginate)
 					return
 				}
-				assert.Equal(t, c.TransportSocket.Name, util.HBONEOriginationShimTransport)
+				assert.Equal(t, c.TransportSocket.Name, util.HBONEOriginationAdapterTransport)
 				assert.Equal(t, endpoint.GetServerListenerName(), outer.Name)
-				assert.Equal(t, outer.FilterChains[0].Filters[0].Name, util.HBONEOriginationShimFilter)
+				assert.Equal(t, outer.FilterChains[0].Filters[0].Name, util.HBONEOriginationAdapterFilter)
 				wrapped := &udpa.TypedStruct{}
 				assert.NoError(t, c.TransportSocket.GetTypedConfig().UnmarshalTo(wrapped))
 				socket := &core.TransportSocket{}

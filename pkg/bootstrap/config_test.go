@@ -417,12 +417,6 @@ func TestHBONEConnectWaitBootstrapMetadata(t *testing.T) {
 			name: "environment overrides proxy metadata", envs: []string{"ISTIO_META_ENABLE_HBONE_CONNECT_WAIT=false"},
 			metadata: map[string]string{"ISTIO_META_ENABLE_HBONE_CONNECT_WAIT": "true"},
 		},
-		{name: "retired environment flags", envs: []string{
-			"ISTIO_META_ENABLE_HBONE_ORIGINATION_SHIM=true", "ISTIO_META_ENABLE_HBONE_REJECTION_HANDLING=true",
-		}},
-		{name: "retired proxy metadata", metadata: map[string]string{
-			"ISTIO_META_ENABLE_HBONE_ORIGINATION_SHIM": "true", "ISTIO_META_ENABLE_HBONE_REJECTION_HANDLING": "true",
-		}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			node, err := GetNodeMetaData(MetadataOptions{

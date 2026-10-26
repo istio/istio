@@ -610,20 +610,20 @@ func TestIngressUseWaypoint(t *testing.T) {
 		appPod, appPodNoMesh,
 		waypointInstance, appWorkloadEntry,
 		appServiceEntry)
-	for _, shim := range []bool{false, true} {
-		t.Run(fmt.Sprintf("shim=%t", shim), func(t *testing.T) {
+	for _, adapter := range []bool{false, true} {
+		t.Run(fmt.Sprintf("adapter=%t", adapter), func(t *testing.T) {
 			ingressProxy := d.SetupProxy(&model.Proxy{
 				Type: model.Router, ConfigNamespace: "default",
 				IPAddresses: []string{"3.0.0.3"},
 				Metadata: &model.NodeMetadata{
-					EnableHBONEConnectWait: model.StringBool(shim),
+					EnableHBONEConnectWait: model.StringBool(adapter),
 				},
 			})
 			listenerName := "connect_originate"
 			transportName := "envoy.transport_sockets.internal_upstream"
-			if shim {
-				listenerName = util.HBONEOriginationShimListener
-				transportName = util.HBONEOriginationShimTransport
+			if adapter {
+				listenerName = util.HBONEOriginationAdapterListener
+				transportName = util.HBONEOriginationAdapterTransport
 			}
 			eps := slices.Sort(xdstest.ExtractLoadAssignments(d.Endpoints(ingressProxy))["outbound|80||app.com"])
 			// Preserve the service VIP as CONNECT authority and the waypoint as outer peer.
@@ -641,10 +641,10 @@ func TestIngressUseWaypoint(t *testing.T) {
 				}
 			}
 			assert.Equal(t, found, true)
-			assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, shim)
+			assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, adapter)
 			assert.Equal(t, c.LoadBalancingPolicy == nil, true)
 			listeners := d.Listeners(ingressProxy)
-			assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationShimListener, listeners) != nil, shim)
+			assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationAdapterListener, listeners) != nil, adapter)
 			assert.Equal(t, xdstest.ExtractListener("connect_originate", listeners) != nil, true)
 		})
 	}

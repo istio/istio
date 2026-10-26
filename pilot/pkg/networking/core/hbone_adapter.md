@@ -17,7 +17,7 @@ extensions:
 
 The Istio proxy build has its own extension allowlist; registration in Envoy's
 contrib build alone does not include these extensions in proxyv2. Retain the normal
-Istio extensions, including the peer-metadata support for shim listeners.
+Istio extensions, including the peer-metadata support for adapter listeners.
 
 Set the following in the selected proxy's `ProxyConfig` and restart the proxy:
 
@@ -61,10 +61,10 @@ not required solely to originate HBONE.
 
 For eligible service clusters, istiod generates the following together:
 
-- A `connect_originate_hbone_shim` internal listener containing the terminal shim
+- A `connect_originate_hbone_adapter` internal listener containing the terminal adapter
   filter, preserving the original listener's address restoration, metadata filters,
   TCP proxy settings, and access logs.
-- The shim transport on the waypoint service cluster or the sidecar/ingress
+- The adapter transport on the waypoint service cluster or the sidecar/ingress
   cluster's `hbone` transport match, preserving host and cluster metadata.
 - The `envoy.upstreams.istio_hbone` pool adapter on the application cluster for
   HTTP/1.1, HTTP/2, and TCP consumers, including mixed transport clusters.
@@ -82,7 +82,7 @@ passthrough, proxyless gRPC, and ambient east-west gateway opt-in are excluded.
 Mesh `ISTIO_MUTUAL` remains supported because HBONE supplies that mTLS.
 
 A service can mix ambient, mesh mTLS, and plaintext endpoints. Only HBONE endpoints
-use the shim listener and transport. Other transport matches retain their existing
+use the adapter listener and transport. Other transport matches retain their existing
 behavior through the application pool adapter. Load-balancing policies and
 ordinary HTTP/2 GOAWAY handling are unchanged; GOAWAY does not deprioritize peers.
 
@@ -114,7 +114,7 @@ transport failure reason. Connection-failure counters can increase, but permanen
 denials are not reported to outlier detection or counted as application responses
 in service-cluster upstream HTTP status counters.
 
-After application bytes may have reached the destination, the shim provides no
+After application bytes may have reached the destination, the adapter provides no
 additional replay guarantee. A graceful GOAWAY prevents new CONNECT streams on
 that HTTP/2 connection while accepted streams and their application connections
 can continue.
@@ -144,16 +144,16 @@ their existing path.
 The same CONNECT wait option configures both hops:
 
 ```text
-application cluster (shim transport and pool adapter)
-  local endpoint -> connect_originate_hbone_shim -> connect_originate
-  remote gateway -> inner_connect_originate_hbone_shim
-                 -> inner_connect_originate (H2, shim transport wrapping TLS)
-                 -> outer_connect_originate_hbone_shim
+application cluster (adapter transport and pool adapter)
+  local endpoint -> connect_originate_hbone_adapter -> connect_originate
+  remote gateway -> inner_connect_originate_hbone_adapter
+                 -> inner_connect_originate (H2, adapter transport wrapping TLS)
+                 -> outer_connect_originate_hbone_adapter
                  -> outer_connect_originate (H2, TLS)
                  -> remote E/W gateway
 ```
 
-The outer shim gates inner TLS until outer CONNECT acceptance. The application
+The outer adapter gates inner TLS until outer CONNECT acceptance. The application
 transport waits for inner CONNECT acceptance. Existing TLS identity checks,
 headers, optional baggage, metadata, and access logs are retained. Both nested H2
 clusters retain `max_requests_per_connection: 1`; the pool adapter is installed
@@ -175,6 +175,6 @@ go test ./pilot/pkg/networking/core ./pilot/pkg/networking/util ./pilot/pkg/xds/
 
 Tests cover enablement and metadata parsing, CDS/LDS/EDS pairing, mixed transports,
 service/subset/port policies, cache isolation, and nested TLS retention. Envoy's
-shim tests separately exercise accepted CONNECTs, failures, POST retries,
+adapter tests separately exercise accepted CONNECTs, failures, POST retries,
 multiplexing, and GOAWAY. Live interoperability with Istio 1.31-style ztunnel remains
 to be validated for this branch.
