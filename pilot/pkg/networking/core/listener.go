@@ -146,23 +146,23 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 		if node.Type == model.Router {
 			class = istionetworking.ListenerClassGateway
 		}
-		if shim, err := buildConnectOriginateShimListener(push, node, class); err != nil {
-			log.Errorf("failed to build HBONE origination shim listener: %v", err)
+		if adapter, err := buildConnectOriginateAdapterListener(push, node, class); err != nil {
+			log.Errorf("failed to build HBONE origination adapter listener: %v", err)
 		} else {
-			l = append(l, shim)
+			l = append(l, adapter)
 		}
 		if model.ShouldCreateDoubleHBONEResources(node) {
 			outer := buildOuterConnectOriginateListener(push, node)
-			if shim, err := wrapHBONEOriginationShimListener(outer, util.HBONEOuterOriginationShimListener); err != nil {
-				log.Errorf("failed to build outer HBONE origination shim listener: %v", err)
+			if adapter, err := wrapHBONEOriginationAdapterListener(outer, util.HBONEOuterOriginationAdapterListener); err != nil {
+				log.Errorf("failed to build outer HBONE origination adapter listener: %v", err)
 			} else {
-				l = append(l, shim)
+				l = append(l, adapter)
 			}
 			inner := buildInnerConnectOriginateListener(push, node)
-			if shim, err := wrapHBONEOriginationShimListener(inner, util.HBONEInnerOriginationShimListener); err != nil {
-				log.Errorf("failed to build inner HBONE origination shim listener: %v", err)
+			if adapter, err := wrapHBONEOriginationAdapterListener(inner, util.HBONEInnerOriginationAdapterListener); err != nil {
+				log.Errorf("failed to build inner HBONE origination adapter listener: %v", err)
 			} else {
-				l = append(l, shim)
+				l = append(l, adapter)
 			}
 		}
 	}
