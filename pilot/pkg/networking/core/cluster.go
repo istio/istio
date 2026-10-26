@@ -358,6 +358,12 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, outboundServices)
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
+		// An ambient E/W gateway can also expose an AUTO_PASSTHROUGH listener (port 15443 by default) so that
+		// sidecar multi-network traffic can be served by the same gateway. Those listeners route by SNI to
+		// the SNI-DNAT clusters, exactly like a classic (Router) east-west gateway does.
+		if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways {
+			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, outboundPatcher)...)
+		}
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, wps.services)...)
