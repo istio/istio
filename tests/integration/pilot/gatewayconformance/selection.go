@@ -23,8 +23,6 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
-
-	"istio.io/istio/pkg/util/sets"
 )
 
 // SkipNonStandardTests returns skipTests extended with every conformance test that requires a
@@ -35,19 +33,12 @@ func SkipNonStandardTests(conformanceTests []suite.ConformanceTest, skippedTests
 		skips[name] = reason
 	}
 
-	standardFeatures := sets.New[features.FeatureName]()
-	for f := range features.AllFeatures {
-		if f.Channel == features.FeatureChannelStandard {
-			standardFeatures.Insert(f.Name)
-		}
-	}
-
 	for _, test := range conformanceTests {
 		if _, exists := skips[test.ShortName]; exists {
 			continue
 		}
 		for _, name := range test.Features {
-			if !standardFeatures.Contains(name) {
+			if features.GetFeature(name).Channel != features.FeatureChannelStandard {
 				skips[test.ShortName] = fmt.Sprintf("requires non-standard Gateway API feature %q", name)
 				break
 			}
