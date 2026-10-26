@@ -297,6 +297,8 @@ func TestGatewayDynamicDNSFilters(t *testing.T) {
 			g.Expect(sniDFPChain.GetFilterChainMatch().GetServerNames()).To(ConsistOf(wildcardHost))
 			g.Expect(sniDFP.GetDnsCacheConfig().Name).To(Equal(wildcardHost + "_dfp_dns_cache"))
 			g.Expect(sniDFP.GetPortValue()).To(Equal(uint32(443)))
+			// Only ISTIO_MUTUAL servers use the internal cluster.
+			g.Expect(xdstest.ExtractCluster(gatewayWildcardTLSInternalName, cg.Clusters(proxy))).To(BeNil())
 		})
 	}
 }

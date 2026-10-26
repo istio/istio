@@ -97,7 +97,7 @@ func sniHostsUnder(sniHosts []string, wildcardHost host.Name) bool {
 func gatewayWildcardTLSTargetForServer(
 	node *model.Proxy, server *networking.Server, routes []*networking.RouteDestination,
 ) (gatewayWildcardTLSTarget, bool) {
-	if server.GetTls().GetMode() != networking.ServerTLSSettings_ISTIO_MUTUAL || !protocol.Parse(server.GetPort().GetProtocol()).IsTLS() {
+	if server.GetTls().GetMode() != networking.ServerTLSSettings_ISTIO_MUTUAL || protocol.Parse(server.GetPort().GetProtocol()) != protocol.TLS {
 		return gatewayWildcardTLSTarget{}, false
 	}
 	svc, port := gatewayWildcardDestination(node, routes, int(server.GetPort().GetNumber()))
