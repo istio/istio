@@ -31,8 +31,8 @@ import (
 )
 
 // Generate complete outbound CDS/LDS and EDS together. A mixed service must keep
-// its native mTLS/plaintext matches while only HBONE endpoints enter the shim.
-func TestHBONEOriginationShimOutbound(t *testing.T) {
+// its native mTLS/plaintext matches while only HBONE endpoints enter the adapter.
+func TestHBONEOriginationAdapterOutbound(t *testing.T) {
 	test.SetForTest(t, &features.EnableHBONESend, true)
 	test.SetForTest(t, &features.PreferHBONESend, false)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
@@ -84,7 +84,7 @@ func TestHBONEOriginationShimOutbound(t *testing.T) {
 					if match.Name == "hbone" {
 						found = true
 						assert.Equal(t, match.Match, stock.TransportSocketMatches[i].Match)
-						assert.Equal(t, match.TransportSocket.Name, util.HBONEOriginationShimTransport)
+						assert.Equal(t, match.TransportSocket.Name, util.HBONEOriginationAdapterTransport)
 					} else {
 						assert.Equal(t, match, stock.TransportSocketMatches[i])
 					}
@@ -94,7 +94,7 @@ func TestHBONEOriginationShimOutbound(t *testing.T) {
 				assert.Equal(t, c.LbPolicy, stock.LbPolicy)
 				assert.Equal(t, clusters[ConnectOriginate], stockClusters[ConnectOriginate])
 				listeners := cg.Listeners(proxy)
-				assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationShimListener, listeners) != nil, true)
+				assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationAdapterListener, listeners) != nil, true)
 				assert.Equal(t, xdstest.ExtractListener(ConnectOriginate, listeners) != nil, true)
 				builder := endpoints.NewEndpointBuilder(name, proxy, cg.PushContext())
 				localities := builder.FromServiceEndpoints()
@@ -105,7 +105,7 @@ func TestHBONEOriginationShimOutbound(t *testing.T) {
 					original := stockEndpoints[0].LbEndpoints[i]
 					if addr := ep.GetEndpoint().Address.GetEnvoyInternalAddress(); addr != nil {
 						hboneEndpoints++
-						assert.Equal(t, addr.GetServerListenerName(), util.HBONEOriginationShimListener)
+						assert.Equal(t, addr.GetServerListenerName(), util.HBONEOriginationAdapterListener)
 						assert.Equal(t, addr.GetEndpointId(), "10.0.0.2:8080")
 						assert.Equal(t, ep.Metadata, original.Metadata)
 						assert.Equal(t, ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[model.TunnelLabelShortName].GetStringValue(), model.TunnelHTTP)

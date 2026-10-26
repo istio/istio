@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestHBONEDoubleShimEligibility(t *testing.T) {
+func TestHBONEDoubleAdapterEligibility(t *testing.T) {
 	for _, kind := range []model.NodeType{model.Waypoint, model.Router, model.SidecarProxy} {
 		for _, global := range []bool{false, true} {
 			for _, native := range []bool{false, true} {

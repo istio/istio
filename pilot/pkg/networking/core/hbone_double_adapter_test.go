@@ -46,7 +46,7 @@ import (
 	"istio.io/istio/pkg/wellknown"
 )
 
-const doubleShimGateway = `
+const doubleAdapterGateway = `
 apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
@@ -78,7 +78,7 @@ spec:
           number: 80
 `
 
-func doubleShimProxy(cg *ConfigGenTest, kind model.NodeType, enabled bool) *model.Proxy {
+func doubleAdapterProxy(cg *ConfigGenTest, kind model.NodeType, enabled bool) *model.Proxy {
 	controller := constants.ManagedGatewayMeshControllerLabel
 	if kind == model.Router {
 		controller = constants.ManagedGatewayControllerLabel
@@ -92,7 +92,7 @@ func doubleShimProxy(cg *ConfigGenTest, kind model.NodeType, enabled bool) *mode
 	})
 }
 
-func enableDoubleShimTest(t *testing.T) {
+func enableDoubleAdapterTest(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableHBONESend, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
@@ -101,37 +101,37 @@ func enableDoubleShimTest(t *testing.T) {
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 }
 
-func TestHBONEDoubleShimListeners(t *testing.T) {
-	enableDoubleShimTest(t)
+func TestHBONEDoubleAdapterListeners(t *testing.T) {
+	enableDoubleAdapterTest(t)
 	for _, kind := range []model.NodeType{model.Waypoint, model.Router} {
 		for _, baggage := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/baggage=%t", kind, baggage), func(t *testing.T) {
 				test.SetForTest(t, &features.EnableAmbientBaggage, baggage)
-				cg := NewConfigGenTest(t, TestOptions{ConfigString: doubleShimGateway})
+				cg := NewConfigGenTest(t, TestOptions{ConfigString: doubleAdapterGateway})
 				for _, enabled := range []bool{false, true} {
-					proxy := doubleShimProxy(cg, kind, enabled)
+					proxy := doubleAdapterProxy(cg, kind, enabled)
 					listeners := cg.Listeners(proxy)
 					inner := xdstest.ExtractListener(DoubleHBONEInnerConnectOriginate, listeners)
 					outer := xdstest.ExtractListener(DoubleHBONEOuterConnectOriginate, listeners)
-					shim := xdstest.ExtractListener(util.HBONEInnerOriginationShimListener, listeners)
+					adapter := xdstest.ExtractListener(util.HBONEInnerOriginationAdapterListener, listeners)
 					if inner == nil || outer == nil {
 						t.Fatal("missing native nested listeners")
 					}
-					assert.Equal(t, shim != nil, enabled)
-					assert.Equal(t, xdstest.ExtractListener(util.HBONEOuterOriginationShimListener, listeners) != nil, enabled)
-					assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationShimListener, listeners) != nil, enabled)
+					assert.Equal(t, adapter != nil, enabled)
+					assert.Equal(t, xdstest.ExtractListener(util.HBONEOuterOriginationAdapterListener, listeners) != nil, enabled)
+					assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationAdapterListener, listeners) != nil, enabled)
 					assert.Equal(t, outer.FilterChains[0].Filters[0].Name, wellknown.TCPProxy)
 					if !enabled {
 						continue
 					}
-					// Unwrapping the shim must reproduce the entire native listener.
-					unwrapped := protomarshal.Clone(shim)
+					// Unwrapping the adapter must reproduce the entire native listener.
+					unwrapped := protomarshal.Clone(adapter)
 					unwrapped.Name = inner.Name
 					terminal := unwrapped.FilterChains[0].Filters[len(unwrapped.FilterChains[0].Filters)-1]
 					wrapped := &udpa.TypedStruct{}
-					assert.Equal(t, terminal.Name, util.HBONEOriginationShimFilter)
+					assert.Equal(t, terminal.Name, util.HBONEOriginationAdapterFilter)
 					assert.NoError(t, terminal.GetTypedConfig().UnmarshalTo(wrapped))
-					assert.Equal(t, wrapped.TypeUrl, util.HBONEOriginationShimConfigType)
+					assert.Equal(t, wrapped.TypeUrl, util.HBONEOriginationAdapterConfigType)
 					tcpProxy := &tcp.TcpProxy{}
 					assert.NoError(t, protomarshal.StructToMessageSlow(wrapped.Value.Fields["tcp_proxy"].GetStructValue(), tcpProxy))
 					terminal.Name = wellknown.TCPProxy
@@ -155,17 +155,17 @@ func TestHBONEDoubleShimListeners(t *testing.T) {
 // Exercise remote gateway synthesis after endpoint generation, together with the
 // service transport and native nested resources. Local and remote endpoints must
 // share the same transport but enter different listeners.
-func TestHBONEDoubleShimPairing(t *testing.T) {
-	enableDoubleShimTest(t)
+func TestHBONEDoubleAdapterPairing(t *testing.T) {
+	enableDoubleAdapterTest(t)
 	for _, kind := range []model.NodeType{model.Waypoint, model.Router} {
 		for _, appProtocol := range []protocol.Instance{protocol.HTTP, protocol.HTTP2, protocol.TCP} {
 			for _, tt := range []struct {
-				name   string
-				policy *networking.TrafficPolicy
-				shim   bool
+				name    string
+				policy  *networking.TrafficPolicy
+				adapter bool
 			}{
-				{name: "raw", shim: true},
-				{name: "mesh mtls", shim: true, policy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL}}},
+				{name: "raw", adapter: true},
+				{name: "mesh mtls", adapter: true, policy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL}}},
 				{name: "application tls", policy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE}}},
 				{name: "proxy protocol", policy: &networking.TrafficPolicy{ProxyProtocol: &networking.TrafficPolicy_ProxyProtocol{}}},
 				{name: "port application tls", policy: &networking.TrafficPolicy{PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
@@ -194,7 +194,7 @@ func TestHBONEDoubleShimPairing(t *testing.T) {
 					}
 					cg := NewConfigGenTest(t, TestOptions{
 						Services: []*model.Service{svc}, Instances: instances,
-						ConfigString: doubleShimGateway, Configs: []config.Config{dr}, Gateways: []model.NetworkGateway{
+						ConfigString: doubleAdapterGateway, Configs: []config.Config{dr}, Gateways: []model.NetworkGateway{
 							{Network: "network2", Addr: "192.0.2.1", HBONEPort: 15008},
 							{Network: "network2", Addr: "192.0.2.2", HBONEPort: 16008},
 						},
@@ -202,7 +202,7 @@ func TestHBONEDoubleShimPairing(t *testing.T) {
 					var stockCDS, stockEDS any
 					var stockService, stockOuter *cluster.Cluster
 					for _, enabled := range []bool{false, true} {
-						proxy := doubleShimProxy(cg, kind, enabled)
+						proxy := doubleAdapterProxy(cg, kind, enabled)
 						cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
 						direction, subset := model.TrafficDirectionOutbound, ""
 						var c *cluster.Cluster
@@ -232,9 +232,9 @@ func TestHBONEDoubleShimPairing(t *testing.T) {
 						if transport == nil {
 							t.Fatal("missing HBONE transport")
 						}
-						wantShim := enabled && tt.shim
-						assert.Equal(t, transport.Name == util.HBONEOriginationShimTransport, wantShim)
-						assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, wantShim)
+						wantAdapter := enabled && tt.adapter
+						assert.Equal(t, transport.Name == util.HBONEOriginationAdapterTransport, wantAdapter)
+						assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, wantAdapter)
 						if !enabled {
 							stockService = c
 						}
@@ -247,8 +247,8 @@ func TestHBONEDoubleShimPairing(t *testing.T) {
 						if !enabled {
 							stockCDS, stockEDS = cdsKey, eb.Key()
 						}
-						if wantShim && (cdsKey == stockCDS || eb.Key() == stockEDS) {
-							t.Fatal("shim and stock share a cache key")
+						if wantAdapter && (cdsKey == stockCDS || eb.Key() == stockEDS) {
+							t.Fatal("adapter and stock share a cache key")
 						}
 						localities := eb.FromServiceEndpoints()
 						assert.Equal(t, len(localities), 1)
@@ -269,10 +269,10 @@ func TestHBONEDoubleShimPairing(t *testing.T) {
 							if local {
 								wantListener = ConnectOriginate
 							}
-							if wantShim {
-								wantListener = util.HBONEInnerOriginationShimListener
+							if wantAdapter {
+								wantListener = util.HBONEInnerOriginationAdapterListener
 								if local {
-									wantListener = util.HBONEOriginationShimListener
+									wantListener = util.HBONEOriginationAdapterListener
 								}
 							}
 							assert.Equal(t, addr.GetServerListenerName(), wantListener)
@@ -294,8 +294,8 @@ func TestHBONEDoubleShimPairing(t *testing.T) {
 						innerEndpoint := inner.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetEnvoyInternalAddress()
 						var innerTLS *core.TransportSocket
 						if enabled {
-							assert.Equal(t, innerEndpoint.GetServerListenerName(), util.HBONEOuterOriginationShimListener)
-							assert.Equal(t, inner.TransportSocket.Name, util.HBONEOriginationShimTransport)
+							assert.Equal(t, innerEndpoint.GetServerListenerName(), util.HBONEOuterOriginationAdapterListener)
+							assert.Equal(t, inner.TransportSocket.Name, util.HBONEOriginationAdapterTransport)
 							wrapped := &udpa.TypedStruct{}
 							assert.NoError(t, inner.TransportSocket.GetTypedConfig().UnmarshalTo(wrapped))
 							innerTLS = &core.TransportSocket{}

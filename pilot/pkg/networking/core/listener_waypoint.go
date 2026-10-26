@@ -821,13 +821,13 @@ func hboneOriginationListenerClass(proxy *model.Proxy) istionetworking.ListenerC
 	return model.OutboundListenerClass(proxy.Type)
 }
 
-func buildConnectOriginateShimListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) (*listener.Listener, error) {
-	return wrapHBONEOriginationShimListener(buildConnectOriginateListener(push, proxy, class), util.HBONEOriginationShimListener)
+func buildConnectOriginateAdapterListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) (*listener.Listener, error) {
+	return wrapHBONEOriginationAdapterListener(buildConnectOriginateListener(push, proxy, class), util.HBONEOriginationAdapterListener)
 }
 
 // Replace only the terminal TCP proxy so both single and double HBONE preserve
 // their authority, metadata propagation, headers, and access logs.
-func wrapHBONEOriginationShimListener(l *listener.Listener, name string) (*listener.Listener, error) {
+func wrapHBONEOriginationAdapterListener(l *listener.Listener, name string) (*listener.Listener, error) {
 	l.Name = name
 	filters := l.FilterChains[0].Filters
 	terminal := filters[len(filters)-1]
@@ -839,9 +839,9 @@ func wrapHBONEOriginationShimListener(l *listener.Listener, name string) (*liste
 	if err != nil {
 		return nil, err
 	}
-	terminal.Name = util.HBONEOriginationShimFilter
+	terminal.Name = util.HBONEOriginationAdapterFilter
 	terminal.ConfigType = &listener.Filter_TypedConfig{TypedConfig: protoconv.TypedStructWithFields(
-		util.HBONEOriginationShimConfigType, map[string]any{"tcp_proxy": value},
+		util.HBONEOriginationAdapterConfigType, map[string]any{"tcp_proxy": value},
 	)}
 	return l, nil
 }

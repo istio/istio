@@ -17,17 +17,19 @@ package core
 import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
-// Required on application clusters using the shim transport. The adapter handles
+// Required on application clusters using the adapter transport. The adapter handles
 // permanent CONNECT rejections for HTTP and TCP consumers, and passes through
 // ordinary transport failures, including failures of non-HBONE transport matches.
 func applyHBONERejectionHandling(c *cluster.Cluster) {
+	// The router resolves this config for every upstream request attempt. Use a
+	// direct, empty Any to avoid converting a TypedStruct on each attempt.
 	c.UpstreamConfig = &core.TypedExtensionConfig{
 		Name:        util.HBONERejectionPool,
-		TypedConfig: protoconv.TypedStructWithFields(util.HBONERejectionPoolType, map[string]any{}),
+		TypedConfig: &anypb.Any{TypeUrl: util.HBONERejectionPoolType},
 	}
 }

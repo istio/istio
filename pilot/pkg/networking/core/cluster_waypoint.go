@@ -273,7 +273,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
 	if localCluster.cluster.GetType() == cluster.Cluster_EDS &&
 		util.UseHBONEConnectWait(cb.hboneConnectWait, svc, policy) {
-		localCluster.cluster.TransportSocket = util.WaypointHBONEOriginationShimTransportSocket()
+		localCluster.cluster.TransportSocket = util.WaypointHBONEOriginationAdapterTransportSocket()
 		applyHBONERejectionHandling(localCluster.cluster)
 	}
 
@@ -407,12 +407,12 @@ func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, 
 			log.Errorf("cannot configure outer HBONE rejection handling: %v", err)
 		} else {
 			c.TransportSocket = &core.TransportSocket{
-				Name: util.HBONEOriginationShimTransport,
+				Name: util.HBONEOriginationAdapterTransport,
 				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.TypedStructWithFields(
-					util.HBONEOriginationShimUpstreamConfigType, map[string]any{"transport_socket": wrapped},
+					util.HBONEOriginationAdapterUpstreamConfigType, map[string]any{"transport_socket": wrapped},
 				)},
 			}
-			c.LoadAssignment.Endpoints = util.BuildInternalEndpoint(util.HBONEOuterOriginationShimListener, nil)
+			c.LoadAssignment.Endpoints = util.BuildInternalEndpoint(util.HBONEOuterOriginationAdapterListener, nil)
 		}
 	}
 	c.AltStatName = util.DelimitedStatsPrefix(DoubleHBONEInnerConnectOriginate)
