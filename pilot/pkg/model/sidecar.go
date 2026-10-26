@@ -961,13 +961,8 @@ func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapp
 			}
 			// when there are multiple ports, construct service with listener port
 			sc := service.ShallowCopy()
-			sc.Ports = []*Port{
-				{
-					Name:     port.Name,
-					Port:     port.Port,
-					Protocol: port.Protocol,
-				},
-			}
+			p := *port
+			sc.Ports = PortList{&p}
 			return sc
 		}
 	}
@@ -1103,7 +1098,7 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 		}
 
 		// if both services have the same ports, no need to merge and we save a deepcopy
-		if existing.Ports.Equals(s.Ports) {
+		if existing.Ports.EqualsIgnoringTargetPorts(s.Ports) {
 			log.Debugf("Service %s/%s from registry %s ignored as it has the same ports as %s/%s/%s", s.Attributes.Namespace, s.Hostname,
 				s.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
 			return
