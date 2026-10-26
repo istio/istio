@@ -813,9 +813,18 @@ spec:
 					go lds.DrainResponses()
 					go cds.DrainResponses()
 					stopPushesOnCleanup(t, s, lds.Cleanup, cds.Cleanup)
-					assert.Equal(t, sent(v3.ListenerType).Contains(internalName), true)
-					assert.Equal(t, sent(v3.ClusterType).Contains(internalName), true)
-					assert.Equal(t, sent(v3.ClusterType).Contains(dfpCluster), true)
+					// The server records the sent resources after it sends the response, so wait for them.
+					retry.UntilSuccessOrFail(t, func() error {
+						if !sent(v3.ListenerType).Contains(internalName) {
+							return fmt.Errorf("internal listener not sent")
+						}
+						for _, c := range []string{internalName, dfpCluster} {
+							if !sent(v3.ClusterType).Contains(c) {
+								return fmt.Errorf("cluster %s not sent", c)
+							}
+						}
+						return nil
+					}, retry.Timeout(5*time.Second))
 					assert.NoError(t, noPerTargetClusters())
 					// ownClusters leaves out the clusters of the unrelated ServiceEntry that a case creates.
 					ownClusters := func() sets.String {
@@ -926,8 +935,15 @@ spec:
 	cds.ExpectResponse()
 	go cds.DrainResponses()
 	stopPushesOnCleanup(t, s, cds.Cleanup)
-	assert.Equal(t, sent().Contains(v1), true)
-	assert.Equal(t, sent().Contains(v2), true)
+	// The server records the sent resources after it sends the response, so wait for them.
+	retry.UntilSuccessOrFail(t, func() error {
+		for _, c := range []string{v1, v2} {
+			if !sent().Contains(c) {
+				return fmt.Errorf("cluster %s not sent", c)
+			}
+		}
+		return nil
+	}, retry.Timeout(5*time.Second))
 
 	if _, err := s.Store().Update(parseConfig(t, destinationRule("v1"))); err != nil {
 		t.Fatal(err)
