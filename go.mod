@@ -5,7 +5,7 @@ go 1.26.9
 require (
 	cloud.google.com/go/compute/metadata v0.9.1
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
-	github.com/KimMachineGun/automemlimit v1.0.0
+	github.com/KimMachineGun/automemlimit v1.0.1
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/agentgateway/agentgateway/api v0.0.0-20260506232448-6ae4ab07bb06
@@ -58,7 +58,7 @@ require (
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
 	github.com/prometheus/common v0.72.0
-	github.com/prometheus/procfs v0.22.0
+	github.com/prometheus/procfs v0.23.0
 	github.com/prometheus/prometheus v0.311.3
 	github.com/quic-go/quic-go v0.61.0
 	github.com/ryanuber/go-glob v1.0.0
