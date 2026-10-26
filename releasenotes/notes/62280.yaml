@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 62280
+releaseNotes:
+  - |
+    **Fixed** the `source_app` and `destination_app` metric labels to use the `app` pod label when a pod
+    also has `app.kubernetes.io/name`. Since 1.29.1 they had used `app.kubernetes.io/name`, which is a
+    regression from the intended behavior.
