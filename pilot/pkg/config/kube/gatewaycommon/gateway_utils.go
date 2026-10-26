@@ -137,14 +137,8 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 
 // ConvertListenerSetToListener converts a ListenerEntry to a standard Listener.
 func ConvertListenerSetToListener(l gatewayv1.ListenerEntry) gatewayv1.Listener {
-	return gatewayv1.Listener{
-		Name:          l.Name,
-		Hostname:      l.Hostname,
-		Port:          l.Port,
-		Protocol:      l.Protocol,
-		TLS:           l.TLS,
-		AllowedRoutes: l.AllowedRoutes,
-	}
+	// For now, structs are identical enough Go can cast them. I doubt this will hold up forever, but we can adjust as needed.
+	return gatewayv1.Listener(l)
 }
 
 // ListenerEntryPortNumber returns the effective port for a ListenerSet listener, applying the same

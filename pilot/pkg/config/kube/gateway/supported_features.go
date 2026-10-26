@@ -31,6 +31,13 @@ var skippedExtendedFeatures = []features.Feature{
 	features.GatewayRouteHostnameIntersectionPrecedenceFeature,
 	// HTTPRouteBackendURLRewrite: URLRewrite filter on backendRefs
 	features.HTTPRouteBackendURLRewriteFeature,
+	// Listener-level filters are not translated into gateway configuration.
+	features.GatewayListenerFiltersFeature,
+	// Address allocation does not implement the requested routability scope.
+	features.GatewayAddressRoutabilityFeature,
+	features.GatewayAddressRoutabilityClusterFeature,
+	// Gateway frontend and BackendTLSPolicy CA references do not resolve ClusterTrustBundles.
+	features.ClusterTrustBundleFeature,
 }
 
 var SupportedFeatures = features.AllFeatures.Clone().Delete(skippedExtendedFeatures...)

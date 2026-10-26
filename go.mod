@@ -110,9 +110,9 @@ require (
 	k8s.io/streaming v0.37.1
 	k8s.io/utils v0.0.0-20260626114624-be93311217bd
 	sigs.k8s.io/controller-runtime v0.25.2
-	sigs.k8s.io/gateway-api v1.7.0-rc.1
+	sigs.k8s.io/gateway-api v1.7.0-rc.3
 	sigs.k8s.io/gateway-api-inference-extension v1.5.0
-	sigs.k8s.io/gateway-api/conformance v1.7.0-rc.1
+	sigs.k8s.io/gateway-api/conformance v1.7.0-rc.3
 	sigs.k8s.io/knftables v0.0.21
 	sigs.k8s.io/mcs-api v0.4.1
 	sigs.k8s.io/yaml v1.6.0
@@ -218,7 +218,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
-	golang.org/x/mod v0.41.0 // indirect
+	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
@@ -226,7 +226,7 @@ require (
 	k8s.io/component-base v0.37.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.36.0 // indirect
-	sigs.k8s.io/gateway-api-conformance-images v0.1.0 // indirect
+	sigs.k8s.io/gateway-api-conformance-images v0.2.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.21.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.2 // indirect
