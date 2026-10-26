@@ -85,6 +85,14 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	headlessOnly := proxy.Type == model.Router && req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
 	sawServiceEntry := false
 
+	skipped := skippedLdsConfigs[proxy.Type]
+	if proxy.IsAmbientEastWestGateway() {
+		// Ambient east-west gateways build gateway listeners (TLS passthrough and AUTO_PASSTHROUGH) from
+		// their merged Gateway resources, so Gateway changes cannot be skipped for them. Address changes
+		// have already been handled by waypointNeedsPush above, so the router set is the right one here.
+		skipped = skippedLdsConfigs[model.Router]
+	}
+
 	for config := range req.ConfigsUpdated {
 		if headlessOnly {
 			if config.Kind == kind.ServiceEntry {
@@ -96,7 +104,7 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 			// headless-only update, none of them need to trigger a push on their own.
 			headlessOnly = false
 		}
-		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
+		if !skipped.Contains(config.Kind) {
 			if config.Kind == kind.PeerAuthentication && config.Namespace != proxy.ConfigNamespace &&
 				config.Namespace != req.Push.Mesh.RootNamespace {
 				// PeerAuthentication of the configNamespace or rootNamespace can only impact lds
