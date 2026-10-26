@@ -124,10 +124,15 @@ type Server struct {
 	httpsServer *http.Server // webhooks HTTPS Server.
 	httpsAddr   string
 
-	grpcServer        *grpc.Server
-	grpcAddress       string
-	secureGrpcServer  *grpc.Server
-	secureGrpcAddress string
+	grpcServer  *grpc.Server
+	grpcAddress string
+
+	// secureGrpcMu guards secureGrpcServer and secureGrpcAddress. They can be set during
+	// startup, or later once a certificate missing at startup becomes available.
+	secureGrpcMu         sync.RWMutex
+	secureGrpcServer     *grpc.Server
+	secureGrpcAddress    string
+	secureGrpcListenOnce sync.Once
 
 	// monitoringMux listens on monitoringAddr(:15014).
 	// Currently runs prometheus monitoring and debug (if enabled).
@@ -487,17 +492,8 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// Race condition - if waitForCache is too fast and we run this as a startup function,
 	// the grpc server would be started before CA is registered. Listening should be last.
-	if s.secureGrpcAddress != "" {
-		grpcListener, err := net.Listen("tcp", s.secureGrpcAddress)
-		if err != nil {
-			return err
-		}
-		go func() {
-			log.Infof("starting secure gRPC discovery service at %s", grpcListener.Addr())
-			if err := s.secureGrpcServer.Serve(grpcListener); err != nil {
-				log.Errorf("error serving secure GRPC server: %v", err)
-			}
-		}()
+	if err := s.startSecureGrpcListener(); err != nil {
+		return err
 	}
 
 	if s.grpcAddress != "" {
@@ -721,6 +717,7 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,
 		// force stop them. This does not happen normally.
 		stopped := make(chan struct{})
+		secureGrpcServer := s.getSecureGrpcServer()
 		go func() {
 			// Some grpcServer implementations do not support GracefulStop. Unfortunately, this is not
 			// exposed; they just panic. To avoid this, we will recover and do a standard Stop when its not
@@ -728,15 +725,15 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 			defer func() {
 				if r := recover(); r != nil {
 					s.grpcServer.Stop()
-					if s.secureGrpcServer != nil {
-						s.secureGrpcServer.Stop()
+					if secureGrpcServer != nil {
+						secureGrpcServer.Stop()
 					}
 					close(stopped)
 				}
 			}()
 			s.grpcServer.GracefulStop()
-			if s.secureGrpcServer != nil {
-				s.secureGrpcServer.GracefulStop()
+			if secureGrpcServer != nil {
+				secureGrpcServer.GracefulStop()
 			}
 			close(stopped)
 		}()
@@ -745,8 +742,8 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		select {
 		case <-t.C:
 			s.grpcServer.Stop()
-			if s.secureGrpcServer != nil {
-				s.secureGrpcServer.Stop()
+			if secureGrpcServer != nil {
+				secureGrpcServer.Stop()
 			}
 		case <-stopped:
 			t.Stop()
@@ -820,8 +817,6 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 
 	tlsCreds := credentials.NewTLS(cfg)
 
-	s.secureGrpcAddress = args.ServerOptions.SecureGRPCAddr
-
 	interceptors := []grpc.UnaryServerInterceptor{
 		// setup server prometheus monitoring (as final interceptor in chain)
 		grpcprom.UnaryServerInterceptor,
@@ -829,19 +824,59 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 	opts := istiogrpc.ServerOptions(args.KeepaliveOptions, xdspkg.RecordRecvSize, interceptors...)
 	opts = append(opts, grpc.Creds(tlsCreds))
 
-	s.secureGrpcServer = grpc.NewServer(opts...)
-	s.XDSServer.Register(s.secureGrpcServer)
-	reflection.Register(s.secureGrpcServer)
+	// Register before publishing under the lock, so other goroutines never see a server that's
+	// not fully set up yet, and so the lock isn't held while Register does its work.
+	secureGrpcServer := grpc.NewServer(opts...)
+	s.XDSServer.Register(secureGrpcServer)
+	reflection.Register(secureGrpcServer)
+
+	s.secureGrpcMu.Lock()
+	s.secureGrpcServer = secureGrpcServer
+	s.secureGrpcAddress = args.ServerOptions.SecureGRPCAddr
+	s.secureGrpcMu.Unlock()
 
 	s.addStartFunc("secure gRPC", func(stop <-chan struct{}) error {
 		go func() {
 			<-stop
-			s.secureGrpcServer.Stop()
+			secureGrpcServer.Stop()
 		}()
 		return nil
 	})
 
 	return nil
+}
+
+// getSecureGrpcServer returns the secure gRPC server, if one has been set up so far.
+func (s *Server) getSecureGrpcServer() *grpc.Server {
+	s.secureGrpcMu.RLock()
+	defer s.secureGrpcMu.RUnlock()
+	return s.secureGrpcServer
+}
+
+// startSecureGrpcListener opens the secure gRPC port once a certificate is available.
+// No-op before that. Safe to call more than once.
+func (s *Server) startSecureGrpcListener() error {
+	s.secureGrpcMu.RLock()
+	addr, srv := s.secureGrpcAddress, s.secureGrpcServer
+	s.secureGrpcMu.RUnlock()
+	if addr == "" {
+		return nil
+	}
+	var listenErr error
+	s.secureGrpcListenOnce.Do(func() {
+		grpcListener, err := net.Listen("tcp", addr)
+		if err != nil {
+			listenErr = err
+			return
+		}
+		go func() {
+			log.Infof("starting secure gRPC discovery service at %s", grpcListener.Addr())
+			if err := srv.Serve(grpcListener); err != nil {
+				log.Errorf("error serving secure GRPC server: %v", err)
+			}
+		}()
+	})
+	return listenErr
 }
 
 // addStartFunc appends a function to be run. These are run synchronously in order,
@@ -1040,7 +1075,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 		// set to "none" because it is not clear what the user intends.
 
 		// no cert yet - watch in case one shows up later (e.g. cert-manager istio-csr)
-		s.watchForLateCustomTLSCerts()
+		s.watchForCustomTLSCerts(args)
 		return nil
 	}
 
