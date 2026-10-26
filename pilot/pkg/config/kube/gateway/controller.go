@@ -679,8 +679,7 @@ func (c *Controller) inRevision(obj any) bool {
 }
 
 // Retrieve Backend TLS configuration configured on a Kubernetes Gateway.
-func (c *Controller) GetGatewayBackendClientCertificateRef(parentGateway types.NamespacedName) gatewayv1.SecretObjectReference {
-	// TODO(ericdbishop): change return type to avoid dependency.
-	backendTLS := c.outputs.GatewayBackendTLS.GetKey(parentGateway.String())
+func (c *Controller) GetGatewayBackendClientCertificateRef(gateway types.NamespacedName) *gatewayv1.SecretObjectReference {
+	var backendTLS gatewayv1.GatewayBackendTLS = c.outputs.GatewayBackendTLS.GetKey(gateway.String())
 	return backendTLS.ClientCertificateRef
 }

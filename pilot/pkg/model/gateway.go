@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -109,6 +108,11 @@ type MergedGateway struct {
 	// for Gateway API gateways). Secrets in the same namespace that are not referenced by any gateway config are
 	// explicitly excluded to prevent unintended access (e.g., the citadel root key/cert).
 	VerifiedCertificateReferences sets.String
+
+	// TODO(ericdbishop): shouldn't rely on gatewayv1.SecretObjectReference
+	// ClientCertificateForGateway maps gateway names to the Secret containing
+	// the client certificate that should be used when connecting to backends.
+	ClientCertificateForGateway map[string]*gatewayv1.SecretObjectReference
 }
 
 func (g *MergedGateway) HasAutoPassthroughGateways() bool {
@@ -212,6 +216,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	gatewayNameForServer := make(map[*networking.Server]string)
 	gatewayNames := sets.New[string]()
 	verifiedCertificateReferences := sets.New[string]()
+	clientCertificateForGateway := make(map[string]*gatewayv1.SecretObjectReference)
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
 	autoPassthrough := false
@@ -223,6 +228,8 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
 		log.Debugf("mergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
 		snames := sets.String{}
+		clientCertificateForGateway[gatewayName] = gwAndInstance.clientCertificateRef
+
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
 				if snames.InsertContains(s.Name) {
@@ -505,6 +512,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		AutoPassthroughSNIHosts:         autoPassthroughSNIHosts,
 		PortMap:                         getTargetPortMap(serversByRouteName),
 		VerifiedCertificateReferences:   verifiedCertificateReferences,
+		ClientCertificateForGateway:     clientCertificateForGateway,
 	}
 }
 
