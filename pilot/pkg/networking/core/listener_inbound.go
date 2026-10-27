@@ -16,14 +16,19 @@ package core
 
 import (
 	"fmt"
+	"net"
 	"sort"
+	"strconv"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
+	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -135,13 +140,7 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 }
 
 func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
-	// Cross-network double-HBONE inner tunnels carry the service hostname as the CONNECT
-	// authority (cluster-local addresses are meaningless on the remote network), which cannot
-	// be restored into an original destination address for main_internal chain matching.
-	// Route those by exact authority match to per-target-port clusters that re-enter
-	// main_internal with the destination overridden to this workload's own address.
-	routes := buildHostnameAuthorityRoutes(lb.node)
-	routes = append(routes, &route.Route{
+	routes := []*route.Route{{
 		Match: &route.RouteMatch{
 			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
 		},
@@ -153,7 +152,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
 		}},
-	})
+	}}
 	terminate := lb.buildConnectTerminateListener(routes)
 	// Now we have top level listener... but we must have an internal listener for each standard filter chain
 	// 1 listener per port; that listener will do protocol detection.
@@ -204,48 +203,6 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	// TODO: Exclude inspectors from some inbound ports.
 	l.ListenerFilters = append(l.ListenerFilters, populateListenerFilters(lb.node, l, true)...)
 	return []*listener.Listener{terminate, l}
-}
-
-// buildHostnameAuthorityRoutes builds CONNECT routes matching the hostname:port form of this
-// workload's services on the :authority header. See buildInboundHBONEListeners for context.
-func buildHostnameAuthorityRoutes(node *model.Proxy) []*route.Route {
-	if !sidecarAmbientBridgeEnabled() {
-		return nil
-	}
-	routes := []*route.Route{}
-	seen := sets.New[string]()
-	for _, st := range node.ServiceTargets {
-		if st.Service == nil || st.Port.ServicePort == nil {
-			continue
-		}
-		authority := fmt.Sprintf("%s:%d", st.Service.Hostname, st.Port.ServicePort.Port)
-		if seen.InsertContains(authority) {
-			continue
-		}
-		routes = append(routes, &route.Route{
-			Match: &route.RouteMatch{
-				PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
-				Headers: []*route.HeaderMatcher{{
-					Name: ":authority",
-					HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
-						StringMatch: &matcher.StringMatcher{
-							MatchPattern: &matcher.StringMatcher_Exact{Exact: authority},
-						},
-					},
-				}},
-			},
-			Action: &route.Route_Route{Route: &route.RouteAction{
-				UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-					UpgradeType:   ConnectUpgradeType,
-					ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-				}},
-				ClusterSpecifier: &route.RouteAction_Cluster{
-					Cluster: mainInternalPodCluster(int(st.Port.TargetPort)),
-				},
-			}},
-		})
-	}
-	return routes
 }
 
 func (lb *ListenerBuilder) sanitizeFilterChainForHBONE(c *listener.FilterChain) {
@@ -952,4 +909,65 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound, fcc.policyService)
 	networkFilterstack := buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)
 	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService)
+}
+
+// sidecarConnectAuthorityFilter returns the connect_authority filter for a sidecar that accepts
+// cross-network traffic from ambient clients, or nil to keep the default.
+//
+// An inner tunnel forwarded by the ambient east-west gateway from another network carries the
+// service hostname as its CONNECT authority, since a pod address from another network means
+// nothing locally. The default filter stores the authority as the original destination, which
+// then cannot be restored. For the sidecar's own services, store the matching workload address
+// instead, so main_internal selects the inbound chain for that port as it does for any other
+// HBONE connection. Other authorities are stored unchanged.
+func sidecarConnectAuthorityFilter(node *model.Proxy) *hcm.HttpFilter {
+	if node.Type != model.SidecarProxy || !sidecarAmbientBridgeEnabled() || len(node.IPAddresses) == 0 {
+		return nil
+	}
+	addresses := map[string]string{}
+	for _, st := range node.ServiceTargets {
+		if st.Service == nil || st.Port.ServicePort == nil {
+			continue
+		}
+		authority := net.JoinHostPort(string(st.Service.Hostname), strconv.Itoa(st.Port.ServicePort.Port))
+		addresses[authority] = net.JoinHostPort(node.IPAddresses[0], strconv.Itoa(int(st.Port.TargetPort)))
+	}
+	if len(addresses) == 0 {
+		return nil
+	}
+	authorities := make([]string, 0, len(addresses))
+	for authority := range addresses {
+		authorities = append(authorities, authority)
+	}
+	sort.Strings(authorities)
+	entries := make([]string, 0, len(authorities))
+	for _, authority := range authorities {
+		entries = append(entries, fmt.Sprintf("'%s': '%s'", authority, addresses[authority]))
+	}
+	m := "{" + strings.Join(entries, ", ") + "}"
+	origDst := fmt.Sprintf("%%CEL(request.host in %s ? %s[request.host] : request.host)%%", m, m)
+
+	cfg := &sfs.Config{}
+	if err := xdsfilters.ConnectAuthorityFilter.GetTypedConfig().UnmarshalTo(cfg); err != nil {
+		log.Errorf("failed to build connect_authority filter for %s: %v", node.ID, err)
+		return nil
+	}
+	for _, v := range cfg.OnRequestHeaders {
+		if v.GetObjectKey() != xdsfilters.OriginalDstFilterStateKey {
+			continue
+		}
+		v.Value = &sfsvalue.FilterStateValue_FormatString{FormatString: &core.SubstitutionFormatString{
+			Formatters: []*core.TypedExtensionConfig{{
+				Name:        "envoy.formatter.cel",
+				TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
+			}},
+			Format: &core.SubstitutionFormatString_TextFormatSource{
+				TextFormatSource: &core.DataSource{Specifier: &core.DataSource_InlineString{InlineString: origDst}},
+			},
+		}}
+	}
+	return &hcm.HttpFilter{
+		Name:       xdsfilters.ConnectAuthorityFilter.Name,
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(cfg)},
+	}
 }
