@@ -219,14 +219,10 @@ func TestHBONEDoubleAdapterPairing(t *testing.T) {
 						if c == nil {
 							t.Fatal("missing service cluster")
 						}
-						var transport *core.TransportSocket
-						if kind == model.Waypoint {
-							transport = c.TransportSocket
-						} else {
-							for _, match := range c.TransportSocketMatches {
-								if match.Name == "hbone" {
-									transport = match.TransportSocket
-								}
+						transport := c.TransportSocket
+						for _, match := range c.TransportSocketMatches {
+							if match.Name == "hbone" {
+								transport = match.TransportSocket
 							}
 						}
 						if transport == nil {
@@ -282,7 +278,7 @@ func TestHBONEDoubleAdapterPairing(t *testing.T) {
 								target := ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields["double_hbone"].GetStructValue().Fields["hbone_target_address"].GetStringValue()
 								assert.Equal(t, target, "app.default.svc.cluster.local:80")
 							}
-							if kind == model.Router {
+							if kind == model.Router || wantAdapter {
 								assert.Equal(t, ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[model.TunnelLabelShortName].GetStringValue(), model.TunnelHTTP)
 							}
 						}

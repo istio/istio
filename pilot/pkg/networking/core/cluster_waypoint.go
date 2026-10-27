@@ -266,14 +266,30 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		}
 		disableBaggageDiscovery = true
 	}
-	// no TLS, we are just going to internal address
+	// Replace any existing matches with the waypoint transports.
 	localCluster.cluster.TransportSocketMatches = nil
 
 	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
 	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
 	if localCluster.cluster.GetType() == cluster.Cluster_EDS &&
 		util.UseHBONEConnectWait(cb.hboneConnectWait, svc, policy) {
-		localCluster.cluster.TransportSocket = util.WaypointHBONEOriginationAdapterTransportSocket()
+		// Only HBONE endpoints use internal listeners. Preserve the native transport
+		// for ordinary socket endpoints in mixed services.
+		localCluster.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+			{
+				Name: "hbone",
+				Match: &structpb.Struct{Fields: map[string]*structpb.Value{
+					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+				}},
+				TransportSocket: util.WaypointHBONEOriginationAdapterTransportSocket(),
+			},
+			{
+				Name:            "default",
+				Match:           &structpb.Struct{},
+				TransportSocket: localCluster.cluster.TransportSocket,
+			},
+		}
+		localCluster.cluster.TransportSocket = nil
 		applyHBONERejectionHandling(localCluster.cluster)
 	}
 

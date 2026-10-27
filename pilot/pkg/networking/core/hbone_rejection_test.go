@@ -41,8 +41,10 @@ func TestHBONEConnectWaitOptInAndCacheIsolation(t *testing.T) {
 	test.SetForTest(t, &features.EnableHBONESend, true)
 	test.SetForTest(t, &features.PreferHBONESend, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
-	svc := &model.Service{Hostname: "app.default.svc.cluster.local", Resolution: model.ClientSideLB,
-		Attributes: model.ServiceAttributes{Namespace: "default"}}
+	svc := &model.Service{
+		Hostname: "app.default.svc.cluster.local", Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{Namespace: "default"},
+	}
 	cg := NewConfigGenTest(t, TestOptions{Services: []*model.Service{svc}})
 	for _, kind := range []model.NodeType{model.Waypoint, model.Router, model.SidecarProxy} {
 		for _, appProtocol := range []protocol.Instance{protocol.HTTP, protocol.HTTP2, protocol.TCP} {

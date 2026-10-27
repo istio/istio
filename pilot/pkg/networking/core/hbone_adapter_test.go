@@ -197,14 +197,10 @@ func TestHBONEOriginationAdapterPairing(t *testing.T) {
 							mesh: cg.PushContext().Mesh, direction: direction,
 						})
 					}
-					var transport *core.TransportSocket
-					if kind == model.Waypoint {
-						transport = c.TransportSocket
-					} else {
-						for _, match := range c.TransportSocketMatches {
-							if match.Name == "hbone" {
-								transport = match.TransportSocket
-							}
+					transport := c.TransportSocket
+					for _, match := range c.TransportSocketMatches {
+						if match.Name == "hbone" {
+							transport = match.TransportSocket
 						}
 					}
 					if transport == nil {
@@ -241,7 +237,10 @@ func TestHBONEOriginationAdapterMetadata(t *testing.T) {
 		test.SetForTest(t, &features.EnableAmbientBaggage, baggage)
 		for _, pair := range [][2]*core.TransportSocket{
 			{util.WaypointInternalUpstreamTransportSocket(util.RawBufferTransport()), util.WaypointHBONEOriginationAdapterTransportSocket()},
-			{util.FullMetadataPassthroughInternalUpstreamTransportSocket(util.RawBufferTransport()), util.FullMetadataPassthroughHBONEOriginationAdapterTransportSocket()},
+			{
+				util.FullMetadataPassthroughInternalUpstreamTransportSocket(util.RawBufferTransport()),
+				util.FullMetadataPassthroughHBONEOriginationAdapterTransportSocket(),
+			},
 		} {
 			original := &internalupstream.InternalUpstreamTransport{}
 			assert.NoError(t, pair[0].GetTypedConfig().UnmarshalTo(original))

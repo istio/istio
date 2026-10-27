@@ -881,9 +881,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			Address: util.BuildInternalAddressWithIdentifier(innerAddressName, target),
 		}}
 		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
-		if b.dir != model.TrafficDirectionInboundVIP {
-			// Add TLS metadata matcher to indicate we can use HBONE for this endpoint.
-			// We skip this for service waypoint, which doesn't need to dynamically match mTLS vs HBONE.
+		if b.dir != model.TrafficDirectionInboundVIP || b.hboneConnectWait {
+			// Select HBONE for this endpoint. Waypoints need this match when CONNECT
+			// wait is enabled to keep ordinary socket endpoints on their native transport.
 			ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},

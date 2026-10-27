@@ -26,6 +26,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -295,6 +296,72 @@ func TestWaypointEndpoints(t *testing.T) {
 		// Tunnel doesn't support multiple IPs
 		"connect_originate;1.1.1.2:80",
 	})
+}
+
+func TestHBONEConnectWaitWaypointEndpoints(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
+	for _, appProtocol := range []string{"HTTP", "HTTP2", "TCP"} {
+		t.Run(appProtocol, func(t *testing.T) {
+			d, proxy := setupWaypointTest(t,
+				waypointGateway, waypointSvc, waypointInstance,
+				appPod, appPodNoMesh, appWorkloadEntry,
+				strings.ReplaceAll(appServiceEntry, "protocol: HTTP", "protocol: "+appProtocol))
+			subset := "http"
+			if appProtocol == "TCP" {
+				subset = "tcp"
+			}
+			name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, "app.com", 80)
+			stock := xdstest.ExtractClusters(d.Clusters(proxy))[name]
+			if stock == nil {
+				t.Fatal("missing stock service cluster")
+			}
+			for _, enabled := range []bool{false, true} {
+				t.Run(fmt.Sprintf("enabled=%t", enabled), func(t *testing.T) {
+					proxy.Metadata.EnableHBONEConnectWait = model.StringBool(enabled)
+					c := xdstest.ExtractClusters(d.Clusters(proxy))[name]
+					if c == nil {
+						t.Fatal("missing service cluster")
+					}
+					assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, enabled)
+					listenerName := "connect_originate"
+					if enabled {
+						listenerName = util.HBONEOriginationAdapterListener
+					}
+					assignments := d.Endpoints(proxy)
+					assert.Equal(t, slices.Sort(xdstest.ExtractLoadAssignments(assignments)[name]), []string{
+						"1.1.1.3:80,[2001:20::3]:80",
+						listenerName + ";1.1.1.1:80",
+						listenerName + ";1.1.1.2:80",
+					})
+					for _, locality := range xdstest.ExtractLocalityLbEndpoints(assignments)[name] {
+						for _, ep := range locality.LbEndpoints {
+							// Resolve the first matching transport using the generated EDS metadata.
+							transport := c.TransportSocket
+							metadata := ep.GetMetadata().GetFilterMetadata()[util.EnvoyTransportSocketMetadataKey].GetFields()
+							for _, match := range c.TransportSocketMatches {
+								matches := true
+								for key, value := range match.Match.Fields {
+									if !proto.Equal(metadata[key], value) {
+										matches = false
+										break
+									}
+								}
+								if matches {
+									transport = match.TransportSocket
+									break
+								}
+							}
+							if enabled && ep.GetEndpoint().Address.GetEnvoyInternalAddress() != nil {
+								assert.Equal(t, transport, util.WaypointHBONEOriginationAdapterTransportSocket())
+							} else {
+								assert.Equal(t, transport, stock.TransportSocket)
+							}
+						}
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestWaypointTelemetry(t *testing.T) {
