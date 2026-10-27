@@ -1,4 +1,14 @@
-# Istio
+# Istio Contribfest for Kubecon North America 2026
+
+## Prep
+
+We highly recommend using GitHub Codespaces for Contribfest. This provides the most controlled and reliable experience. If you must use a local environment, the next most reliable experience comes from using the Istio build-tools image. This image can take a long time to pull over conference WIFI. If you want to use a local environment, we highly recommend you pull the image in advance (ideally at your hotel).
+
+```bash
+docker pull registry.istio.io/testing/build-tools:master-29c1d211334870a1f5519d98add2a48d565f4f7b
+```
+
+---
 
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1395/badge)](https://bestpractices.coreinfrastructure.org/projects/1395)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/istio)](https://goreportcard.com/report/github.com/istio/istio)
