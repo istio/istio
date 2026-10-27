@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/pull/62486
+releaseNotes:
+  - |
+    **Fixed** a situation where fetching the JWKS could block xDS generation.
+
