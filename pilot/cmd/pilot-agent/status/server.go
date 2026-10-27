@@ -182,7 +182,11 @@ func initializeMonitoring() (prometheus.Gatherer, error) {
 	wrapped.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	wrapped.MustRegister(collectors.NewGoCollector())
 
-	_, err := monitoring.RegisterPrometheusExporter(wrapped, registry)
+	var exporterOpts []monitoring.ExporterOption
+	if features.AgentNativeHistograms {
+		exporterOpts = append(exporterOpts, monitoring.WithNativeHistograms())
+	}
+	_, err := monitoring.RegisterPrometheusExporter(wrapped, registry, exporterOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("could not setup exporter: %v", err)
 	}

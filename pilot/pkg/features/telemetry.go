@@ -77,4 +77,10 @@ var (
 		"If true, pilot agent answers scrapes that prefer the Prometheus protobuf format in protobuf even when "+
 			"the application serves text or OpenMetrics, converting those bodies instead of downgrading the merged "+
 			"response to text. This keeps native histograms from Envoy and the application intact.").Get()
+
+	AgentNativeHistograms = env.Register("PILOT_AGENT_NATIVE_HISTOGRAMS", false,
+		"If true, pilot agent records its own histogram metrics as Prometheus native histograms instead of "+
+			"fixed buckets. Native histograms are only carried by the protobuf format, so text scrapes see just the "+
+			"_sum and _count series; pair with PILOT_AGENT_METRICS_PROTOBUF_UPCONVERSION so a text application "+
+			"does not downgrade the merged response.").Get()
 )
