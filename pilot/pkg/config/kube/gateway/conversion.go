@@ -2302,7 +2302,7 @@ func validateBackendClientCertificateRef(
 				Reason: ConfigErrorReason(k8s.GatewayReasonRefNotPermitted),
 				Message: fmt.Sprintf(
 					"clientCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
-					ref.Name, credNs, namespace,
+					credNs, ref.Name, namespace,
 				),
 			}
 		}

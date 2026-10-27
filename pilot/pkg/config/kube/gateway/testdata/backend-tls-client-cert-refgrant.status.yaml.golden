@@ -33,7 +33,7 @@ status:
     status: "True"
     type: Programmed
   - lastTransitionTime: fake
-    message: clientCertificateRef existing-cert/certs not accessible to a Gateway
+    message: clientCertificateRef certs/existing-cert not accessible to a Gateway
       in namespace "istio-system" (missing a ReferenceGrant?)
     reason: RefNotPermitted
     status: "False"
@@ -90,7 +90,7 @@ status:
     status: "True"
     type: Programmed
   - lastTransitionTime: fake
-    message: clientCertificateRef missing-cert/certs not accessible to a Gateway in
+    message: clientCertificateRef certs/missing-cert not accessible to a Gateway in
       namespace "istio-system" (missing a ReferenceGrant?)
     reason: RefNotPermitted
     status: "False"
