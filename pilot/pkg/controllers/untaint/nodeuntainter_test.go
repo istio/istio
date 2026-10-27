@@ -15,9 +15,11 @@
 package untaint
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,6 +50,7 @@ type nodeTainterTestServer struct {
 	client kubelib.Client
 	pc     clienttest.TestClient[*corev1.Pod]
 	nc     clienttest.TestClient[*corev1.Node]
+	dc     clienttest.TestClient[*appsv1.DaemonSet]
 	t      *testing.T
 	cniNs  string
 	sysNs  string
@@ -87,12 +90,17 @@ func newNodeUntainterTestServerZtunnelNs(t *testing.T, cniNs, sysNs, ztunNs stri
 
 	pc := clienttest.Wrap(t, nodeUntainter.podsClient)
 	nc := clienttest.Wrap(t, nodeUntainter.nodesClient)
+	var dc clienttest.TestClient[*appsv1.DaemonSet]
+	if nodeUntainter.dsClient != nil {
+		dc = clienttest.Wrap(t, nodeUntainter.dsClient)
+	}
 
 	return &nodeTainterTestServer{
 		client: client,
 		t:      t,
 		pc:     pc,
 		nc:     nc,
+		dc:     dc,
 		cniNs:  cniNs,
 		sysNs:  sysNs,
 		ztunNs: ztunNs,
@@ -262,6 +270,176 @@ func TestNodeUntaintedInSidecarModeIgnoresZtunnel(t *testing.T) {
 	s.assertNodeUntainted(t, "node1")
 }
 
+func TestNodeTaintedWhenCniNotReady(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeUntaintCheckZtunnel, true)
+	test.SetForTest(t, &features.NodeTaintWhenNotReady, true)
+	s := newNodeUntainterTestServer(t)
+	s.addCniDaemonSet(t, nil, nil)
+	s.addNode(t, "node1", nil)
+
+	// back from a reboot: the DaemonSet pod exists but is not ready yet
+	s.addCniPod(t, "node1", false)
+	s.addZtunnelPod(t, "node1", true)
+	s.assertNodeGetsTainted(t, "node1")
+
+	s.markPodReady(t, "istio-cni-node1", s.cniNs)
+	s.assertNodeUntainted(t, "node1")
+}
+
+func TestNodeTaintedWhenZtunnelNotReady(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeUntaintCheckZtunnel, true)
+	test.SetForTest(t, &features.NodeTaintWhenNotReady, true)
+	s := newNodeUntainterTestServer(t)
+	s.addCniDaemonSet(t, nil, nil)
+	s.addNode(t, "node1", nil)
+
+	s.addCniPod(t, "node1", true)
+	s.addZtunnelPod(t, "node1", false)
+	s.assertNodeGetsTainted(t, "node1")
+
+	s.markZtunnelReady(t, "node1")
+	s.assertNodeUntainted(t, "node1")
+}
+
+// A new node is tainted before its DaemonSet pod even exists.
+func TestNodeTaintedWhenDaemonSetPodMissing(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeTaintWhenNotReady, true)
+	s := newNodeUntainterTestServer(t)
+	s.addCniDaemonSet(t, nil, nil)
+	s.addNode(t, "node1", nil)
+	s.assertNodeGetsTainted(t, "node1")
+}
+
+// Nodes the DaemonSet does not select can never become ready, so they must never be tainted.
+func TestNodeNotTaintedWhenDaemonSetDoesNotSelectIt(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeTaintWhenNotReady, true)
+	s := newNodeUntainterTestServer(t)
+	s.addCniDaemonSet(t, map[string]string{"mesh": "true"}, nil)
+	s.addNode(t, "node1", nil)
+	s.addNode(t, "node2", map[string]string{"mesh": "true"})
+
+	s.assertNodeGetsTainted(t, "node2")
+	s.assertNodeNeverTainted(t, "node1")
+}
+
+func TestNodeNotTaintedWhenDaemonSetDoesNotTolerateIt(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeTaintWhenNotReady, true)
+	s := newNodeUntainterTestServer(t)
+	s.addCniDaemonSet(t, nil, nil)
+	s.addNode(t, "node1", nil, corev1.Taint{Key: "dedicated", Value: "gpu", Effect: corev1.TaintEffectNoSchedule})
+	s.addNode(t, "node2", nil)
+
+	s.assertNodeGetsTainted(t, "node2")
+	s.assertNodeNeverTainted(t, "node1")
+}
+
+func TestNodeTaintKeepsOtherTaints(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeTaintWhenNotReady, true)
+	s := newNodeUntainterTestServer(t)
+	s.addCniDaemonSet(t, nil, []corev1.Toleration{{Operator: corev1.TolerationOpExists}})
+	s.addNode(t, "node1", nil, corev1.Taint{Key: "dedicated", Value: "gpu", Effect: corev1.TaintEffectNoSchedule})
+
+	s.assertNodeGetsTainted(t, "node1")
+	s.assertNodeHasTaintKey(t, "node1", "dedicated")
+}
+
+func TestNodeNotTaintedWhenTaintAddDisabled(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeTaintWhenNotReady, false)
+	s := newNodeUntainterTestServer(t)
+	s.addNode(t, "node1", nil)
+	s.addCniPod(t, "node1", false)
+	s.assertNodeNeverTainted(t, "node1")
+}
+
+// A cluster-wide outage must not taint every node: past the limit, nodes are held until tainted ones recover.
+func TestNodeTaintLimit(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeUntaintCheckZtunnel, false)
+	test.SetForTest(t, &features.NodeTaintWhenNotReady, true)
+	test.SetForTest(t, &features.NodeTaintMaxPercent, 20)
+	test.SetForTest(t, &heldRetryInterval, 50*time.Millisecond)
+	s := newNodeUntainterTestServer(t)
+	s.addCniDaemonSet(t, nil, nil)
+	s.setCniDesired(t, 10)
+	nodes := []string{}
+	for i := range 10 {
+		name := fmt.Sprintf("node%d", i)
+		nodes = append(nodes, name)
+		s.addNode(t, name, nil)
+	}
+
+	s.assertTaintedCount(t, nodes, 2)
+	var recovered string
+	for _, n := range nodes {
+		if s.hasOurTaint(n) {
+			recovered = n
+			break
+		}
+	}
+	s.addCniPod(t, recovered, true)
+	s.assertNodeUntainted(t, recovered)
+	// a held node takes the freed slot
+	s.assertTaintedCount(t, nodes, 2)
+}
+
+// With no DaemonSet status yet the limit is one node, not zero.
+func TestNodeTaintLimitAtLeastOne(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeTaintWhenNotReady, true)
+	test.SetForTest(t, &heldRetryInterval, 50*time.Millisecond)
+	s := newNodeUntainterTestServer(t)
+	s.addCniDaemonSet(t, nil, nil)
+	nodes := []string{"node1", "node2", "node3"}
+	for _, n := range nodes {
+		s.addNode(t, n, nil)
+	}
+	s.assertTaintedCount(t, nodes, 1)
+}
+
+// assertTaintedCount waits for exactly want of the nodes to carry the taint, then checks it stays there.
+func (s *nodeTainterTestServer) assertTaintedCount(t *testing.T, nodes []string, want int) {
+	t.Helper()
+	count := func() int {
+		c := 0
+		for _, n := range nodes {
+			if s.hasOurTaint(n) {
+				c++
+			}
+		}
+		return c
+	}
+	assert.EventuallyEqual(t, count, want, retry.Timeout(time.Second*3))
+	assert.Consistently(t, count, want, 300*time.Millisecond)
+}
+
+func (s *nodeTainterTestServer) setCniDesired(t *testing.T, desired int32) {
+	t.Helper()
+	var ds *appsv1.DaemonSet
+	retry.UntilOrFail(t, func() bool {
+		ds = s.dc.Get("istio-cni-node", s.cniNs)
+		return ds != nil
+	}, retry.Timeout(time.Second*3))
+	ds = ds.DeepCopy()
+	ds.Status.DesiredNumberScheduled = desired
+	s.dc.UpdateStatus(ds)
+}
+
 // assertNodeTainted checks the node keeps its taint. A single immediate check would pass
 // before the untainter has had any chance to run, so it would hold even with the gate broken.
 func (s *nodeTainterTestServer) assertNodeTainted(t *testing.T, node string) {
@@ -320,6 +498,72 @@ func (s *nodeTainterTestServer) addTaintedNodes(t *testing.T, nodes ...string) {
 		})
 		s.nc.Create(node)
 	}
+}
+
+func (s *nodeTainterTestServer) hasOurTaint(node string) bool {
+	n := s.nc.Get(node, "")
+	if n == nil {
+		return false
+	}
+	for _, t := range n.Spec.Taints {
+		if t.Key == features.NodeUntaintTaintName {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *nodeTainterTestServer) assertNodeGetsTainted(t *testing.T, node string) {
+	t.Helper()
+	assert.EventuallyEqual(t, func() bool {
+		return s.hasOurTaint(node)
+	}, true, retry.Timeout(time.Second*3))
+}
+
+// assertNodeNeverTainted waits for the node to be in the cache, then checks it stays untainted.
+func (s *nodeTainterTestServer) assertNodeNeverTainted(t *testing.T, node string) {
+	t.Helper()
+	assert.EventuallyEqual(t, func() bool {
+		return s.nc.Get(node, "") != nil
+	}, true, retry.Timeout(time.Second*3))
+	assert.Consistently(t, func() bool {
+		return s.hasOurTaint(node)
+	}, false, 250*time.Millisecond)
+}
+
+func (s *nodeTainterTestServer) addNode(t *testing.T, name string, labels map[string]string, taints ...corev1.Taint) {
+	t.Helper()
+	node := generateNode(name, labels)
+	node.Spec.Taints = taints
+	s.nc.Create(node)
+}
+
+func (s *nodeTainterTestServer) addCniDaemonSet(t *testing.T, nodeSelector map[string]string, tolerations []corev1.Toleration) {
+	t.Helper()
+	s.dc.Create(&appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "istio-cni-node", Namespace: s.cniNs},
+		Spec: appsv1.DaemonSetSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: cniPodLabels},
+				Spec: corev1.PodSpec{
+					NodeSelector: nodeSelector,
+					Tolerations:  tolerations,
+				},
+			},
+		},
+	})
+}
+
+// markPodReady flips an already-created pod to Ready.
+func (s *nodeTainterTestServer) markPodReady(t *testing.T, name, ns string) {
+	t.Helper()
+	p := s.pc.Get(name, ns)
+	if p == nil {
+		t.Fatalf("pod %s/%s not found", ns, name)
+	}
+	p = p.DeepCopy()
+	setPodReady(p)
+	s.pc.UpdateStatus(p)
 }
 
 func (s *nodeTainterTestServer) addCniPod(t *testing.T, node string, markReady bool) {

@@ -40,7 +40,7 @@ _internal_defaults_do_not_set:
 
   # Settings related to the untaint controller
   # This controller will remove the named taint (default `cni.istio.io/not-ready`) from nodes when the istio-cni pod becomes ready.
-  # It should be noted that cluster operator/owner is responsible for having the taint set by their infrastructure provider when new nodes are added to the cluster; the untaint controller does not taint nodes
+  # It should be noted that cluster operator/owner is responsible for having the taint set by their infrastructure provider when new nodes are added to the cluster; the untaint controller does not taint nodes unless `PILOT_NODE_TAINT_WHEN_NOT_READY` is set on istiod
   taint:
     # Controls whether or not the untaint controller is active
     # When enabled, this automatically sets PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS environment variable to true in the istiod deployment.

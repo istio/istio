@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 52073
+releaseNotes:
+- |
+  **Added** an option for istiod to taint nodes whose istio-cni or ztunnel is not ready, so new pods are not scheduled onto a node that cannot mesh them, for example after a reboot. A cap keeps a cluster-wide dataplane outage from tainting every node. Enable with `PILOT_NODE_TAINT_WHEN_NOT_READY`.
