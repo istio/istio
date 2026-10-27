@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue where requests through a waypoint could fail after adding an HTTPRoute or VirtualService
+    that sends traffic to a service not using that waypoint. The failures continued until an unrelated config
+    change caused the waypoint's configuration to be fully regenerated.

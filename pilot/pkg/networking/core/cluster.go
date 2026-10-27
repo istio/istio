@@ -125,6 +125,12 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 				var updated []host.Name
 				svcs, updated = deltaFromSidecarScopeDiff(proxy)
 				updatedServices.InsertAll(updated...)
+				if proxy.Type == model.Waypoint {
+					// Waypoint outbound clusters depend on the routes attached to the waypoint's services,
+					// which can change without changing the visible service set. Reconcile them against
+					// the watched cluster names, like filtered gateways.
+					scopedServices = waypointOutboundServicesByHostname(proxy, updates.Push, envoyFilterPatches)
+				}
 			}
 		}
 		// Service and Destination Rule can select the same service. So we need to dedup the services.
@@ -282,6 +288,42 @@ func gatewayServicesByHostname(
 	return services
 }
 
+// waypointOutboundServicesByHostname returns the services a waypoint builds outbound clusters for,
+// for reconciliation with watched cluster names.
+func waypointOutboundServicesByHostname(
+	proxy *model.Proxy,
+	push *model.PushContext,
+	envoyFilterPatches *model.MergedEnvoyFilterWrapper,
+) map[host.Name]*model.Service {
+	_, wps := findWaypointResources(proxy, push)
+	svcs := waypointOutboundServices(proxy, push, envoyFilterPatches, wps, proxy.SidecarScope.Services())
+	services := make(map[host.Name]*model.Service, len(svcs))
+	for _, svc := range svcs {
+		services[svc.Hostname] = svc
+	}
+	return services
+}
+
+// waypointOutboundServices filters services down to those the waypoint needs outbound clusters for.
+func waypointOutboundServices(
+	proxy *model.Proxy,
+	push *model.PushContext,
+	envoyFilterPatches *model.MergedEnvoyFilterWrapper,
+	wps *waypointServices,
+	services []*model.Service,
+) []*model.Service {
+	extraNamespacedHosts, extraHosts := push.ExtraWaypointServices(proxy, envoyFilterPatches, wps.orderedServices)
+	outboundServices := filterWaypointOutboundServices(
+		push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services,
+	)
+	// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
+	// to the Kubernetes API server), include services referenced by those gateway servers.
+	if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil {
+		outboundServices = appendGatewayReferencedServices(proxy, outboundServices, services)
+	}
+	return outboundServices
+}
+
 // deltaFromPeerAuthentication computes the delta clusters when a PeerAuthentication changes.
 // A PeerAuthentication change can affect the mTLS mode for services in its namespace, so we mark all
 // services in that namespace as modified.
@@ -346,15 +388,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches, wps.orderedServices)
-		outboundServices := filterWaypointOutboundServices(
-			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services,
-		)
-		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
-		// to the Kubernetes API server), include services referenced by those gateway servers.
-		if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil {
-			outboundServices = appendGatewayReferencedServices(proxy, outboundServices, services)
-		}
+		outboundServices := waypointOutboundServices(proxy, req.Push, envoyFilterPatches, wps, services)
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, outboundServices)
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
