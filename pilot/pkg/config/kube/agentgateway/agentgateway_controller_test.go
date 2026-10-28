@@ -20,10 +20,13 @@ import (
 
 	"github.com/agentgateway/agentgateway/api"
 	"github.com/google/go-cmp/cmp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 // agwBindListener builds a minimal GatewayListener with only the fields
@@ -150,4 +153,33 @@ func TestBuildBindsFromGateway(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUpdateStatusPreservesOtherControllers(t *testing.T) {
+	ancestor := func(name string, controller gatewayv1.GatewayController, gen int64) gatewayv1.PolicyAncestorStatus {
+		return gatewayv1.PolicyAncestorStatus{
+			AncestorRef:    gatewayv1.ParentReference{Name: gatewayv1.ObjectName(name)},
+			ControllerName: controller,
+			Conditions:     []metav1.Condition{{Type: "Accepted", ObservedGeneration: gen}},
+		}
+	}
+	mesh := gatewayv1.GatewayController(constants.ManagedGatewayMeshController)
+	agw := gatewayv1.GatewayController(constants.ManagedAgentgatewayController)
+	live := &gatewayv1.PolicyStatus{Ancestors: []gatewayv1.PolicyAncestorStatus{
+		ancestor("svc", mesh, 2), ancestor("gateway", agw, 1),
+	}}
+	desired := &gatewayv1.PolicyStatus{Ancestors: []gatewayv1.PolicyAncestorStatus{
+		ancestor("svc", mesh, 1), ancestor("gateway", agw, 2),
+	}}
+	beforeLive, beforeDesired := live.DeepCopy(), desired.DeepCopy()
+	s := status.GetStatusManipulator(live)
+	updateStatus(s, desired)
+	assert.Equal(t, s.Unwrap(), any(&gatewayv1.PolicyStatus{Ancestors: []gatewayv1.PolicyAncestorStatus{
+		ancestor("svc", mesh, 2), ancestor("gateway", agw, 2),
+	}}))
+	assert.Equal(t, live, beforeLive)
+	assert.Equal(t, desired, beforeDesired)
+	// Removing our last ancestor must not remove the other controller's entry.
+	updateStatus(s, &gatewayv1.PolicyStatus{Ancestors: []gatewayv1.PolicyAncestorStatus{ancestor("svc", mesh, 1)}})
+	assert.Equal(t, s.Unwrap(), any(&gatewayv1.PolicyStatus{Ancestors: []gatewayv1.PolicyAncestorStatus{ancestor("svc", mesh, 2)}}))
 }
