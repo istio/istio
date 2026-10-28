@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unsafe"
@@ -43,14 +44,7 @@ func TestCreateCNIConfigFileFixedPrimaryNotifiesCloseWrite(t *testing.T) {
 	}
 	lowerBefore := testutils.ReadFile(t, filepath.Join(tempDir, "05-antrea.conflist"))
 
-	fd, err := unix.InotifyInit1(unix.IN_CLOEXEC | unix.IN_NONBLOCK)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer unix.Close(fd)
-	if _, err := unix.InotifyAddWatch(fd, tempDir, unix.IN_CLOSE_WRITE); err != nil {
-		t.Fatal(err)
-	}
+	fd := watchCloseWrite(t, tempDir)
 
 	cfg := config.InstallConfig{
 		CNIConfName:      "list.conflist",
@@ -77,6 +71,67 @@ func TestCreateCNIConfigFileFixedPrimaryNotifiesCloseWrite(t *testing.T) {
 	if !closeWriteSeen(t, fd, "list.conflist") {
 		t.Fatal("no close_write event on list.conflist")
 	}
+}
+
+// Uninstall in chained mode strips istio-cni from the primary; a chaining CNI that copied
+// the primary must see that, or its copy keeps naming the removed istio-cni binary.
+func TestCleanupChainedNotifiesCloseWrite(t *testing.T) {
+	cniNetDir := t.TempDir()
+	cniConfigFilePath := filepath.Join(cniNetDir, "list.conflist")
+	if err := file.AtomicCopy(filepath.Join("testdata", "list-with-istio.conflist"), cniNetDir, "list.conflist"); err != nil {
+		t.Fatal(err)
+	}
+	fd := watchCloseWrite(t, cniNetDir)
+
+	isReady := &atomic.Value{}
+	isReady.Store(false)
+	installer := NewInstaller(&config.InstallConfig{
+		MountedCNINetDir: cniNetDir,
+		ChainedCNIPlugin: true,
+		CNIBinTargetDirs: []string{t.TempDir()},
+	}, isReady)
+	installer.cniConfigFilepath = cniConfigFilePath
+	if err := installer.Cleanup(); err != nil {
+		t.Fatal(err)
+	}
+
+	goldenFilepath := filepath.Join("testdata", "list-no-istio.conflist")
+	testutils.CompareBytes(t, testutils.ReadFile(t, cniConfigFilePath), testutils.ReadFile(t, goldenFilepath), goldenFilepath)
+	if !closeWriteSeen(t, fd, "list.conflist") {
+		t.Fatal("no close_write event on list.conflist")
+	}
+}
+
+func TestRemoveIstioCNIFromPrimaryNotifiesCloseWrite(t *testing.T) {
+	dir := t.TempDir()
+	primary := filepath.Join(dir, "list.conflist")
+	if err := file.AtomicCopy(filepath.Join("testdata", "list-with-istio.conflist"), dir, "list.conflist"); err != nil {
+		t.Fatal(err)
+	}
+	fd := watchCloseWrite(t, dir)
+
+	if err := removeIstioCNIFromPrimary(primary, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	goldenFilepath := filepath.Join("testdata", "list-no-istio.conflist")
+	testutils.CompareBytes(t, testutils.ReadFile(t, primary), testutils.ReadFile(t, goldenFilepath), goldenFilepath)
+	if !closeWriteSeen(t, fd, "list.conflist") {
+		t.Fatal("no close_write event on list.conflist")
+	}
+}
+
+func watchCloseWrite(t *testing.T, dir string) int {
+	t.Helper()
+	fd, err := unix.InotifyInit1(unix.IN_CLOEXEC | unix.IN_NONBLOCK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { unix.Close(fd) })
+	if _, err := unix.InotifyAddWatch(fd, dir, unix.IN_CLOSE_WRITE); err != nil {
+		t.Fatal(err)
+	}
+	return fd
 }
 
 func closeWriteSeen(t *testing.T, fd int, name string) bool {

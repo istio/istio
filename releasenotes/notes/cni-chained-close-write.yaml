@@ -3,4 +3,4 @@ kind: bug-fix
 area: installation
 releaseNotes:
 - |
-  **Fixed** an issue where Antrea in CNI chaining mode did not pick up `istio-cni` after it was added to the primary CNI config, so new pods ran without `istio-cni` until `antrea-agent` restarted. `istio-cni` now raises a `close_write` event on the primary config after writing it.
+  **Fixed** an issue where Antrea in CNI chaining mode did not pick up `istio-cni` changes to the CNI config, so new pods ran without `istio-cni` until `antrea-agent` restarted, and after uninstall Antrea's copy still referenced the removed `istio-cni` plugin. `istio-cni` now raises a `close_write` event on every CNI config file it rewrites.

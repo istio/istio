@@ -265,6 +265,7 @@ func (in *Installer) Cleanup() error {
 			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, fileMode); err != nil {
 				return fmt.Errorf("failed to write updated CNI config to file %s: %w", in.cniConfigFilepath, err)
 			}
+			notifyCloseWrite(in.cniConfigFilepath)
 		} else {
 			installLog.Infof("removing Istio CNI config file: %s", in.cniConfigFilepath)
 			if err := os.Remove(in.cniConfigFilepath); err != nil {

@@ -161,9 +161,7 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 		cniConfigFilepath += "list"
 	}
 
-	if cfg.ChainedCNIPlugin && !useIstioOwnedCNIConfig(cfg) {
-		notifyCloseWrite(cniConfigFilepath)
-	}
+	notifyCloseWrite(cniConfigFilepath)
 
 	installLog.Infof("Wrote CNI config to %s", cniConfigFilepath)
 
@@ -351,6 +349,7 @@ func removeIstioCNIFromPrimary(cniConfigFilepath string, fileMode os.FileMode) e
 	if err := file.AtomicWrite(cniConfigFilepath, updatedConfig, fileMode); err != nil {
 		return err
 	}
+	notifyCloseWrite(cniConfigFilepath)
 	installLog.Infof("removed istio-cni plugin from primary CNI config %s", cniConfigFilepath)
 	return nil
 }
