@@ -2493,7 +2493,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	}
 
 	for _, cfg := range configs {
-		var clientCertificateRef *gatewayv1.SecretObjectReference
+		var clientCertificateRef string
 		parentGateway, ok := kubernetesGatewayParent(cfg)
 		if ok {
 			clientCertificateRef = ps.GatewayAPIController.GetGatewayBackendClientCertificateRef(parentGateway)

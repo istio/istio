@@ -31,6 +31,7 @@ import (
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/cluster"
@@ -125,7 +126,7 @@ type TypedResource struct {
 type Outputs struct {
 	Gateways                krt.Collection[Gateway]
 	GatewayConfigs          krt.Collection[config.Config]
-	GatewayBackendTLS       krt.Collection[GatewayBackendTLS]
+	GatewayBackendTLS       krt.Collection[BackendTLSSettings]
 	VirtualServices         krt.Collection[config.Config]
 	ReferenceGrants         gatewaycommon.ReferenceGrants
 	DestinationRules        krt.Collection[config.Config]
@@ -679,7 +680,26 @@ func (c *Controller) inRevision(obj any) bool {
 }
 
 // Retrieve Backend TLS configuration configured on a Kubernetes Gateway.
-func (c *Controller) GetGatewayBackendClientCertificateRef(gateway types.NamespacedName) *gatewayv1.SecretObjectReference {
-	var backendTLS gatewayv1.GatewayBackendTLS = c.outputs.GatewayBackendTLS.GetKey(gateway.String())
-	return backendTLS.ClientCertificateRef
+func (c *Controller) GetGatewayBackendClientCredentialName(gateway types.NamespacedName) (string, error) {
+	var gatewayTLS *BackendTLSSettings = c.outputs.GatewayBackendTLS.GetKey(gateway.String())
+	if gatewayTLS == nil {
+		return "", nil
+	}
+	if gatewayTLS.Error != nil {
+		return "", fmt.Errorf("error retrieving backend TLS configuration for gateway %s/%s: %v", gateway.Namespace, gateway.Name, gatewayTLS.Error)
+	}
+	if gatewayTLS.BackendTLS == nil || gatewayTLS.BackendTLS.ClientCertificateRef == nil {
+		return "", nil
+	}
+
+	ref := gatewayTLS.BackendTLS.ClientCertificateRef
+	if ref.Name == "" {
+		return "", fmt.Errorf("no client certificate configured for gateway %s/%s", gateway.Namespace, gateway.Name)
+	}
+
+	ns := gateway.Namespace
+	if string(*ref.Namespace) != ns {
+		return "", fmt.Errorf("client certificate for gateway %s/%s is in a different namespace %s", gateway.Namespace, gateway.Name, ref.Namespace)
+	}
+	return credentials.ToKubernetesGatewayResource(ns, string(ref.Name)), nil
 }
