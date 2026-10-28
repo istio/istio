@@ -19,29 +19,30 @@ import (
 	"testing"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // A cross-network inner tunnel forwarded by the ambient east-west gateway carries the service
-// hostname as its CONNECT authority. With the bridge enabled, an HBONE-capable sidecar's
-// connect_terminate must store the matching workload address as the original destination, so
-// main_internal selects the inbound chain for that port; nothing else changes. With the bridge
-// disabled the default connect_authority filter is used.
+// hostname as its CONNECT authority. With the bridge enabled, the sidecar's main_internal must use
+// a matcher that routes <hostname>:<port> to a copy of that port's chain which sets the original
+// destination, while keeping address-based selection for everything else. With the bridge
+// disabled main_internal keeps filter_chain_match.
 func TestSidecarHBONEServiceAddressedConnect(t *testing.T) {
 	test.SetForTest(t, &features.EnableSidecarHBONEListening, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 
-	svc := buildServiceWithPort("echo.default.svc.cluster.local", 80, protocol.HTTP, tnow)
-	inst := buildServiceInstance(svc, "1.1.1.1")
-	inst.Endpoint.EndpointPort = 8080
-	const mapping = "'echo.default.svc.cluster.local:80': '1.1.1.1:8080'"
+	httpSvc := buildServiceWithPort("echo.default.svc.cluster.local", 80, protocol.HTTP, tnow)
+	httpInst := buildServiceInstance(httpSvc, "1.1.1.1")
+	httpInst.Endpoint.EndpointPort = 8080
+	// A port without a declared protocol is sniffed: one plain and one HTTP chain.
+	autoSvc := buildServiceWithPort("auto.default.svc.cluster.local", 70, protocol.Unsupported, tnow)
+	autoInst := buildServiceInstance(autoSvc, "1.1.1.1")
+	autoInst.Endpoint.EndpointPort = 7070
 
 	for _, enabled := range []bool{false, true} {
 		name := "bridge disabled"
@@ -51,66 +52,75 @@ func TestSidecarHBONEServiceAddressedConnect(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableSidecarAmbientBridge, enabled)
 			cg := NewConfigGenTest(t, TestOptions{
-				Services:  []*model.Service{svc},
-				Instances: []*model.ServiceInstance{inst},
+				Services:  []*model.Service{httpSvc, autoSvc},
+				Instances: []*model.ServiceInstance{httpInst, autoInst},
 			})
 			p := getProxy()
 			p.Metadata.EnableHBONE = true
-			p.IstioVersion = &model.IstioVersion{Major: 1, Minor: 30}
 			proxy := cg.SetupProxy(p)
 
-			var terminate, internal string
+			var internal *listener.Listener
 			for _, l := range cg.Listeners(proxy) {
-				switch l.Name {
-				case ConnectTerminate:
-					terminate = connectAuthorityOriginalDst(t, l)
-				case MainInternalName:
-					internal = l.String()
+				if l.Name == MainInternalName {
+					internal = l
 				}
 			}
-			if terminate == "" || internal == "" {
-				t.Fatalf("missing %s or %s listener", ConnectTerminate, MainInternalName)
+			if internal == nil {
+				t.Fatalf("no %s listener", MainInternalName)
 			}
-			if got := strings.Contains(terminate, mapping); got != enabled {
-				t.Errorf("connect_terminate maps the service authority to the workload address = %v, want %v", got, enabled)
+			if !enabled {
+				if internal.FilterChainMatcher != nil {
+					t.Fatalf("main_internal should keep filter_chain_match when the bridge is disabled")
+				}
+				return
 			}
-			if got := strings.Contains(terminate, "%CEL(request.host in"); got != enabled {
-				t.Errorf("connect_terminate uses the CEL authority mapping = %v, want %v", got, enabled)
+
+			if internal.FilterChainMatcher == nil {
+				t.Fatalf("main_internal should use a filter chain matcher when the bridge is enabled")
 			}
-			// main_internal is untouched: the restored destination selects the usual chain for 8080.
-			if !strings.Contains(internal, "destination_port:{value:8080}") {
-				t.Errorf("main_internal should keep its chain for port 8080")
+			tree := internal.FilterChainMatcher.String()
+			for _, want := range []string{
+				"echo.default.svc.cluster.local:80", // authority branch
+				"auto.default.svc.cluster.local:70",
+				"1.1.1.1",          // destination IP branch
+				`"8080"`, `"7070"`, // destination ports
+				"'http/1.1'", // sniffing on 7070
+			} {
+				if !strings.Contains(tree, want) {
+					t.Errorf("matcher should contain %s", want)
+				}
+			}
+
+			names := sets.New[string]()
+			chains := map[string]*listener.FilterChain{}
+			for _, c := range internal.FilterChains {
+				if c.FilterChainMatch != nil {
+					t.Errorf("chain %s still has filter_chain_match", c.Name)
+				}
+				if names.InsertContains(c.Name) {
+					t.Errorf("duplicate chain name %s", c.Name)
+				}
+				chains[c.Name] = c
+			}
+			for name, dst := range map[string]string{
+				"0.0.0.0_8080-authority":      "1.1.1.1:8080",
+				"0.0.0.0_7070-authority":      "1.1.1.1:7070",
+				"0.0.0.0_7070-http-authority": "1.1.1.1:7070",
+			} {
+				c := chains[name]
+				if c == nil {
+					t.Errorf("missing authority chain %s; have %v", name, sets.SortedList(names))
+					continue
+				}
+				if c.Filters[0].Name != "set_dst_address" || !strings.Contains(c.Filters[0].String(), dst) {
+					t.Errorf("chain %s should first set the original destination to %s", name, dst)
+				}
+			}
+			for _, name := range []string{"0.0.0.0_8080", "0.0.0.0_7070", "0.0.0.0_7070-http"} {
+				if c := chains[name]; c == nil || c.Filters[0].Name == "set_dst_address" {
+					t.Errorf("address-selected chain %s should exist unchanged", name)
+				}
 			}
 		})
 	}
-}
-
-// connectAuthorityOriginalDst returns the format string the connect_authority filter uses for the
-// original destination on the connect_terminate listener.
-func connectAuthorityOriginalDst(t *testing.T, l *listener.Listener) string {
-	t.Helper()
-	for _, fc := range l.FilterChains {
-		for _, f := range fc.Filters {
-			h := &hcm.HttpConnectionManager{}
-			if f.GetTypedConfig().UnmarshalTo(h) != nil {
-				continue
-			}
-			for _, hf := range h.HttpFilters {
-				if hf.Name != xdsfilters.ConnectAuthorityFilter.Name {
-					continue
-				}
-				cfg := &sfs.Config{}
-				if err := hf.GetTypedConfig().UnmarshalTo(cfg); err != nil {
-					t.Fatal(err)
-				}
-				for _, v := range cfg.OnRequestHeaders {
-					if v.GetObjectKey() == xdsfilters.OriginalDstFilterStateKey {
-						return v.GetFormatString().GetTextFormatSource().GetInlineString()
-					}
-				}
-			}
-		}
-	}
-	t.Fatalf("no connect_authority filter on %s", l.Name)
-	return ""
 }
