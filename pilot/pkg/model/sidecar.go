@@ -271,19 +271,11 @@ type IstioEgressListenerWrapper struct {
 	// specific host match.
 	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName
 
-	// configDependencies is the set of VirtualService and Service/ServiceEntry hostname
-	// dependency hashes for just this listener, mirroring SidecarScope.configDependencies but
-	// scoped per listener. It lets a config update be checked against this listener's imports via
-	// an O(1) hash lookup per update instead of scanning the (potentially large) virtualServices/
-	// services lists on every push.
+	// configDependencies is the set of VirtualService dependency hashes for just this listener,
+	// mirroring SidecarScope.configDependencies but scoped per listener. It lets a config update be
+	// checked against this listener's imports via an O(1) hash lookup per update instead of
+	// scanning the (potentially large) virtualServices list on every push.
 	configDependencies sets.Set[ConfigHash]
-
-	// hasWildcardHosts is true when this listener imports at least one wildcarded Service/
-	// ServiceEntry hostname or alias. A wildcard hostname can match an update whose hostname
-	// differs textually (eg listener host *.foo.com matches an update for a.foo.com), so
-	// configDependencies alone cannot rule such a listener out; callers must recheck it directly
-	// via Services()/VirtualServices().
-	hasWildcardHosts bool
 }
 
 const defaultSidecar = "default-sidecar"
@@ -342,9 +334,7 @@ func DefaultSidecarScopeForWaypoint(ps *PushContext, configNamespace string) *Si
 	waypointEgressListener := &IstioEgressListenerWrapper{
 		virtualServices: ps.virtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
 	}
-	waypointEgressListener.configDependencies, waypointEgressListener.hasWildcardHosts = buildEgressListenerConfigDependencies(
-		waypointEgressListener.virtualServices, nil,
-	)
+	waypointEgressListener.configDependencies = buildEgressListenerConfigDependencies(waypointEgressListener.virtualServices)
 	out.EgressListeners = []*IstioEgressListenerWrapper{waypointEgressListener}
 
 	return out
@@ -590,34 +580,19 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
 	out.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(out.virtualServices, out.services)
-	out.configDependencies, out.hasWildcardHosts = buildEgressListenerConfigDependencies(out.virtualServices, out.services)
+	out.configDependencies = buildEgressListenerConfigDependencies(out.virtualServices)
 
 	return out
 }
 
 // buildEgressListenerConfigDependencies computes the per-listener config dependency hashes (see
-// IstioEgressListenerWrapper.configDependencies) for the given listener's imported
-// VirtualServices and Services, along with whether any imported Service/ServiceEntry hostname (or
-// alias) is wildcarded.
-func buildEgressListenerConfigDependencies(virtualServices []*config.Config, services []*Service) (sets.Set[ConfigHash], bool) {
+// IstioEgressListenerWrapper.configDependencies) for the given listener's imported VirtualServices.
+func buildEgressListenerConfigDependencies(virtualServices []*config.Config) sets.Set[ConfigHash] {
 	deps := sets.New[ConfigHash]()
-	hasWildcard := false
 	for _, vs := range virtualServices {
 		deps.Insert(ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}.HashCode())
 	}
-	for _, svc := range services {
-		if svc.Hostname.IsWildCarded() {
-			hasWildcard = true
-		}
-		deps.Insert(ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname)}.HashCode())
-		for _, alias := range svc.Attributes.Aliases {
-			if alias.Hostname.IsWildCarded() {
-				hasWildcard = true
-			}
-			deps.Insert(ConfigKey{Kind: kind.ServiceEntry, Name: string(alias.Hostname)}.HashCode())
-		}
-	}
-	return deps, hasWildcard
+	return deps
 }
 
 // servicesForExactHosts resolves the candidate services for an egress listener whose hosts are all exact
@@ -733,20 +708,11 @@ func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardVirtualServiceIndex()
 	return ilw.mostSpecificWildcardVsIndex
 }
 
-// DependsOnConfig determines if this egress listener's built content depends on the given config,
-// via an O(1) lookup against the hashes precomputed in configDependencies rather than scanning
-// Services()/VirtualServices(). It only covers VirtualService and exact Service/ServiceEntry
-// hostnames; see HasWildcardHosts for why wildcarded imports must be checked separately.
+// DependsOnConfig determines if this egress listener's built content depends on the given
+// VirtualService, via an O(1) lookup against the hashes precomputed in configDependencies rather
+// than scanning VirtualServices().
 func (ilw *IstioEgressListenerWrapper) DependsOnConfig(key ConfigKey) bool {
 	return ilw.configDependencies.Contains(key.HashCode())
-}
-
-// HasWildcardHosts reports whether this egress listener imports a wildcarded Service/ServiceEntry
-// hostname or alias. Wildcard hostnames can match a config update whose hostname differs
-// textually (eg listener host *.foo.com matches an update for a.foo.com), so callers must recheck
-// such listeners directly via Services() instead of relying solely on DependsOnConfig.
-func (ilw *IstioEgressListenerWrapper) HasWildcardHosts() bool {
-	return ilw.hasWildcardHosts
 }
 
 // DependsOnConfig determines if the proxy depends on the given config.

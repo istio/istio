@@ -2415,10 +2415,10 @@ func TestBuildDeltaHTTPRoutes(t *testing.T) {
 		wantRoutes sets.String
 	}{
 		{
-			name:       "service entry affects only its own port",
+			name:       "service entry falls back to a full rebuild",
 			cfgs:       sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "svc-a.default.svc.cluster.local", Namespace: "default"}),
-			wantDelta:  true,
-			wantRoutes: sets.New("8080"),
+			wantDelta:  false,
+			wantRoutes: sets.New("8080", "9090"),
 		},
 		{
 			name:       "virtual service affects only the port it's bound to",
@@ -2531,7 +2531,7 @@ func TestBuildDeltaHTTPRoutes(t *testing.T) {
 		}
 	})
 
-	t.Run("deleted service entry is selected from the previous scope", func(t *testing.T) {
+	t.Run("deleted service entry falls back to a full rebuild", func(t *testing.T) {
 		previous := NewConfigGenTest(t, TestOptions{
 			Services:       services,
 			ConfigPointers: []*config.Config{sidecarConfig},
@@ -2550,22 +2550,21 @@ func TestBuildDeltaHTTPRoutes(t *testing.T) {
 				Kind: kind.ServiceEntry, Name: "svc-a.default.svc.cluster.local", Namespace: "default",
 			}),
 		}, watched)
-		if !usedDelta {
-			t.Fatal("expected a delta response")
+		if usedDelta {
+			t.Fatal("expected a full rebuild, since ServiceEntry is not a delta-eligible kind")
 		}
 		got := sets.New[string]()
 		for _, route := range routes {
 			got.Insert(route.Name)
 		}
-		if !got.Equals(sets.New("8080")) {
-			t.Fatalf("got routes %v, want [8080]", got)
+		if !got.Equals(sets.New("8080", "9090")) {
+			t.Fatalf("got routes %v, want [8080 9090]", got)
 		}
 	})
 
-	t.Run("deleted service alias is selected from the previous scope", func(t *testing.T) {
+	t.Run("deleted service alias falls back to a full rebuild", func(t *testing.T) {
 		// Import both the concrete host and its alias so matchingAliasService retains
-		// Aliases on the previous-scope service. A Sidecar that imported only svc-a
-		// would strip the alias and hide the bug this test covers.
+		// Aliases on the previous-scope service.
 		aliasSidecar := &config.Config{
 			Meta: config.Meta{
 				Name:             "sc-alias",
@@ -2612,15 +2611,15 @@ func TestBuildDeltaHTTPRoutes(t *testing.T) {
 				Kind: kind.ServiceEntry, Name: "alias.default.svc.cluster.local", Namespace: "default",
 			}),
 		}, watched)
-		if !usedDelta {
-			t.Fatal("expected a delta response")
+		if usedDelta {
+			t.Fatal("expected a full rebuild, since ServiceEntry is not a delta-eligible kind")
 		}
 		got := sets.New[string]()
 		for _, route := range routes {
 			got.Insert(route.Name)
 		}
-		if !got.Equals(sets.New("8080")) {
-			t.Fatalf("got routes %v, want [8080]", got)
+		if !got.Equals(sets.New("8080", "9090")) {
+			t.Fatalf("got routes %v, want [8080 9090]", got)
 		}
 	})
 }
@@ -2716,10 +2715,10 @@ func TestBuildDeltaHTTPRoutesGateway(t *testing.T) {
 		wantRoutes sets.String
 	}{
 		{
-			name:       "gateway update affects only routes bound to its servers",
+			name:       "gateway update falls back to a full rebuild",
 			cfgs:       sets.New(model.ConfigKey{Kind: kind.Gateway, Name: "gw-a", Namespace: "default"}),
-			wantDelta:  true,
-			wantRoutes: sets.New("http.80"),
+			wantDelta:  false,
+			wantRoutes: sets.New("http.80", "http.8080"),
 		},
 		{
 			name:       "virtual service update affects only routes for gateways it's attached to",
@@ -2728,16 +2727,10 @@ func TestBuildDeltaHTTPRoutesGateway(t *testing.T) {
 			wantRoutes: sets.New("http.8080"),
 		},
 		{
-			name:       "service entry affects only the gateway route whose attached virtual service references it",
+			name:       "service entry falls back to a full rebuild",
 			cfgs:       sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "svc-a.default.svc.cluster.local", Namespace: "default"}),
-			wantDelta:  true,
-			wantRoutes: sets.New("http.80"),
-		},
-		{
-			name:       "service entry unreferenced by any attached virtual service affects no routes",
-			cfgs:       sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "unrelated.default.svc.cluster.local", Namespace: "default"}),
-			wantDelta:  true,
-			wantRoutes: sets.New[string](),
+			wantDelta:  false,
+			wantRoutes: sets.New("http.80", "http.8080"),
 		},
 		{
 			name:       "unmapped kind falls back to a full rebuild",
@@ -2770,11 +2763,13 @@ func TestBuildDeltaHTTPRoutesGateway(t *testing.T) {
 	t.Run("route no longer present in merged gateway falls back conservatively", func(t *testing.T) {
 		// http.9090 is watched but no current gateway server maps to it (e.g. the gateway
 		// that used to own it was deleted); PrevMergedGateway does not track ServersByRouteName,
-		// so it must be conservatively treated as affected whenever anything changes.
+		// so it must be conservatively treated as affected whenever anything changes. Uses a
+		// VirtualService update, since Gateway-kind updates are no longer delta-eligible and
+		// always fall back to a full rebuild before reaching this logic.
 		req := &model.PushRequest{
 			Push: cg.PushContext(),
 			ConfigsUpdated: sets.New(model.ConfigKey{
-				Kind: kind.Gateway, Name: "gw-a", Namespace: "default",
+				Kind: kind.VirtualService, Name: "vs-a", Namespace: "default",
 			}),
 		}
 		watchedWithDeletedRoute := &model.WatchedResource{ResourceNames: sets.New("http.80", "http.8080", "http.9090")}

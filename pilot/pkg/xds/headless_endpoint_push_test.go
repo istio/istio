@@ -17,8 +17,10 @@ package xds
 import (
 	"testing"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -155,6 +157,9 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 }
 
 func TestRdsNeedsPushCoalescedHeadlessUpdate(t *testing.T) {
+	// ConfigsUpdated filtering is only exercised by true delta route generation
+	// (BuildDeltaHTTPRoutes); it is skipped as a no-op fast path otherwise.
+	test.SetForTest(t, &features.EnableDeltaRDS, true)
 	req := &model.PushRequest{
 		Reason: model.NewReasonStats(model.HeadlessEndpointUpdate),
 		ConfigsUpdated: sets.New(

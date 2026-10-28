@@ -52,8 +52,29 @@ var skippedRdsConfigs = func() sets.Set[kind.Kind] {
 	return s
 }()
 
+// rdsConfigKindRelevant reports whether a single config update is relevant to RDS generation for proxy.
+func rdsConfigKindRelevant(config model.ConfigKey, proxy *model.Proxy) bool {
+	if config.Kind == kind.AuthorizationPolicy && proxy.Type == model.Router &&
+		features.EnableGatewayAPIHTTPRouteAuth {
+		// An AuthorizationPolicy can target an HTTPRoute, attaching RBAC config to individual
+		// routes, so RDS must be regenerated. Waypoints carry routes inline in LDS.
+		//
+		// This cannot be narrowed to "a route-targeted policy exists": deleting the last one
+		// must also regenerate RDS, and by then it is gone from the new PushContext.
+		return true
+	}
+	if config.Kind == kind.Gateway {
+		return proxy.Type == model.Router || proxy.IsAmbientEastWestGateway()
+	}
+	return !skippedRdsConfigs.Contains(config.Kind)
+}
+
 // rdsNeedsPush may return a new PushRequest with ConfigsUpdated filtered to only include configs that impact RDS,
 // this is done because route generation checks if only some specific types of configs are present to enable delta generation.
+// The filtering is only useful to true delta route generation (see GenerateDeltas/BuildDeltaHTTPRoutes), so it is
+// skipped unless features.EnableDeltaRDS is set: full-rebuild callers (Generate, RdsNeedsPush) only need the
+// boolean, and BuildDeltaHTTPRoutes falls back to a full rebuild that ignores ConfigsUpdated filtering when
+// DeltaRDS is disabled anyway.
 func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushRequest, bool) {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return req, res
@@ -73,33 +94,20 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 		return req, false
 	}
 
+	if !features.EnableDeltaRDS {
+		for config := range req.ConfigsUpdated {
+			if rdsConfigKindRelevant(config, proxy) {
+				return req, true
+			}
+		}
+		return req, false
+	}
+
 	relevantUpdates := make(sets.Set[model.ConfigKey])
 	filtered := false
 	needsPush := false
 	for config := range req.ConfigsUpdated {
-		if config.Kind == kind.AuthorizationPolicy && proxy.Type == model.Router &&
-			features.EnableGatewayAPIHTTPRouteAuth {
-			// An AuthorizationPolicy can target an HTTPRoute, attaching RBAC config to individual
-			// routes, so RDS must be regenerated. Waypoints carry routes inline in LDS.
-			//
-			// This cannot be narrowed to "a route-targeted policy exists": deleting the last one
-			// must also regenerate RDS, and by then it is gone from the new PushContext.
-			relevantUpdates.Insert(config)
-			needsPush = true
-			continue
-		}
-
-		if config.Kind == kind.Gateway {
-			if proxy.Type == model.Router || proxy.IsAmbientEastWestGateway() {
-				relevantUpdates.Insert(config)
-				needsPush = true
-			} else {
-				filtered = true
-			}
-			continue
-		}
-
-		if !skippedRdsConfigs.Contains(config.Kind) {
+		if rdsConfigKindRelevant(config, proxy) {
 			relevantUpdates.Insert(config)
 			needsPush = true
 		} else {
