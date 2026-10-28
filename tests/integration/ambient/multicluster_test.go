@@ -19,6 +19,8 @@ package ambient
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -954,4 +956,182 @@ func addPassthroughListenerOrFail(t framework.TestContext, c cluster.Cluster, ns
 			return err
 		}, retry.Timeout(time.Minute), retry.Delay(time.Second))
 	})
+}
+
+// TestEastWestGatewaySidecarAutoPassthrough checks that a single ambient east-west gateway can also serve
+// sidecar (non-ambient) multi-network traffic. Adding a TLS passthrough listener on port 15443 to the
+// istio-east-west Gateway makes it an AUTO_PASSTHROUGH listener, which routes the sidecar's mTLS traffic by
+// SNI to the SNI-DNAT cluster of the target service, exactly like a classic east-west gateway does. A mixed
+// ambient and sidecar mesh therefore no longer needs a second east-west gateway per cluster.
+func TestEastWestGatewaySidecarAutoPassthrough(t *testing.T) {
+	framework.NewMulticlusterTest(t).Run(func(t framework.TestContext) {
+		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
+			t.Skip("this test is ambient multi-cluster specific")
+		}
+		allClusters := slices.Group(t.Clusters(), func(c cluster.Cluster) string {
+			return c.NetworkName()
+		})
+		networks := maps.Keys(allClusters)
+		if len(networks) < 2 {
+			t.Skip("east-west gateway auto passthrough test requires at least 2 clusters on different networks")
+		}
+
+		// gwCluster hosts the east-west gateway under test and a backend; remoteCluster hosts the sidecar client.
+		gwCluster := allClusters[networks[0]][0]
+		remoteCluster := allClusters[networks[1]][0]
+
+		crd.DeployGatewayAPIOrSkip(t)
+		for _, c := range []cluster.Cluster{gwCluster, remoteCluster} {
+			_, err := c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().
+				Get(t.Context(), "istio-sidecar-injector", metav1.GetOptions{})
+			if kerrors.IsNotFound(err) {
+				t.Skipf("sidecar injector is not installed in cluster %s", c.Name())
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		// Sidecar-injected namespace (not ambient), so that the client and backends are classic sidecar workloads.
+		nsConfig := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "ew-autopassthrough",
+			Inject: true,
+		})
+
+		const backendSvc = "autopassthrough-backend"
+		const clientSvc = "autopassthrough-client"
+		// Port 15443 with TLS passthrough on a network-labeled gateway is implicitly AUTO_PASSTHROUGH.
+		const autoPassthroughPort = 15443
+
+		echos := deployment.New(t).
+			// The backend runs in every cluster, so the client can reach it both on its own network
+			// (directly) and on the gateway's network (only through the east-west gateway).
+			WithConfig(echo.Config{
+				Service:        backendSvc,
+				Namespace:      nsConfig,
+				Ports:          echo.Ports{ports.HTTP},
+				ServiceAccount: true,
+				ServiceLabels: map[string]string{
+					// In ambient multi-network, a service is only exported across clusters when it is global.
+					"istio.io/global": "true",
+				},
+			}).
+			WithConfig(echo.Config{
+				Service:        clientSvc,
+				Namespace:      nsConfig,
+				Cluster:        remoteCluster,
+				Ports:          echo.Ports{ports.HTTP},
+				ServiceAccount: true,
+			}).
+			BuildOrFail(t)
+
+		backends := match.ServiceName(echo.NamespacedName{Name: backendSvc, Namespace: nsConfig}).GetMatches(echos)
+		clients := match.ServiceName(echo.NamespacedName{Name: clientSvc, Namespace: nsConfig}).GetMatches(echos)
+		if len(backends) == 0 || len(clients) == 0 {
+			t.Fatalf("missing echo instances: %d backends, %d clients", len(backends), len(clients))
+		}
+
+		systemNS := i.Settings().SystemNamespace
+		const ewGatewayName = "istio-eastwestgateway"
+		const autoPassthroughListenerName = "cross-network"
+
+		// Add the AUTO_PASSTHROUGH listener to the existing shared ambient east-west gateway, which keeps
+		// serving HBONE on port 15008 at the same time.
+		addPassthroughListenerOrFail(t, gwCluster, systemNS, ewGatewayName, autoPassthroughListenerName, autoPassthroughPort)
+		waitForListenerProgrammedOrFail(t, gwCluster, systemNS, ewGatewayName, autoPassthroughListenerName)
+
+		ewgw := i.EastWestGatewayForAmbient(gwCluster)
+		if addrs, portList := ewgw.AddressesForPort(autoPassthroughPort); len(addrs) == 0 || len(portList) == 0 {
+			t.Fatal("east-west gateway auto passthrough address or port not found")
+		}
+		sniDNATCluster := fmt.Sprintf("outbound_.%d_._.%s.%s.svc.cluster.local", ports.HTTP.ServicePort, backendSvc, nsConfig.Name())
+
+		// The sidecar client must reach the backends on every network. The backend on the gateway's network is
+		// only reachable through the east-west gateway's AUTO_PASSTHROUGH listener.
+		clients[0].CallOrFail(t, echo.CallOptions{
+			To:    backends,
+			Port:  ports.HTTP,
+			Count: 10,
+			Check: check.And(
+				check.OK(),
+				check.ReachedClusters(t.AllClusters(), backends.Clusters()),
+			),
+			Retry: echo.Retry{
+				Options: []retry.Option{retry.Timeout(2 * time.Minute), retry.Delay(time.Second)},
+			},
+		})
+
+		// Confirm the traffic really went through the gateway: its SNI-DNAT cluster for the backend must have
+		// forwarded connections to the local backend pod.
+		retry.UntilSuccessOrFail(t, func() error {
+			connections, err := eastWestGatewayUpstreamConnections(t, gwCluster, systemNS, ewGatewayName, sniDNATCluster)
+			if err != nil {
+				return err
+			}
+			if connections == 0 {
+				return fmt.Errorf("east-west gateway cluster %q has not forwarded any connection yet", sniDNATCluster)
+			}
+			return nil
+		}, retry.Timeout(time.Minute), retry.Delay(time.Second))
+	})
+}
+
+// waitForListenerProgrammedOrFail waits until the given listener of a Gateway reports Programmed=True.
+func waitForListenerProgrammedOrFail(t framework.TestContext, c cluster.Cluster, ns, gatewayName, listenerName string) {
+	t.Helper()
+	retry.UntilSuccessOrFail(t, func() error {
+		gw, err := c.GatewayAPI().GatewayV1().Gateways(ns).Get(t.Context(), gatewayName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("gateway not found: %v", err)
+		}
+		for _, ls := range gw.Status.Listeners {
+			if string(ls.Name) != listenerName {
+				continue
+			}
+			for _, cond := range ls.Conditions {
+				if cond.Type == string(k8sv1.ListenerConditionProgrammed) && string(cond.Status) == "True" {
+					return nil
+				}
+			}
+			return fmt.Errorf("listener %q is not yet programmed", listenerName)
+		}
+		return fmt.Errorf("listener %q not found in gateway status", listenerName)
+	}, retry.Timeout(2*time.Minute), retry.Delay(time.Second))
+}
+
+// eastWestGatewayUpstreamConnections returns the number of connections the east-west gateway pods of the
+// given cluster have forwarded to the hosts of the given Envoy cluster, read from their Envoy admin
+// clusters endpoint.
+func eastWestGatewayUpstreamConnections(t framework.TestContext, c cluster.Cluster, ns, gatewayName, clusterName string) (int, error) {
+	pods, err := c.Kube().CoreV1().Pods(ns).List(t.Context(), metav1.ListOptions{
+		LabelSelector: label.IoK8sNetworkingGatewayGatewayName.Name + "=" + gatewayName,
+	})
+	if err != nil {
+		return 0, err
+	}
+	if len(pods.Items) == 0 {
+		return 0, fmt.Errorf("no east-west gateway pods found for %s/%s in cluster %s", ns, gatewayName, c.Name())
+	}
+	out := ""
+	for _, pod := range pods.Items {
+		stdout, _, err := c.PodExec(pod.Name, ns, "istio-proxy", "pilot-agent request GET clusters")
+		if err != nil {
+			return 0, fmt.Errorf("failed reading clusters from east-west gateway pod %s: %v", pod.Name, err)
+		}
+		out += stdout + "\n"
+	}
+	// Lines look like: <cluster>::<host:port>::cx_total::<count>
+	total := 0
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Split(strings.TrimSpace(line), "::")
+		if len(fields) != 4 || fields[0] != clusterName || fields[2] != "cx_total" {
+			continue
+		}
+		n, err := strconv.Atoi(fields[3])
+		if err != nil {
+			return 0, fmt.Errorf("unexpected clusters output line %q: %v", line, err)
+		}
+		total += n
+	}
+	return total, nil
 }
