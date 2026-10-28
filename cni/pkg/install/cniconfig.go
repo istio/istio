@@ -161,6 +161,10 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 		cniConfigFilepath += "list"
 	}
 
+	if cfg.ChainedCNIPlugin && !useIstioOwnedCNIConfig(cfg) {
+		notifyCloseWrite(cniConfigFilepath)
+	}
+
 	installLog.Infof("Wrote CNI config to %s", cniConfigFilepath)
 
 	if cleanup != nil {
@@ -170,6 +174,18 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 	}
 
 	return cniConfigFilepath, nil
+}
+
+// notifyCloseWrite opens and closes the file without writing so watchers that only
+// listen for close_write on the final name (e.g. Antrea's chaining installer) see the
+// update. AtomicWrite replaces the file with a rename, which only raises moved_to.
+func notifyCloseWrite(path string) {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		installLog.Debugf("failed to open %s to notify watchers: %v", path, err)
+		return
+	}
+	_ = f.Close()
 }
 
 // If configured as chained CNI plugin, waits indefinitely for a main CNI config file to exist before returning
