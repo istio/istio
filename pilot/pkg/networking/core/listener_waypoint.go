@@ -284,8 +284,6 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 	connectAuthorityFilter := xdsfilters.ConnectAuthorityFilter
 	if pre1_29_2 {
 		connectAuthorityFilter = xdsfilters.ConnectAuthorityFilterPre1_29_2
-	} else if f := sidecarConnectAuthorityFilter(lb.node); f != nil {
-		connectAuthorityFilter = f
 	}
 	filters = append(filters,
 		xdsfilters.GenerateWaypointDownstreamMetadataFilter(),
