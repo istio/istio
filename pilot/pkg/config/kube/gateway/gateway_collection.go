@@ -284,7 +284,7 @@ func GatewayCollection(
 ) (
 	krt.StatusCollection[*gatewayv1.Gateway, gatewayv1.GatewayStatus],
 	krt.Collection[Gateway],
-	krt.Collection[GatewayBackendTLS],
+	krt.Collection[BackendTLSSettings],
 ) {
 	listenerIndex := krt.NewIndex(listenerSets, "gatewayParent", func(o ListenerSet) []types.NamespacedName {
 		return []types.NamespacedName{o.GatewayParent}
@@ -442,12 +442,12 @@ func GatewayCollection(
 	}, opts.WithName("KubernetesGateway")...)
 
 	// Create a collection for Gateway Backend TLS configuration, which is not preserved in the Gateway collection.
-	gatewayBackendTLS := krt.NewCollection(gateways, func(ctx krt.HandlerContext, obj *gatewayv1.Gateway) *GatewayBackendTLS {
+	gatewayBackendTLS := krt.NewCollection(gateways, func(ctx krt.HandlerContext, obj *gatewayv1.Gateway) *BackendTLSSettings {
 		if obj.Spec.TLS == nil || obj.Spec.TLS.Backend == nil || obj.Spec.TLS.Backend.ClientCertificateRef == nil {
 			return nil
 		}
 		backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
-		return &GatewayBackendTLS{
+		return &BackendTLSSettings{
 			ParentGateway: config.NamespacedName(obj),
 			BackendTLS:    obj.Spec.TLS.Backend,
 			Error:         backendTLSErr,

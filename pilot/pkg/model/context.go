@@ -1141,7 +1141,7 @@ type GatewayController interface {
 	SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool
 	// GetGatewayBackendClientCertificateRef returns a SecretObjectReference for
 	// the client certificate specified in a Gateway's Backend TLS configuration.
-	GetGatewayBackendClientCertificateRef(gateway types.NamespacedName) *gatewayv1.SecretObjectReference
+	GetGatewayBackendClientCredentialName(gateway types.NamespacedName) (string, error)
 }
 
 type AgentgatewayController interface {
