@@ -73,7 +73,8 @@ var (
 	Telemetry                      = schema.GroupVersionResource{Group: "telemetry.istio.io", Version: "v1", Resource: "telemetries"}
 	Telemetry_v1alpha1             = schema.GroupVersionResource{Group: "telemetry.istio.io", Version: "v1alpha1", Resource: "telemetries"}
 	TrafficExtension               = schema.GroupVersionResource{Group: "extensions.istio.io", Version: "v1alpha1", Resource: "trafficextensions"}
-	UDPRoute                       = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "udproutes"}
+	UDPRoute                       = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "udproutes"}
+	UDPRoute_v1alpha2              = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "udproutes"}
 	ValidatingWebhookConfiguration = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1", Resource: "validatingwebhookconfigurations"}
 	VirtualService                 = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "virtualservices"}
 	VirtualService_v1alpha3        = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "virtualservices"}
@@ -224,6 +225,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 	case TrafficExtension:
 		return false
 	case UDPRoute:
+		return false
+	case UDPRoute_v1alpha2:
 		return false
 	case ValidatingWebhookConfiguration:
 		return true

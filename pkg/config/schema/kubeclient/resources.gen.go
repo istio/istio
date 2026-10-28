@@ -31,7 +31,6 @@ import (
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiinferenceextensionapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
-	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	sigsk8siogatewayapiapisxv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
@@ -136,8 +135,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Istio().TelemetryV1().Telemetries(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
 		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
-		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisv1.UDPRoute:
+		return c.GatewayAPI().GatewayV1().UDPRoutes(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
 		return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1.VirtualService:
@@ -243,8 +242,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Istio().TelemetryV1().Telemetries(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
 		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
-		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1.UDPRoute:
+		return c.GatewayAPI().GatewayV1().UDPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
 		return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1.VirtualService:
@@ -351,7 +350,7 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 	case gvr.TrafficExtension:
 		return &apiistioioapiextensionsv1alpha1.TrafficExtension{}
 	case gvr.UDPRoute:
-		return &sigsk8siogatewayapiapisv1alpha2.UDPRoute{}
+		return &sigsk8siogatewayapiapisv1.UDPRoute{}
 	case gvr.ValidatingWebhookConfiguration:
 		return &k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration{}
 	case gvr.VirtualService:
@@ -672,10 +671,10 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 	case gvr.UDPRoute:
 		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(opts.Namespace).List(ctx, options)
+			return c.GatewayAPI().GatewayV1().UDPRoutes(opts.Namespace).List(ctx, options)
 		}
 		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(opts.Namespace).Watch(ctx, options)
+			return c.GatewayAPI().GatewayV1().UDPRoutes(opts.Namespace).Watch(ctx, options)
 		}
 	case gvr.ValidatingWebhookConfiguration:
 		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {

@@ -77,7 +77,8 @@ var (
 	Telemetry                      = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1", Kind: "Telemetry"}
 	Telemetry_v1alpha1             = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1alpha1", Kind: "Telemetry"}
 	TrafficExtension               = config.GroupVersionKind{Group: "extensions.istio.io", Version: "v1alpha1", Kind: "TrafficExtension"}
-	UDPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "UDPRoute"}
+	UDPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "UDPRoute"}
+	UDPRoute_v1alpha2              = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "UDPRoute"}
 	ValidatingWebhookConfiguration = config.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: "ValidatingWebhookConfiguration"}
 	VirtualService                 = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "VirtualService"}
 	VirtualService_v1alpha3        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "VirtualService"}
@@ -230,6 +231,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.TrafficExtension, true
 	case UDPRoute:
 		return gvr.UDPRoute, true
+	case UDPRoute_v1alpha2:
+		return gvr.UDPRoute_v1alpha2, true
 	case ValidatingWebhookConfiguration:
 		return gvr.ValidatingWebhookConfiguration, true
 	case VirtualService:

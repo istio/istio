@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issues:
+- 61540
+releaseNotes:
+- |
+  **Fixed** istiod watching `UDPRoute` at `v1alpha2`. Gateway API v1.6 and later serve `UDPRoute` only at `v1` in the standard channel,
+  so with `PILOT_ENABLE_ALPHA_GATEWAY_API=true` istiod failed to sync the CRD and did not become ready. istiod now uses `v1` for
+  `UDPRoute`, like `TCPRoute` and `TLSRoute`, and requires Gateway API v1.6.0 or later for it.

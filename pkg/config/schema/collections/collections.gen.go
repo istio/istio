@@ -20,7 +20,6 @@ import (
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiinferenceextensionapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
-	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	sigsk8siogatewayapiapisxv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
@@ -755,10 +754,13 @@ var (
 		Group:      "gateway.networking.k8s.io",
 		Kind:       "UDPRoute",
 		Plural:     "udproutes",
-		Version:    "v1alpha2",
-		Proto:      "k8s.io.gateway_api.api.v1alpha1.UDPRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.UDPRouteStatus",
-		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.UDPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.UDPRouteStatus{}).Elem(),
-		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		Version:    "v1",
+		VersionAliases: []string{
+			"v1alpha2",
+		},
+		Proto: "k8s.io.gateway_api.api.v1.UDPRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1.UDPRouteStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.UDPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.UDPRouteStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
@@ -1048,6 +1050,7 @@ var (
 				MustAdd(TLSRoute).
 				MustAdd(Telemetry).
 				MustAdd(TrafficExtension).
+				MustAdd(UDPRoute).
 				MustAdd(VirtualService).
 				MustAdd(WasmPlugin).
 				MustAdd(WorkloadEntry).

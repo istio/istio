@@ -298,11 +298,13 @@ resources:
   - kind: "UDPRoute"
     plural: "udproutes"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    proto: "k8s.io.gateway_api.api.v1alpha1.UDPRouteSpec"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    statusProto: "k8s.io.gateway_api.api.v1alpha1.UDPRouteStatus"
+    version: "v1"
+    versionAliases:
+    - "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    proto: "k8s.io.gateway_api.api.v1.UDPRouteSpec"
+    statusProto: "k8s.io.gateway_api.api.v1.UDPRouteStatus"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
 
   - kind: "ReferenceGrant"
     plural: "referencegrants"
