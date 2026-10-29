@@ -1351,7 +1351,7 @@ func validatePortTrafficPolicies(configNamespace string, pls []*networking.Traff
 			errs = appendErrors(errs, fmt.Errorf("portTrafficPolicy must have valid port"))
 		}
 		if t.OutlierDetection == nil && t.ConnectionPool == nil &&
-			t.LoadBalancer == nil && t.Tls == nil {
+			t.LoadBalancer == nil && t.Tls == nil && t.RetryBudget == nil {
 			errs = appendErrors(errs, fmt.Errorf("port traffic policy must have at least one field"))
 		} else {
 			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),

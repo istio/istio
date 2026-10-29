@@ -1833,6 +1833,108 @@ func TestMergeSubsetTrafficPolicy(t *testing.T) {
 			},
 		},
 		{
+			name: "port level retryBudget is applied",
+			original: &networking.TrafficPolicy{
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					MinRetryConcurrency: 3,
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						RetryBudget: &networking.TrafficPolicy_RetryBudget{
+							MinRetryConcurrency: 10,
+						},
+					},
+				},
+			},
+			subset: nil,
+			port:   &model.Port{Port: 8080},
+			expected: &networking.TrafficPolicy{
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					MinRetryConcurrency: 10,
+				},
+			},
+		},
+		{
+			name: "top-level retryBudget is not inherited by port level settings",
+			original: &networking.TrafficPolicy{
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					MinRetryConcurrency: 3,
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						OutlierDetection: &networking.OutlierDetection{
+							ConsecutiveErrors: 15,
+						},
+					},
+				},
+			},
+			subset: nil,
+			port:   &model.Port{Port: 8080},
+			expected: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 15,
+				},
+			},
+		},
+		{
+			name: "top-level retryBudget is not inherited by subset port level settings",
+			original: &networking.TrafficPolicy{
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					MinRetryConcurrency: 3,
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						OutlierDetection: &networking.OutlierDetection{
+							ConsecutiveErrors: 13,
+						},
+					},
+				},
+			},
+			port: &model.Port{Port: 8080},
+			expected: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 13,
+				},
+			},
+		},
+		{
+			name: "subset port level retryBudget overrides top-level retryBudget",
+			original: &networking.TrafficPolicy{
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					MinRetryConcurrency: 3,
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						RetryBudget: &networking.TrafficPolicy_RetryBudget{
+							MinRetryConcurrency: 10,
+						},
+					},
+				},
+			},
+			port: &model.Port{Port: 8080},
+			expected: &networking.TrafficPolicy{
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					MinRetryConcurrency: 10,
+				},
+			},
+		},
+		{
 			name: "default cluster, non-matching port selector",
 			original: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
