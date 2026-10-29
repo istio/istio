@@ -173,7 +173,10 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 		if openNetns != nil {
 			// pod is removed from the mesh, but is still running. remove traffic rules
 			log.Debugf("calling DeleteInpodRules")
-			if err := s.netnsRunner(openNetns, func() error { return s.trafficManager.DeleteInpodRules(log) }); err != nil {
+			podCfg := getPodLevelTrafficOverrides(pod)
+			if err := s.netnsRunner(openNetns, func() error {
+				return s.trafficManager.DeleteInpodRules(log, podCfg)
+			}); err != nil {
 				return fmt.Errorf("failed to delete inpod rules: %w", err)
 			}
 		} else {
