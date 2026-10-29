@@ -448,7 +448,7 @@ func NewController(
 				}
 			}), false),
 		outputs.GatewayBackendTLS.RegisterBatch(pushXds(xdsUpdater,
-			func(t GatewayBackendTLS) model.ConfigKey {
+			func(t BackendTLSSettings) model.ConfigKey {
 				return model.ConfigKey{
 					Kind:      kind.Gateway,
 					Name:      t.ParentGateway.Name,
@@ -680,26 +680,23 @@ func (c *Controller) inRevision(obj any) bool {
 }
 
 // Retrieve Backend TLS configuration configured on a Kubernetes Gateway.
-func (c *Controller) GetGatewayBackendClientCredentialName(gateway types.NamespacedName) (string, error) {
-	var gatewayTLS *BackendTLSSettings = c.outputs.GatewayBackendTLS.GetKey(gateway.String())
+func (c *Controller) GetGatewayBackendClientCredentialName(gateway types.NamespacedName) string {
+	gatewayTLS := c.outputs.GatewayBackendTLS.GetKey(gateway.String())
 	if gatewayTLS == nil {
-		return "", nil
+		return ""
 	}
 	if gatewayTLS.Error != nil {
-		return "", fmt.Errorf("error retrieving backend TLS configuration for gateway %s/%s: %v", gateway.Namespace, gateway.Name, gatewayTLS.Error)
+		return ""
 	}
 	if gatewayTLS.BackendTLS == nil || gatewayTLS.BackendTLS.ClientCertificateRef == nil {
-		return "", nil
+		return ""
 	}
 
 	ref := gatewayTLS.BackendTLS.ClientCertificateRef
 	if ref.Name == "" {
-		return "", fmt.Errorf("no client certificate configured for gateway %s/%s", gateway.Namespace, gateway.Name)
+		return ""
 	}
 
-	ns := gateway.Namespace
-	if string(*ref.Namespace) != ns {
-		return "", fmt.Errorf("client certificate for gateway %s/%s is in a different namespace %s", gateway.Namespace, gateway.Name, ref.Namespace)
-	}
-	return credentials.ToKubernetesGatewayResource(ns, string(ref.Name)), nil
+	ns := ptr.OrDefault((*string)(ref.Namespace), gateway.Namespace)
+	return credentials.ToKubernetesGatewayResource(ns, string(ref.Name))
 }
