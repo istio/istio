@@ -1085,7 +1085,18 @@ func validateTrafficPolicy(configNamespace string, policy *networking.TrafficPol
 		agent.ValidateTLS(configNamespace, policy.Tls),
 		validatePortTrafficPolicies(configNamespace, policy.PortLevelSettings),
 		validateTunnelSettings(policy.Tunnel),
-		validateProxyProtocol(policy.ProxyProtocol))
+		validateProxyProtocol(policy.ProxyProtocol),
+		validateRetryBudget(policy.RetryBudget))
+}
+
+func validateRetryBudget(retryBudget *networking.TrafficPolicy_RetryBudget) (errs error) {
+	if retryBudget == nil {
+		return errs
+	}
+	if p := retryBudget.Percent; p != nil && (p.GetValue() < 0 || p.GetValue() > 100) {
+		errs = appendErrors(errs, fmt.Errorf("retry budget percent must be between 0 and 100: %v", p.GetValue()))
+	}
+	return errs
 }
 
 func validateProxyProtocol(proxyProtocol *networking.TrafficPolicy_ProxyProtocol) (errs error) {
@@ -1357,7 +1368,8 @@ func validatePortTrafficPolicies(configNamespace string, pls []*networking.Traff
 			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
 				validateConnectionPool(t.ConnectionPool),
 				validateLoadBalancer(t.LoadBalancer, t.OutlierDetection),
-				agent.ValidateTLS(configNamespace, t.Tls))
+				agent.ValidateTLS(configNamespace, t.Tls),
+				validateRetryBudget(t.RetryBudget))
 		}
 	}
 	return errs

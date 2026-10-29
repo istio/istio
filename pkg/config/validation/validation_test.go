@@ -3419,6 +3419,27 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "invalid traffic policy, retry budget percent above 100", in: &networking.TrafficPolicy{
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					Percent: wrapperspb.Double(150),
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid traffic policy, negative retry budget percent in port level settings", in: &networking.TrafficPolicy{
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{Number: 8080},
+						RetryBudget: &networking.TrafficPolicy_RetryBudget{
+							Percent: wrapperspb.Double(-1),
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "invalid traffic policy, bad connection pool", in: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
