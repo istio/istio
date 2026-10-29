@@ -1004,8 +1004,7 @@ func TestEastWestGatewaySidecarAutoPassthrough(t *testing.T) {
 		const autoPassthroughPort = 15443
 
 		echos := deployment.New(t).
-			// The backend runs in every cluster, so the client can reach it both on its own network
-			// (directly) and on the gateway's network (only through the east-west gateway).
+			WithClusters(gwCluster, remoteCluster).
 			WithConfig(echo.Config{
 				Service:        backendSvc,
 				Namespace:      nsConfig,
