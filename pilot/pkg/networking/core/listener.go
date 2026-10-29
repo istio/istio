@@ -828,6 +828,21 @@ func buildSidecarOutboundHTTPListenerOpts(
 }
 
 func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServices []*config.Config) []*filterChainOpts {
+	// Make sure TCP/TLS routes don't break sidecar -> service waypoint delegation.
+	if opts.service != nil && len(opts.push.SidecarServiceWaypoints(opts.proxy, opts.service)) > 0 {
+		lb := &ListenerBuilder{node: opts.proxy, push: opts.push}
+
+		return []*filterChainOpts{{
+			destinationCIDRs: opts.cidr,
+			networkFilters: opts.precomputedNetworkFilters.getOrBuild(
+				networkFiltersKey{},
+				func() []*listener.Filter {
+					return buildDefaultRouteNetworkFilters(lb, opts.service, opts.port)
+				},
+			),
+		}}
+	}
+
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []*config.Config
 	switch {

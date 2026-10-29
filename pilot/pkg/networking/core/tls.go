@@ -333,15 +333,26 @@ func buildDefaultRouteNetworkFilters(lb *ListenerBuilder, service *model.Service
 		port = service.Ports[0].Port
 	}
 
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+	direction := model.TrafficDirectionOutbound
+	if len(lb.push.SidecarServiceWaypoints(lb.node, service)) > 0 {
+		direction = model.TrafficDirectionOutboundWaypoint
+	}
+
+	clusterName := model.BuildSubsetKey(direction, "", service.Hostname, port)
 	statPrefix := clusterName
 	// If stat name is configured, use it to build the stat prefix.
 	if len(lb.push.Mesh.OutboundClusterStatName) != 0 {
 		statPrefix = telemetry.BuildStatPrefix(lb.push.Mesh.OutboundClusterStatName, string(service.Hostname), "",
 			&model.Port{Port: port}, 0, &service.Attributes)
 	}
-	destinationRule := CastDestinationRule(lb.node.SidecarScope.DestinationRule(
-		model.TrafficDirectionOutbound, lb.node, service.Hostname).GetRule())
+
+	// Don't apply backend DestinationRule settings to traffic delegated to a waypoint.
+	var destinationRule *v1alpha3.DestinationRule
+	if direction == model.TrafficDirectionOutbound {
+		destinationRule = CastDestinationRule(lb.node.SidecarScope.DestinationRule(
+			model.TrafficDirectionOutbound, lb.node, service.Hostname).GetRule())
+	}
+
 	return lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
 		listenPort, destinationRule, tunnelingconfig.Apply, false, service)
 }

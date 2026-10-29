@@ -505,7 +505,32 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			continue
 		}
 
-		waypointRouted := len(cb.req.Push.SidecarServiceWaypoints(proxy, service)) > 0
+		if len(cb.req.Push.SidecarServiceWaypoints(proxy, service)) > 0 {
+			for _, port := range service.Ports {
+				if port.Protocol == protocol.UDP {
+					continue
+				}
+
+				waypointPort := *port
+				waypointPort.Protocol = protocol.TCP
+
+				clusterName := model.BuildSubsetKey(
+					model.TrafficDirectionOutboundWaypoint, "", service.Hostname, port.Port,
+				)
+				waypointCluster := cb.buildCluster(
+					clusterName, cluster.Cluster_EDS, nil, model.TrafficDirectionOutbound,
+					&waypointPort, service, nil, "",
+				)
+				cb.applyDestinationRule(
+					waypointCluster, DefaultClusterMode, service, &waypointPort,
+					nil, nil, nil, true,
+				)
+
+				if patched := cp.patch(nil, waypointCluster.build()); patched != nil {
+					resources = append(resources, patched)
+				}
+			}
+		}
 
 		// DYNAMIC_DNS: Use Dynamic Forward Proxy for wildcard hostnames
 		if service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
@@ -524,7 +549,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 				// Apply DestinationRule settings
 				destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
-				subsetClusters := cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil, waypointRouted)
+				subsetClusters := cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil, false)
 
 				if patched := cp.patch([]host.Name{service.Hostname}, dfpCluster.build()); patched != nil {
 					resources = append(resources, patched)
@@ -603,7 +628,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
-				clusterKey.endpointBuilder, clusterKey.destinationRule.GetRule(), clusterKey.serviceAccounts, waypointRouted)
+				clusterKey.endpointBuilder, clusterKey.destinationRule.GetRule(), clusterKey.serviceAccounts, false)
 
 			if service.UseInferenceSemantics() && proxy.Type == model.Router {
 				cb.applyOverrideHostPolicy(defaultCluster)
