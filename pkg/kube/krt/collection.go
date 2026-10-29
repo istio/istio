@@ -45,10 +45,16 @@ type dependencyState[I any] struct {
 	collectionDependencies       sets.Set[collectionUID]
 	collectionDependencyHandlers map[collectionUID]HandlerRegistration
 	// Stores a map of I -> secondary dependencies (added via Fetch)
-	objectDependencies  shrinkingMap[Key[I], []*dependency]
+	objectDependencies  shrinkingMap[Key[I], inputDependencyState]
 	indexedDependencies shrinkingMapOfSets[indexedDependency, Key[I]]
 	// indexedDependenciesExtractor stores a map of [collection,fetch type,(optional)index id] => an extractor to get change keys.
 	indexedDependenciesExtractor map[extractorKey]objectKeyExtractor
+}
+
+type inputDependencyState struct {
+	dependencies []*dependency
+	// lastRecompute is the stamp of the task that computed this input's current result.
+	lastRecompute uint64
 }
 
 type extractorKey struct {
@@ -57,7 +63,7 @@ type extractorKey struct {
 	typ       indexedDependencyType
 }
 
-func (i *dependencyState[I]) update(key Key[I], deps []*dependency) {
+func (i *dependencyState[I]) update(key Key[I], deps []*dependency, recomputeSeq uint64) {
 	// We will override the current dependencies with the new ones, so
 	// we first remove the existing dependencies from the reverse index
 	// (indexedDependencies). Otherwise, when "I" goes away, a delete
@@ -68,7 +74,7 @@ func (i *dependencyState[I]) update(key Key[I], deps []*dependency) {
 	// all dependencies for the key. That means that as the delete call
 	// above removes the key from objectDependencies, that doesn't matter
 	// as we reassign the key here once again.
-	i.objectDependencies.set(key, deps)
+	i.objectDependencies.set(key, inputDependencyState{dependencies: deps, lastRecompute: recomputeSeq})
 	for _, d := range deps {
 		if depKeys, typ, extractor, filterID, ok := d.filter.reverseIndexKey(); ok {
 			for _, depKey := range depKeys {
@@ -107,7 +113,7 @@ func (i *dependencyState[I]) delete(key Key[I]) {
 		return
 	}
 	i.objectDependencies.delete(key)
-	for _, d := range old {
+	for _, d := range old.dependencies {
 		if depKeys, typ, _, _, ok := d.filter.reverseIndexKey(); ok {
 			for _, depKey := range depKeys {
 				k := indexedDependency{
@@ -159,7 +165,7 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 								continue
 							}
 							dependencies := i.objectDependencies.data[iKey]
-							if changed := objectChanged(dependencies, sourceCollection, ev, true); changed {
+							if changed := objectChanged(dependencies.dependencies, sourceCollection, ev, true); changed {
 								changedInputKeys.Insert(iKey)
 							}
 						}
@@ -169,7 +175,7 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 		}
 		if !foundAny {
 			for iKey, dependencies := range i.objectDependencies.data {
-				if changed := objectChanged(dependencies, sourceCollection, ev, false); changed {
+				if changed := objectChanged(dependencies.dependencies, sourceCollection, ev, false); changed {
 					changedInputKeys.Insert(iKey)
 				}
 			}
@@ -244,10 +250,6 @@ type manyCollection[I, O any] struct {
 	// visible to readers. A queued task is stamped before it reads any state, so it observes every change whose
 	// event was stamped earlier.
 	seq atomic.Uint64
-	// lastRecompute holds, per input, the stamp of the task that computed its current result. Queued events stamped
-	// before it were already observed, so they do not need to recompute that input again.
-	// Only accessed from the queue goroutine.
-	lastRecompute map[Key[I]]uint64
 
 	debugger *DebugHandler
 
@@ -446,8 +448,8 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 		}
 	}
 	for k, deps := range h.dependencyState.objectDependencies.data {
-		depss := make([]string, 0, len(deps))
-		for _, dep := range deps {
+		depss := make([]string, 0, len(deps.dependencies))
+		for _, dep := range deps.dependencies {
 			depss = append(depss, dep.collectionName)
 		}
 		slices.Sort(depss)
@@ -544,7 +546,7 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I],
 		}
 		i := a.Latest()
 		iKey := getTypedKey(i)
-		if h.lastRecompute[iKey] > eventSeq {
+		if h.dependencyState.objectDependencies.data[iKey].lastRecompute > eventSeq {
 			// The current result comes from a recomputation that started after this event was queued, so it already
 			// observed the change.
 			continue
@@ -585,7 +587,6 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I],
 			}
 			h.collectionState.mappings.delete(iKey)
 			h.collectionState.inputs.delete(iKey)
-			delete(h.lastRecompute, iKey)
 			h.dependencyState.delete(iKey)
 		} else {
 			ctx := pendingDepStateUpdates[idx]
@@ -605,8 +606,7 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I],
 				}
 				h.log.WithLabels("iKey", iKey).Debugf("would discard result, but it is the first so including it")
 			}
-			h.dependencyState.update(iKey, ctx.d)
-			h.lastRecompute[iKey] = recomputeSeq
+			h.dependencyState.update(iKey, ctx.d, recomputeSeq)
 			oldKeys := h.collectionState.mappings.data[iKey]
 			newKeys := oldKeys.forUpdate(len(results))
 			for key := range oldKeys.all {
@@ -731,7 +731,6 @@ func newManyCollection[I, O any](
 		stop:                       opts.stop,
 		onPrimaryInputEventHandler: onPrimaryInputEventHandler,
 		debugger:                   opts.debugger,
-		lastRecompute:              map[Key[I]]uint64{},
 	}
 
 	if opts.metadata != nil {
