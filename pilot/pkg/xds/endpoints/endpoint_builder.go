@@ -456,12 +456,18 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
-	if b.waypointRoutingEnabled() {
+	if b.waypointRoutingEnabled() &&
+		(b.nodeType != model.SidecarProxy || b.dir == model.TrafficDirectionOutboundWaypoint) {
 		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
 			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 			locLbEps := b.generate(waypointEps, true)
 			return b.createClusterLoadAssignment(locLbEps)
 		}
+	}
+
+	// A waypoint cluster must never fall back to direct backend endpoints.
+	if b.dir == model.TrafficDirectionOutboundWaypoint {
+		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
 	svcEps := b.snapshotShards(endpointIndex)

@@ -5697,9 +5697,8 @@ func (s sidecarWaypointAmbientIndex) ServicesWithWaypoint(key string) []model.Se
 	return []model.ServiceWaypointInfo{s.info}
 }
 
-// TestSidecarWaypointDestinationRulePolicy verifies that when a sidecar delegates traffic to a
-// service waypoint, it does so without applying backend TLS policy while retaining default and
-// subset cluster names.
+// TestSidecarWaypointDestinationRulePolicy verifies that backend-specific DestinationRule
+// settings are preserved for direct traffic and excluded from waypoint delegation.
 func TestSidecarWaypointDestinationRulePolicy(t *testing.T) {
 	test.SetForTest(t, &features.EnableSidecarWaypointRouting, true)
 	test.SetForTest(t, &features.EnableHBONESend, true)
@@ -5872,15 +5871,37 @@ func TestSidecarWaypointDestinationRulePolicy(t *testing.T) {
 		}
 	}
 
+	waypointClusterName := model.BuildSubsetKey(
+		model.TrafficDirectionOutboundWaypoint, "", service.Hostname, 80,
+	)
+
 	t.Run("direct", func(t *testing.T) {
-		assertClusterState(t, generateClusters(false), assertDirectCluster)
+		clusters := generateClusters(false)
+		assertClusterState(t, clusters, assertDirectCluster)
+
+		if xdstest.ExtractCluster(waypointClusterName, clusters) != nil {
+			t.Fatalf("unexpected delegation cluster %q", waypointClusterName)
+		}
 	})
 
 	t.Run("waypoint attached", func(t *testing.T) {
-		assertClusterState(t, generateClusters(true), assertWaypointCluster)
+		clusters := generateClusters(true)
+		assertClusterState(t, clusters, assertDirectCluster)
+
+		waypointCluster := xdstest.ExtractCluster(waypointClusterName, clusters)
+		if waypointCluster == nil {
+			t.Fatalf("cluster %q not found", waypointClusterName)
+		}
+
+		assertWaypointCluster(t, waypointCluster)
 	})
 
 	t.Run("waypoint removed", func(t *testing.T) {
-		assertClusterState(t, generateClusters(false), assertDirectCluster)
+		clusters := generateClusters(false)
+		assertClusterState(t, clusters, assertDirectCluster)
+
+		if xdstest.ExtractCluster(waypointClusterName, clusters) != nil {
+			t.Fatalf("unexpected delegation cluster %q", waypointClusterName)
+		}
 	})
 }
