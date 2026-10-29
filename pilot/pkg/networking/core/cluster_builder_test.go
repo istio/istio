@@ -949,7 +949,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 		},
 		{
-			name:        "destination rule with port level retry budget",
+			name:        "subset with port level retry budget",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,

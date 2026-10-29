@@ -46,3 +46,17 @@ spec:
         http2KeepAlive:
           interval: 15s
           timeout: 5s
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: bookinfo-ratings-port-retry-budget
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 8080
+      retryBudget:
+        percent: 20.0
+        minRetryConcurrency: 5

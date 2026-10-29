@@ -4,6 +4,9 @@ area: traffic-management
 releaseNotes:
   - |
     **Added** support for `retryBudget` in `DestinationRule` `portLevelSettings`.
+  - |
+    **Added** validation that `retryBudget.percent` in `DestinationRule` is between 0 and 100,
+    matching the CRD schema.
 
 upgradeNotes:
   - title: Subset port level settings no longer inherit the destination level `retryBudget`.
