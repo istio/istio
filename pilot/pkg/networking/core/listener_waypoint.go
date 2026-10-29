@@ -62,7 +62,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -812,31 +811,6 @@ func hboneOriginationListenerClass(proxy *model.Proxy) istionetworking.ListenerC
 		return istionetworking.ListenerClassSidecarInbound
 	}
 	return model.OutboundListenerClass(proxy.Type)
-}
-
-func buildConnectOriginateAdapterListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) (*listener.Listener, error) {
-	return wrapHBONEOriginationAdapterListener(buildConnectOriginateListener(push, proxy, class), util.HBONEOriginationAdapterListener)
-}
-
-// Replace only the terminal TCP proxy so both single and double HBONE preserve
-// their authority, metadata propagation, headers, and access logs.
-func wrapHBONEOriginationAdapterListener(l *listener.Listener, name string) (*listener.Listener, error) {
-	l.Name = name
-	filters := l.FilterChains[0].Filters
-	terminal := filters[len(filters)-1]
-	tcpProxy := &tcp.TcpProxy{}
-	if err := terminal.GetTypedConfig().UnmarshalTo(tcpProxy); err != nil {
-		return nil, err
-	}
-	value, err := protomarshal.ToJSONMap(tcpProxy)
-	if err != nil {
-		return nil, err
-	}
-	terminal.Name = util.HBONEOriginationAdapterFilter
-	terminal.ConfigType = &listener.Filter_TypedConfig{TypedConfig: protoconv.TypedStructWithFields(
-		util.HBONEOriginationAdapterConfigType, map[string]any{"tcp_proxy": value},
-	)}
-	return l, nil
 }
 
 func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass,

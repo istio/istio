@@ -146,24 +146,17 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 		if node.Type == model.Router {
 			class = istionetworking.ListenerClassGateway
 		}
-		if adapter, err := buildConnectOriginateAdapterListener(push, node, class); err != nil {
-			log.Errorf("failed to build HBONE origination adapter listener: %v", err)
-		} else {
-			l = append(l, adapter)
-		}
+		// The HBONE cluster's pool signals CONNECT readiness. Keep stock TCP proxy
+		// and the adapter listener names recognized by the peer-metadata filter.
+		adapter := buildConnectOriginateListener(push, node, class)
+		adapter.Name = util.HBONEOriginationAdapterListener
+		l = append(l, adapter)
 		if model.ShouldCreateDoubleHBONEResources(node) {
 			outer := buildOuterConnectOriginateListener(push, node)
-			if adapter, err := wrapHBONEOriginationAdapterListener(outer, util.HBONEOuterOriginationAdapterListener); err != nil {
-				log.Errorf("failed to build outer HBONE origination adapter listener: %v", err)
-			} else {
-				l = append(l, adapter)
-			}
+			outer.Name = util.HBONEOuterOriginationAdapterListener
 			inner := buildInnerConnectOriginateListener(push, node)
-			if adapter, err := wrapHBONEOriginationAdapterListener(inner, util.HBONEInnerOriginationAdapterListener); err != nil {
-				log.Errorf("failed to build inner HBONE origination adapter listener: %v", err)
-			} else {
-				l = append(l, adapter)
-			}
+			inner.Name = util.HBONEInnerOriginationAdapterListener
+			l = append(l, outer, inner)
 		}
 	}
 	return l

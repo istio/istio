@@ -78,7 +78,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 				for _, match := range opts.mutable.cluster.TransportSocketMatches {
 					if match.Name == "hbone" {
 						match.TransportSocket = util.FullMetadataPassthroughHBONEOriginationAdapterTransportSocket()
-						applyHBONERejectionHandling(opts.mutable.cluster)
+						applyHBONEConnectWaitPool(opts.mutable.cluster)
 					}
 				}
 			}

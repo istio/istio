@@ -21,7 +21,6 @@ import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	internal "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
@@ -32,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -124,19 +122,24 @@ func TestHBONEDoubleAdapterListeners(t *testing.T) {
 					if !enabled {
 						continue
 					}
-					// Unwrapping the adapter must reproduce the entire native listener.
-					unwrapped := protomarshal.Clone(adapter)
-					unwrapped.Name = inner.Name
-					terminal := unwrapped.FilterChains[0].Filters[len(unwrapped.FilterChains[0].Filters)-1]
-					wrapped := &udpa.TypedStruct{}
-					assert.Equal(t, terminal.Name, util.HBONEOriginationAdapterFilter)
-					assert.NoError(t, terminal.GetTypedConfig().UnmarshalTo(wrapped))
-					assert.Equal(t, wrapped.TypeUrl, util.HBONEOriginationAdapterConfigType)
+					// Both adapter listeners use the native TCP proxy configuration unchanged.
+					for _, pair := range [][2]string{
+						{util.HBONEInnerOriginationAdapterListener, DoubleHBONEInnerConnectOriginate},
+						{util.HBONEOuterOriginationAdapterListener, DoubleHBONEOuterConnectOriginate},
+					} {
+						got := protomarshal.Clone(xdstest.ExtractListener(pair[0], listeners))
+						got.Name = pair[1]
+						assert.Equal(t, got, xdstest.ExtractListener(pair[1], listeners))
+						filters := got.FilterChains[0].Filters
+						tcpProxy := &tcp.TcpProxy{}
+						assert.NoError(t, filters[len(filters)-1].GetTypedConfig().UnmarshalTo(tcpProxy))
+						assert.Equal(t, tcpProxy.GetUpstreamConnectMode(), tcp.UpstreamConnectMode_IMMEDIATE)
+						assert.Equal(t, tcpProxy.GetTunnelingConfig().GetUsePost(), false)
+					}
+					terminal := adapter.FilterChains[0].Filters[len(adapter.FilterChains[0].Filters)-1]
+					assert.Equal(t, terminal.Name, wellknown.TCPProxy)
 					tcpProxy := &tcp.TcpProxy{}
-					assert.NoError(t, protomarshal.StructToMessageSlow(wrapped.Value.Fields["tcp_proxy"].GetStructValue(), tcpProxy))
-					terminal.Name = wellknown.TCPProxy
-					terminal.ConfigType = &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpProxy)}
-					assert.Equal(t, unwrapped, inner)
+					assert.NoError(t, terminal.GetTypedConfig().UnmarshalTo(tcpProxy))
 					assert.Equal(t, tcpProxy.GetCluster(), DoubleHBONEInnerConnectOriginate)
 					assert.Equal(t, tcpProxy.TunnelingConfig.Hostname, "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%")
 					assert.Equal(t, tcpProxy.TunnelingConfig.HeadersToAdd[0].Header.Value, "network1")
@@ -308,9 +311,11 @@ func TestHBONEDoubleAdapterPairing(t *testing.T) {
 						if !enabled {
 							stockOuter = outer
 						}
-						assert.Equal(t, outer, stockOuter)
+						withoutPool := protomarshal.Clone(outer)
+						withoutPool.UpstreamConfig = nil
+						assert.Equal(t, withoutPool, stockOuter)
 						for _, nested := range []*cluster.Cluster{inner, outer} {
-							assert.Equal(t, nested.UpstreamConfig == nil, true)
+							assertHBONEConnectWaitPool(t, nested, enabled)
 							assert.Equal(t, len(nested.TypedExtensionProtocolOptions), 1)
 							options := &http.HttpProtocolOptions{}
 							assert.NoError(t, nested.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"].UnmarshalTo(options))
