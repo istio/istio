@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	set "istio.io/istio/cni/pkg/addressset"
+	"istio.io/istio/cni/pkg/routing"
 	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/util/sets"
@@ -34,6 +35,7 @@ type meshDataplane struct {
 	netServer          MeshDataplane
 	hostTrafficManager trafficmanager.TrafficRuleManager
 	hostAddrSet        set.AddressSetManager
+	hostProbeRoutes    routing.HostProbeRoutes
 
 	// branchENIRules tracks the branch ENI routing info we added rules for,
 	// keyed by pod IP. We cache it at add time so teardown can delete the rules
@@ -84,6 +86,13 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 		})
 	}
 
+	if len(s.hostProbeRoutes) != 0 {
+		if err := util.RunAsHost(func() error {
+			return s.hostProbeRoutes.Close(!skipCleanup)
+		}); err != nil {
+			log.Errorf("failed to stop host probe local routing: %v", err)
+		}
+	}
 	s.netServer.Stop(skipCleanup)
 }
 
