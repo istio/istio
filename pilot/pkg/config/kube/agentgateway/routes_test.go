@@ -29,12 +29,12 @@ func TestApplyRetries(t *testing.T) {
 		name         string
 		retry        *gatewayv1.HTTPRouteRetry
 		wantPolicy   bool
-		wantAttempts int32
+		wantAttempts *int32
 	}{
 		{name: "absent"},
 		{name: "omitted attempts", retry: &gatewayv1.HTTPRouteRetry{}, wantPolicy: true},
 		{name: "disabled", retry: &gatewayv1.HTTPRouteRetry{Attempts: ptr.Of(0)}},
-		{name: "explicit attempts", retry: &gatewayv1.HTTPRouteRetry{Attempts: ptr.Of(3)}, wantPolicy: true, wantAttempts: 3},
+		{name: "explicit attempts", retry: &gatewayv1.HTTPRouteRetry{Attempts: ptr.Of(3)}, wantPolicy: true, wantAttempts: ptr.Of[int32](3)},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			route := &api.Route{}
