@@ -26,7 +26,6 @@ import (
 
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -2459,7 +2458,7 @@ type gatewayWithInstances struct {
 	// This supports the legacy behavior of selecting gateways by pod label selector
 	legacyGatewaySelector bool
 	instances             []ServiceTarget
-	clientCertificateRef  *gatewayv1.SecretObjectReference
+	clientCertificateRef  string
 }
 
 func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
@@ -2476,7 +2475,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		var clientCertificateRef string
 		parentGateway, ok := kubernetesGatewayParent(cfg)
 		if ok {
-			clientCertificateRef = ps.GatewayAPIController.GetGatewayBackendClientCertificateRef(parentGateway)
+			clientCertificateRef = ps.GatewayAPIController.GetGatewayBackendClientCredentialName(parentGateway)
 		}
 		gw := cfg.Spec.(*networking.Gateway)
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {

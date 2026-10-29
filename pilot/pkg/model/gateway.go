@@ -18,8 +18,6 @@ import (
 	"strconv"
 	"strings"
 
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -109,10 +107,10 @@ type MergedGateway struct {
 	// explicitly excluded to prevent unintended access (e.g., the citadel root key/cert).
 	VerifiedCertificateReferences sets.String
 
-	// TODO(ericdbishop): shouldn't rely on gatewayv1.SecretObjectReference
-	// ClientCertificateForGateway maps gateway names to the Secret containing
-	// the client certificate that should be used when connecting to backends.
-	ClientCertificateForGateway map[string]*gatewayv1.SecretObjectReference
+	// ClientCertificateForGateway maps Istio Gateway names to the backend client
+	// certificate SDS resource name, the credential which should be used by the
+	// Gateway when connecting to backends.
+	ClientCertificateForGateway map[string]string
 }
 
 func (g *MergedGateway) HasAutoPassthroughGateways() bool {
@@ -216,7 +214,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	gatewayNameForServer := make(map[*networking.Server]string)
 	gatewayNames := sets.New[string]()
 	verifiedCertificateReferences := sets.New[string]()
-	clientCertificateForGateway := make(map[string]*gatewayv1.SecretObjectReference)
+	clientCertificateForGateway := make(map[string]string)
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
 	autoPassthrough := false
@@ -228,7 +226,9 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
 		log.Debugf("mergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
 		snames := sets.String{}
-		clientCertificateForGateway[gatewayName] = gwAndInstance.clientCertificateRef
+		if gwAndInstance.clientCertificateRef != "" {
+			clientCertificateForGateway[gatewayName] = gwAndInstance.clientCertificateRef
+		}
 
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
