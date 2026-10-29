@@ -117,20 +117,25 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			// The visible service set is diffed once per push. PrevSidecarScope is only nil in tests
 			// where the proxy's sidecar scope was never recomputed.
 			scopeChanged = true
-			if filtersGatewayClusters(proxy) {
+			switch {
+			case filtersGatewayClusters(proxy):
 				// Gateway services depend on push context state that the previous scope does not
 				// capture, so they are reconciled against watched cluster names instead.
-				scopedServices = gatewayServicesByHostname(proxy, updates.Push, envoyFilterPatches)
-			} else {
+				scopedServices = slices.GroupUnique(updates.Push.GatewayServices(proxy, envoyFilterPatches), func(svc *model.Service) host.Name {
+					return svc.Hostname
+				})
+			case proxy.Type == model.Waypoint:
+				// Waypoint outbound services depend on the routes attached to the waypoint's services,
+				// which can change without changing the visible service set.
+				_, wps := findWaypointResources(proxy, updates.Push)
+				outboundServices := waypointOutboundServices(proxy, updates.Push, envoyFilterPatches, wps, proxy.SidecarScope.Services())
+				scopedServices = slices.GroupUnique(outboundServices, func(svc *model.Service) host.Name {
+					return svc.Hostname
+				})
+			default:
 				var updated []host.Name
 				svcs, updated = deltaFromSidecarScopeDiff(proxy)
 				updatedServices.InsertAll(updated...)
-				if proxy.Type == model.Waypoint {
-					// Waypoint outbound clusters depend on the routes attached to the waypoint's services,
-					// which can change without changing the visible service set. Reconcile them against
-					// the watched cluster names, like filtered gateways.
-					scopedServices = waypointOutboundServicesByHostname(proxy, updates.Push, envoyFilterPatches)
-				}
 			}
 		}
 		// Service and Destination Rule can select the same service. So we need to dedup the services.
@@ -270,38 +275,6 @@ func deltaFromSidecarScopeDiff(proxy *model.Proxy) ([]*model.Service, []host.Nam
 		}
 	}
 	return built, reconciled
-}
-
-// gatewayServicesByHostname returns the services visible to a gateway with filtered cluster config,
-// for reconciliation with watched cluster names. Services without watched clusters need their
-// clusters built, while watched services that are no longer visible need their clusters deleted.
-func gatewayServicesByHostname(
-	proxy *model.Proxy,
-	push *model.PushContext,
-	envoyFilterPatches *model.MergedEnvoyFilterWrapper,
-) map[host.Name]*model.Service {
-	svcs := push.GatewayServices(proxy, envoyFilterPatches)
-	services := make(map[host.Name]*model.Service, len(svcs))
-	for _, svc := range svcs {
-		services[svc.Hostname] = svc
-	}
-	return services
-}
-
-// waypointOutboundServicesByHostname returns the services a waypoint builds outbound clusters for,
-// for reconciliation with watched cluster names.
-func waypointOutboundServicesByHostname(
-	proxy *model.Proxy,
-	push *model.PushContext,
-	envoyFilterPatches *model.MergedEnvoyFilterWrapper,
-) map[host.Name]*model.Service {
-	_, wps := findWaypointResources(proxy, push)
-	svcs := waypointOutboundServices(proxy, push, envoyFilterPatches, wps, proxy.SidecarScope.Services())
-	services := make(map[host.Name]*model.Service, len(svcs))
-	for _, svc := range svcs {
-		services[svc.Hostname] = svc
-	}
-	return services
 }
 
 // waypointOutboundServices filters services down to those the waypoint needs outbound clusters for.
