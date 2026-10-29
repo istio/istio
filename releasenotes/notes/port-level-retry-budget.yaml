@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** support for `retryBudget` in `DestinationRule` `portLevelSettings`.
+
+upgradeNotes:
+  - title: Subset port level settings no longer inherit the destination level `retryBudget`.
+    content: |
+      `retryBudget` now follows the same rule as other port level fields: when a subset has
+      `portLevelSettings` for a port, the destination level `retryBudget` is not applied to that port.
+      Set `retryBudget` in the subset's port level entry to keep a budget on that port.
