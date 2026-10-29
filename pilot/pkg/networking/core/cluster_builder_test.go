@@ -948,6 +948,56 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "destination rule with port level retry budget",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+								{
+									Port: &networking.PortSelector{Number: 8080},
+									RetryBudget: &networking.TrafficPolicy_RetryBudget{
+										Percent:             wrappers.Double(30),
+										MinRetryConcurrency: uint32(5),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{
+				{
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+						ServiceName: "outbound|8080|foobar|foo.default.svc.cluster.local",
+					},
+					CircuitBreakers: &cluster.CircuitBreakers{
+						Thresholds: []*cluster.CircuitBreakers_Thresholds{
+							{
+								MaxRetries: &wrappers.UInt32Value{
+									Value: math.MaxUint32,
+								},
+								RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
+									BudgetPercent:       &xdstype.Percent{Value: 30},
+									MinRetryConcurrency: &wrappers.UInt32Value{Value: 5},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range cases {
@@ -1135,6 +1185,7 @@ func compareClusters(t *testing.T, ec *cluster.Cluster, gc *cluster.Cluster) {
 		if ec.CircuitBreakers.Thresholds[0].MaxRetries.Value != gc.CircuitBreakers.Thresholds[0].MaxRetries.Value {
 			t.Errorf("Unexpected circuit breaker thresholds want %v, got %v", ec.CircuitBreakers.Thresholds[0].MaxRetries, gc.CircuitBreakers.Thresholds[0].MaxRetries)
 		}
+		assert.Equal(t, gc.CircuitBreakers.Thresholds[0].RetryBudget, ec.CircuitBreakers.Thresholds[0].RetryBudget)
 	}
 	if ec.AltStatName != "" {
 		if ec.AltStatName != gc.AltStatName {
