@@ -170,7 +170,7 @@ func (lb *ListenerBuilder) buildEastWestTLSPassthroughListeners() []*listener.Li
 	for _, ml := range mutableopts {
 		ml.mutable.Listener = buildGatewayListener(*ml.opts, ml.transport)
 		if err := ml.mutable.build(lb, *ml.opts); err != nil {
-			log.Warnf("east-west gateway: omitting TLS passthrough listener %q: %v", ml.mutable.Listener.Name, err)
+			log.Warnf("east-west gateway: omitting passthrough listener %q: %v", ml.mutable.Listener.Name, err)
 			continue
 		}
 		l := ml.mutable.Listener
@@ -193,7 +193,8 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// twice - we only need that in waypoints, so we skip generating those in E/W gateway.
 	//
 	// For E/W gateways, we also might need TLS passthrough, so that internal services (eg.
-	// the Kubernetes API Server) can be exposed through the E/W gateways.
+	// the Kubernetes API Server) can be exposed through the E/W gateways, and AUTO_PASSTHROUGH,
+	// so that the same gateway can serve sidecar (non-ambient) multi-network traffic.
 	var orderedWPS []*model.Service
 	wls, wps := findWaypointResources(lb.node, lb.push)
 	if wps != nil {
