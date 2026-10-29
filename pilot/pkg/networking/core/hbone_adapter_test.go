@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/wellknown"
 )
 
 func adapterTestProxy(cg *ConfigGenTest, kind model.NodeType, enabled bool) *model.Proxy {
@@ -98,12 +99,9 @@ spec:
 					original := legacy.FilterChains[0].Filters
 					assert.Equal(t, filters[:len(filters)-1], original[:len(original)-1])
 					terminal := filters[len(filters)-1]
-					assert.Equal(t, terminal.Name, util.HBONEOriginationAdapterFilter)
-					wrapped := &udpa.TypedStruct{}
-					assert.NoError(t, terminal.GetTypedConfig().UnmarshalTo(wrapped))
-					assert.Equal(t, wrapped.TypeUrl, util.HBONEOriginationAdapterConfigType)
+					assert.Equal(t, terminal.Name, wellknown.TCPProxy)
 					tcpProxy := &tcp.TcpProxy{}
-					assert.NoError(t, protomarshal.StructToMessageSlow(wrapped.Value.Fields["tcp_proxy"].GetStructValue(), tcpProxy))
+					assert.NoError(t, terminal.GetTypedConfig().UnmarshalTo(tcpProxy))
 					wantTCP := &tcp.TcpProxy{}
 					assert.NoError(t, original[len(original)-1].GetTypedConfig().UnmarshalTo(wantTCP))
 					assert.Equal(t, tcpProxy, wantTCP)
@@ -112,6 +110,8 @@ spec:
 					}
 					assert.Equal(t, tcpProxy.GetCluster(), ConnectOriginate)
 					assert.Equal(t, tcpProxy.GetTunnelingConfig().Hostname, "%DOWNSTREAM_LOCAL_ADDRESS%")
+					assert.Equal(t, tcpProxy.GetUpstreamConnectMode(), tcp.UpstreamConnectMode_IMMEDIATE)
+					assert.Equal(t, tcpProxy.GetTunnelingConfig().GetUsePost(), false)
 				}
 				assert.Equal(t, found, enabled)
 				assert.Equal(t, foundLegacy, true)
@@ -222,8 +222,10 @@ func TestHBONEOriginationAdapterPairing(t *testing.T) {
 					}
 					assert.Equal(t, ep.Address.GetEnvoyInternalAddress().GetServerListenerName(), wantListener)
 					assert.Equal(t, ep.Address.GetEnvoyInternalAddress().GetEndpointId(), "10.0.0.2:8080")
-					// The adapter and legacy traffic continue to use the identical outer mTLS/H2 cluster.
+					// Ineligible services share the HBONE cluster, whose pool passes through
+					// callers without CONNECT-wait state.
 					outer := cb.buildWaypointConnectOriginate(proxy, cg.PushContext())
+					assertHBONEConnectWaitPool(t, outer, enabled)
 					assert.Equal(t, outer.TransportSocket.Name, "tls")
 					assert.Equal(t, outer.TypedExtensionProtocolOptions != nil, true)
 				}

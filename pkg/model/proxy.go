@@ -305,7 +305,7 @@ type NodeMetadata struct {
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
 
 	// EnableHBONEConnectWait delays upstream connection readiness until HBONE CONNECT acceptance.
-	// Requires the contrib Istio HBONE filter, transport socket, and connection pool in the proxy.
+	// Requires the contrib Istio HBONE transport socket and connection pool with tunneling support in the proxy.
 	EnableHBONEConnectWait StringBool `json:"ENABLE_HBONE_CONNECT_WAIT,omitempty"`
 
 	// DisableHBONESend, will disable sending HBONE.
