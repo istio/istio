@@ -17,6 +17,7 @@ package krt
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
@@ -44,10 +45,16 @@ type dependencyState[I any] struct {
 	collectionDependencies       sets.Set[collectionUID]
 	collectionDependencyHandlers map[collectionUID]HandlerRegistration
 	// Stores a map of I -> secondary dependencies (added via Fetch)
-	objectDependencies  shrinkingMap[Key[I], []*dependency]
+	objectDependencies  shrinkingMap[Key[I], inputDependencyState]
 	indexedDependencies shrinkingMapOfSets[indexedDependency, Key[I]]
 	// indexedDependenciesExtractor stores a map of [collection,fetch type,(optional)index id] => an extractor to get change keys.
 	indexedDependenciesExtractor map[extractorKey]objectKeyExtractor
+}
+
+type inputDependencyState struct {
+	dependencies []*dependency
+	// lastRecompute is the stamp of the task that computed this input's current result.
+	lastRecompute uint64
 }
 
 type extractorKey struct {
@@ -56,7 +63,7 @@ type extractorKey struct {
 	typ       indexedDependencyType
 }
 
-func (i *dependencyState[I]) update(key Key[I], deps []*dependency) {
+func (i *dependencyState[I]) update(key Key[I], deps []*dependency, recomputeSeq uint64) {
 	// We will override the current dependencies with the new ones, so
 	// we first remove the existing dependencies from the reverse index
 	// (indexedDependencies). Otherwise, when "I" goes away, a delete
@@ -67,7 +74,7 @@ func (i *dependencyState[I]) update(key Key[I], deps []*dependency) {
 	// all dependencies for the key. That means that as the delete call
 	// above removes the key from objectDependencies, that doesn't matter
 	// as we reassign the key here once again.
-	i.objectDependencies.set(key, deps)
+	i.objectDependencies.set(key, inputDependencyState{dependencies: deps, lastRecompute: recomputeSeq})
 	for _, d := range deps {
 		if depKeys, typ, extractor, filterID, ok := d.filter.reverseIndexKey(); ok {
 			for _, depKey := range depKeys {
@@ -106,7 +113,7 @@ func (i *dependencyState[I]) delete(key Key[I]) {
 		return
 	}
 	i.objectDependencies.delete(key)
-	for _, d := range old {
+	for _, d := range old.dependencies {
 		if depKeys, typ, _, _, ok := d.filter.reverseIndexKey(); ok {
 			for _, depKey := range depKeys {
 				k := indexedDependency{
@@ -158,7 +165,7 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 								continue
 							}
 							dependencies := i.objectDependencies.data[iKey]
-							if changed := objectChanged(dependencies, sourceCollection, ev, true); changed {
+							if changed := objectChanged(dependencies.dependencies, sourceCollection, ev, true); changed {
 								changedInputKeys.Insert(iKey)
 							}
 						}
@@ -168,7 +175,7 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 		}
 		if !foundAny {
 			for iKey, dependencies := range i.objectDependencies.data {
-				if changed := objectChanged(dependencies, sourceCollection, ev, false); changed {
+				if changed := objectChanged(dependencies.dependencies, sourceCollection, ev, false); changed {
 					changedInputKeys.Insert(iKey)
 				}
 			}
@@ -238,6 +245,11 @@ type manyCollection[I, O any] struct {
 
 	// onPrimaryInputEventHandler is a specialized internal handler that runs synchronously when a primary input changes
 	onPrimaryInputEventHandler func(o []Event[I])
+
+	// seq orders queued events against recomputations. An event is stamped when it is enqueued, after its change is
+	// visible to readers. A queued task is stamped before it reads any state, so it observes every change whose
+	// event was stamped earlier.
+	seq atomic.Uint64
 
 	debugger *DebugHandler
 
@@ -436,8 +448,8 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 		}
 	}
 	for k, deps := range h.dependencyState.objectDependencies.data {
-		depss := make([]string, 0, len(deps))
-		for _, dep := range deps {
+		depss := make([]string, 0, len(deps.dependencies))
+		for _, dep := range deps.dependencies {
 			depss = append(depss, dep.collectionName)
 		}
 		slices.Sort(depss)
@@ -488,7 +500,9 @@ func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) in
 // onPrimaryInputEvent takes a list of I's that changed and reruns the handler over them.
 // This is called either when I directly changes, or if a secondary dependency changed. In this case, we compute which I's depended
 // on the secondary dependency, and call onPrimaryInputEvent with them
-func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
+func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I], eventSeq uint64) {
+	// Stamp this recomputation before reading the latest inputs below.
+	recomputeSeq := h.seq.Add(1)
 	// Between the events being enqueued and now, the input may have changed. Update with latest info.
 	// Note we now have the `blockNewEvents` lock so this is safe; any futures calls will do the same so always have up-to-date information.
 	for idx, ev := range items {
@@ -506,11 +520,12 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 		}
 		items[idx] = ev
 	}
-	h.handleChangedPrimaryInputEvents(items)
+	h.handleChangedPrimaryInputEvents(items, eventSeq, recomputeSeq)
 }
 
 // handleChangedPrimaryInputEvents takes a list of I's that changed and reruns the handler over them.
-func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I]) {
+// eventSeq is the stamp of the queued event that produced items, and recomputeSeq the stamp of this recomputation.
+func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I], eventSeq, recomputeSeq uint64) {
 	var events []Event[O]
 	emit := func(key Key[O], event Event[O]) {
 		for _, index := range h.indexes {
@@ -531,6 +546,11 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 		}
 		i := a.Latest()
 		iKey := getTypedKey(i)
+		if h.dependencyState.objectDependencies.data[iKey].lastRecompute > eventSeq {
+			// The current result comes from a recomputation that started after this event was queued, so it already
+			// observed the change.
+			continue
+		}
 
 		ctx := &collectionDependencyTracker[I, O]{manyCollection: h, key: iKey}
 		results := slices.GroupUnique(h.transformation(ctx, i), getTypedKey[O])
@@ -570,6 +590,10 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 			h.dependencyState.delete(iKey)
 		} else {
 			ctx := pendingDepStateUpdates[idx]
+			if ctx == nil {
+				// Skipped above, as the current result is already up to date.
+				continue
+			}
 			results := recomputedResults[idx]
 			if ctx.discardUpdate {
 				// Called when the collection explicitly calls DiscardResult() on the context.
@@ -582,7 +606,7 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 				}
 				h.log.WithLabels("iKey", iKey).Debugf("would discard result, but it is the first so including it")
 			}
-			h.dependencyState.update(iKey, ctx.d)
+			h.dependencyState.update(iKey, ctx.d, recomputeSeq)
 			oldKeys := h.collectionState.mappings.data[iKey]
 			newKeys := oldKeys.forUpdate(len(results))
 			for key := range oldKeys.all {
@@ -745,8 +769,9 @@ func (h *manyCollection[I, O]) runQueue() {
 		if h.onPrimaryInputEventHandler != nil {
 			h.onPrimaryInputEventHandler(o)
 		}
+		seq := h.seq.Add(1)
 		h.queue.Push(func() error {
-			h.onPrimaryInputEvent(o)
+			h.onPrimaryInputEvent(o, seq)
 			return nil
 		})
 	}, true)
@@ -773,7 +798,9 @@ func (h *manyCollection[I, O]) runQueue() {
 
 // Handler is called when a dependency changes. We will take as inputs the item that changed.
 // Then we find all of our own values (I) that changed and onPrimaryInputEvent() them
-func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUID, events []Event[any]) {
+func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUID, events []Event[any], eventSeq uint64) {
+	// Stamp this recomputation before reading the latest inputs below.
+	recomputeSeq := h.seq.Add(1)
 	// A secondary dependency changed...
 	// Got an event. Now we need to find out who depends on it..
 	changedInputKeys := h.dependencyState.changedInputKeys(sourceCollection, events)
@@ -810,7 +837,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 			})
 		}
 	}
-	h.handleChangedPrimaryInputEvents(toRun)
+	h.handleChangedPrimaryInputEvents(toRun, eventSeq, recomputeSeq)
 }
 
 // nolint: unused // it is used to implement interface
@@ -936,8 +963,9 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(
 			return
 		}
 		h := register(func(o []Event[any]) {
+			seq := i.seq.Add(1)
 			i.queue.Push(func() error {
-				i.onSecondaryDependencyEvent(d.id, o)
+				i.onSecondaryDependencyEvent(d.id, o, seq)
 				return nil
 			})
 		})
