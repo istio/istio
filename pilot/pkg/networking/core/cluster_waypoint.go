@@ -290,7 +290,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 			},
 		}
 		localCluster.cluster.TransportSocket = nil
-		applyHBONERejectionHandling(localCluster.cluster)
+		applyHBONEConnectWaitPool(localCluster.cluster)
 	}
 
 	cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
@@ -418,6 +418,7 @@ func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, 
 	}
 
 	if cb.hboneConnectWait {
+		applyHBONEConnectWaitPool(c)
 		// Gate inner TLS on the outer CONNECT and preserve an outer rejection.
 		if wrapped, err := protomarshal.ToJSONMap(innerTLS); err != nil {
 			log.Errorf("cannot configure outer HBONE rejection handling: %v", err)
@@ -465,6 +466,9 @@ func (cb *ClusterBuilder) buildOuterConnectOriginateCluster(proxy *model.Proxy, 
 		},
 	}
 
+	if cb.hboneConnectWait {
+		applyHBONEConnectWaitPool(c)
+	}
 	c.AltStatName = util.DelimitedStatsPrefix(DoubleHBONEOuterConnectOriginate)
 
 	return c
@@ -570,6 +574,9 @@ func (cb *ClusterBuilder) buildConnectOriginate(
 		},
 	}
 
+	if cb.hboneConnectWait {
+		applyHBONEConnectWaitPool(c)
+	}
 	c.AltStatName = util.DelimitedStatsPrefix(name)
 
 	return c

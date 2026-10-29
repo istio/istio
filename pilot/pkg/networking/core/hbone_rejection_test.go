@@ -35,7 +35,22 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/wellknown"
 )
+
+func assertHBONEConnectWaitPool(t *testing.T, c *cluster.Cluster, enabled bool) {
+	t.Helper()
+	if c == nil {
+		t.Fatal("missing HBONE cluster")
+	}
+	if !enabled {
+		assert.Equal(t, c.UpstreamConfig == nil, true)
+		return
+	}
+	assert.Equal(t, c.GetUpstreamConfig().GetName(), util.HBONERejectionPool)
+	assert.Equal(t, c.GetUpstreamConfig().GetTypedConfig().GetTypeUrl(), util.HBONERejectionPoolType)
+	assert.Equal(t, len(c.GetUpstreamConfig().GetTypedConfig().GetValue()), 0)
+}
 
 func TestHBONEConnectWaitOptInAndCacheIsolation(t *testing.T) {
 	test.SetForTest(t, &features.EnableHBONESend, true)
@@ -83,12 +98,9 @@ func TestHBONEConnectWaitOptInAndCacheIsolation(t *testing.T) {
 							mesh: cg.PushContext().Mesh, direction: model.TrafficDirectionOutbound,
 						})
 					}
-					assert.Equal(t, c.UpstreamConfig != nil, tt.want)
-					if tt.want {
-						assert.Equal(t, c.UpstreamConfig.Name, util.HBONERejectionPool)
-						assert.Equal(t, c.UpstreamConfig.TypedConfig.GetTypeUrl(), util.HBONERejectionPoolType)
-						assert.Equal(t, len(c.UpstreamConfig.TypedConfig.GetValue()), 0)
-					}
+					assertHBONEConnectWaitPool(t, c, tt.want)
+					clusters := xdstest.ExtractClusters(cg.Clusters(proxy))
+					assertHBONEConnectWaitPool(t, clusters[ConnectOriginate], tt.want)
 					cache := buildClusterKey(svc, port, cb, proxy, nil)
 					direction, subset := model.TrafficDirectionOutbound, ""
 					if kind == model.Waypoint {
@@ -120,6 +132,8 @@ func TestHBONEConnectWaitNestedPairing(t *testing.T) {
 				proxy := doubleAdapterProxy(cg, kind, enabled)
 				cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
 				c := cb.buildInnerConnectOriginateCluster(proxy, cg.PushContext())
+				assertHBONEConnectWaitPool(t, c, enabled)
+				assertHBONEConnectWaitPool(t, cb.buildOuterConnectOriginateCluster(proxy, cg.PushContext()), enabled)
 				outer := xdstest.ExtractListener(util.HBONEOuterOriginationAdapterListener, cg.Listeners(proxy))
 				assert.Equal(t, outer != nil, enabled)
 				endpoint := c.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetEnvoyInternalAddress()
@@ -130,7 +144,7 @@ func TestHBONEConnectWaitNestedPairing(t *testing.T) {
 				}
 				assert.Equal(t, c.TransportSocket.Name, util.HBONEOriginationAdapterTransport)
 				assert.Equal(t, endpoint.GetServerListenerName(), outer.Name)
-				assert.Equal(t, outer.FilterChains[0].Filters[0].Name, util.HBONEOriginationAdapterFilter)
+				assert.Equal(t, outer.FilterChains[0].Filters[0].Name, wellknown.TCPProxy)
 				wrapped := &udpa.TypedStruct{}
 				assert.NoError(t, c.TransportSocket.GetTypedConfig().UnmarshalTo(wrapped))
 				socket := &core.TransportSocket{}

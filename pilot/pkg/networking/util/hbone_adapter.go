@@ -30,9 +30,7 @@ const (
 	HBONEOuterOriginationAdapterListener      = "outer_connect_originate_hbone_adapter"
 	HBONEOriginationAdapterListener           = "connect_originate_hbone_adapter"
 	HBONEInnerOriginationAdapterListener      = "inner_connect_originate_hbone_adapter"
-	HBONEOriginationAdapterFilter             = "envoy.filters.network.istio_hbone"
 	HBONEOriginationAdapterTransport          = "envoy.transport_sockets.istio_hbone"
-	HBONEOriginationAdapterConfigType         = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.Config"
 	HBONEOriginationAdapterUpstreamConfigType = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.UpstreamConfig"
 )
 

@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // Generate complete outbound CDS/LDS and EDS together. A mixed service must keep
@@ -92,7 +93,11 @@ func TestHBONEOriginationAdapterOutbound(t *testing.T) {
 				assert.Equal(t, found, true)
 				assert.Equal(t, c.LoadBalancingPolicy, stock.LoadBalancingPolicy)
 				assert.Equal(t, c.LbPolicy, stock.LbPolicy)
-				assert.Equal(t, clusters[ConnectOriginate], stockClusters[ConnectOriginate])
+				assertHBONEConnectWaitPool(t, stockClusters[ConnectOriginate], false)
+				assertHBONEConnectWaitPool(t, clusters[ConnectOriginate], true)
+				withoutPool := protomarshal.Clone(clusters[ConnectOriginate])
+				withoutPool.UpstreamConfig = nil
+				assert.Equal(t, withoutPool, stockClusters[ConnectOriginate])
 				listeners := cg.Listeners(proxy)
 				assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationAdapterListener, listeners) != nil, true)
 				assert.Equal(t, xdstest.ExtractListener(ConnectOriginate, listeners) != nil, true)
