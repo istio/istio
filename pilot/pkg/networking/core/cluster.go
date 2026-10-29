@@ -117,11 +117,22 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			// The visible service set is diffed once per push. PrevSidecarScope is only nil in tests
 			// where the proxy's sidecar scope was never recomputed.
 			scopeChanged = true
-			if filtersGatewayClusters(proxy) {
+			switch {
+			case filtersGatewayClusters(proxy):
 				// Gateway services depend on push context state that the previous scope does not
 				// capture, so they are reconciled against watched cluster names instead.
-				scopedServices = gatewayServicesByHostname(proxy, updates.Push, envoyFilterPatches)
-			} else {
+				scopedServices = slices.GroupUnique(updates.Push.GatewayServices(proxy, envoyFilterPatches), func(svc *model.Service) host.Name {
+					return svc.Hostname
+				})
+			case proxy.Type == model.Waypoint:
+				// Waypoint outbound services depend on the routes attached to the waypoint's services,
+				// which can change without changing the visible service set.
+				_, wps := findWaypointResources(proxy, updates.Push)
+				outboundServices := waypointOutboundServices(proxy, updates.Push, envoyFilterPatches, wps, proxy.SidecarScope.Services())
+				scopedServices = slices.GroupUnique(outboundServices, func(svc *model.Service) host.Name {
+					return svc.Hostname
+				})
+			default:
 				var updated []host.Name
 				svcs, updated = deltaFromSidecarScopeDiff(proxy)
 				updatedServices.InsertAll(updated...)
@@ -266,20 +277,24 @@ func deltaFromSidecarScopeDiff(proxy *model.Proxy) ([]*model.Service, []host.Nam
 	return built, reconciled
 }
 
-// gatewayServicesByHostname returns the services visible to a gateway with filtered cluster config,
-// for reconciliation with watched cluster names. Services without watched clusters need their
-// clusters built, while watched services that are no longer visible need their clusters deleted.
-func gatewayServicesByHostname(
+// waypointOutboundServices filters services down to those the waypoint needs outbound clusters for.
+func waypointOutboundServices(
 	proxy *model.Proxy,
 	push *model.PushContext,
 	envoyFilterPatches *model.MergedEnvoyFilterWrapper,
-) map[host.Name]*model.Service {
-	svcs := push.GatewayServices(proxy, envoyFilterPatches)
-	services := make(map[host.Name]*model.Service, len(svcs))
-	for _, svc := range svcs {
-		services[svc.Hostname] = svc
+	wps *waypointServices,
+	services []*model.Service,
+) []*model.Service {
+	extraNamespacedHosts, extraHosts := push.ExtraWaypointServices(proxy, envoyFilterPatches, wps.orderedServices)
+	outboundServices := filterWaypointOutboundServices(
+		push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services,
+	)
+	// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
+	// to the Kubernetes API server), include services referenced by those gateway servers.
+	if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil {
+		outboundServices = appendGatewayReferencedServices(proxy, outboundServices, services)
 	}
-	return services
+	return outboundServices
 }
 
 // deltaFromPeerAuthentication computes the delta clusters when a PeerAuthentication changes.
@@ -346,15 +361,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches, wps.orderedServices)
-		outboundServices := filterWaypointOutboundServices(
-			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services,
-		)
-		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
-		// to the Kubernetes API server), include services referenced by those gateway servers.
-		if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil {
-			outboundServices = appendGatewayReferencedServices(proxy, outboundServices, services)
-		}
+		outboundServices := waypointOutboundServices(proxy, req.Push, envoyFilterPatches, wps, services)
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, outboundServices)
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
