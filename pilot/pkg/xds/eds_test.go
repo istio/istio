@@ -2549,7 +2549,7 @@ func TestSidecarWaypointEDSUpdate(t *testing.T) {
 		}},
 		Attributes: model.ServiceAttributes{Name: "waypoint", Namespace: namespace},
 	}
-	ambientIndex := sidecarWaypointIndex{
+	ambientIndex := &sidecarWaypointIndex{
 		key: namespace + "/" + destinationHostname,
 		info: model.ServiceWaypointInfo{
 			Service: &workloadapi.Service{
@@ -2582,6 +2582,13 @@ func TestSidecarWaypointEDSUpdate(t *testing.T) {
 		}})
 	}
 	setWaypointEndpoint(initialWaypointIP)
+	// Register a backend endpoint so the unenrollment check detects accidental backend fallback
+	// instead of passing because no backend endpoints exist.
+	s.MemRegistry.SetEndpoints(destinationHostname, namespace, []*model.IstioEndpoint{{
+		Addresses:       []string{"192.0.2.10"},
+		ServicePortName: "http",
+		EndpointPort:    8080,
+	}})
 	s.EnsureSynced(t)
 
 	proxy := s.SetupProxy(&model.Proxy{Type: model.SidecarProxy})
@@ -2619,6 +2626,16 @@ func TestSidecarWaypointEDSUpdate(t *testing.T) {
 		}),
 	})
 	assert.Equal(t, updated, []string{"connect_originate;" + destinationVIP + ":80;" + updatedWaypointIP + ":15008"})
+
+	ambientIndex.key = ""
+
+	unenrolled := generate(&model.PushRequest{
+		Push:   s.PushContext(),
+		Start:  time.Now(),
+		Forced: true,
+	})
+	assert.Equal(t, len(unenrolled), 0,
+		"an old delegation cluster must not fall back to backend endpoints after unenrollment")
 }
 
 func TestSidecarWaypointEnrollmentPreservesOldHTTPPath(t *testing.T) {
