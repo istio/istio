@@ -1796,6 +1796,31 @@ spec:
                                     minimum: 0
                                     type: integer
                                 type: object
+                              retryBudget:
+                                description: Specifies a limit on concurrent retries
+                                  in relation to the number of active requests.
+                                properties:
+                                  budgetInterval:
+                                    description: Specifies the duration in which requests
+                                      will be considered when calculating the budget
+                                      for retries.
+                                    type: string
+                                  minRetryConcurrency:
+                                    description: Specifies the minimum retry concurrency
+                                      allowed for the retry budget.
+                                    maximum: 4294967295
+                                    minimum: 0
+                                    type: integer
+                                  percent:
+                                    description: Specifies the limit on concurrent
+                                      retries as a percentage of the sum of active
+                                      requests and active pending requests.
+                                    format: double
+                                    maximum: 100
+                                    minimum: 0
+                                    nullable: true
+                                    type: number
+                                type: object
                               tls:
                                 description: TLS related settings for connections
                                   to the upstream service.
@@ -2950,6 +2975,31 @@ spec:
                               maximum: 4294967295
                               minimum: 0
                               type: integer
+                          type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
                           type: object
                         tls:
                           description: TLS related settings for connections to the
@@ -4282,6 +4332,31 @@ spec:
                                     minimum: 0
                                     type: integer
                                 type: object
+                              retryBudget:
+                                description: Specifies a limit on concurrent retries
+                                  in relation to the number of active requests.
+                                properties:
+                                  budgetInterval:
+                                    description: Specifies the duration in which requests
+                                      will be considered when calculating the budget
+                                      for retries.
+                                    type: string
+                                  minRetryConcurrency:
+                                    description: Specifies the minimum retry concurrency
+                                      allowed for the retry budget.
+                                    maximum: 4294967295
+                                    minimum: 0
+                                    type: integer
+                                  percent:
+                                    description: Specifies the limit on concurrent
+                                      retries as a percentage of the sum of active
+                                      requests and active pending requests.
+                                    format: double
+                                    maximum: 100
+                                    minimum: 0
+                                    nullable: true
+                                    type: number
+                                type: object
                               tls:
                                 description: TLS related settings for connections
                                   to the upstream service.
@@ -5436,6 +5511,31 @@ spec:
                               maximum: 4294967295
                               minimum: 0
                               type: integer
+                          type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
                           type: object
                         tls:
                           description: TLS related settings for connections to the
@@ -6768,6 +6868,31 @@ spec:
                                     minimum: 0
                                     type: integer
                                 type: object
+                              retryBudget:
+                                description: Specifies a limit on concurrent retries
+                                  in relation to the number of active requests.
+                                properties:
+                                  budgetInterval:
+                                    description: Specifies the duration in which requests
+                                      will be considered when calculating the budget
+                                      for retries.
+                                    type: string
+                                  minRetryConcurrency:
+                                    description: Specifies the minimum retry concurrency
+                                      allowed for the retry budget.
+                                    maximum: 4294967295
+                                    minimum: 0
+                                    type: integer
+                                  percent:
+                                    description: Specifies the limit on concurrent
+                                      retries as a percentage of the sum of active
+                                      requests and active pending requests.
+                                    format: double
+                                    maximum: 100
+                                    minimum: 0
+                                    nullable: true
+                                    type: number
+                                type: object
                               tls:
                                 description: TLS related settings for connections
                                   to the upstream service.
@@ -7922,6 +8047,31 @@ spec:
                               maximum: 4294967295
                               minimum: 0
                               type: integer
+                          type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
                           type: object
                         tls:
                           description: TLS related settings for connections to the
