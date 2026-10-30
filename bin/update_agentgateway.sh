@@ -35,3 +35,14 @@ if [[ -z "${TAG}" ]]; then
 fi
 
 sed -i '/AGENTGATEWAY_IMAGE/,/lastStableSHA/ { s/"lastStableSHA":.*/"lastStableSHA": "'"${TAG}"'"/  }' istio.deps
+
+# Keep the agentgateway/api Go module (the config protos istiod serves to agentgateway) in sync with
+# the image. The api module has no tags of its own, so pin it to the commit of the release tag.
+AGW_SHA=$(git ls-remote --tags https://github.com/agentgateway/agentgateway "${TAG}" "${TAG}^{}" | tail -n1 | cut -f1)
+if [[ -z "${AGW_SHA}" ]]; then
+  echo "failed to resolve commit for agentgateway tag ${TAG}" >&2
+  exit 1
+fi
+
+go get "github.com/agentgateway/agentgateway/api@${AGW_SHA}"
+go mod tidy

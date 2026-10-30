@@ -17,6 +17,7 @@ package krt
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
@@ -44,10 +45,16 @@ type dependencyState[I any] struct {
 	collectionDependencies       sets.Set[collectionUID]
 	collectionDependencyHandlers map[collectionUID]HandlerRegistration
 	// Stores a map of I -> secondary dependencies (added via Fetch)
-	objectDependencies  map[Key[I]][]*dependency
-	indexedDependencies map[indexedDependency]sets.Set[Key[I]]
+	objectDependencies  shrinkingMap[Key[I], inputDependencyState]
+	indexedDependencies shrinkingMapOfSets[indexedDependency, Key[I]]
 	// indexedDependenciesExtractor stores a map of [collection,fetch type,(optional)index id] => an extractor to get change keys.
 	indexedDependenciesExtractor map[extractorKey]objectKeyExtractor
+}
+
+type inputDependencyState struct {
+	dependencies []*dependency
+	// lastRecompute is the stamp of the task that computed this input's current result.
+	lastRecompute uint64
 }
 
 type extractorKey struct {
@@ -56,7 +63,7 @@ type extractorKey struct {
 	typ       indexedDependencyType
 }
 
-func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
+func (i *dependencyState[I]) update(key Key[I], deps []*dependency, recomputeSeq uint64) {
 	// We will override the current dependencies with the new ones, so
 	// we first remove the existing dependencies from the reverse index
 	// (indexedDependencies). Otherwise, when "I" goes away, a delete
@@ -67,7 +74,7 @@ func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 	// all dependencies for the key. That means that as the delete call
 	// above removes the key from objectDependencies, that doesn't matter
 	// as we reassign the key here once again.
-	i.objectDependencies[key] = deps
+	i.objectDependencies.set(key, inputDependencyState{dependencies: deps, lastRecompute: recomputeSeq})
 	for _, d := range deps {
 		if depKeys, typ, extractor, filterID, ok := d.filter.reverseIndexKey(); ok {
 			for _, depKey := range depKeys {
@@ -82,7 +89,7 @@ func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 					continue
 				}
 
-				sets.InsertOrNew(i.indexedDependencies, k, key)
+				i.indexedDependencies.insert(k, key)
 				kk := extractorKey{
 					filterUID: filterID,
 					uid:       d.id,
@@ -100,13 +107,13 @@ func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 	}
 }
 
-func (i dependencyState[I]) delete(key Key[I]) {
-	old, f := i.objectDependencies[key]
+func (i *dependencyState[I]) delete(key Key[I]) {
+	old, f := i.objectDependencies.data[key]
 	if !f {
 		return
 	}
-	delete(i.objectDependencies, key)
-	for _, d := range old {
+	i.objectDependencies.delete(key)
+	for _, d := range old.dependencies {
 		if depKeys, typ, _, _, ok := d.filter.reverseIndexKey(); ok {
 			for _, depKey := range depKeys {
 				k := indexedDependency{
@@ -114,7 +121,7 @@ func (i dependencyState[I]) delete(key Key[I]) {
 					key: depKey,
 					typ: typ,
 				}
-				sets.DeleteCleanupLast(i.indexedDependencies, k, key)
+				i.indexedDependencies.delete(k, key)
 			}
 		}
 	}
@@ -152,13 +159,13 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 					// Find all the reverse index keys for this object. For each key we will find impacted input objects.
 					keys := extractor(item)
 					for _, key := range keys {
-						for iKey := range i.indexedDependencies[indexedDependency{id: sourceCollection, key: key, typ: ekey.typ}] {
+						for iKey := range i.indexedDependencies.data[indexedDependency{id: sourceCollection, key: key, typ: ekey.typ}] {
 							if changedInputKeys.Contains(iKey) {
 								// We may have already found this item, skip it
 								continue
 							}
-							dependencies := i.objectDependencies[iKey]
-							if changed := objectChanged(dependencies, sourceCollection, ev, true); changed {
+							dependencies := i.objectDependencies.data[iKey]
+							if changed := objectChanged(dependencies.dependencies, sourceCollection, ev, true); changed {
 								changedInputKeys.Insert(iKey)
 							}
 						}
@@ -167,8 +174,8 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 			}
 		}
 		if !foundAny {
-			for iKey, dependencies := range i.objectDependencies {
-				if changed := objectChanged(dependencies, sourceCollection, ev, false); changed {
+			for iKey, dependencies := range i.objectDependencies.data {
+				if changed := objectChanged(dependencies.dependencies, sourceCollection, ev, false); changed {
 					changedInputKeys.Insert(iKey)
 				}
 			}
@@ -222,7 +229,7 @@ type manyCollection[I, O any] struct {
 	collectionState multiIndex[I, O]
 	dependencyState dependencyState[I]
 	// internal indexes
-	indexes map[string]collectionIndex[I, O]
+	indexes map[string]*collectionIndex[I, O]
 
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
 	eventHandlers *handlerSet[O]
@@ -239,6 +246,11 @@ type manyCollection[I, O any] struct {
 	// onPrimaryInputEventHandler is a specialized internal handler that runs synchronously when a primary input changes
 	onPrimaryInputEventHandler func(o []Event[I])
 
+	// seq orders queued events against recomputations. An event is stamped when it is enqueued, after its change is
+	// visible to readers. A queued task is stamped before it reads any state, so it observes every change whose
+	// event was stamped earlier.
+	seq atomic.Uint64
+
 	debugger *DebugHandler
 
 	syncer Syncer
@@ -246,7 +258,7 @@ type manyCollection[I, O any] struct {
 
 type collectionIndex[I, O any] struct {
 	extract func(o O) []string
-	index   map[string]sets.Set[Key[O]]
+	index   shrinkingMapOfSets[string, Key[O]]
 	parent  *manyCollection[I, O]
 }
 
@@ -255,17 +267,17 @@ type collectionIndex[I, O any] struct {
 // The filter may be evaluated while a collection's read lock is held. It must not access or modify the
 // collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
 // short-lived and non-blocking, since they can delay collection updates.
-func (c collectionIndex[I, O]) LookupFiltered(key string, filter func(O) bool) []O {
+func (c *collectionIndex[I, O]) LookupFiltered(key string, filter func(O) bool) []O {
 	c.parent.mu.RLock()
 	defer c.parent.mu.RUnlock()
-	keys := c.index[key]
+	keys := c.index.data[key]
 
 	var res []O
 	if filter == nil {
 		res = make([]O, 0, len(keys))
 	}
 	for k := range keys {
-		v, f := c.parent.collectionState.outputs[k]
+		v, f := c.parent.collectionState.outputs.data[k]
 		if !f {
 			log.WithLabels("key", k).Errorf("invalid index state, object does not exist")
 			continue
@@ -277,21 +289,21 @@ func (c collectionIndex[I, O]) LookupFiltered(key string, filter func(O) bool) [
 	return res
 }
 
-func (c collectionIndex[I, O]) delete(o O, oKey Key[O]) {
+func (c *collectionIndex[I, O]) delete(o O, oKey Key[O]) {
 	oldIndexKeys := c.extract(o)
 	for _, oldIndexKey := range oldIndexKeys {
-		sets.DeleteCleanupLast(c.index, oldIndexKey, oKey)
+		c.index.delete(oldIndexKey, oKey)
 	}
 }
 
-func (c collectionIndex[I, O]) update(ev Event[O], oKey Key[O]) {
+func (c *collectionIndex[I, O]) update(ev Event[O], oKey Key[O]) {
 	if ev.Old != nil {
 		c.delete(*ev.Old, oKey)
 	}
 	if ev.New != nil {
 		newIndexKeys := c.extract(*ev.New)
 		for _, newIndexKey := range newIndexKeys {
-			sets.InsertOrNew(c.index, newIndexKey, oKey)
+			c.index.insert(newIndexKey, oKey)
 		}
 	}
 }
@@ -341,13 +353,73 @@ func (o *handlers[O]) Get() []func(o []Event[O]) {
 	})
 }
 
+// outputKeys keeps the common zero-or-one output case inline.
+type outputKeys[O any] struct {
+	single  Key[O]
+	present bool
+	// Share the wrapper as well as its map when forUpdate copies outputKeys.
+	many *shrinkingMap[Key[O], struct{}]
+}
+
+// forUpdate selects storage for the next result, sharing existing set storage
+// when both results have multiple outputs. Removed keys are deleted by the caller.
+func (k outputKeys[O]) forUpdate(size int) outputKeys[O] {
+	if size <= 1 {
+		return outputKeys[O]{}
+	}
+	if k.many == nil {
+		m := newShrinkingMap(make(map[Key[O]]struct{}, size))
+		k.many = &m
+	}
+	k.single, k.present = "", false
+	return k
+}
+
+func (k *outputKeys[O]) insert(key Key[O]) {
+	if k.many != nil {
+		k.many.set(key, struct{}{})
+	} else {
+		k.single, k.present = key, true
+	}
+}
+
+func (k *outputKeys[O]) remove(key Key[O]) {
+	if k.many != nil {
+		k.many.delete(key)
+	} else if k.present && k.single == key {
+		k.single, k.present = "", false
+	}
+}
+
+func (k outputKeys[O]) len() int {
+	if k.many != nil {
+		return len(k.many.data)
+	}
+	if k.present {
+		return 1
+	}
+	return 0
+}
+
+func (k outputKeys[O]) all(yield func(Key[O]) bool) {
+	if k.many != nil {
+		for key := range k.many.data {
+			if !yield(key) {
+				return
+			}
+		}
+	} else if k.present {
+		yield(k.single)
+	}
+}
+
 // multiIndex stores input and output objects.
 // Each input and output can be looked up by its key.
 // Additionally, a mapping of input key -> output keys stores the transformation.
 type multiIndex[I, O any] struct {
-	outputs  map[Key[O]]O
-	inputs   map[Key[I]]I
-	mappings map[Key[I]]sets.Set[Key[O]]
+	outputs  shrinkingMap[Key[O], O]
+	inputs   shrinkingMap[Key[I], I]
+	mappings shrinkingMap[Key[I], outputKeys[O]]
 }
 
 func (h *manyCollection[I, O]) HasSynced() bool {
@@ -363,10 +435,10 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	inputs := make(map[string]InputDump, len(h.collectionState.inputs))
-	for k, v := range h.collectionState.mappings {
-		output := make([]string, 0, len(v))
-		for vv := range v {
+	inputs := make(map[string]InputDump, len(h.collectionState.inputs.data))
+	for k, v := range h.collectionState.mappings.data {
+		output := make([]string, 0, v.len())
+		for vv := range v.all {
 			output = append(output, string(vv))
 		}
 		slices.Sort(output)
@@ -375,9 +447,9 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 			Dependencies: nil, // filled later
 		}
 	}
-	for k, deps := range h.dependencyState.objectDependencies {
-		depss := make([]string, 0, len(deps))
-		for _, dep := range deps {
+	for k, deps := range h.dependencyState.objectDependencies.data {
+		depss := make([]string, 0, len(deps.dependencies))
+		for _, dep := range deps.dependencies {
 			depss = append(depss, dep.collectionName)
 		}
 		slices.Sort(depss)
@@ -387,7 +459,7 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 	}
 
 	return CollectionDump{
-		Outputs:         eraseMap(h.collectionState.outputs),
+		Outputs:         eraseMap(h.collectionState.outputs.data),
 		Inputs:          inputs,
 		InputCollection: h.parent.name(),
 		Synced:          h.HasSynced(),
@@ -410,12 +482,11 @@ func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) in
 		return idx
 	}
 
-	idx := collectionIndex[I, O]{
+	idx := &collectionIndex[I, O]{
 		extract: extract,
-		index:   make(map[string]sets.Set[Key[O]]),
 		parent:  h,
 	}
-	for k, v := range h.collectionState.outputs {
+	for k, v := range h.collectionState.outputs.data {
 		idx.update(Event[O]{
 			Old:   nil,
 			New:   &v,
@@ -429,7 +500,9 @@ func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) in
 // onPrimaryInputEvent takes a list of I's that changed and reruns the handler over them.
 // This is called either when I directly changes, or if a secondary dependency changed. In this case, we compute which I's depended
 // on the secondary dependency, and call onPrimaryInputEvent with them
-func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
+func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I], eventSeq uint64) {
+	// Stamp this recomputation before reading the latest inputs below.
+	recomputeSeq := h.seq.Add(1)
 	// Between the events being enqueued and now, the input may have changed. Update with latest info.
 	// Note we now have the `blockNewEvents` lock so this is safe; any futures calls will do the same so always have up-to-date information.
 	for idx, ev := range items {
@@ -447,11 +520,12 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 		}
 		items[idx] = ev
 	}
-	h.handleChangedPrimaryInputEvents(items)
+	h.handleChangedPrimaryInputEvents(items, eventSeq, recomputeSeq)
 }
 
 // handleChangedPrimaryInputEvents takes a list of I's that changed and reruns the handler over them.
-func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I]) {
+// eventSeq is the stamp of the queued event that produced items, and recomputeSeq the stamp of this recomputation.
+func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I], eventSeq, recomputeSeq uint64) {
 	var events []Event[O]
 	emit := func(key Key[O], event Event[O]) {
 		for _, index := range h.indexes {
@@ -472,6 +546,11 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 		}
 		i := a.Latest()
 		iKey := getTypedKey(i)
+		if h.dependencyState.objectDependencies.data[iKey].lastRecompute > eventSeq {
+			// The current result comes from a recomputation that started after this event was queued, so it already
+			// observed the change.
+			continue
+		}
 
 		ctx := &collectionDependencyTracker[I, O]{manyCollection: h, key: iKey}
 		results := slices.GroupUnique(h.transformation(ctx, i), getTypedKey[O])
@@ -487,8 +566,8 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 		i := a.Latest()
 		iKey := getTypedKey(i)
 		if a.Event == controllers.EventDelete {
-			for oKey := range h.collectionState.mappings[iKey] {
-				oldRes, f := h.collectionState.outputs[oKey]
+			for oKey := range h.collectionState.mappings.data[iKey].all {
+				oldRes, f := h.collectionState.outputs.data[oKey]
 				if !f {
 					h.log.WithLabels("oKey", oKey).Errorf("invalid event, deletion of non-existent object")
 					continue
@@ -498,7 +577,7 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 					Old:   &oldRes,
 				}
 				events = append(events, e)
-				delete(h.collectionState.outputs, oKey)
+				h.collectionState.outputs.delete(oKey)
 				for _, index := range h.indexes {
 					index.delete(oldRes, oKey)
 				}
@@ -506,16 +585,20 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 					h.log.WithLabels("res", oKey).Debugf("handled delete")
 				}
 			}
-			delete(h.collectionState.mappings, iKey)
-			delete(h.collectionState.inputs, iKey)
+			h.collectionState.mappings.delete(iKey)
+			h.collectionState.inputs.delete(iKey)
 			h.dependencyState.delete(iKey)
 		} else {
 			ctx := pendingDepStateUpdates[idx]
+			if ctx == nil {
+				// Skipped above, as the current result is already up to date.
+				continue
+			}
 			results := recomputedResults[idx]
 			if ctx.discardUpdate {
 				// Called when the collection explicitly calls DiscardResult() on the context.
 				// This is typically used when we want to retain the last-correct state.
-				_, alreadyHasAResult := h.collectionState.mappings[iKey]
+				_, alreadyHasAResult := h.collectionState.mappings.data[iKey]
 				nowHasAResult := len(results) > 0
 				if alreadyHasAResult || !nowHasAResult {
 					h.log.WithLabels("iKey", iKey).Debugf("discarding result")
@@ -523,28 +606,24 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 				}
 				h.log.WithLabels("iKey", iKey).Debugf("would discard result, but it is the first so including it")
 			}
-			h.dependencyState.update(iKey, ctx.d)
-			oldKeys := h.collectionState.mappings[iKey]
-			newKeys := oldKeys
-			// Reuse stable memberships; rebuild after a substantial shrink to release capacity.
-			if newKeys == nil || len(results) < len(oldKeys)/2 {
-				newKeys = sets.NewWithLength[Key[O]](len(results))
-			}
-			for key := range oldKeys {
+			h.dependencyState.update(iKey, ctx.d, recomputeSeq)
+			oldKeys := h.collectionState.mappings.data[iKey]
+			newKeys := oldKeys.forUpdate(len(results))
+			for key := range oldKeys.all {
 				if _, found := results[key]; found {
 					continue
 				}
-				oldRes, found := h.collectionState.outputs[key]
+				oldRes, found := h.collectionState.outputs.data[key]
 				if !found && EnableAssertions {
 					panic(fmt.Sprintf("missing output %v in %s(%T)", key, h.collectionName, h))
 				}
-				delete(newKeys, key)
-				delete(h.collectionState.outputs, key)
+				newKeys.remove(key)
+				h.collectionState.outputs.delete(key)
 				emit(key, Event[O]{Event: controllers.EventDelete, Old: ptr.Of(oldRes)})
 			}
 			for key, newRes := range results {
-				newKeys.Insert(key)
-				oldRes, oldExists := h.collectionState.outputs[key]
+				newKeys.insert(key)
+				oldRes, oldExists := h.collectionState.outputs.data[key]
 				if oldExists && Equal(newRes, oldRes) {
 					continue
 				}
@@ -553,13 +632,14 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 					event.Event = controllers.EventUpdate
 					event.Old = ptr.Of(oldRes)
 				}
-				h.collectionState.outputs[key] = newRes
+				h.collectionState.outputs.set(key, newRes)
 				emit(key, event)
 			}
-			h.collectionState.mappings[iKey] = newKeys
-			h.collectionState.inputs[iKey] = i
+			h.collectionState.mappings.set(iKey, newKeys)
+			h.collectionState.inputs.set(iKey, i)
 		}
 	}
+
 	if EnableAssertions {
 		h.assertIndexConsistency()
 	}
@@ -642,16 +722,9 @@ func newManyCollection[I, O any](
 		dependencyState: dependencyState[I]{
 			collectionDependencies:       sets.New[collectionUID](),
 			collectionDependencyHandlers: map[collectionUID]HandlerRegistration{},
-			objectDependencies:           map[Key[I]][]*dependency{},
-			indexedDependencies:          map[indexedDependency]sets.Set[Key[I]]{},
 			indexedDependenciesExtractor: map[extractorKey]func(o any) []string{},
 		},
-		collectionState: multiIndex[I, O]{
-			inputs:   map[Key[I]]I{},
-			outputs:  map[Key[O]]O{},
-			mappings: map[Key[I]]sets.Set[Key[O]]{},
-		},
-		indexes:                    make(map[string]collectionIndex[I, O]),
+		indexes:                    make(map[string]*collectionIndex[I, O]),
 		eventHandlers:              newHandlerSet[O](),
 		augmentation:               opts.augmentation,
 		synced:                     make(chan struct{}),
@@ -696,8 +769,9 @@ func (h *manyCollection[I, O]) runQueue() {
 		if h.onPrimaryInputEventHandler != nil {
 			h.onPrimaryInputEventHandler(o)
 		}
+		seq := h.seq.Add(1)
 		h.queue.Push(func() error {
-			h.onPrimaryInputEvent(o)
+			h.onPrimaryInputEvent(o, seq)
 			return nil
 		})
 	}, true)
@@ -724,7 +798,9 @@ func (h *manyCollection[I, O]) runQueue() {
 
 // Handler is called when a dependency changes. We will take as inputs the item that changed.
 // Then we find all of our own values (I) that changed and onPrimaryInputEvent() them
-func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUID, events []Event[any]) {
+func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUID, events []Event[any], eventSeq uint64) {
+	// Stamp this recomputation before reading the latest inputs below.
+	recomputeSeq := h.seq.Add(1)
 	// A secondary dependency changed...
 	// Got an event. Now we need to find out who depends on it..
 	changedInputKeys := h.dependencyState.changedInputKeys(sourceCollection, events)
@@ -739,8 +815,8 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 		if iObj == nil {
 			// Object no longer found means it has been deleted.
 			h.log.Debugf("parent deletion %v", i)
-			for oKey := range h.collectionState.mappings[i] {
-				_, f := h.collectionState.outputs[oKey]
+			for oKey := range h.collectionState.mappings.data[i].all {
+				_, f := h.collectionState.outputs.data[oKey]
 				if !f {
 					// Typically happens when O has multiple parents
 					log.WithLabels("iKey", i, "oKey", oKey).Errorf("BUG, inconsistent")
@@ -748,7 +824,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 				}
 				e := Event[I]{
 					Event: controllers.EventDelete,
-					Old:   ptr.Of(h.collectionState.inputs[i]),
+					Old:   ptr.Of(h.collectionState.inputs.data[i]),
 				}
 				toRun = append(toRun, e)
 			}
@@ -761,7 +837,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 			})
 		}
 	}
-	h.handleChangedPrimaryInputEvents(toRun)
+	h.handleChangedPrimaryInputEvents(toRun, eventSeq, recomputeSeq)
 }
 
 // nolint: unused // it is used to implement interface
@@ -771,7 +847,7 @@ func (h *manyCollection[I, O]) _internalHandler() {
 func (h *manyCollection[I, O]) GetKey(k string) (res *O) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	rf, f := h.collectionState.outputs[Key[O](k)]
+	rf, f := h.collectionState.outputs.data[Key[O](k)]
 	if f {
 		return &rf
 	}
@@ -787,9 +863,9 @@ func (h *manyCollection[I, O]) ListFiltered(filter func(O) bool) (res []O) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if filter == nil {
-		res = make([]O, 0, len(h.collectionState.outputs))
+		res = make([]O, 0, len(h.collectionState.outputs.data))
 	}
-	for _, v := range h.collectionState.outputs {
+	for _, v := range h.collectionState.outputs.data {
 		if filter == nil || filter(v) {
 			res = append(res, v)
 		}
@@ -811,8 +887,8 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingSt
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	events := make([]Event[O], 0, len(h.collectionState.outputs))
-	for _, o := range h.collectionState.outputs {
+	events := make([]Event[O], 0, len(h.collectionState.outputs.data))
+	for _, o := range h.collectionState.outputs.data {
 		events = append(events, Event[O]{
 			New:   &o,
 			Event: controllers.EventAdd,
@@ -834,16 +910,16 @@ func (h *manyCollection[I, O]) uid() collectionUID {
 
 func (h *manyCollection[I, O]) assertIndexConsistency() {
 	oToI := map[Key[O]]Key[I]{}
-	for i, os := range h.collectionState.mappings {
-		if _, f := h.collectionState.inputs[i]; !f {
+	for i, os := range h.collectionState.mappings.data {
+		if _, f := h.collectionState.inputs.data[i]; !f {
 			panic(fmt.Sprintf("for mapping key %v in %s(%T), no input found", i, h.collectionName, h))
 		}
-		for o := range os {
+		for o := range os.all {
 			if ci, f := oToI[o]; f {
 				panic(fmt.Sprintf("duplicate mapping %v in %s(%T): input %v and %v both map to it", o, h.collectionName, h, ci, i))
 			}
 			oToI[o] = i
-			if _, f := h.collectionState.outputs[o]; !f {
+			if _, f := h.collectionState.outputs.data[o]; !f {
 				panic(fmt.Sprintf("for mapping key %v->%v in %s(%T), no output found", i, o, h.collectionName, h))
 			}
 		}
@@ -887,8 +963,9 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(
 			return
 		}
 		h := register(func(o []Event[any]) {
+			seq := i.seq.Add(1)
 			i.queue.Push(func() error {
-				i.onSecondaryDependencyEvent(d.id, o)
+				i.onSecondaryDependencyEvent(d.id, o, seq)
 				return nil
 			})
 		})

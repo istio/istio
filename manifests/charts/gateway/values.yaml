@@ -119,6 +119,12 @@ _internal_defaults_do_not_set:
     # By default, don't enroll gateways into the ambient dataplane
     "istio.io/dataplane-mode": none
 
+  # Additional selector labels applied to Deployment matchLabels, Pod template, PDB, NetworkPolicy, and Service.
+  # Note: Deployment.spec.selector is immutable in Kubernetes; this field is intended for initial creation
+  # or brownfield adoption (e.g. migrating from IstioOperator). Modifying this on an existing deployment
+  # will be rejected by Kubernetes.
+  selectorLabels: {}
+
   # Annotations to apply to all resources
   annotations: {}
 

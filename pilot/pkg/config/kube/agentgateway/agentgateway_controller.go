@@ -618,13 +618,27 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 
 func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
 	if enabled && features.EnableGatewayAPIStatus && statusManager != nil {
-		var q status.Queue = statusManager.CreateGenericController(func(status status.Manipulator, context any) {
-			status.SetInner(context)
-		})
+		var q status.Queue = statusManager.CreateGenericController(updateStatus)
 		c.status.SetQueue(q)
 	} else {
 		c.status.UnsetQueue()
 	}
+}
+
+func updateStatus(s status.Manipulator, desired any) {
+	live, liveOK := s.Unwrap().(*gatewayv1.PolicyStatus)
+	wanted, desiredOK := desired.(*gatewayv1.PolicyStatus)
+	if liveOK && desiredOK && live != nil && wanted != nil {
+		// The desired status can contain stale entries from other controllers. Merge
+		// only our entries onto the current status at write time.
+		merged := wanted.DeepCopy()
+		ours := slices.Filter(merged.Ancestors, func(a gatewayv1.PolicyAncestorStatus) bool {
+			return a.ControllerName == constants.ManagedAgentgatewayController
+		})
+		merged.Ancestors = btlsMergeAncestors(constants.ManagedAgentgatewayController, live.Ancestors, ours)
+		desired = merged
+	}
+	s.SetInner(desired)
 }
 
 // Reconcile is called each time the `gatewayContext` may change. We use this to mark it as updated.
