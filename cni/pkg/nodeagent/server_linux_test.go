@@ -675,6 +675,27 @@ func TestMeshDataplaneSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 	fakeIPSetDeps.AssertExpectations(t)
 }
 
+// The enrollment check must not prune the host probe ipset: an add puts a pod's IPs there before the
+// informer sees that pod as enrolled, and a prune against the informer's view would evict them.
+func TestMeshDataplaneReconcileEnrollmentLeavesHostIPSetAlone(t *testing.T) {
+	pod := buildConvincingPod(false)
+
+	fakeCtx := context.Background()
+	server := &fakeServer{}
+	server.On("ReconcileEnrollment", fakeCtx, []*corev1.Pod{pod}).Return(nil)
+	fakeClientSet := fake.NewClientset()
+
+	// No ipset calls are expected: an add, list or clear fails the test.
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	ipsetInstance := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+	setWrapper := set.NewIPSetWrapper(ipsetInstance)
+	m := getFakeDPWithAddressSet(server, fakeClientSet, setWrapper)
+
+	assert.NoError(t, m.ReconcileEnrollment(fakeCtx, []*corev1.Pod{pod}))
+	server.AssertExpectations(t)
+	fakeIPSetDeps.AssertExpectations(t)
+}
+
 func podWithAnnotation() *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
