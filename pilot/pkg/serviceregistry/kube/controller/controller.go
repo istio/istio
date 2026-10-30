@@ -327,11 +327,20 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	// Remote configuration can become available after startup. Push updates when
 	// the restricted values change, and release this registration during Cleanup.
 	if !options.ConfigCluster && options.XDSUpdater != nil {
-		c.meshConfigHandlerRegistration = c.meshConfig.AsCollection().RegisterBatch(func(_ []krt.Event[meshwatcher.RestrictedMeshConfig]) {
-			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Reason: model.NewReasonStats(model.GlobalUpdate),
-				Forced: true,
-			})
+		c.meshConfigHandlerRegistration = c.meshConfig.AsCollection().RegisterBatch(func(events []krt.Event[meshwatcher.RestrictedMeshConfig]) {
+			for _, event := range events {
+				// RegisterBatch(false) skips existing state, but an initial Add can
+				// still arrive if the singleton has not finished computing yet.
+				// Initial discovery already uses that value; only changes need a push.
+				if event.Event != controllers.EventUpdate {
+					continue
+				}
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Reason: model.NewReasonStats(model.GlobalUpdate),
+					Forced: true,
+				})
+				return
+			}
 		}, false)
 	}
 
