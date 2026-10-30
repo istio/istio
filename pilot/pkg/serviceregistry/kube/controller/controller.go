@@ -143,9 +143,8 @@ type Options struct {
 	// MeshWatcher observes changes to the mesh config
 	MeshWatcher meshwatcher.WatcherCollection
 
-	// ConfigClusterMeshWatcher is the mesh watcher from the config (local) cluster.
-	// Used as a fallback when the per-cluster MeshWatcher cannot read the remote meshconfig.
-	ConfigClusterMeshWatcher meshwatcher.WatcherCollection
+	// MeshConfig is the cluster-owned restricted configuration, including remote fallback.
+	MeshConfig krt.Singleton[meshwatcher.RestrictedMeshConfig]
 
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32
@@ -237,11 +236,12 @@ type Controller struct {
 
 	// initialSyncTimedout is set to true after performing an initial processing timed out.
 	initialSyncTimedout *atomic.Bool
-	meshWatcher         mesh.RestrictedConfigWatcher
+	meshConfig          krt.Singleton[meshwatcher.RestrictedMeshConfig]
 
 	podsClient kclient.Client[*v1.Pod]
 
-	networksHandlerRegistration *mesh.WatcherHandlerRegistration
+	networksHandlerRegistration   *mesh.WatcherHandlerRegistration
+	meshConfigHandlerRegistration krt.HandlerRegistration
 }
 
 // NewController creates a new Kubernetes controller
@@ -323,11 +323,18 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
-	if options.ConfigClusterMeshWatcher != nil {
-		c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher, options.ConfigClusterMeshWatcher)
-	} else {
-		c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher)
+	c.meshConfig = options.MeshConfig
+	// Remote configuration can become available after startup. Push updates when
+	// the restricted values change, and release this registration during Cleanup.
+	if !options.ConfigCluster && options.XDSUpdater != nil {
+		c.meshConfigHandlerRegistration = c.meshConfig.AsCollection().RegisterBatch(func(_ []krt.Event[meshwatcher.RestrictedMeshConfig]) {
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+				Reason: model.NewReasonStats(model.GlobalUpdate),
+				Forced: true,
+			})
+		}, false)
 	}
+
 	if c.opts.MeshNetworksWatcher != nil {
 		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
 			c.reloadMeshNetworks()
@@ -405,7 +412,10 @@ func (c *Controller) Cleanup(removeShard bool) error {
 		c.opts.XDSUpdater.RemoveShard(model.ShardKeyFromRegistry(c))
 	}
 
-	// Unregister networks handler
+	// Unregister mesh configuration and networks handlers.
+	if c.meshConfigHandlerRegistration != nil {
+		c.meshConfigHandlerRegistration.UnregisterHandler()
+	}
 	if c.networksHandlerRegistration != nil {
 		c.opts.MeshNetworksWatcher.DeleteNetworksHandler(c.networksHandlerRegistration)
 	}
@@ -427,7 +437,7 @@ func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) erro
 	}
 
 	// Create the standard (cluster.local) service.
-	svcConv := kube.ConvertService(*curr, nsAnnotations, c.opts.DomainSuffix, c.Cluster(), c.meshWatcher.TrustDomain())
+	svcConv := kube.ConvertService(*curr, nsAnnotations, c.opts.DomainSuffix, c.Cluster(), ptr.OrEmpty(c.meshConfig.Get()).TrustDomain)
 
 	switch event {
 	case model.EventDelete:
@@ -676,7 +686,8 @@ func (c *Controller) shutdownInformerHandlers() {
 }
 
 func (c *Controller) informersSynced() bool {
-	return c.namespaces.HasSynced() &&
+	return c.meshConfig.AsCollection().HasSynced() &&
+		c.namespaces.HasSynced() &&
 		c.services.HasSynced() &&
 		c.endpoints.slices.HasSynced() &&
 		c.pods.pods.HasSynced() &&

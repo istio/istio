@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** remote cluster synchronization and ambient multicluster workload discovery being blocked
+    when istiod lacks permission to read the remote mesh configuration ConfigMap. Istiod now uses the
+    config cluster's trust domain and service scope without waiting for the remote ConfigMap to sync,
+    and switches to the remote configuration when it becomes available.

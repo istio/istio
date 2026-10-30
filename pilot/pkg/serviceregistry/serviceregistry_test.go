@@ -71,6 +71,7 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 	delegate := model.NewEndpointIndexUpdater(endpoints)
 	xdsUpdater := xdsfake.NewWithDelegate(delegate)
 	delegate.ConfigUpdateFunc = xdsUpdater.ConfigUpdate
+	stop := istiotest.NewStop(t)
 	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 	kc := kubecontroller.NewController(
 		client,
@@ -78,12 +79,12 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 			XDSUpdater:            xdsUpdater,
 			DomainSuffix:          "cluster.local",
 			MeshWatcher:           meshWatcher,
+			MeshConfig:            meshwatcher.NewRestrictedCollection(meshWatcher, nil, krt.NewOptionsBuilder(stop, "kube", nil)),
 			MeshServiceController: aggregate.NewController(aggregate.Options{MeshHolder: meshWatcher}),
 		},
 	)
 	configController := memory.NewController(collections.Pilot, false)
 
-	stop := istiotest.NewStop(t)
 	go configController.Run(stop)
 
 	multiclusterController := multicluster.NewController(multicluster.ControllerOptions{
