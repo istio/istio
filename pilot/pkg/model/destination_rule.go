@@ -252,6 +252,9 @@ func mergeBackendPolicyPortLevelSettings(user, backend []*networking.TrafficPoli
 		if up.Tls == nil {
 			up.Tls = bp.Tls
 		}
+		if up.RetryBudget == nil {
+			up.RetryBudget = bp.RetryBudget
+		}
 	}
 	return merged
 }
