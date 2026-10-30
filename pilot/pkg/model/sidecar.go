@@ -270,6 +270,12 @@ type IstioEgressListenerWrapper struct {
 	// An index of hostname to the namespaced name of the VirtualService containing the most
 	// specific host match.
 	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName
+
+	// configDependencies is the set of VirtualService dependency hashes for just this listener,
+	// mirroring SidecarScope.configDependencies but scoped per listener. It lets a config update be
+	// checked against this listener's imports via an O(1) hash lookup per update instead of
+	// scanning the (potentially large) virtualServices list on every push.
+	configDependencies sets.Set[ConfigHash]
 }
 
 const defaultSidecar = "default-sidecar"
@@ -325,9 +331,11 @@ func gatewaySidecarScope(ps *PushContext, base *SidecarScope, gateways []string)
 func DefaultSidecarScopeForWaypoint(ps *PushContext, configNamespace string) *SidecarScope {
 	out := DefaultSidecarScopeForGateway(ps, configNamespace)
 
-	out.EgressListeners = []*IstioEgressListenerWrapper{{
+	waypointEgressListener := &IstioEgressListenerWrapper{
 		virtualServices: ps.virtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
-	}}
+	}
+	waypointEgressListener.configDependencies = buildEgressListenerConfigDependencies(waypointEgressListener.virtualServices)
+	out.EgressListeners = []*IstioEgressListenerWrapper{waypointEgressListener}
 
 	return out
 }
@@ -429,12 +437,8 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range ilw.virtualServices {
-			// we don't need to add dependencies on delegate virtual services because they are handled by the virtual service controller
-			sc.AddConfigDependencies(ConfigKey{
-				Kind:      kind.VirtualService,
-				Namespace: vs.Namespace,
-				Name:      vs.Name,
-			}.HashCode())
+			// VirtualService dependency is answered by DependsOnConfig delegating to each
+			// EgressListener's own configDependencies, so it isn't tracked again here.
 			v := vs.Spec.(*networking.VirtualService)
 			for h, ports := range virtualServiceDestinationsFilteredBySourceNamespace(v, configNamespace) {
 				byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
@@ -576,8 +580,19 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
 	out.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(out.virtualServices, out.services)
+	out.configDependencies = buildEgressListenerConfigDependencies(out.virtualServices)
 
 	return out
+}
+
+// buildEgressListenerConfigDependencies computes the per-listener config dependency hashes (see
+// IstioEgressListenerWrapper.configDependencies) for the given listener's imported VirtualServices.
+func buildEgressListenerConfigDependencies(virtualServices []*config.Config) sets.Set[ConfigHash] {
+	deps := sets.New[ConfigHash]()
+	for _, vs := range virtualServices {
+		deps.Insert(ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}.HashCode())
+	}
+	return deps
 }
 
 // servicesForExactHosts resolves the candidate services for an egress listener whose hosts are all exact
@@ -693,6 +708,13 @@ func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardVirtualServiceIndex()
 	return ilw.mostSpecificWildcardVsIndex
 }
 
+// DependsOnConfig determines if this egress listener's built content depends on the given
+// VirtualService, via an O(1) lookup against the hashes precomputed in configDependencies rather
+// than scanning VirtualServices().
+func (ilw *IstioEgressListenerWrapper) DependsOnConfig(key ConfigKey) bool {
+	return ilw.configDependencies.Contains(key.HashCode())
+}
+
 // DependsOnConfig determines if the proxy depends on the given config.
 // Returns whether depends on this config or this kind of config is not scoped(unknown to be depended) here.
 // Gateway-specific scopes also depend on the VirtualServices bound to their gateways.
@@ -720,6 +742,14 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	case kind.DestinationRule:
 		if _, f := sc.destinationRulesByNames[types.NamespacedName{Name: config.Name, Namespace: config.Namespace}]; f {
 			return true
+		}
+	case kind.VirtualService:
+		// Not tracked in configDependencies to avoid duplicating what each EgressListener
+		// already tracks in its own configDependencies; ask them directly instead.
+		for _, ilw := range sc.EgressListeners {
+			if ilw.DependsOnConfig(config) {
+				return true
+			}
 		}
 	}
 
