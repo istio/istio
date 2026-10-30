@@ -408,7 +408,7 @@ func TestMergeGateways(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			instances := []gatewayWithInstances{}
 			for _, c := range tt.gwConfig {
-				instances = append(instances, gatewayWithInstances{c, true, nil})
+				instances = append(instances, gatewayWithInstances{c, true, nil, ""})
 			}
 			mgw := mergeGateways(instances, tt.proxy, makePushContext())
 			if len(mgw.MergedServers) != tt.mergedServersNum {
@@ -458,7 +458,7 @@ func TestMergedGatewayNames(t *testing.T) {
 	for _, configs := range [][]config.Config{{z, a, invalid}, {invalid, a, z}} {
 		instances := make([]gatewayWithInstances, 0, len(configs))
 		for _, cfg := range configs {
-			instances = append(instances, gatewayWithInstances{cfg, true, nil})
+			instances = append(instances, gatewayWithInstances{cfg, true, nil, ""})
 		}
 		merged := mergeGateways(instances, &Proxy{}, makePushContext())
 		assert.Equal(t, merged.GatewayNames, []string{"a/z", "z/a"})

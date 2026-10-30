@@ -106,6 +106,11 @@ type MergedGateway struct {
 	// for Gateway API gateways). Secrets in the same namespace that are not referenced by any gateway config are
 	// explicitly excluded to prevent unintended access (e.g., the citadel root key/cert).
 	VerifiedCertificateReferences sets.String
+
+	// ClientCertificateForGateway maps Istio Gateway names to the backend client
+	// credential SDS resource name, or credentials.InvalidSecretTypeURI for invalid references.
+	// Gateways without a configured client certificate are omitted.
+	ClientCertificateForGateway map[string]string
 }
 
 func (g *MergedGateway) HasAutoPassthroughGateways() bool {
@@ -209,6 +214,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	gatewayNameForServer := make(map[*networking.Server]string)
 	gatewayNames := sets.New[string]()
 	verifiedCertificateReferences := sets.New[string]()
+	clientCertificateForGateway := make(map[string]string)
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
 	autoPassthrough := false
@@ -220,6 +226,10 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
 		log.Debugf("mergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
 		snames := sets.String{}
+		if gwAndInstance.clientCertificateRef != "" {
+			clientCertificateForGateway[gatewayName] = gwAndInstance.clientCertificateRef
+		}
+
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
 				if snames.InsertContains(s.Name) {
@@ -502,6 +512,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		AutoPassthroughSNIHosts:         autoPassthroughSNIHosts,
 		PortMap:                         getTargetPortMap(serversByRouteName),
 		VerifiedCertificateReferences:   verifiedCertificateReferences,
+		ClientCertificateForGateway:     clientCertificateForGateway,
 	}
 }
 
