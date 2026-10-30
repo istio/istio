@@ -62,6 +62,7 @@ func NewAgentOptions(proxy *ProxyArgs, cfg *meshconfig.ProxyConfig, sds istioage
 		GRPCBootstrapPath:             grpcBootstrapEnv,
 		DisableEnvoy:                  disableEnvoyEnv,
 		DNSCapture:                    DNSCaptureByAgent.Get(),
+		DeltaNDS:                      DeltaNDS.Get(),
 		DNSAtGateway:                  EnableDNSAtGateway.Get(),
 		DNSForwardParallel:            DNSForwardParallel.Get(),
 		DNSForwardTimeout:             DNSForwardTimeout.Get(),
