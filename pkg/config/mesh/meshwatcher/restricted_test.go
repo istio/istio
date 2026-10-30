@@ -32,11 +32,13 @@ func TestRestrictedCollection(t *testing.T) {
 	assert.EventuallyEqual(t, restricted.Get, &RestrictedMeshConfig{TrustDomain: "local"})
 	local.Set(&meshconfig.MeshConfig{TrustDomain: "updated-local"})
 	assert.EventuallyEqual(t, restricted.Get, &RestrictedMeshConfig{TrustDomain: "updated-local"})
-	remote.Set(&MeshConfigResource{&meshconfig.MeshConfig{TrustDomain: "remote", RootNamespace: "forbidden",
+	remote.Set(&MeshConfigResource{&meshconfig.MeshConfig{
+		TrustDomain: "remote", RootNamespace: "forbidden",
 		ServiceScopeConfigs: []*meshconfig.MeshConfig_ServiceScopeConfigs{{}},
 	}})
 	remote.MarkSynced()
-	assert.EventuallyEqual(t, restricted.Get, &RestrictedMeshConfig{TrustDomain: "remote",
+	assert.EventuallyEqual(t, restricted.Get, &RestrictedMeshConfig{
+		TrustDomain:         "remote",
 		ServiceScopeConfigs: []*meshconfig.MeshConfig_ServiceScopeConfigs{{}},
 	})
 	// An empty remote trust domain falls back, while an explicitly empty service
@@ -45,5 +47,8 @@ func TestRestrictedCollection(t *testing.T) {
 	remote.Set(&MeshConfigResource{&meshconfig.MeshConfig{}})
 	assert.EventuallyEqual(t, restricted.Get, &RestrictedMeshConfig{TrustDomain: "updated-local"})
 	remote.Set(nil)
-	assert.EventuallyEqual(t, restricted.Get, &RestrictedMeshConfig{TrustDomain: "updated-local", ServiceScopeConfigs: []*meshconfig.MeshConfig_ServiceScopeConfigs{{}}})
+	assert.EventuallyEqual(t, restricted.Get, &RestrictedMeshConfig{
+		TrustDomain:         "updated-local",
+		ServiceScopeConfigs: []*meshconfig.MeshConfig_ServiceScopeConfigs{{}},
+	})
 }

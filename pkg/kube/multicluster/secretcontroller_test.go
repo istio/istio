@@ -1277,7 +1277,6 @@ func TestRemoteMeshConfigUnavailable(t *testing.T) {
 	})
 	denied.Store(false)
 	assert.EventuallyEqual(t, c.MeshConfig().Get, &meshwatcher.RestrictedMeshConfig{TrustDomain: "remote"})
-
 }
 
 func TestMeshConfigMapName(t *testing.T) {

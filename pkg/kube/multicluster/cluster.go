@@ -417,7 +417,12 @@ func (c *Cluster) buildMeshConfigCollection(
 
 // buildClusterCollections creates the standard KRT collections for a cluster.
 // This is used for both config and remote clusters to ensure identical collection setup.
-func buildClusterCollections(client kube.Client, clusterID cluster.ID, meshConfig krt.Singleton[meshwatcher.RestrictedMeshConfig], opts krt.OptionsBuilder) *remoteClusterCollections {
+func buildClusterCollections(
+	client kube.Client,
+	clusterID cluster.ID,
+	meshConfig krt.Singleton[meshwatcher.RestrictedMeshConfig],
+	opts krt.OptionsBuilder,
+) *remoteClusterCollections {
 	defaultFilter := kclient.Filter{
 		ObjectFilter: client.ObjectFilter(),
 	}

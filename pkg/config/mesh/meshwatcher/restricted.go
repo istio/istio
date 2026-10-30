@@ -27,7 +27,11 @@ import (
 // NewRestrictedCollection exposes only trust domain and service-scope configuration.
 // The optional remote source must not block synchronization: a synced snapshot bridges
 // its updates into KRT while the local configuration provides the initial fallback.
-func NewRestrictedCollection(local krt.Singleton[MeshConfigResource], remote krt.Singleton[MeshConfigResource], opts krt.OptionsBuilder) krt.Singleton[RestrictedMeshConfig] {
+func NewRestrictedCollection(
+	local krt.Singleton[MeshConfigResource],
+	remote krt.Singleton[MeshConfigResource],
+	opts krt.OptionsBuilder,
+) krt.Singleton[RestrictedMeshConfig] {
 	snapshot := krt.NewStatic[MeshConfigResource](nil, true, opts.WithName("OptionalRemoteMeshConfig")...)
 	if remote != nil {
 		reg := remote.AsCollection().RegisterBatch(func(events []krt.Event[MeshConfigResource]) {
@@ -51,10 +55,8 @@ func NewRestrictedCollection(local krt.Singleton[MeshConfigResource], remote krt
 			trustDomain = fallbackConfig.GetTrustDomain()
 		}
 		return &RestrictedMeshConfig{
-			TrustDomain: trustDomain,
-			ServiceScopeConfigs: slices.Map(selected.GetServiceScopeConfigs(), func(c *meshconfig.MeshConfig_ServiceScopeConfigs) *meshconfig.MeshConfig_ServiceScopeConfigs {
-				return protomarshal.Clone(c)
-			}),
+			TrustDomain:         trustDomain,
+			ServiceScopeConfigs: slices.Map(selected.GetServiceScopeConfigs(), protomarshal.Clone),
 		}
 	}, opts.WithName("RestrictedMeshConfig")...)
 }
