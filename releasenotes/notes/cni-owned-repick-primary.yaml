@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Fixed** `istio-cni` with a CNI in chaining mode, such as Antrea, which copies the CNI config `istio-cni` writes. With `istioOwnedCNIConfig` enabled, `istio-cni` now follows a config chained in front of its own instead of keeping it unused until restart, so that CNI's network policies are enforced. `istio-cni` now raises a `close_write` event on CNI configs it rewrites, so such a CNI picks up the change, and does not rewrite a config that is already current. On uninstall, `istio-cni` is removed from any config that still lists it.
