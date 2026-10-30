@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 62499
+releaseNotes:
+  - |
+    **Added** support for `retryBudget` in `DestinationRule` `portLevelSettings`.
+  - |
+    **Added** validation that `retryBudget.percent` in `DestinationRule` is between 0 and 100,
+    matching the CRD schema.
+  - |
+    **Fixed** `XBackendTrafficPolicy` retry budget not being applied to ports that get port level
+    settings from a `BackendTLSPolicy` `sectionName`.
+
+upgradeNotes:
+  - title: Subset port level settings no longer inherit the destination level `retryBudget`.
+    content: |
+      `retryBudget` now follows the same rule as other port level fields: when a subset has
+      `portLevelSettings` for a port, the destination level `retryBudget` is not applied to that port.
+      Set `retryBudget` in the subset's port level entry to keep a budget on that port.
