@@ -409,6 +409,11 @@ func TestNegotiateMetricsFormat(t *testing.T) {
 			expected:    FmtOpenMetrics_1_0_0,
 		},
 		{
+			name:        "openmetrics minimal v2 accept header",
+			contentType: `application/openmetrics-text; version=2.0.0`,
+			expected:    FmtOpenMetrics_2_0_0,
+		},
+		{
 			name:        "openmetrics accept header",
 			contentType: `application/openmetrics-text; version=0.0.1; charset=utf-8`,
 			expected:    FmtOpenMetrics_0_0_1,
@@ -417,6 +422,11 @@ func TestNegotiateMetricsFormat(t *testing.T) {
 			name:        "openmetrics v1 accept header",
 			contentType: `application/openmetrics-text; version=1.0.0; charset=utf-8`,
 			expected:    FmtOpenMetrics_1_0_0,
+		},
+		{
+			name:        "openmetrics v2 accept header",
+			contentType: `application/openmetrics-text; version=2.0.0; charset=utf-8`,
+			expected:    FmtOpenMetrics_2_0_0,
 		},
 		{
 			name:        "plaintext accept header",
@@ -988,6 +998,60 @@ func TestStatsMultiTarget(t *testing.T) {
 				eofCount:    intPtr(1),
 				parseOM:     true,
 				contentType: FmtOpenMetrics_1_0_0,
+			},
+		},
+		{
+			name: "single OpenMetrics 2.0.0 target",
+			targets: []targetSpec{
+				{
+					body:        "# TYPE metric_v2 counter\nmetric_v2_total 42\n# EOF\n",
+					contentType: string(FmtOpenMetrics_2_0_0),
+				},
+			},
+			want: wantStats{
+				contains:    []string{"metric_v2_total 42", "# EOF"},
+				eofCount:    intPtr(1),
+				parseOM:     true,
+				contentType: FmtOpenMetrics_2_0_0,
+			},
+		},
+		{
+			name: "two OpenMetrics 2.0.0 targets",
+			targets: []targetSpec{
+				{
+					body:        "# TYPE metric_v2_a counter\nmetric_v2_a_total 1\n# EOF\n",
+					contentType: string(FmtOpenMetrics_2_0_0),
+				},
+				{
+					body:        "# TYPE metric_v2_b counter\nmetric_v2_b_total 2\n# EOF\n",
+					contentType: string(FmtOpenMetrics_2_0_0),
+				},
+			},
+			want: wantStats{
+				contains:    []string{"metric_v2_a_total 1", "metric_v2_b_total 2", "# EOF"},
+				eofCount:    intPtr(1),
+				parseOM:     true,
+				contentType: FmtOpenMetrics_2_0_0,
+			},
+		},
+		{
+			name: "mixed OpenMetrics versions — v1 and v2 downgrade to text",
+			targets: []targetSpec{
+				{
+					body:        "# TYPE metric_v1 counter\nmetric_v1_total 1\n# EOF\n",
+					contentType: string(FmtOpenMetrics_1_0_0),
+				},
+				{
+					body:        "# TYPE metric_v2 counter\nmetric_v2_total 2\n# EOF\n",
+					contentType: string(FmtOpenMetrics_2_0_0),
+				},
+			},
+			want: wantStats{
+				contains:    []string{"metric_v1_total 1", "metric_v2_total 2"},
+				notContains: []string{"# EOF"},
+				eofCount:    intPtr(0),
+				parseText:   true,
+				contentType: FmtText,
 			},
 		},
 		{
