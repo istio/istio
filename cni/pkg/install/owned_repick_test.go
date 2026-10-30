@@ -86,10 +86,10 @@ func pluginTypes(t *testing.T, path string) []string {
 	return pluginTypesOf(plugins)
 }
 
-// antreaChain writes what Antrea's chaining installer writes: a copy of src plus antrea.
-func antreaChain(t *testing.T, dir, src string) {
+// antreaChain writes what Antrea's chaining installer writes: a copy of our owned config plus antrea.
+func antreaChain(t *testing.T, dir string) {
 	t.Helper()
-	m, err := util.ReadCNIConfigMap(filepath.Join(dir, src))
+	m, err := util.ReadCNIConfigMap(filepath.Join(dir, ownedName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestOwnedConfigFollowsCNIChainedInFront(t *testing.T) {
 	assert.Equal(t, cfg.CNIConfName, primaryName)
 
 	// Antrea installs after istio-cni and chains on our config.
-	antreaChain(t, dir, ownedName)
+	antreaChain(t, dir)
 
 	path, err = install(t, cfg, path)
 	if err == nil || !strings.Contains(err.Error(), "primary CNI config changed") {
@@ -145,7 +145,7 @@ func TestOwnedConfigFollowsCNIChainedInFront(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	antreaChain(t, dir, ownedName)
+	antreaChain(t, dir)
 	path, _ = install(t, cfg, path)
 	_, err = install(t, cfg, path)
 	assert.NoError(t, err)
@@ -168,7 +168,7 @@ func TestOwnedConfigConfiguredPrimaryStaysPinned(t *testing.T) {
 	dir := cfg.MountedCNINetDir
 
 	path, _ := install(t, cfg, "")
-	antreaChain(t, dir, ownedName)
+	antreaChain(t, dir)
 
 	_, err := install(t, cfg, path)
 	assert.NoError(t, err)
@@ -180,7 +180,7 @@ func TestCleanupOwnedStripsChainedCopies(t *testing.T) {
 	dir := cfg.MountedCNINetDir
 
 	path, _ := install(t, cfg, "")
-	antreaChain(t, dir, ownedName)
+	antreaChain(t, dir)
 
 	isReady := &atomic.Value{}
 	isReady.Store(false)
