@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schema/kind"
 )
 
 var (
@@ -146,13 +145,5 @@ func setAutoAllocatedIPs(svc *model.Service, octets octetPair) {
 		svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x", b)
 	} else {
 		svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x%x", a, b)
-	}
-}
-
-func makeConfigKey(svc *model.Service) model.ConfigKey {
-	return model.ConfigKey{
-		Kind:      kind.ServiceEntry,
-		Name:      string(svc.Hostname),
-		Namespace: svc.Attributes.Namespace,
 	}
 }
