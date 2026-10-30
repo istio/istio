@@ -193,6 +193,12 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		}
 	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext, err = constructUpstreamTLS(opts, tls, c, false)
+		if err == nil && cb.proxyType == model.Router && opts.gatewayBackendClientCredential != "" {
+			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(
+				tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+				sec_model.ConstructSdsSecretConfigForCredential(opts.gatewayBackendClientCredential, opts.credentialSocketExist, nil),
+			)
+		}
 
 	case networking.ClientTLSSettings_MUTUAL:
 		tlsContext, err = constructUpstreamTLS(opts, tls, c, true)
