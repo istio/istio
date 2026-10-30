@@ -2426,14 +2426,14 @@ func TestEdsCacheNotPoisonedByMergedPush(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, r := range res {
-			cla := &endpoint.ClusterLoadAssignment{}
-			if err := r.Resource.UnmarshalTo(cla); err != nil {
-				t.Fatal(err)
-			}
-			return xdstest.ExtractEndpoints(cla)
+		if len(res) == 0 {
+			return nil
 		}
-		return nil
+		cla := &endpoint.ClusterLoadAssignment{}
+		if err := res[0].Resource.UnmarshalTo(cla); err != nil {
+			t.Fatal(err)
+		}
+		return xdstest.ExtractEndpoints(cla)
 	}
 	// push mirrors DiscoveryServer.Push + StartPush: drop the cache for the updated configs, then stamp Start.
 	push := func(configs ...model.ConfigKey) *model.PushRequest {
