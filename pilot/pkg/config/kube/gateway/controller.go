@@ -679,14 +679,14 @@ func (c *Controller) inRevision(obj any) bool {
 	return config.LabelsInRevision(object.GetLabels(), c.revision)
 }
 
-// Retrieve Backend TLS configuration configured on a Kubernetes Gateway.
+// GetGatewayBackendClientCredentialName returns the backend client credential SDS resource name.
 func (c *Controller) GetGatewayBackendClientCredentialName(gateway types.NamespacedName) string {
 	gatewayTLS := c.outputs.GatewayBackendTLS.GetKey(gateway.String())
 	if gatewayTLS == nil {
 		return ""
 	}
 	if gatewayTLS.Error != nil {
-		return ""
+		return credentials.InvalidSecretTypeURI
 	}
 	if gatewayTLS.BackendTLS == nil || gatewayTLS.BackendTLS.ClientCertificateRef == nil {
 		return ""
@@ -694,7 +694,7 @@ func (c *Controller) GetGatewayBackendClientCredentialName(gateway types.Namespa
 
 	ref := gatewayTLS.BackendTLS.ClientCertificateRef
 	if ref.Name == "" {
-		return ""
+		return credentials.InvalidSecretTypeURI
 	}
 
 	ns := ptr.OrDefault((*string)(ref.Namespace), gateway.Namespace)

@@ -1138,9 +1138,9 @@ type GatewayController interface {
 	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
 	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.
 	SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool
-	// GetGatewayBackendClientCredentialName returns a the Kubernetes resource
-	// name of the secret containing the client certificate specified in a
-	// Gateway's Backend TLS configuration.
+	// GetGatewayBackendClientCredentialName returns the backend client credential SDS resource name,
+	// an empty string if no client certificate is configured, or credentials.InvalidSecretTypeURI
+	// if the configured reference is invalid. Validation errors are reported in Gateway status.
 	GetGatewayBackendClientCredentialName(gateway types.NamespacedName) string
 }
 
