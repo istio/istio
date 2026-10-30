@@ -2691,14 +2691,11 @@ func TestBuildDeltaHTTPRoutesGateway(t *testing.T) {
 		buildHTTPService("svc-b.default.svc.cluster.local", visibility.Public, wildcardIPv4, "default", 9090),
 	}
 
-	// Must be set before NewConfigGenTest, since it eagerly builds the PushContext (which caches
-	// destinationsByGateway only when EnableDeltaRDS or FilterGatewayClusterConfig is already set).
-	test.SetForTest(t, &features.EnableDeltaRDS, true)
-
 	cg := NewConfigGenTest(t, TestOptions{
 		Services:       services,
 		ConfigPointers: []*config.Config{gatewayA, gatewayB, virtualServiceA, virtualServiceB},
 	})
+	test.SetForTest(t, &features.EnableDeltaRDS, true)
 	gatewayLabels := map[string]string{"istio": "ingressgateway"}
 	proxy := cg.SetupProxy(&model.Proxy{
 		Type:            model.Router,
