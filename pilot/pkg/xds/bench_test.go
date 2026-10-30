@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
@@ -293,6 +294,49 @@ func BenchmarkListenerGeneration(b *testing.B) {
 
 func TestListenerGeneration(t *testing.T) {
 	testBenchmark(t, v3.ListenerType, testCases)
+}
+
+// BenchmarkGatewayWildcardTLS measures a gateway with one ISTIO_MUTUAL server per wildcard DYNAMIC_DNS host: a delta
+// CDS push for a ServiceEntry no gateway route uses, and a full LDS generation.
+func BenchmarkGatewayWildcardTLS(b *testing.B) {
+	configureBenchmark(b)
+	unrelated := sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "unrelated.example", Namespace: "default"})
+	for _, enabled := range []bool{false, true} {
+		for _, servers := range []int{10, 100, 1000} {
+			name := fmt.Sprintf("flag=%v/servers=%d", enabled, servers)
+			tt := ConfigInput{Name: "gateway-wildcard-tls", Services: servers, ProxyType: model.Router}
+			b.Run("cds-delta/"+name, func(b *testing.B) {
+				test.SetForTest(b, &features.EnableWildcardHostServiceEntriesForTLS, enabled)
+				s, proxy := setupAndInitializeTest(b, tt)
+				gen := s.Discovery.Generators[v3.ClusterType].(model.XdsDeltaResourceGenerator)
+				full, _, _ := gen.Generate(proxy, nil, &model.PushRequest{Push: s.PushContext(), Forced: true})
+				w := &model.WatchedResource{
+					TypeUrl:       v3.ClusterType,
+					ResourceNames: sets.New(slices.Map(full, func(r *discovery.Resource) string { return r.Name })...),
+				}
+				req := &model.PushRequest{Push: s.PushContext(), ConfigsUpdated: unrelated}
+				b.ReportMetric(float64(len(full)), "clusters")
+				b.ResetTimer()
+				for range b.N {
+					if _, _, _, usedDelta, err := gen.GenerateDeltas(proxy, req, w); err != nil || !usedDelta {
+						b.Fatalf("delta CDS not used: %v", err)
+					}
+				}
+			})
+			b.Run("lds/"+name, func(b *testing.B) {
+				test.SetForTest(b, &features.EnableWildcardHostServiceEntriesForTLS, enabled)
+				s, proxy := setupAndInitializeTest(b, tt)
+				gen := s.Discovery.Generators[v3.ListenerType]
+				pr := &model.PushRequest{Push: s.PushContext(), Forced: true}
+				b.ResetTimer()
+				for range b.N {
+					if l, _, _ := gen.Generate(proxy, nil, pr); len(l) == 0 {
+						b.Fatal("no listeners")
+					}
+				}
+			})
+		}
+	}
 }
 
 // NDS isn't really impacted by anything beyond number of services, so just run these separately

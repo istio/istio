@@ -191,7 +191,19 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, useFilterState, policySvc)
 		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, useFilterState, policySvc)
 	}
+	return lb.buildCompleteNetworkFiltersWithAuthz(class, port, networkFilterStack, includeMx, policySvc, authzBuilder, authzCustomBuilder)
+}
 
+// buildCompleteNetworkFiltersWithAuthz is buildCompleteNetworkFilters with explicit authz builders.
+// Nil builders produce no authz filters.
+func (lb *ListenerBuilder) buildCompleteNetworkFiltersWithAuthz(
+	class istionetworking.ListenerClass,
+	port int,
+	networkFilterStack []*listener.Filter,
+	includeMx bool,
+	policySvc *model.Service,
+	authzBuilder, authzCustomBuilder *authz.Builder,
+) []*listener.Filter {
 	var filters []*listener.Filter
 	trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(
 		lb.node, model.ListenerInfo{Port: port, Class: class}.WithService(policySvc),

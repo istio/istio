@@ -17,18 +17,24 @@ package xds_test
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
@@ -633,4 +639,355 @@ func TestDeltaUnsub(t *testing.T) {
 		ResourceNamesUnsubscribe: []string{"something"},
 	})
 	runAssert(resp.Nonce)
+}
+
+// TestDeltaGatewayWildcardTLSCleanup checks that ISTIO_MUTUAL gateway servers routing to wildcard DYNAMIC_DNS
+// ServiceEntries share one internal cluster, which never changes with the routes, and that incremental pushes remove
+// the internal listener once no server uses it, and the internal cluster once the gateway has no ISTIO_MUTUAL server.
+func TestDeltaGatewayWildcardTLSCleanup(t *testing.T) {
+	const (
+		internalName = "wildcard_tls_internal"
+		perTarget    = "outbound-wildcard-tls|"
+		dfpCluster   = "outbound|443||*.shared.com"
+		otherChain   = "outbound-wildcard-tls|443||*.other.com"
+	)
+	serviceEntry := func(name, host string) string {
+		return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata: {name: %s, namespace: istio-system}
+spec:
+  hosts: [%q]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  location: MESH_EXTERNAL
+  resolution: DYNAMIC_DNS
+`, name, host)
+	}
+	gatewayRoute := func(name, ns, host string) string {
+		return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata: {name: %s, namespace: %s}
+spec:
+  hosts: [%q]
+  gateways: ["istio-system/egressgateway"]
+  tcp:
+  - match: [{port: 443, gateways: ["istio-system/egressgateway"]}]
+    route: [{destination: {host: %q, port: {number: 443}}}]
+`, name, ns, host, host)
+	}
+	gateway := `apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: egressgateway
+  namespace: istio-system
+spec:
+  selector: {istio: egressgateway}
+  servers:
+  - port: {number: 443, name: tls-shared, protocol: TLS}
+    hosts: ["*/*.shared.com"]
+    tls: {mode: ISTIO_MUTUAL}
+  - port: {number: 443, name: tls-other, protocol: TLS}
+    hosts: ["*/*.other.com"]
+    tls: {mode: ISTIO_MUTUAL}
+`
+	join := func(docs ...string) string { return strings.Join(docs, "---\n") }
+
+	cases := []struct {
+		name   string
+		filter bool
+		// teamBRoute adds a second VirtualService, in team-b, to *.shared.com.
+		teamBRoute bool
+		// change changes the config while the internal listener is in use.
+		change func(s *xds.FakeDiscoveryServer)
+		// listenerKept is whether the internal listener is still in use after the change.
+		listenerKept bool
+		// otherRouted is whether *.other.com has an internal chain after the change.
+		otherRouted bool
+		// clusterRemoved is whether the internal cluster is removed after the change.
+		clusterRemoved bool
+	}{
+		{
+			name:   "last VirtualService deleted",
+			change: deleteShared(gvk.VirtualService, "team-a"),
+		},
+		{
+			name:   "last VirtualService deleted, gateway cluster filtering",
+			filter: true,
+			change: deleteShared(gvk.VirtualService, "team-a"),
+		},
+		{
+			name:         "VirtualService deleted, another one left",
+			teamBRoute:   true,
+			change:       deleteShared(gvk.VirtualService, "team-a"),
+			listenerKept: true,
+		},
+		{
+			name:   "ServiceEntry deleted",
+			change: deleteShared(gvk.ServiceEntry, "istio-system"),
+		},
+		{
+			name:         "unrelated ServiceEntry updated",
+			listenerKept: true,
+			change: func(s *xds.FakeDiscoveryServer) {
+				if _, err := s.Store().Create(parseConfig(t, serviceEntry("unrelated", "*.unrelated.com"))); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name:           "ISTIO_MUTUAL servers removed",
+			clusterRemoved: true,
+			change: func(s *xds.FakeDiscoveryServer) {
+				if _, err := s.Store().Update(parseConfig(t, strings.ReplaceAll(gateway, "ISTIO_MUTUAL", "PASSTHROUGH"))); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name:         "second destination routed",
+			listenerKept: true,
+			otherRouted:  true,
+			change: func(s *xds.FakeDiscoveryServer) {
+				if _, err := s.Store().Create(parseConfig(t, gatewayRoute("other", "team-a", "*.other.com"))); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+	}
+	// The flags are set once per filter value, not per case: a push of a case's server can still run when the case
+	// ends, and a flag write races with it.
+	for _, filter := range []bool{false, true} {
+		t.Run(fmt.Sprintf("filter=%v", filter), func(t *testing.T) {
+			test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+			test.SetForTest(t, &features.FilterGatewayClusterConfig, filter)
+			for _, tt := range cases {
+				if tt.filter != filter {
+					continue
+				}
+				t.Run(tt.name, func(t *testing.T) {
+					configs := join(serviceEntry("shared", "*.shared.com"), serviceEntry("other", "*.other.com"), gateway,
+						gatewayRoute("shared", "team-a", "*.shared.com"))
+					if tt.teamBRoute {
+						configs = join(configs, gatewayRoute("shared", "team-b", "*.shared.com"))
+					}
+					s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: configs})
+					s.EnsureSynced(t)
+
+					const id = "router~10.0.0.1~egressgateway.istio-system~istio-system.svc.cluster.local"
+					meta := model.NodeMetadata{Labels: map[string]string{"istio": "egressgateway"}, Namespace: "istio-system"}
+					// sent returns the resources of a type that the gateway has, as tracked by the server.
+					sent := func(typeURL string) sets.String {
+						for _, c := range s.Discovery.AllClients() {
+							// The server updates the watched resources while it pushes, so read them under the proxy lock.
+							p := c.Proxy()
+							p.RLock()
+							w, ok := p.DeepCloneWatchedResourcesLocked()[typeURL]
+							names := w.ResourceNames.Copy()
+							p.RUnlock()
+							if ok {
+								return names
+							}
+						}
+						return nil
+					}
+					// internalChains returns the chain names of the internal listener as currently generated.
+					internalChains := func() []string {
+						l := xdstest.ExtractListener(internalName, s.Listeners(s.SetupProxy(&model.Proxy{
+							Type: model.Router, IPAddresses: []string{"10.0.0.1"}, ConfigNamespace: "istio-system", Labels: meta.Labels, Metadata: &meta,
+						})))
+						return slices.Map(l.GetFilterChains(), func(fc *listener.FilterChain) string { return fc.Name })
+					}
+					noPerTargetClusters := func() error {
+						for c := range sent(v3.ClusterType) {
+							if strings.HasPrefix(c, perTarget) {
+								return fmt.Errorf("per-target cluster %s sent", c)
+							}
+						}
+						return nil
+					}
+					lds := s.ConnectDeltaADS().WithID(id).WithMetadata(meta).WithType(v3.ListenerType)
+					cds := s.ConnectDeltaADS().WithID(id).WithMetadata(meta).WithType(v3.ClusterType)
+					lds.Request(&discovery.DeltaDiscoveryRequest{})
+					cds.Request(&discovery.DeltaDiscoveryRequest{})
+					lds.ExpectResponse()
+					cds.ExpectResponse()
+					go lds.DrainResponses()
+					go cds.DrainResponses()
+					stopPushesOnCleanup(t, s, lds.Cleanup, cds.Cleanup)
+					// The server records the sent resources after it sends the response, so wait for them.
+					retry.UntilSuccessOrFail(t, func() error {
+						if !sent(v3.ListenerType).Contains(internalName) {
+							return fmt.Errorf("internal listener not sent")
+						}
+						for _, c := range []string{internalName, dfpCluster} {
+							if !sent(v3.ClusterType).Contains(c) {
+								return fmt.Errorf("cluster %s not sent", c)
+							}
+						}
+						return nil
+					}, retry.Timeout(5*time.Second))
+					assert.NoError(t, noPerTargetClusters())
+					// ownClusters leaves out the clusters of the unrelated ServiceEntry that a case creates.
+					ownClusters := func() sets.String {
+						return sets.New(slices.Filter(sets.SortedList(sent(v3.ClusterType)), func(c string) bool {
+							return !strings.Contains(c, "unrelated")
+						})...)
+					}
+					clustersBefore := ownClusters()
+
+					tt.change(s)
+					retry.UntilSuccessOrFail(t, func() error {
+						if got := sent(v3.ListenerType).Contains(internalName); got != tt.listenerKept {
+							return fmt.Errorf("internal listener sent: %v, want %v", got, tt.listenerKept)
+						}
+						if got := slices.Contains(internalChains(), otherChain); got != tt.otherRouted {
+							return fmt.Errorf("internal chain %s: %v, want %v", otherChain, got, tt.otherRouted)
+						}
+						if got := sent(v3.ClusterType).Contains(internalName); got == tt.clusterRemoved {
+							return fmt.Errorf("internal cluster sent: %v, want %v", got, !tt.clusterRemoved)
+						}
+						if tt.filter && sent(v3.ClusterType).Contains(dfpCluster) {
+							return fmt.Errorf("cluster %s not removed", dfpCluster)
+						}
+						return nil
+					}, retry.Timeout(5*time.Second))
+					s.EnsureSynced(t)
+					assert.Equal(t, sent(v3.ListenerType).Contains(internalName), tt.listenerKept)
+					// The internal cluster does not depend on the routes, so it is neither removed nor rebuilt per destination.
+					assert.Equal(t, sent(v3.ClusterType).Contains(internalName), !tt.clusterRemoved)
+					assert.NoError(t, noPerTargetClusters())
+					if tt.listenerKept {
+						assert.Equal(t, ownClusters(), clustersBefore)
+					}
+				})
+			}
+		})
+	}
+}
+
+// TestDeltaGatewayWildcardTLSSubsets checks that incremental pushes add and remove the dynamic forward proxy cluster of
+// a DestinationRule subset of a wildcard DYNAMIC_DNS ServiceEntry on a gateway.
+func TestDeltaGatewayWildcardTLSSubsets(t *testing.T) {
+	test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, true)
+	const (
+		v1 = "outbound|443|v1|*.shared.com"
+		v2 = "outbound|443|v2|*.shared.com"
+	)
+	destinationRule := func(subsets ...string) string {
+		dr := `apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata: {name: shared, namespace: istio-system}
+spec:
+  host: "*.shared.com"
+  subsets:
+`
+		for _, subset := range subsets {
+			dr += fmt.Sprintf("  - name: %s\n", subset)
+		}
+		return dr
+	}
+	configs := strings.Join([]string{`apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata: {name: shared, namespace: istio-system}
+spec:
+  hosts: ["*.shared.com"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  location: MESH_EXTERNAL
+  resolution: DYNAMIC_DNS
+`, `apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata: {name: egressgateway, namespace: istio-system}
+spec:
+  selector: {istio: egressgateway}
+  servers:
+  - port: {number: 443, name: tls, protocol: TLS}
+    hosts: ["*/*.shared.com"]
+    tls: {mode: ISTIO_MUTUAL}
+`, `apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata: {name: shared, namespace: istio-system}
+spec:
+  hosts: ["*.shared.com"]
+  gateways: ["istio-system/egressgateway"]
+  tcp:
+  - match: [{port: 443}]
+    route: [{destination: {host: "*.shared.com", subset: v1, port: {number: 443}}}]
+`, destinationRule("v1", "v2")}, "---\n")
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: configs})
+	s.EnsureSynced(t)
+
+	const id = "router~10.0.0.1~egressgateway.istio-system~istio-system.svc.cluster.local"
+	meta := model.NodeMetadata{Labels: map[string]string{"istio": "egressgateway"}, Namespace: "istio-system"}
+	sent := func() sets.String {
+		for _, c := range s.Discovery.AllClients() {
+			p := c.Proxy()
+			p.RLock()
+			w, ok := p.DeepCloneWatchedResourcesLocked()[v3.ClusterType]
+			names := w.ResourceNames.Copy()
+			p.RUnlock()
+			if ok {
+				return names
+			}
+		}
+		return nil
+	}
+	cds := s.ConnectDeltaADS().WithID(id).WithMetadata(meta).WithType(v3.ClusterType)
+	cds.Request(&discovery.DeltaDiscoveryRequest{})
+	cds.ExpectResponse()
+	go cds.DrainResponses()
+	stopPushesOnCleanup(t, s, cds.Cleanup)
+	// The server records the sent resources after it sends the response, so wait for them.
+	retry.UntilSuccessOrFail(t, func() error {
+		for _, c := range []string{v1, v2} {
+			if !sent().Contains(c) {
+				return fmt.Errorf("cluster %s not sent", c)
+			}
+		}
+		return nil
+	}, retry.Timeout(5*time.Second))
+
+	if _, err := s.Store().Update(parseConfig(t, destinationRule("v1"))); err != nil {
+		t.Fatal(err)
+	}
+	retry.UntilSuccessOrFail(t, func() error {
+		if sent().Contains(v2) {
+			return fmt.Errorf("cluster %s not removed", v2)
+		}
+		return nil
+	}, retry.Timeout(5*time.Second))
+	s.EnsureSynced(t)
+	assert.Equal(t, sent().Contains(v1), true)
+}
+
+// stopPushesOnCleanup makes the test cleanup, before the flags set for the test are restored, wait for the push of the
+// last config change, close the streams and wait until the server drops them. A push of the server can still run after
+// the test ends, and a flag write then races with it.
+func stopPushesOnCleanup(t *testing.T, s *xds.FakeDiscoveryServer, closeStreams ...func()) {
+	t.Cleanup(func() {
+		s.EnsureSynced(t)
+		for _, closeStream := range closeStreams {
+			closeStream()
+		}
+		retry.UntilSuccessOrFail(t, func() error {
+			if n := len(s.Discovery.AllClients()); n != 0 {
+				return fmt.Errorf("%d clients still connected", n)
+			}
+			return nil
+		}, retry.Timeout(5*time.Second))
+	})
+}
+
+// deleteShared deletes the config named "shared".
+func deleteShared(kind config.GroupVersionKind, ns string) func(s *xds.FakeDiscoveryServer) {
+	return func(s *xds.FakeDiscoveryServer) {
+		s.Store().Delete(kind, "shared", ns, nil)
+	}
+}
+
+func parseConfig(t *testing.T, yaml string) config.Config {
+	t.Helper()
+	configs, _, err := crd.ParseInputs(yaml)
+	if err != nil || len(configs) != 1 {
+		t.Fatalf("parse %q: %v", yaml, err)
+	}
+	return configs[0]
 }
