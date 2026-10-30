@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** the `nftables` backend to drop all packets with an invalid conntrack state when
+    `DROP_INVALID` is enabled, instead of only TCP packets. This matches the behavior of the
+    `iptables` backend.
