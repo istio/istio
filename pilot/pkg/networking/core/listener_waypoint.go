@@ -807,6 +807,13 @@ func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, 
 	return buildConnectForwarder(push, proxy, class, ConnectOriginate, true)
 }
 
+func hboneOriginationListenerClass(proxy *model.Proxy) istionetworking.ListenerClass {
+	if proxy.IsWaypointProxy() {
+		return istionetworking.ListenerClassSidecarInbound
+	}
+	return model.OutboundListenerClass(proxy.Type)
+}
+
 func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass,
 	clusterName string, tunnel bool,
 ) *listener.Listener {
