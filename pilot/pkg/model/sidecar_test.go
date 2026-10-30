@@ -2988,6 +2988,32 @@ func TestServicesForEgressHostname(t *testing.T) {
 	}
 }
 
+func TestDependsOnConfigUnmergedEgressServices(t *testing.T) {
+	const hostname = "shared.example.com"
+	newEntry := func(ns string) *Service {
+		return &Service{
+			Hostname:   hostname,
+			Ports:      port7443,
+			Attributes: ServiceAttributes{Name: hostname, Namespace: ns, ServiceRegistry: provider.External},
+		}
+	}
+	ps := NewPushContext()
+	ps.Mesh = mesh.DefaultMeshConfig()
+	sc := &SidecarScope{
+		Namespace:       "a",
+		EgressListeners: []*IstioEgressListenerWrapper{{services: []*Service{newEntry("a"), newEntry("b")}}},
+	}
+	sc.collectImportedServices(ps, "a")
+
+	for _, k := range []kind.Kind{kind.ServiceEntry, kind.Endpoints, kind.DNSName} {
+		for ns, want := range map[string]bool{"a": true, "b": true, "c": false} {
+			if got := sc.DependsOnConfig(ConfigKey{k, hostname, ns}, ps.Mesh.RootNamespace); got != want {
+				t.Errorf("%v %s/%s: got %v, want %v", k, ns, hostname, got, want)
+			}
+		}
+	}
+}
+
 // TestSelectServicesExactParity asserts that the exact-host fast path (servicesForExactHosts, used when every
 // imported host is non-wildcarded) returns exactly what the legacy full-scan path (servicesExportedToNamespace)
 // returns once both are run through selectServices. This guards against the two paths diverging.
@@ -3377,6 +3403,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 		return map[ConfigKey]bool{
 			{kind.ServiceEntry, svcName, ns}:   contains,
 			{kind.Endpoints, svcName, ns}:      contains,
+			{kind.DNSName, svcName, ns}:        contains,
 			{kind.VirtualService, vsName, ns}:  contains,
 			{kind.DestinationRule, drName, ns}: contains,
 		}

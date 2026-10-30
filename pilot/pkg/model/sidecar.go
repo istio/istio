@@ -47,6 +47,7 @@ var (
 	sidecarScopedKnownConfigTypes = sets.New(
 		kind.Endpoints,
 		kind.ServiceEntry,
+		kind.DNSName,
 		kind.VirtualService,
 		kind.DestinationRule,
 		kind.Sidecar,
@@ -738,10 +739,16 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	}
 
 	switch config.Kind {
-	case kind.ServiceEntry, kind.Endpoints:
-		// Both are keyed by service hostname and namespace.
-		if svc := sc.servicesByHostname[host.Name(config.Name)]; svc != nil && svc.Attributes.Namespace == config.Namespace {
+	case kind.ServiceEntry, kind.Endpoints, kind.DNSName:
+		// All are keyed by service hostname and namespace.
+		hostname := host.Name(config.Name)
+		if svc := sc.servicesByHostname[hostname]; svc != nil && svc.Attributes.Namespace == config.Namespace {
 			return true
+		}
+		for _, svc := range sc.unmergedEgressServices[hostname] {
+			if svc.Attributes.Namespace == config.Namespace {
+				return true
+			}
 		}
 	case kind.DestinationRule:
 		if _, f := sc.destinationRulesByNames[types.NamespacedName{Name: config.Name, Namespace: config.Namespace}]; f {
