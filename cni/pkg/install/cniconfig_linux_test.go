@@ -68,7 +68,7 @@ func TestCreateCNIConfigFileFixedPrimaryNotifiesCloseWrite(t *testing.T) {
 		t.Fatal("lower-sorting config was modified")
 	}
 
-	if !closeWriteSeen(t, fd, "list.conflist") {
+	if !closeWriteSeen(t, fd) {
 		t.Fatal("no close_write event on list.conflist")
 	}
 }
@@ -97,7 +97,7 @@ func TestCleanupChainedNotifiesCloseWrite(t *testing.T) {
 
 	goldenFilepath := filepath.Join("testdata", "list-no-istio.conflist")
 	testutils.CompareBytes(t, testutils.ReadFile(t, cniConfigFilePath), testutils.ReadFile(t, goldenFilepath), goldenFilepath)
-	if !closeWriteSeen(t, fd, "list.conflist") {
+	if !closeWriteSeen(t, fd) {
 		t.Fatal("no close_write event on list.conflist")
 	}
 }
@@ -116,7 +116,7 @@ func TestRemoveIstioCNIFromPrimaryNotifiesCloseWrite(t *testing.T) {
 
 	goldenFilepath := filepath.Join("testdata", "list-no-istio.conflist")
 	testutils.CompareBytes(t, testutils.ReadFile(t, primary), testutils.ReadFile(t, goldenFilepath), goldenFilepath)
-	if !closeWriteSeen(t, fd, "list.conflist") {
+	if !closeWriteSeen(t, fd) {
 		t.Fatal("no close_write event on list.conflist")
 	}
 }
@@ -146,7 +146,7 @@ func TestUnchangedConfigIsNotNotified(t *testing.T) {
 	if _, err := createCNIConfigFile(ctx, &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if closeWriteSeen(t, fd, "list.conflist") {
+	if closeWriteSeen(t, fd) {
 		t.Fatal("unchanged list.conflist raised close_write")
 	}
 }
@@ -164,7 +164,8 @@ func watchCloseWrite(t *testing.T, dir string) int {
 	return fd
 }
 
-func closeWriteSeen(t *testing.T, fd int, name string) bool {
+// closeWriteSeen reports whether list.conflist raised close_write.
+func closeWriteSeen(t *testing.T, fd int) bool {
 	t.Helper()
 	buf := make([]byte, 64*(unix.SizeofInotifyEvent+unix.NAME_MAX+1))
 	n, err := unix.Read(fd, buf)
@@ -177,7 +178,7 @@ func closeWriteSeen(t *testing.T, fd int, name string) bool {
 	for off := 0; off+unix.SizeofInotifyEvent <= n; {
 		ev := (*unix.InotifyEvent)(unsafe.Pointer(&buf[off]))
 		nameBytes := buf[off+unix.SizeofInotifyEvent : off+unix.SizeofInotifyEvent+int(ev.Len)]
-		if ev.Mask&unix.IN_CLOSE_WRITE != 0 && string(bytes.TrimRight(nameBytes, "\x00")) == name {
+		if ev.Mask&unix.IN_CLOSE_WRITE != 0 && string(bytes.TrimRight(nameBytes, "\x00")) == "list.conflist" {
 			return true
 		}
 		off += unix.SizeofInotifyEvent + int(ev.Len)
