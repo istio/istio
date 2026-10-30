@@ -59,6 +59,10 @@ type BackendTLSSettings struct {
 	Error         *ConfigError
 }
 
+func (b BackendTLSSettings) ResourceName() string {
+	return b.ParentGateway.String()
+}
+
 type ListenerSet struct {
 	*config.Config `json:"config"`
 	Parent         parentKey            `json:"parent"`

@@ -108,8 +108,8 @@ type MergedGateway struct {
 	VerifiedCertificateReferences sets.String
 
 	// ClientCertificateForGateway maps Istio Gateway names to the backend client
-	// certificate SDS resource name, the credential which should be used by the
-	// Gateway when connecting to backends.
+	// credential SDS resource name, or credentials.InvalidSecretTypeURI for invalid references.
+	// Gateways without a configured client certificate are omitted.
 	ClientCertificateForGateway map[string]string
 }
 
