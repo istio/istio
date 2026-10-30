@@ -79,7 +79,7 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 			XDSUpdater:            xdsUpdater,
 			DomainSuffix:          "cluster.local",
 			MeshWatcher:           meshWatcher,
-			MeshConfig:            meshwatcher.NewRestrictedCollection(meshWatcher, nil, krt.NewOptionsBuilder(stop, "kube", nil)),
+			MeshConfig:            meshwatcher.NewRestrictedCollection(meshWatcher, nil, 0, krt.NewOptionsBuilder(stop, "kube", nil)),
 			MeshServiceController: aggregate.NewController(aggregate.Options{MeshHolder: meshWatcher}),
 		},
 	)

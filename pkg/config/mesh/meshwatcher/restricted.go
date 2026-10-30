@@ -15,6 +15,8 @@
 package meshwatcher
 
 import (
+	"time"
+
 	"google.golang.org/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -25,19 +27,33 @@ import (
 )
 
 // NewRestrictedCollection exposes only trust domain and service-scope configuration.
-// The optional remote source must not block synchronization: a synced snapshot bridges
-// its updates into KRT while the local configuration provides the initial fallback.
+// Wait for the remote source's initial events before synchronizing, or use the local
+// fallback after syncTimeout. A zero timeout waits indefinitely; a nil remote source
+// requires no wait. Remote updates continue to apply after the timeout.
 func NewRestrictedCollection(
 	local krt.Singleton[MeshConfigResource],
 	remote krt.Singleton[MeshConfigResource],
+	syncTimeout time.Duration,
 	opts krt.OptionsBuilder,
 ) krt.Singleton[RestrictedMeshConfig] {
-	snapshot := krt.NewStatic[MeshConfigResource](nil, true, opts.WithName("OptionalRemoteMeshConfig")...)
+	snapshot := krt.NewStatic[MeshConfigResource](nil, remote == nil, opts.WithName("OptionalRemoteMeshConfig")...)
 	if remote != nil {
 		reg := remote.AsCollection().RegisterBatch(func(events []krt.Event[MeshConfigResource]) {
 			snapshot.Set(remote.Get())
 		}, true)
+		var timer *time.Timer
+		if syncTimeout > 0 {
+			timer = time.AfterFunc(syncTimeout, snapshot.MarkSynced)
+		}
 		go func() {
+			// Waiting for the registration also ensures the initial remote value
+			// has reached the snapshot before downstream collections can sync.
+			if reg.WaitUntilSynced(opts.Stop()) {
+				snapshot.MarkSynced()
+			}
+			if timer != nil {
+				timer.Stop()
+			}
 			<-opts.Stop()
 			reg.UnregisterHandler()
 		}()

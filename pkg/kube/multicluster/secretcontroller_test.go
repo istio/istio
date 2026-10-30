@@ -1249,6 +1249,7 @@ func TestKRTClustersCollectionSyncTimeoutEviction(t *testing.T) {
 // Optional mesh configuration must not gate either the client informer sync or
 // publication to the ready cluster collection.
 func TestRemoteMeshConfigUnavailable(t *testing.T) {
+	test.SetForTest(t, &features.RemoteClusterTimeout, 20*time.Millisecond)
 	stop := test.NewStop(t)
 	remote := kube.NewFakeClient()
 	denied := uberatomic.NewBool(true)

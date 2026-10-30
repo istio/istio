@@ -209,7 +209,7 @@ func NewController(opts ControllerOptions) *Controller {
 	// The client's ObjectFilter is already set by the caller (server.go / fake.go).
 	clusterOpts := krt.NewOptionsBuilder(controller.stop, fmt.Sprintf("cluster[%s]", opts.ClusterID), opts.Debugger)
 	controller.configCluster.remoteClusterCollections.Store(
-		buildClusterCollections(opts.Client, opts.ClusterID, meshwatcher.NewRestrictedCollection(opts.MeshConfig, nil, clusterOpts), clusterOpts),
+		buildClusterCollections(opts.Client, opts.ClusterID, meshwatcher.NewRestrictedCollection(opts.MeshConfig, nil, 0, clusterOpts), clusterOpts),
 	)
 
 	return controller

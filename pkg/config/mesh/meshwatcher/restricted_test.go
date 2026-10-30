@@ -15,7 +15,9 @@
 package meshwatcher
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/kube/krt"
@@ -27,7 +29,7 @@ func TestRestrictedCollection(t *testing.T) {
 	stop := test.NewStop(t)
 	local := NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "local", RootNamespace: "private"})
 	remote := krt.NewStatic[MeshConfigResource](nil, false)
-	restricted := NewRestrictedCollection(local, remote, krt.NewOptionsBuilder(stop, "test", nil))
+	restricted := NewRestrictedCollection(local, remote, 20*time.Millisecond, krt.NewOptionsBuilder(stop, "test", nil))
 	assert.EventuallyEqual(t, restricted.AsCollection().HasSynced, true)
 	assert.EventuallyEqual(t, restricted.Get, &RestrictedMeshConfig{TrustDomain: "local"})
 	local.Set(&meshconfig.MeshConfig{TrustDomain: "updated-local"})
@@ -51,4 +53,48 @@ func TestRestrictedCollection(t *testing.T) {
 		TrustDomain:         "updated-local",
 		ServiceScopeConfigs: []*meshconfig.MeshConfig_ServiceScopeConfigs{{}},
 	})
+}
+
+func TestRestrictedCollectionInitialSync(t *testing.T) {
+	for _, timeout := range []time.Duration{0, time.Hour} {
+		t.Run(timeout.String(), func(t *testing.T) {
+			stop := test.NewStop(t)
+			local := NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "local"})
+			remote := krt.NewStatic[MeshConfigResource](nil, false)
+			restricted := NewRestrictedCollection(local, remote, timeout, krt.NewOptionsBuilder(stop, "test", nil))
+			// Allow the transformation to start; it must not sync with the fallback
+			// while the remote source is pending and its deadline has not elapsed.
+			time.Sleep(20 * time.Millisecond)
+			assert.Equal(t, restricted.AsCollection().HasSynced(), false)
+			remote.Set(&MeshConfigResource{&meshconfig.MeshConfig{TrustDomain: "remote"}})
+			remote.MarkSynced()
+			assert.EventuallyEqual(t, restricted.AsCollection().HasSynced, true)
+			assert.Equal(t, restricted.Get(), &RestrictedMeshConfig{TrustDomain: "remote"})
+		})
+	}
+}
+
+func TestRestrictedCollectionEmptySource(t *testing.T) {
+	for _, withRemote := range []bool{false, true} {
+		t.Run(fmt.Sprint(withRemote), func(t *testing.T) {
+			stop := test.NewStop(t)
+			local := NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "local"})
+			var remote krt.Singleton[MeshConfigResource]
+			if withRemote {
+				remote = krt.NewStatic[MeshConfigResource](nil, true)
+			}
+			restricted := NewRestrictedCollection(local, remote, time.Hour, krt.NewOptionsBuilder(stop, "test", nil))
+			assert.EventuallyEqual(t, restricted.AsCollection().HasSynced, true)
+			assert.Equal(t, restricted.Get(), &RestrictedMeshConfig{TrustDomain: "local"})
+		})
+	}
+}
+
+func TestRestrictedCollectionStopBeforeSync(t *testing.T) {
+	stop := make(chan struct{})
+	local := NewTestWatcher(nil)
+	remote := krt.NewStatic[MeshConfigResource](nil, false)
+	restricted := NewRestrictedCollection(local, remote, time.Hour, krt.NewOptionsBuilder(stop, "test", nil))
+	close(stop)
+	assert.Equal(t, restricted.AsCollection().HasSynced(), false)
 }

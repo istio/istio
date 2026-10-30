@@ -191,7 +191,7 @@ type remoteClusterCollections struct {
 }
 
 // MeshConfig exposes only trust domain and service scope. Unavailable remote configuration
-// falls back to the config cluster without blocking remote cluster readiness.
+// falls back to the config cluster after the remote sync timeout.
 func (c *Cluster) MeshConfig() krt.Singleton[meshwatcher.RestrictedMeshConfig] {
 	return c.remoteClusterCollections.Load().meshConfig
 }
@@ -407,12 +407,12 @@ func (c *Cluster) buildMeshConfigCollection(
 	opts krt.OptionsBuilder,
 ) krt.Singleton[meshwatcher.RestrictedMeshConfig] {
 	if c.meshConfigMapName == "" {
-		return meshwatcher.NewRestrictedCollection(mesh, nil, opts)
+		return meshwatcher.NewRestrictedCollection(mesh, nil, 0, opts)
 	}
 	client := optionalMeshClient{Client: c.Client, factory: factory}
 	source := kubemesh.NewConfigMapSource(client, c.systemNamespace, c.meshConfigMapName, kubemesh.MeshConfigKey, opts)
 	remote := meshwatcher.NewCollection(opts, source)
-	return meshwatcher.NewRestrictedCollection(mesh, remote, opts)
+	return meshwatcher.NewRestrictedCollection(mesh, remote, features.RemoteClusterTimeout, opts)
 }
 
 // buildClusterCollections creates the standard KRT collections for a cluster.
