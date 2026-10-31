@@ -18,18 +18,38 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	extprocv3 "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
 )
 
 var eppLog = log.RegisterScope("epp", "endpoint picker")
 
+// Neither header below is part of the endpoint picker protocol, which carries these values
+// as envoy.lb dynamic metadata rather than as headers. They exist only so that a test client
+// can read what this fake picker saw, and are named to make that obvious - nothing outside
+// the test framework should depend on them.
+const (
+	// ServedEndpointHeader carries the endpoint Envoy reported as having served the request,
+	// read from x-gateway-destination-endpoint-served. It distinguishes an endpoint that was
+	// merely requested from the one that actually answered.
+	ServedEndpointHeader = "x-test-served-endpoint"
+
+	// PickerIDHeader names the pod running the picker that answered. A route rule may weight
+	// traffic across several InferencePools and each pool's own picker has to score its own
+	// share; the served endpoint alone cannot show which picker was consulted.
+	PickerIDHeader = "x-test-picker-id"
+)
+
 type endpointPickerServer struct {
 	extprocv3.UnimplementedExternalProcessorServer
+	id string
 }
 
 func (s *endpointPickerServer) Process(stream extprocv3.ExternalProcessor_ProcessServer) error {
@@ -144,11 +164,27 @@ func (s *endpointPickerServer) Process(stream extprocv3.ExternalProcessor_Proces
 			}
 
 		case *extprocv3.ProcessingRequest_ResponseHeaders:
-			eppLog.Debug("EPP: Processing ResponseHeaders (no mutation)")
+			// The override_host load balancer writes the host it dialled into envoy.lb - the
+			// endpoint this picker asked for, or the fallback host when that endpoint was not
+			// in the cluster's endpoint set. Surface it as a response header so a test can
+			// tell those two apart without scraping proxy logs.
+			served := servedEndpoint(req.GetMetadataContext())
+			eppLog.Infof("EPP: ResponseHeaders, served endpoint: %q", served)
+			headers := []*corev3.HeaderValueOption{{
+				Header: &corev3.HeaderValue{Key: PickerIDHeader, RawValue: []byte(s.id)},
+			}}
+			if served != "" {
+				headers = append(headers, &corev3.HeaderValueOption{
+					Header: &corev3.HeaderValue{Key: ServedEndpointHeader, RawValue: []byte(served)},
+				})
+			}
+			common := &extprocv3.CommonResponse{
+				HeaderMutation: &extprocv3.HeaderMutation{SetHeaders: headers},
+			}
 			resp = &extprocv3.ProcessingResponse{
 				Response: &extprocv3.ProcessingResponse_ResponseHeaders{
 					ResponseHeaders: &extprocv3.HeadersResponse{
-						Response: &extprocv3.CommonResponse{},
+						Response: common,
 					},
 				},
 			}
@@ -221,7 +257,7 @@ func (e *endpointPickerInstance) Start(onReady OnReadyFunc) error {
 	e.Port.Port = port
 
 	e.server = grpc.NewServer()
-	extprocv3.RegisterExternalProcessorServer(e.server, &endpointPickerServer{})
+	extprocv3.RegisterExternalProcessorServer(e.server, &endpointPickerServer{id: pickerID()})
 
 	go func() {
 		eppLog.Infof("Endpoint Picker gRPC server READY and listening on %s", lis.Addr().String())
@@ -248,4 +284,24 @@ func (e *endpointPickerInstance) Close() error {
 
 func (e *endpointPickerInstance) GetConfig() Config {
 	return e.Config
+}
+
+// servedEndpoint reads x-gateway-destination-endpoint-served out of the envoy.lb namespace
+// of the metadata Envoy forwards with each processing request. An empty result means the
+// key was absent, which is itself a signal: nothing reported the dialled host.
+func servedEndpoint(md *corev3.Metadata) string {
+	return md.GetFilterMetadata()[constants.EnvoySubsetNamespace].
+		GetFields()[constants.GatewayInferenceExtensionEndpointServedKey].
+		GetStringValue()
+}
+
+// pickerID identifies the pod this picker runs in. Tests map it back to the InferencePool
+// the picker fronts.
+func pickerID() string {
+	host, err := os.Hostname()
+	if err != nil {
+		eppLog.Errorf("Failed to read hostname: %v", err)
+		return "unknown"
+	}
+	return host
 }
