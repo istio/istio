@@ -542,8 +542,11 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
-	if updateEDSCache || features.EnableK8SServiceSelectWorkloadEntries {
-		endpoints := c.buildEndpointsForService(currConv, updateEDSCache)
+	// EndpointSlices processed before the Service use the fallback discoverability policy.
+	// Rebuild them now that the Service is available to resolve its export policy.
+	rebuildEndpoints := updateEDSCache || (features.EnableMCSServiceDiscovery && prevConv == nil)
+	if rebuildEndpoints || features.EnableK8SServiceSelectWorkloadEntries {
+		endpoints := c.buildEndpointsForService(currConv, rebuildEndpoints)
 		if len(endpoints) > 0 {
 			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(currConv.Hostname), ns, endpoints)
 		}
