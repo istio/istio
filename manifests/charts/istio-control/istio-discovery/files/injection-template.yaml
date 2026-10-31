@@ -27,6 +27,7 @@
 {{ $tproxy := (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) }}
 {{ $capNetBindService := (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) }}
 {{ $nativeSidecar := ne (index .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar` | default (printf "%t" .NativeSidecars)) "false" }}
+{{- $readinessTimeout := annotation .ObjectMeta `readiness.status.sidecar.istio.io/timeoutSeconds` .Values.global.proxy.readinessTimeoutSeconds }}
 {{- $containers := list }}
 {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
 metadata:
@@ -290,6 +291,8 @@ spec:
         ]
     - name: ISTIO_META_APP_CONTAINERS
       value: "{{ $containers | join "," }}"
+    - name: PROXY_READINESS_PROBE_TIMEOUT
+      value: "{{ $readinessTimeout }}s"
     - name: GOMEMLIMIT
       valueFrom:
         resourceFieldRef:
@@ -362,7 +365,7 @@ spec:
         port: 15021
       initialDelaySeconds: 0
       periodSeconds: 1
-      timeoutSeconds: 3
+      timeoutSeconds: {{ $readinessTimeout }}
       failureThreshold: {{ .Values.global.proxy.startupProbe.failureThreshold }}
   {{ end }}
     readinessProbe:
@@ -371,7 +374,7 @@ spec:
         port: 15021
       initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
       periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
-      timeoutSeconds: 3
+      timeoutSeconds: {{ $readinessTimeout }}
       failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
     {{ end -}}
     securityContext:
