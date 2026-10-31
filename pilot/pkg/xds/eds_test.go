@@ -2420,11 +2420,19 @@ func TestEdsCacheNotPoisonedByMergedPush(t *testing.T) {
 		}
 		return dr.GetRule().Spec.(*networking.DestinationRule).Subsets[0].Labels["hash"]
 	}
-	gen := func(p *model.Proxy, req *model.PushRequest) []string {
+	// gen generates EDS for p and asserts whether it was served from the cache.
+	gen := func(p *model.Proxy, req *model.PushRequest, wantCached bool) []string {
 		t.Helper()
-		res, _, err := eds.Generate(p, w, req)
+		res, details, err := eds.Generate(p, w, req)
 		if err != nil {
 			t.Fatal(err)
+		}
+		want := "cached:0/1"
+		if wantCached {
+			want = "cached:1/1"
+		}
+		if !strings.HasSuffix(details.AdditionalInfo, want) {
+			t.Fatalf("%s: expected %s, got %q", p.ID, want, details.AdditionalInfo)
 		}
 		if len(res) == 0 {
 			return nil
@@ -2476,18 +2484,19 @@ func TestEdsCacheNotPoisonedByMergedPush(t *testing.T) {
 	setEndpoints(ep("10.0.0.1", "old"), ep("10.0.0.2", "new"))
 	fresh := gateway("gw-fresh", "1.1.1.2")
 
-	// [1] New pods ready: gw-fresh must not be served gw-stale's old pod from the shared cache key.
+	// [1] New pods ready: gw-stale regenerates and writes the cache entry that gw-fresh is then served from, so it
+	// must not contain the old pod.
 	req := push(epKey)
-	gen(stale, req)
-	assertEndpoints("[1] gw-fresh after DR change", gen(fresh, req))
+	assertEndpoints("[1] gw-stale after DR change", gen(stale, req, false))
+	assertEndpoints("[1] gw-fresh after DR change", gen(fresh, req, true))
 
-	// [2] Old pods removed: gateways must keep the new pod rather than drop to empty EDS.
+	// [2] Old pods removed: the shared entry must keep the new pod rather than drop to empty EDS.
 	setEndpoints(ep("10.0.0.2", "new"))
 	req = push(epKey)
-	assertEndpoints("[2] gw-stale after old pods removed", gen(stale, req))
-	assertEndpoints("[2] gw-fresh after old pods removed", gen(fresh, req))
+	assertEndpoints("[2] gw-stale after old pods removed", gen(stale, req, false))
+	assertEndpoints("[2] gw-fresh after old pods removed", gen(fresh, req, true))
 
-	// [3] A gateway (re)connecting to this istiod gets the new pod.
+	// [3] A gateway (re)connecting to this istiod is served the new pod from the cache.
 	assertEndpoints("[3] newly connected gateway",
-		gen(gateway("gw-reconnect", "1.1.1.3"), &model.PushRequest{Push: s.PushContext(), Start: time.Now(), Forced: true}))
+		gen(gateway("gw-reconnect", "1.1.1.3"), &model.PushRequest{Push: s.PushContext(), Start: time.Now(), Forced: true}, true))
 }
