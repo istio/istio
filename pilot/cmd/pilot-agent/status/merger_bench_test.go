@@ -18,11 +18,18 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"google.golang.org/protobuf/proto"
+
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/test"
 )
 
 // makeBenchProtoBody constructs a delimited Prometheus protobuf body containing
@@ -124,5 +131,98 @@ func BenchmarkMerger_DecodeReencode_OM(b *testing.B) {
 				b.Fatal(err)
 			}
 		}
+	}
+}
+
+// makeBenchTextAppBody builds a text exposition body of roughly size bytes made of
+// classic histograms, the shape a typical text-only application serves.
+func makeBenchTextAppBody(size int) []byte {
+	var buf bytes.Buffer
+	for i := 0; buf.Len() < size; i++ {
+		fmt.Fprintf(&buf, "# HELP app_latency_%d_seconds latency\n# TYPE app_latency_%d_seconds histogram\n", i, i)
+		for _, le := range []string{"0.005", "0.01", "0.05", "0.1", "0.5", "1", "5", "+Inf"} {
+			fmt.Fprintf(&buf, "app_latency_%d_seconds_bucket{route=\"/api/v1/items\",code=\"200\",le=\"%s\"} %d\n", i, le, i)
+		}
+		fmt.Fprintf(&buf, "app_latency_%d_seconds_sum{route=\"/api/v1/items\",code=\"200\"} 1.5\n", i)
+		fmt.Fprintf(&buf, "app_latency_%d_seconds_count{route=\"/api/v1/items\",code=\"200\"} %d\n", i, i)
+	}
+	return buf.Bytes()
+}
+
+// BenchmarkHandleStats_TextApp is the cost comparison for protobuf upconversion. It
+// scrapes a text application merged with a protobuf-capable Envoy end to end through
+// handleStats, in three modes: a text-only scraper (byte-concat fast path), a
+// protobuf-preferring scraper with upconversion disabled (decode, downgrade to text),
+// and the same scraper with upconversion enabled (decode, re-encode as protobuf).
+func BenchmarkHandleStats_TextApp(b *testing.B) {
+	envoyProto := makeBenchProtoBody(b, 2_000)
+	envoyMfs, err := decodeAll(bytes.NewReader(envoyProto), FmtProtoDelim)
+	if err != nil {
+		b.Fatal(err)
+	}
+	var envoyText bytes.Buffer
+	textEnc := expfmt.NewEncoder(&envoyText, FmtText)
+	for _, mf := range envoyMfs {
+		if err := textEnc.Encode(mf); err != nil {
+			b.Fatal(err)
+		}
+	}
+	envoySrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.Header.Get("Accept"), expfmt.ProtoType) {
+			w.Header().Set("Content-Type", string(FmtProtoDelim))
+			_, _ = w.Write(envoyProto)
+			return
+		}
+		w.Header().Set("Content-Type", FmtText)
+		_, _ = w.Write(envoyText.Bytes())
+	}))
+	defer envoySrv.Close()
+	envoyPort, err := strconv.Atoi(strings.Split(envoySrv.URL, ":")[2])
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	modes := []struct {
+		name      string
+		accept    string
+		upconvert bool
+	}{
+		{"fastpath", "text/plain;version=0.0.4", false},
+		{"downgrade", acceptPrometheusNative, false},
+		{"upconvert", acceptPrometheusNative, true},
+	}
+	for _, size := range []int{100 << 10, 1 << 20, 5 << 20} {
+		appBody := makeBenchTextAppBody(size)
+		appSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", FmtText)
+			_, _ = w.Write(appBody)
+		}))
+		for _, mode := range modes {
+			b.Run(fmt.Sprintf("app=%dKiB/%s", size>>10, mode.name), func(b *testing.B) {
+				test.SetForTest(b, &features.AgentMetricsProtobufUpconversion, mode.upconvert)
+				server := &Server{
+					prometheus:      &PrometheusScrapeConfiguration{Port: strings.Split(appSrv.URL, ":")[2]},
+					registry:        TestingRegistry(b),
+					envoyStatsPort:  envoyPort,
+					http:            &http.Client{},
+					maxAppBodyBytes: defaultMaxAppMetricsBodyBytes,
+				}
+				req := &http.Request{Header: make(http.Header)}
+				req.Header.Set("Accept", mode.accept)
+				b.SetBytes(int64(len(appBody)))
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					rec := httptest.NewRecorder()
+					server.handleStats(rec, req)
+					if rec.Code != http.StatusOK {
+						b.Fatalf("status = %d", rec.Code)
+					}
+				}
+				b.StopTimer()
+				b.ReportMetric(float64(scrapeWithAccept(server, mode.accept).Body.Len()), "resp-bytes")
+			})
+		}
+		appSrv.Close()
 	}
 }
