@@ -15,6 +15,7 @@
 package install
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -145,7 +146,14 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 		}
 	}
 
-	if err = file.AtomicWrite(cniConfigFilepath, istioPlugin, fileMode); err != nil {
+	// Other CNIs watch this dir and may copy our config on every write (e.g. Antrea chaining
+	// on the istio-owned config), so an unchanged config must not be rewritten.
+	unchanged := false
+	if existing, readErr := os.ReadFile(cniConfigFilepath); readErr == nil && bytes.Equal(existing, istioPlugin) &&
+		!strings.HasSuffix(cniConfigFilepath, ".conf") {
+		unchanged = true
+		installLog.Debugf("CNI config %s is unchanged, not rewriting", cniConfigFilepath)
+	} else if err = file.AtomicWrite(cniConfigFilepath, istioPlugin, fileMode); err != nil {
 		installLog.Errorf("Failed to write CNI config file %v: %v", cniConfigFilepath, err)
 		return cniConfigFilepath, err
 	}
@@ -161,7 +169,10 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 		cniConfigFilepath += "list"
 	}
 
-	installLog.Infof("Wrote CNI config to %s", cniConfigFilepath)
+	if !unchanged {
+		notifyCloseWrite(cniConfigFilepath)
+		installLog.Infof("Wrote CNI config to %s", cniConfigFilepath)
+	}
 
 	if cleanup != nil {
 		if err := cleanup(); err != nil {
@@ -170,6 +181,18 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 	}
 
 	return cniConfigFilepath, nil
+}
+
+// notifyCloseWrite opens and closes the file without writing so watchers that only
+// listen for close_write on the final name (e.g. Antrea's chaining installer) see the
+// update. AtomicWrite replaces the file with a rename, which only raises moved_to.
+func notifyCloseWrite(path string) {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		installLog.Debugf("failed to open %s to notify watchers: %v", path, err)
+		return
+	}
+	_ = f.Close()
 }
 
 // If configured as chained CNI plugin, waits indefinitely for a main CNI config file to exist before returning
@@ -335,6 +358,7 @@ func removeIstioCNIFromPrimary(cniConfigFilepath string, fileMode os.FileMode) e
 	if err := file.AtomicWrite(cniConfigFilepath, updatedConfig, fileMode); err != nil {
 		return err
 	}
+	notifyCloseWrite(cniConfigFilepath)
 	installLog.Infof("removed istio-cni plugin from primary CNI config %s", cniConfigFilepath)
 	return nil
 }
