@@ -1192,6 +1192,9 @@ message ProxyConfig {
   // Sets the number of successive failed probes before indicating readiness failure.
   uint32 readinessFailureThreshold = 22;
 
+  // Sets the timeout for readiness probes in seconds.
+  uint32 readinessTimeoutSeconds = 44;
+
   // Configures the seccomp profile for the istio-validation and istio-proxy containers.
   //
   // See: https://kubernetes.io/docs/tutorials/security/seccomp/
