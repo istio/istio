@@ -272,6 +272,33 @@ func TestDeltaEDSIgnoresSkippedConfigs(t *testing.T) {
 	assert.Equal(t, slices.Map(resp.Resources, func(r *discovery.Resource) string { return r.Name }), clusters[:1])
 }
 
+func TestDeltaCredentialUpdatesSkipCDSAndLDS(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s.MemRegistry.AddHTTPService("cred.default.svc.cluster.local", "10.0.0.1", 80)
+	s.EnsureSynced(t)
+
+	cds := s.ConnectDeltaADS().WithType(v3.ClusterType)
+	cds.RequestResponseAck(nil)
+	lds := s.ConnectDeltaADS().WithType(v3.ListenerType)
+	lds.RequestResponseAck(nil)
+
+	for _, cfg := range []model.ConfigKey{
+		{Kind: kind.Secret, Name: "my-secret", Namespace: "default"},
+		{Kind: kind.ConfigMap, Name: "kube-root-ca.crt", Namespace: "default"},
+	} {
+		s.Discovery.Push(&model.PushRequest{
+			ConfigsUpdated: sets.New(cfg),
+			Reason:         model.NewReasonStats(model.SecretTrigger),
+		}, true)
+		cds.ExpectNoResponse()
+		lds.ExpectNoResponse()
+	}
+
+	s.MemRegistry.AddHTTPService("cred-2.default.svc.cluster.local", "10.0.0.2", 80)
+	cds.ExpectResponse()
+	lds.ExpectResponse()
+}
+
 func TestDeltaWorkloadAddressOnlyUpdate(t *testing.T) {
 	test.SetForTest(t, &features.ScopedAddressPushes, true)
 	store := newTestAmbientStore()
