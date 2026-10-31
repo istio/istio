@@ -50,7 +50,7 @@ import (
 )
 
 func init() {
-	features.WorkloadEntryCleanupGracePeriod = 50 * time.Millisecond
+	features.WorkloadEntryCleanupGracePeriod = 500 * time.Millisecond
 }
 
 var _ connection = &fakeConn{}
