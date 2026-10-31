@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/genproto/googleapis/rpc/status"
@@ -238,5 +239,48 @@ func TestShouldRespondDelta(t *testing.T) {
 			}
 			assert.Equal(t, shouldRespondDelta(conn, tt.request), tt.response)
 		})
+	}
+}
+
+func TestDeferClusterRemovals(t *testing.T) {
+	con := &Connection{}
+	con.deferClusterRemovals([]string{"a", "b"})
+	con.deferClusterRemovals([]string{"c"})
+	assert.Equal(t, len(con.deferredClusterRemovals), 1)
+	assert.Equal(t, con.deferredClusterRemovals[0].clusters, sets.New("a", "b", "c"))
+
+	// Once the proxy has ACKed, later removals wait for their own ACK and drain.
+	con.deferredClusterRemovals[0].removeAt = time.Now()
+	con.deferClusterRemovals([]string{"b", "d"})
+	assert.Equal(t, len(con.deferredClusterRemovals), 2)
+	assert.Equal(t, con.deferredClusterRemovals[0].clusters, sets.New("a", "c"))
+	assert.Equal(t, con.deferredClusterRemovals[1].clusters, sets.New("b", "d"))
+}
+
+func TestClusterRemovalTimerWaitsForAck(t *testing.T) {
+	con := &Connection{}
+	con.proxy = &model.Proxy{
+		WatchedResources: map[string]*model.WatchedResource{
+			v3.ListenerType: {TypeUrl: v3.ListenerType, NonceSent: "n"},
+		},
+	}
+	con.deferredClusterRemovals = []*deferredClusterRemoval{{clusters: sets.New("a"), removeAt: time.Now().Add(-time.Second)}}
+
+	// A past-due batch with an unacknowledged listener response must not keep firing the timer; it is released
+	// by the request that acknowledges the listener.
+	con.resetClusterRemovalTimer(time.Now(), listenersAndRoutesAcked(con.proxy, true))
+	select {
+	case <-con.clusterRemovalTimerC():
+		t.Fatal("timer re-fires while the listener response is unacknowledged")
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	// Once acknowledged, the due batch is releasable and the timer fires.
+	con.proxy.WatchedResources[v3.ListenerType].NonceAcked = "n"
+	con.resetClusterRemovalTimer(time.Now(), listenersAndRoutesAcked(con.proxy, true))
+	select {
+	case <-con.clusterRemovalTimerC():
+	case <-time.After(time.Second):
+		t.Fatal("timer did not fire for a due and acknowledged removal")
 	}
 }

@@ -142,6 +142,10 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 			if err != nil {
 				return err
 			}
+		case <-con.clusterRemovalTimerC():
+			if err := s.flushPendingClusterRemovals(con, false); err != nil {
+				return err
+			}
 		case <-con.StopCh():
 			return nil
 		}
@@ -170,6 +174,10 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		if err := s.pushDeltaXds(con, w, pushRequest); err != nil {
 			return err
 		}
+	}
+	// Release removals whose listeners and routes are already ACKed and drained.
+	if err := s.flushPendingClusterRemovals(con, false); err != nil {
+		return err
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -277,6 +285,11 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	}
 
 	shouldRespond := shouldRespondDelta(con, req)
+	// An ACK may be the last one deferred cluster removals were waiting for. A request also proves the proxy is
+	// live: if it fetched no listeners by now, it is not going to.
+	if err := s.flushPendingClusterRemovals(con, true); err != nil {
+		return err
+	}
 	if !shouldRespond {
 		return nil
 	}
@@ -551,6 +564,12 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 	if neverRemoveDelta(w.TypeUrl) {
 		resp.RemovedResources = nil
 	}
+	deferred := 0
+	if len(resp.RemovedResources) > 0 && shouldDeferRemoval(con, w.TypeUrl) {
+		con.deferClusterRemovals(resp.RemovedResources)
+		deferred = len(resp.RemovedResources)
+		resp.RemovedResources = nil
+	}
 	if len(resp.RemovedResources) > 0 {
 		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.ID(), resp.RemovedResources)
 	}
@@ -568,6 +587,9 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 	}
 	if len(logFiltered) > 0 {
 		info += logFiltered
+	}
+	if deferred > 0 {
+		info += " deferred removals:" + strconv.Itoa(deferred)
 	}
 
 	if err := con.sendDelta(resp, newResourceNames); err != nil {
@@ -619,6 +641,177 @@ func neverRemoveDelta(url string) bool {
 	// https://github.com/envoyproxy/envoy/issues/32823
 	// We want to garbage collect extensions when they are no longer referenced, rather than delete immediately
 	return url == v3.ExtensionConfigurationType
+}
+
+// shouldDeferRemoval checks if removals of a type should wait until the proxy has ACKed its listeners and routes.
+// Envoy drops a removed cluster immediately, so removing it while an applied listener or route still refers to it
+// fails those requests with "cluster_not_found" until the replacement arrives. Only clusters are deferred, and only
+// for proxies fetching listeners: routes are always fetched through a listener, so otherwise nothing can refer to them.
+// The first clusters sent on a stream can only remove clusters the proxy kept from a previous stream, whose listeners
+// may still be draining, and are sent before the proxy subscribes to listeners again, so they are deferred as well.
+func shouldDeferRemoval(con *Connection, url string) bool {
+	if !features.DeferClusterRemoval || url != v3.ClusterType {
+		return false
+	}
+	if con.proxy.GetWatchedResource(v3.ListenerType) != nil {
+		return true
+	}
+	if !fetchesListeners(con.proxy) {
+		return false
+	}
+	w := con.proxy.GetWatchedResource(v3.ClusterType)
+	return w != nil && w.NonceSent == ""
+}
+
+// fetchesListeners reports whether a proxy type configures its traffic through listeners fetched over xDS, so
+// cluster removals can race with the drain of the listeners referring to them.
+func fetchesListeners(proxy *model.Proxy) bool {
+	switch proxy.Type {
+	case model.SidecarProxy, model.Router, model.Waypoint:
+		return true
+	default:
+		return false
+	}
+}
+
+// deferredClusterRemoval is a set of cluster removals held back by shouldDeferRemoval.
+type deferredClusterRemoval struct {
+	clusters sets.String
+	// removeAt is zero until the proxy has ACKed the listeners and routes sent after the clusters were removed.
+	removeAt time.Time
+}
+
+// deferClusterRemovals holds back the removal of clusters until flushPendingClusterRemovals finds nothing can refer
+// to them anymore.
+func (conn *Connection) deferClusterRemovals(clusters []string) {
+	for _, d := range conn.deferredClusterRemovals {
+		// Only the latest removal of a cluster counts: it may have been added back and removed again since.
+		d.clusters.DeleteAll(clusters...)
+	}
+	if n := len(conn.deferredClusterRemovals); n > 0 && conn.deferredClusterRemovals[n-1].removeAt.IsZero() {
+		conn.deferredClusterRemovals[n-1].clusters.InsertAll(clusters...)
+		return
+	}
+	conn.deferredClusterRemovals = append(conn.deferredClusterRemovals, &deferredClusterRemoval{clusters: sets.New(clusters...)})
+}
+
+// clusterRemovalTimerC fires when the next deferred cluster removal is due, or never if none is.
+func (conn *Connection) clusterRemovalTimerC() <-chan time.Time {
+	if conn.clusterRemovalTimer == nil {
+		return nil
+	}
+	return conn.clusterRemovalTimer.C
+}
+
+// resetClusterRemovalTimer arms the timer for the next removal that is due, if any. releasable must be false while
+// something other than time is keeping the removals held (an unacknowledged listener or route response): those are
+// released by the request that acknowledges them, and arming the timer for them would fire it on every loop
+// iteration without ever releasing.
+func (conn *Connection) resetClusterRemovalTimer(now time.Time, releasable bool) {
+	var next time.Time
+	if releasable {
+		for _, d := range conn.deferredClusterRemovals {
+			if !d.removeAt.IsZero() && (next.IsZero() || d.removeAt.Before(next)) {
+				next = d.removeAt
+			}
+		}
+	}
+	switch {
+	case next.IsZero():
+		if conn.clusterRemovalTimer != nil {
+			conn.clusterRemovalTimer.Stop()
+		}
+	case conn.clusterRemovalTimer == nil:
+		conn.clusterRemovalTimer = time.NewTimer(next.Sub(now))
+	default:
+		conn.clusterRemovalTimer.Reset(next.Sub(now))
+	}
+}
+
+// listenersAndRoutesAcked checks if the proxy has ACKed the last listener and route responses sent to it.
+// Envoy applies responses on a stream in order, so this also covers every earlier listener and route response.
+// A subscription is not an ACK: while the response it triggers is unacknowledged, Envoy is still serving its
+// previous listeners and routes. allowNoListeners lets a proxy that never subscribes to listeners complete; it is
+// only set when the check follows a request from the proxy, so one is never waited for.
+func listenersAndRoutesAcked(proxy *model.Proxy, allowNoListeners bool) bool {
+	if w := proxy.GetWatchedResource(v3.ListenerType); w != nil {
+		if w.NonceSent == "" || proxy.NonceAcked(v3.ListenerType) != w.NonceSent {
+			return false
+		}
+	} else if !allowNoListeners {
+		return false
+	}
+	// Routes are optional: a proxy without route tables refers to its clusters from its listeners alone.
+	if w := proxy.GetWatchedResource(v3.RouteType); w != nil && (w.NonceSent == "" || proxy.NonceAcked(v3.RouteType) != w.NonceSent) {
+		return false
+	}
+	return true
+}
+
+// clusterRemovalDelay is how long removed clusters are kept once the proxy has ACKed the listeners and routes that no
+// longer refer to them. Envoy keeps serving the connections of a replaced listener with its previous filter chains
+// for up to its drain time, which pilot-agent sets to the proxy's drain duration.
+func (s *DiscoveryServer) clusterRemovalDelay(proxy *model.Proxy) time.Duration {
+	if proxy.Metadata != nil && proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.DrainDuration != nil {
+		return proxy.Metadata.ProxyConfig.DrainDuration.AsDuration()
+	}
+	return s.Env.Mesh().GetDefaultConfig().GetDrainDuration().AsDuration()
+}
+
+// flushPendingClusterRemovals sends the cluster removals held back by shouldDeferRemoval once nothing the proxy is
+// still using can refer to them: the proxy has ACKed the listeners and routes sent after them, and the listeners
+// those replaced have drained. A NACK keeps them held, as Envoy keeps using its previous listeners and routes.
+// Clusters added back in the meantime are not removed. allowNoListeners, which only callers processing a request
+// from the proxy set, lets proxies that never fetch listeners (e.g. router agents watching only clusters and
+// routes) complete instead of holding their removals forever. On a reconnect it arms the drain timer when the
+// proxy acknowledges the clusters, shortly before it subscribes to listeners again; a proxy that fetched its
+// listeners much later would be removed no differently had the removal not been deferred at all.
+func (s *DiscoveryServer) flushPendingClusterRemovals(con *Connection, allowNoListeners bool) error {
+	if len(con.deferredClusterRemovals) == 0 {
+		return nil
+	}
+	now := time.Now()
+	acked := listenersAndRoutesAcked(con.proxy, allowNoListeners)
+	releaseAcked := listenersAndRoutesAcked(con.proxy, true)
+	removed := sets.New[string]()
+	remaining := con.deferredClusterRemovals[:0]
+	for _, d := range con.deferredClusterRemovals {
+		if d.removeAt.IsZero() && acked {
+			d.removeAt = now.Add(s.clusterRemovalDelay(con.proxy))
+		}
+		// A batch armed through the no-listeners release valve must still wait if the proxy then subscribed to
+		// listeners, as on a reconnect, where they arrive shortly after the clusters.
+		if !d.removeAt.IsZero() && !now.Before(d.removeAt) && releaseAcked {
+			removed.Merge(d.clusters)
+			continue
+		}
+		remaining = append(remaining, d)
+	}
+	clear(con.deferredClusterRemovals[len(remaining):])
+	con.deferredClusterRemovals = remaining
+	con.resetClusterRemovalTimer(now, releaseAcked)
+
+	if w := con.proxy.GetWatchedResource(v3.ClusterType); w != nil {
+		removed = removed.DifferenceInPlace(w.ResourceNames)
+	}
+	if len(removed) == 0 {
+		return nil
+	}
+
+	version := ""
+	if push := con.proxy.LastPushContext; push != nil {
+		version = push.PushVersion
+	}
+	resp := &discovery.DeltaDiscoveryResponse{
+		ControlPlane:      ControlPlane(v3.ClusterType),
+		TypeUrl:           v3.ClusterType,
+		SystemVersionInfo: version,
+		Nonce:             nonce(version),
+		RemovedResources:  sets.SortedList(removed),
+	}
+	deltaLog.Infof("CDS: PUSH (deferred removals) for node:%s resources:0 removed:%d", con.ID(), len(resp.RemovedResources))
+	deltaLog.Debugf("ADS:CDS REMOVE (deferred) for node:%s %v", con.ID(), resp.RemovedResources)
+	return con.sendDelta(resp, nil)
 }
 
 // shouldSetWatchedResources indicates whether we should set the watched resources for a given type.
