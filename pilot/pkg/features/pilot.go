@@ -189,6 +189,21 @@ var (
 		"If enabled, the node-untaint controller also requires ztunnel to be ready on a node before "+
 			"removing the readiness taint. Only applies when ambient is enabled.")
 
+	NodeTaintWhenNotReady = env.Register(
+		"PILOT_NODE_TAINT_WHEN_NOT_READY",
+		false,
+		"If enabled, the node-untaint controller also adds the readiness taint to nodes where the istio-cni "+
+			"(or, with PILOT_NODE_UNTAINT_CHECK_ZTUNNEL, ztunnel) DaemonSet should run but its pod is not ready. "+
+			"Requires PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS.").Get()
+
+	NodeTaintMaxPercent = env.Register(
+		"PILOT_NODE_TAINT_MAX_PERCENT",
+		10,
+		"With PILOT_NODE_TAINT_WHEN_NOT_READY, the most nodes (as a percentage of the nodes the istio-cni or ztunnel "+
+			"DaemonSet should run on, and at least one) that may carry the readiness taint. Past it, no more nodes "+
+			"are tainted until tainted nodes recover, so a cluster-wide dataplane outage does not stop scheduling everywhere. "+
+			"Removing the taint is never limited.").Get()
+
 	EnableIPAutoallocate = env.Register(
 		"PILOT_ENABLE_IP_AUTOALLOCATE",
 		true,
