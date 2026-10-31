@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/krt"
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
@@ -2966,4 +2967,26 @@ func TestNamespaceTrafficDistributionInheritance(t *testing.T) {
 	if svc.Attributes.TrafficDistribution != model.TrafficDistributionPreferSameZone {
 		t.Fatalf("expected TrafficDistributionPreferSameZone, got %v", svc.Attributes.TrafficDistribution)
 	}
+}
+
+func TestMeshConfigPushOnlyOnUpdate(t *testing.T) {
+	client := kubelib.NewFakeClient()
+	stop := make(chan struct{})
+	meshConfig := krt.NewStatic[meshwatcher.RestrictedMeshConfig](nil, true, krt.WithStop(stop))
+	updater := xdsfake.NewFakeXDS()
+	c := NewController(client, Options{MeshConfig: meshConfig, XDSUpdater: updater})
+	t.Cleanup(func() {
+		close(stop)
+		assert.NoError(t, c.Cleanup(false))
+		client.Shutdown()
+	})
+	client.RunAndWait(stop)
+	go c.Run(stop)
+	// Compute the initial value only after the controller has registered its handler.
+	meshConfig.Set(&meshwatcher.RestrictedMeshConfig{TrustDomain: "local"})
+	assert.EventuallyEqual(t, c.HasSynced, true)
+	updater.AssertEmpty(t, 100*time.Millisecond)
+	// Remote configuration becoming available still triggers the required push.
+	meshConfig.Set(&meshwatcher.RestrictedMeshConfig{TrustDomain: "remote"})
+	updater.MatchOrFail(t, xdsfake.Event{Type: "xds forced"})
 }

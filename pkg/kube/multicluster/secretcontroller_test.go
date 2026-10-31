@@ -27,8 +27,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -1241,4 +1244,50 @@ func TestKRTClustersCollectionSyncTimeoutEviction(t *testing.T) {
 	cl := c.cs.GetByID("c0")
 	assert.Equal(t, cl != nil, true)
 	assert.Equal(t, cl.SyncDidTimeout(), true)
+}
+
+// Optional mesh configuration must not gate either the client informer sync or
+// publication to the ready cluster collection.
+func TestRemoteMeshConfigUnavailable(t *testing.T) {
+	test.SetForTest(t, &features.RemoteClusterTimeout, 20*time.Millisecond)
+	stop := test.NewStop(t)
+	remote := kube.NewFakeClient()
+	denied := uberatomic.NewBool(true)
+	remote.Kube().(*fake.Clientset).PrependReactor("list", "configmaps", func(ktesting.Action) (bool, runtime.Object, error) {
+		if denied.Load() {
+			return true, nil, fmt.Errorf("configmaps forbidden")
+		}
+		return false, nil, nil
+	})
+	local := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "local"})
+	c := &Cluster{
+		ID: "remote", Client: remote, stop: stop,
+		initialSync: uberatomic.NewBool(false), initialSyncTimeout: uberatomic.NewBool(false),
+		remoteClusterCollections: uberatomic.NewPointer[remoteClusterCollections](nil),
+		systemNamespace:          secretNamespace, meshConfigMapName: "istio", SyncedCh: make(chan struct{}),
+	}
+	go c.Run(local, nil, Add, nil, nil)
+	assert.EventuallyEqual(t, c.initialSync.Load, true)
+	store := NewClustersStore()
+	store.Store("secret", c.ID, c)
+	assert.Equal(t, len(store.AllReady()["secret"]), 1)
+	assert.EventuallyEqual(t, c.MeshConfig().Get, &meshwatcher.RestrictedMeshConfig{TrustDomain: "local"})
+	clienttest.NewWriter[*v1.ConfigMap](t, remote).Create(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "istio", Namespace: secretNamespace},
+		Data:       map[string]string{"mesh": "trustDomain: remote\nrootNamespace: forbidden"},
+	})
+	denied.Store(false)
+	assert.EventuallyEqual(t, c.MeshConfig().Get, &meshwatcher.RestrictedMeshConfig{TrustDomain: "remote"})
+}
+
+func TestMeshConfigMapName(t *testing.T) {
+	for _, revision := range []string{"", "default", "canary"} {
+		t.Run(revision, func(t *testing.T) {
+			want := "istio"
+			if revision == "canary" {
+				want = "istio-canary"
+			}
+			assert.Equal(t, meshConfigMapName(revision), want)
+		})
+	}
 }

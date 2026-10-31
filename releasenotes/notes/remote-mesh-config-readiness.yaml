@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** remote cluster synchronization and ambient multicluster workload discovery being blocked
+    when istiod lacks permission to read the remote mesh configuration ConfigMap. After
+    `PILOT_REMOTE_CLUSTER_TIMEOUT`, Istiod now falls back to the config cluster's trust domain and
+    service scope, allowing discovery to proceed. It switches to the remote configuration when
+    it becomes available.

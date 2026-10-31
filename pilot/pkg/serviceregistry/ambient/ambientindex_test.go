@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -2498,7 +2499,35 @@ func newAmbientTestServerWithFlags(
 	cl := kubeclient.NewFakeClient()
 	t.Cleanup(cl.Shutdown)
 	debugger := krt.GlobalDebugHandler
-	meshConfig := meshwatcher.NewTestWatcher(nil)
+	config := mesh.DefaultMeshConfig()
+	if features.EnableAmbientMultiNetwork {
+		config.ServiceScopeConfigs = []*v1alpha1.MeshConfig_ServiceScopeConfigs{
+			{
+				ServicesSelector: &v1alpha1.LabelSelector{
+					MatchExpressions: []*v1alpha1.LabelSelectorRequirement{
+						{
+							Key:      "istio.io/global",
+							Operator: "Exists",
+						},
+					},
+				},
+				Scope: v1alpha1.MeshConfig_ServiceScopeConfigs_GLOBAL,
+			},
+			{
+				NamespaceSelector: &v1alpha1.LabelSelector{
+					MatchExpressions: []*v1alpha1.LabelSelectorRequirement{
+						{
+							Key:      "istio.io/global",
+							Operator: "Exists",
+						},
+					},
+				},
+				Scope: v1alpha1.MeshConfig_ServiceScopeConfigs_GLOBAL,
+			},
+		}
+	}
+
+	meshConfig := meshwatcher.NewTestWatcher(config)
 
 	stop := test.NewStop(t)
 	mcOpts := multicluster.ControllerOptions{
@@ -2525,33 +2554,6 @@ func newAmbientTestServerWithFlags(
 
 	if err := o.MultiClusterController.Run(stop); err != nil {
 		t.Fatalf("failed to run multicluster controller: %v", err)
-	}
-
-	if features.EnableAmbientMultiNetwork {
-		o.MeshConfig.Mesh().ServiceScopeConfigs = []*v1alpha1.MeshConfig_ServiceScopeConfigs{
-			{
-				ServicesSelector: &v1alpha1.LabelSelector{
-					MatchExpressions: []*v1alpha1.LabelSelectorRequirement{
-						{
-							Key:      "istio.io/global",
-							Operator: "Exists",
-						},
-					},
-				},
-				Scope: v1alpha1.MeshConfig_ServiceScopeConfigs_GLOBAL,
-			},
-			{
-				NamespaceSelector: &v1alpha1.LabelSelector{
-					MatchExpressions: []*v1alpha1.LabelSelectorRequirement{
-						{
-							Key:      "istio.io/global",
-							Operator: "Exists",
-						},
-					},
-				},
-				Scope: v1alpha1.MeshConfig_ServiceScopeConfigs_GLOBAL,
-			},
-		}
 	}
 
 	return newAmbientTestServerFromOptions(t, networkID, o, runClient)
