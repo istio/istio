@@ -102,7 +102,7 @@ func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultCluste
 
 	// try to resolve the service and port
 	var port *model.Port
-	svc := push.ServiceForHostname(node, hostname)
+	svc := node.SidecarScope.GetService(hostname)
 	if svc == nil {
 		return nil, fmt.Errorf("cds gen for %s: did not find service for cluster %s", node.ID, defaultClusterName)
 	}
@@ -223,6 +223,11 @@ func (b *clusterBuilder) applyLoadBalancing(c *cluster.Cluster, policy *networki
 
 	if lb.GetConsistentHash() != nil {
 		corexds.ApplyRingHashLoadBalancer(c, lb)
+		return
+	}
+
+	if lb.GetBackendUtilization() != nil {
+		log.Warnf("cannot apply backendUtilization LbPolicy to %s: not supported for proxyless gRPC", b.node.ID)
 		return
 	}
 

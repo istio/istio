@@ -1,0 +1,67 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+issue:
+  - 60964
+
+releaseNotes:
+- |
+  **Added** experimental support for targeting Gateway API `HTTPRoute` resources from an
+  `AuthorizationPolicy` via `targetRefs`, allowing `ALLOW` and `DENY` rules to be scoped to an
+  individual route rather than the entire gateway. This is disabled by default and is enabled by
+  setting `ENABLE_GATEWAY_API_HTTPROUTE_AUTH=true` on `istiod`. The policy must live in the same
+  namespace as the `HTTPRoute` it targets, and only ingress gateways are supported; waypoints and
+  sidecars ignore these policies. `CUSTOM` and `AUDIT` actions cannot be targeted at an
+  `HTTPRoute`, and an `HTTPRoute` target reference cannot be combined with target references of
+  other kinds in the same policy.
+
+- |
+  **Improved** the evaluation of `ALLOW` policies on routes targeted by an `AuthorizationPolicy`.
+  A route-scoped `ALLOW` policy is evaluated together with the gateway's own `ALLOW` policies, so
+  a request is permitted if it matches either. A route-scoped `ALLOW` policy therefore widens
+  access on that route rather than restricting it, consistent with how `ALLOW` policies in the
+  root and workload namespaces already combine. Route-scoped `DENY` policies are additive and
+  cannot override a `DENY` policy defined for the gateway or in the root namespace.
+
+- |
+  **Added** analyzer message `IST0178`, which warns when an `EnvoyFilter` inserts an HTTP filter
+  while an `AuthorizationPolicy` targeting an `HTTPRoute` is present. EnvoyFilters that clear the
+  routing cache after a route-dependent filter has run can cause a request to be routed
+  differently than it was when the filter was evaluated.
+
+upgradeNotes:
+- title: EnvoyFilter patches matching the gateway RBAC filter by name
+  content: |
+    When `ENABLE_GATEWAY_API_HTTPROUTE_AUTH=true`, the `ALLOW` action's HTTP filter on ingress
+    gateways is emitted as `istio.authorization.allow` instead of `envoy.filters.http.rbac`. A
+    distinct name is required so that route-scoped configuration can address the `ALLOW` filter
+    without also affecting the `DENY` and `AUDIT` filters, which continue to use
+    `envoy.filters.http.rbac`.
+
+    This affects any `EnvoyFilter` that matches the RBAC filter by name, for example:
+
+    ```yaml
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.http.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.rbac
+    ```
+
+    Such a patch no longer matches the `ALLOW` filter. `MERGE`, `REPLACE` and `REMOVE` operations
+    silently stop applying to it, while `INSERT_BEFORE` and `INSERT_AFTER` drop the supplied filter
+    from the chain entirely rather than falling back to another position. Gateways whose only
+    authorization policies use the `ALLOW` action have no filter named
+    `envoy.filters.http.rbac` at all.
+
+    No warning is emitted when a patch fails to match unless `PILOT_ENVOY_FILTER_STATS=true` is
+    set on `istiod`, which exposes the `pilot_envoy_filter_status` metric.
+
+    If you rely on such a patch, either add a second `EnvoyFilter` matching
+    `istio.authorization.allow`, or leave `ENABLE_GATEWAY_API_HTTPROUTE_AUTH` disabled. Envoy
+    statistics are unaffected, as RBAC filter metrics are derived from the connection manager's
+    stat prefix rather than the filter name.

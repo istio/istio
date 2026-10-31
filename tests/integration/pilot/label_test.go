@@ -27,7 +27,7 @@ import (
 
 func TestLabelChanges(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			cfg := `apiVersion: networking.istio.io/v1
 kind: VirtualService

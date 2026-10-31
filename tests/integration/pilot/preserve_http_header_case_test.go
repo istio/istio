@@ -36,7 +36,7 @@ import (
 )
 
 func TestPreserveHTTPHeaderCaseConfiguration(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, namespace.Config{
 				Prefix: "echo-test",
@@ -104,7 +104,7 @@ var (
 )
 
 func TestPreserveHTTPHeaderCase(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, namespace.Config{
 				Prefix: "echo-test",

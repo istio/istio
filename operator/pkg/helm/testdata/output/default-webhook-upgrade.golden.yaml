@@ -1,0 +1,44 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-default-validator
+  labels:
+    app: istiod
+    istio: istiod
+    istio.io/rev: "default"
+    istio.io/tag: "default"
+    # Required to make sure this resource is removed
+    # when purging Istio resources
+    operator.istio.io/component: Pilot
+    app.kubernetes.io/name: "istiod"
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istiod"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: istio-default-1.0.0
+webhooks:
+  - name: validation.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: "istio-system"
+        path: "/validate"
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - security.istio.io
+          - networking.istio.io
+          - telemetry.istio.io
+          - extensions.istio.io
+        apiVersions:
+          - "*"
+        resources:
+          - "*"
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+    objectSelector:
+      matchExpressions:
+        - key: istio.io/rev
+          operator: DoesNotExist

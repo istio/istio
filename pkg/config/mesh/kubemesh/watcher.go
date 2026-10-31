@@ -48,10 +48,12 @@ func NewConfigMapSource(client kube.Client, namespace, name, key string, opts kr
 	clt.Start(opts.Stop())
 
 	cmKey := types.NamespacedName{Namespace: namespace, Name: name}.String()
-	return krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+	sourceName := fmt.Sprintf("ConfigMap_%s_%s", name, key)
+	source := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
 		cm := ptr.Flatten(krt.FetchOne(ctx, cms, krt.FilterKey(cmKey)))
 		return meshConfigMapData(cm, key)
-	}, opts.WithName(fmt.Sprintf("ConfigMap_%s_%s", name, key))...)
+	}, opts.WithName(sourceName)...)
+	return meshwatcher.MeshConfigSource{Singleton: source, Name: sourceName}
 }
 
 func meshConfigMapData(cm *v1.ConfigMap, key string) *string {

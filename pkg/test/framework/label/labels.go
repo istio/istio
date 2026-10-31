@@ -18,6 +18,12 @@ const (
 	// Postsubmit indicates that the test should be run as part of a postsubmit run only.
 	Postsubmit Instance = "postsubmit"
 
+	// Multicluster indicates that the test requires a multicluster environment.
+	Multicluster Instance = "multicluster"
+
+	// Full indicates additional tests for the standard environment.
+	Full Instance = "full"
+
 	// CustomSetup indicates that the test requires a custom Istio installation.
 	CustomSetup Instance = "customsetup"
 
@@ -31,6 +37,8 @@ const (
 
 var all = NewSet(
 	Postsubmit,
+	Multicluster,
+	Full,
 	CustomSetup,
 	IPv4,
 	PQC)

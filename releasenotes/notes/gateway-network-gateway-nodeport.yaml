@@ -1,0 +1,18 @@
+apiVersion: release-notes/v2
+
+kind: feature
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue:
+  - https://github.com/istio/istio/issues/61569
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Added** support for specifying a custom `nodePort` for each port in the network gateway configuration.
+
+# upgradeNotes is a markdown listing of any changes that will affect the upgrade
+# process. This will appear in the release notes.

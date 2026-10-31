@@ -221,3 +221,60 @@ func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher
 		},
 	}})
 }
+
+func TestGatewayResourceHBONEListener(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		ClusterID:    constants.DefaultClusterName,
+		DomainSuffix: "cluster.local",
+		CRDs:         []schema.GroupVersionResource{gvr.KubernetesGateway},
+	})
+
+	passthroughMode := k8sv1.TLSModePassthrough
+	ipType := k8sv1.IPAddressType
+	clienttest.Wrap(t, kclient.New[*k8sv1.Gateway](c.client)).CreateOrUpdate(&k8sv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "eastwest-hbone",
+			Namespace: "istio-system",
+			Labels:    map[string]string{label.TopologyNetwork.Name: "nw2"},
+		},
+		Spec: k8sv1.GatewaySpec{
+			GatewayClassName: "istio",
+			Addresses:        []k8sv1.GatewaySpecAddress{{Type: &ipType, Value: "1.2.3.4"}},
+			Listeners: []k8sv1.Listener{
+				{
+					Name: "mtls",
+					TLS: &k8sv1.ListenerTLSConfig{
+						Mode: &passthroughMode,
+						Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
+							constants.ListenerModeOption: constants.ListenerModeAutoPassthrough,
+						},
+					},
+					Port: 15443,
+				},
+				{
+					Name:     "hbone",
+					Protocol: "HBONE",
+					Port:     15008,
+				},
+			},
+		},
+	})
+
+	assert.EventuallyEqual(t, func() int { return len(c.NetworkGateways()) }, 2,
+		retry.Timeout(30*time.Second), retry.BackoffDelay(5*time.Millisecond))
+
+	var mtls, hbone int
+	for _, gw := range c.NetworkGateways() {
+		switch {
+		case gw.Port == 15443 && gw.HBONEPort == 0:
+			mtls++
+		case gw.HBONEPort == 15008 && gw.Port == 0:
+			hbone++
+		default:
+			t.Fatalf("unexpected gateway %+v: an HBONE listener must set HBONEPort only", gw)
+		}
+	}
+	assert.Equal(t, mtls, 1)
+	assert.Equal(t, hbone, 1)
+}

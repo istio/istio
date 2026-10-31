@@ -22,7 +22,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -43,7 +45,10 @@ import (
 )
 
 const (
-	gcrHub            = "registry.istio.io/release"
+	// releaseHub is the hub we pull the images of the version being upgraded from.
+	// It has to be Docker Hub: nothing newer than 1.30 was published to
+	// registry.istio.io/release, and that registry is deleted in December 2026.
+	releaseHub        = "docker.io/istio"
 	prodTag           = "prod"
 	canaryTag         = "canary"
 	latestRevisionTag = "latest"
@@ -156,7 +161,7 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 			}
 		})
 		s := t.Settings()
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", isAmbient)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub, "", s.Image.Variant, "", isAmbient)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
@@ -207,7 +212,7 @@ func performInPlaceUpgradeWithFailurePolicy(previousVersion string) func(framewo
 
 		// Install previous version without explicit failurePolicy.
 		// The webhook controller will eventually flip failurePolicy to Fail.
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", false)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub, "", s.Image.Variant, "", false)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, false, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, false, "")
 
@@ -283,7 +288,7 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		})
 		s := t.Settings()
 		prevVariant := s.Image.Variant
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", prevVariant, "", isAmbient)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub, "", prevVariant, "", isAmbient)
 		// todo tag version is not helm version
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
@@ -353,7 +358,7 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 		})
 
 		s := t.Settings()
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", false)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub, "", s.Image.Variant, "", false)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, false, false, helmtest.DefaultNamespaceConfig)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
@@ -413,7 +418,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		// helm install istio-base istio/base --version 1.15.0 --namespace istio-system -f values.yaml
 		// helm install istiod-1-15 istio/istiod --version 1.15.0 -f values.yaml
 		previousRevision := strings.ReplaceAll(previousVersion, ".", "-")
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, previousRevision, false)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, releaseHub, "", s.Image.Variant, previousRevision, false)
 		helmtest.InstallIstioWithRevision(t, cs, h, previousVersion, previousRevision, overrideValuesFile, false, true)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
@@ -475,9 +480,9 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 			t.Fatal("could not restart old server")
 		}
 
-		// make sure the restarted pods in default-1 namespace do not use
-		// the previous version (check for the previousVersion in the image string)
-		err = checkVersionNot(t, oldNs.Name(), previousVersion)
+		// make sure the restarted pods in default-1 namespace no longer run images from the
+		// previous release line
+		err = checkNoPodsFromReleaseLine(t, oldNs.Name(), previousVersion)
 		if err != nil {
 			t.Fatalf("found a pod in namespace (%s) with the previous version: %v", oldNs.Name(), err)
 		}
@@ -598,16 +603,37 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 	}
 }
 
-func checkVersionNot(t framework.TestContext, namespace, version string) error {
+// checkNoPodsFromReleaseLine fails if any pod in the namespace still runs an image from the same
+// release line (major.minor) as the given version.
+//
+// The match is on major.minor rather than on the full version, because the full version is not
+// what the pods actually run. We ask for x.y.0, but charts are installed with a "~" constraint and
+// every chart tags its images with its own version, so "~1.31.0" installs chart 1.31.1 and its
+// pods run images tagged 1.31.1. Searching those for "1.31.0" finds nothing - and since this is a
+// negative check, finding nothing is a pass. It would report success even if every pod were still
+// running the old version, which is the one thing it is here to catch.
+func checkNoPodsFromReleaseLine(t framework.TestContext, namespace, version string) error {
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return fmt.Errorf("failed to parse version %q: %v", version, err)
+	}
+	minor := fmt.Sprintf("%d.%d.", v.Major(), v.Minor())
+
 	fetch := kubetest.NewPodFetch(t.Clusters().Default(), namespace)
 	pods, err := kubetest.CheckPodsAreReady(fetch)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve pods: %v", err)
 	}
 	for _, p := range pods {
-		for _, c := range p.Spec.Containers {
-			if strings.Contains(c.Image, version) {
-				return fmt.Errorf("expected container image to not include version %q, got %q", version, c.Image)
+		// Init containers are checked too: istio-init (istio-validation with CNI) is versioned,
+		// and on Kubernetes 1.33+ native sidecars are auto-detected, which moves istio-proxy out
+		// of Spec.Containers. There Spec.Containers holds only the app image, which never carries
+		// the previous version, so checking it alone would pass whatever the pods run.
+		for _, cs := range [][]corev1.Container{p.Spec.InitContainers, p.Spec.Containers} {
+			for _, c := range cs {
+				if strings.Contains(c.Image, minor) {
+					return fmt.Errorf("expected container image to not be from the %sx release line, got %q", minor, c.Image)
+				}
 			}
 		}
 	}

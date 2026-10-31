@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 60887
+
+releaseNotes:
+- |
+  **Added** support for `AUTO_PASSTHROUGH` listeners on ambient east-west gateways (`istio-east-west`
+  GatewayClass). A TLS passthrough listener on port 15443 (or any port using the
+  `gateway.istio.io/listener-protocol: auto-passthrough` option) now serves sidecar multi-network
+  traffic alongside the HBONE listener, so a mixed ambient and sidecar mesh no longer needs two
+  east-west gateways per cluster. This requires `AMBIENT_ENABLE_MULTI_NETWORK` to be enabled.

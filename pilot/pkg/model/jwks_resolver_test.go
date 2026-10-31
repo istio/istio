@@ -17,6 +17,7 @@ package model
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -210,6 +211,42 @@ func TestGetPublicKeyWithEmptyIssuerAndEmptyJwksURI(t *testing.T) {
 	}
 }
 
+func TestGetPublicKeyDoesNotBlockWhenBackgroundChannelFull(t *testing.T) {
+	// No refresher is started, so nothing drains jwksuriChannel.
+	r := &JwksResolver{httpClient: &http.Client{}}
+	drain := func() {
+		for {
+			select {
+			case <-jwksuriChannel:
+			default:
+				return
+			}
+		}
+	}
+	drain()
+	defer drain()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		// More failing lookups than the channel can hold.
+		for i := 0; i < cap(jwksuriChannel)*3; i++ {
+			// An unparseable URI fails immediately and enqueues a background fetch.
+			if _, err := r.GetPublicKey("", fmt.Sprintf("://bad-%d", i), testRequestTimeout); err == nil {
+				t.Errorf("expected error for call %d", i)
+			}
+		}
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("GetPublicKey blocked on a full jwksuriChannel")
+	}
+	if got := len(jwksuriChannel); got != cap(jwksuriChannel) {
+		t.Errorf("expected channel to be full (%d), got %d", cap(jwksuriChannel), got)
+	}
+}
+
 func TestGetPublicKeyCacheAccessTimeOutOfOrder(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
 	defer r.Close()
@@ -321,6 +358,52 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 	// Verify refresh job key changed count is zero.
 	if got, want := r.refreshJobKeyChangedCount, uint64(0); got != want {
 		t.Errorf("JWKs Resolver Refreshed Key Count => expected %d but got %d", want, got)
+	}
+}
+
+// TestJwtPubKeyRefreshRejectsInvalidJWKS verifies that the background refresh job rejects a
+// well-formed HTTP 200 response that is not a valid JWKS (e.g. an SSRF-controlled jwksURI pointed
+// at an unrelated debug/config endpoint) instead of caching it, matching the protection
+// GetPublicKey already applies on the synchronous fetch path.
+func TestJwtPubKeyRefreshRejectsInvalidJWKS(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, testRetryInterval*20, testRetryInterval*10, testRetryInterval)
+	defer r.Close()
+
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+	ms.ReturnInvalidJWKSAfterFirstNumHits = 1
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+
+	pk, err := r.GetPublicKey("", mockCertURL, testRequestTimeout)
+	if err != nil {
+		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
+	}
+	if test.JwtPubKey1 != pk {
+		t.Fatalf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
+	}
+
+	// Mock server now returns a non-JWKS body (still HTTP 200) on every subsequent hit. The refresh
+	// job must reject it rather than caching it or treating it as a key change.
+	r.refresh(false)
+
+	pk, err = r.GetPublicKey("", mockCertURL, testRequestTimeout)
+	if err != nil {
+		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
+	}
+	if test.JwtPubKey1 != pk {
+		t.Errorf("GetPublicKey(\"\", %+v) after refresh saw invalid JWKS: expected retained cached key (%s), got (%s)",
+			mockCertURL, test.JwtPubKey1, pk)
+	}
+
+	if got := atomic.LoadUint64(&r.refreshJobFetchFailedCount); got == 0 {
+		t.Errorf("expected refreshJobFetchFailedCount > 0 after refresh rejected an invalid JWKS body, got %d", got)
+	}
+	if got, want := r.refreshJobKeyChangedCount, uint64(0); got != want {
+		t.Errorf("expected refreshJobKeyChangedCount %d after refresh rejected an invalid JWKS body, got %d", want, got)
 	}
 }
 

@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -340,7 +339,7 @@ var nsTestObject = func(namespace, injLabelValue, revLabelValue string) *corev1.
 var podTestObject = func(name, namespace, injLabelValue, revLabelValue string) *corev1.Pod {
 	labels := map[string]string{}
 	if injLabelValue != "" {
-		labels[annotation.SidecarInject.Name] = injLabelValue
+		labels[label.SidecarInject.Name] = injLabelValue
 	}
 	if revLabelValue != "" {
 		labels[label.IoIstioRev.Name] = revLabelValue

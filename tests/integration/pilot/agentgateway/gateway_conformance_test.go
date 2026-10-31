@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/tests/integration/pilot/gatewayconformance"
 )
 
 // GatewayConformanceInputs defines inputs to the gateway conformance test.
@@ -64,8 +65,7 @@ var conformanceNamespaces = []string{
 
 var skippedTests = map[string]string{
 	// The following tests were added in v1.6.0
-	"GatewayInvalidParametersRef":        "TODO",
-	"GatewayListenerUnsupportedProtocol": "TODO",
+	"GatewayInvalidParametersRef": "TODO",
 }
 
 func TestGatewayConformanceAgentgateway(t *testing.T) {
@@ -104,12 +104,13 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 			// Backend client certificate support (spec.tls.backend.clientCertificateRef) is implemented
 			// for agentgateway even though it is disabled in the shared gateway.SupportedFeatures.
 			supportedFeatures.Insert(features.GatewayBackendClientCertificateFeature)
+
+			// Standard-only selection goes through SkipTests, leaving supportedFeatures to
+			// advertise what Istio actually implements. Conformance tests read it at runtime
+			// to decide whether their assertions apply.
+			testsToSkip := skippedTests
 			if ctx.Settings().GatewayConformanceStandardOnly {
-				for f := range supportedFeatures {
-					if f.Channel != features.FeatureChannelStandard {
-						supportedFeatures.Delete(f)
-					}
-				}
+				testsToSkip = gatewayconformance.SkipNonStandardTests(tests.ConformanceTests, skippedTests)
 			}
 
 			hostnameType := v1.AddressType("Hostname")
@@ -121,7 +122,7 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 					CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 					CleanupTestResources:     gatewayConformanceInputs.Cleanup,
 					SupportedFeatures:        features.SetsToNamesSet(supportedFeatures).UnsortedList(),
-					SkipTests:                maps.Keys(skippedTests),
+					SkipTests:                maps.Keys(testsToSkip),
 					UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 					UnusableNetworkAddresses: []v1.GatewaySpecAddress{{Value: "foo", Type: &hostnameType}},
 					ConformanceProfiles: []suite.ConformanceProfileName{
@@ -172,13 +173,17 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 			csuite, err := suite.NewConformanceTestSuite(opts)
 			assert.NoError(t, err)
 			csuite.Setup(t, tests.ConformanceTests)
+			// Run marks the suite as finished in a t.Cleanup, so the report can only be generated after that.
+			// Cleanups run in reverse order, so register this before calling Run.
+			t.Cleanup(func() {
+				report, err := csuite.Report()
+				assert.NoError(t, err)
+				reportb, err := yaml.Marshal(report)
+				assert.NoError(t, err)
+				fp := filepath.Join(ctx.Settings().BaseDir, "istio-agentgateway-conformance.yaml")
+				t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
+				assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
+			})
 			assert.NoError(t, csuite.Run(t, tests.ConformanceTests))
-			report, err := csuite.Report()
-			assert.NoError(t, err)
-			reportb, err := yaml.Marshal(report)
-			assert.NoError(t, err)
-			fp := filepath.Join(ctx.Settings().BaseDir, "istio-agentgateway-conformance.yaml")
-			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
-			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
 		})
 }

@@ -25,7 +25,7 @@ import (
 	"path"
 	"testing"
 
-	"istio.io/api/annotation"
+	ilabel "istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
@@ -57,6 +57,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
+		Label(label.Full).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCASecret)).
 		Setup(namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true})).
@@ -186,7 +187,7 @@ func SetupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 		Service:   "server-naked-foo",
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				Labels: map[string]string{ilabel.SidecarInject.Name: "false"},
 			},
 		},
 		ServiceAccount: true,
@@ -212,7 +213,7 @@ func SetupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 		Service:   "server-naked-bar",
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				Labels: map[string]string{ilabel.SidecarInject.Name: "false"},
 			},
 		},
 		ServiceAccount: true,
@@ -239,7 +240,7 @@ func SetupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 		Service:   "server-naked-foo-alt",
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				Labels: map[string]string{ilabel.SidecarInject.Name: "false"},
 			},
 		},
 		ServiceAccount: true,

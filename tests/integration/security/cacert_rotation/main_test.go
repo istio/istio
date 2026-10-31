@@ -50,6 +50,7 @@ var apps deployment.SingleNamespaceView
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Label(label.Full).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(nil, setupConfig, cert.CreateCASecret)).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
@@ -207,6 +208,9 @@ func updateTimestampAnnotations(t framework.TestContext) {
 			}
 
 			// Update annotations to force the mounted configmap refresh
+			if pod.Annotations == nil {
+				pod.Annotations = map[string]string{}
+			}
 			pod.Annotations["timestamp"] = ts
 			if _, err := c.Kube().CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
 				t.Fatalf("failed to update pod %s: %v", pod.Name, err)

@@ -17,7 +17,8 @@ package match_test
 import (
 	"testing"
 
-	"istio.io/api/annotation"
+	"istio.io/api/label"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/cluster/kube"
@@ -53,14 +54,33 @@ var (
 	headless1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "headless", Headless: true}
 	// naked pod (uninjected)
 	naked1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
-		Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+		Labels: map[string]string{label.SidecarInject.Name: "false"},
 	}}}
 	// external svc
 	external1 = &fakeInstance{
 		Cluster: cls1, Namespace: namespace.Static("echo"), Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
-			Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+			Labels: map[string]string{label.SidecarInject.Name: "false"},
 		}},
 	}
+	// no sidecar, but ztunnel still protects it - not naked.
+	captured1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("ambient-echo"), Service: "captured", Subsets: []echo.SubsetConfig{{
+		Labels: map[string]string{label.SidecarInject.Name: "false"},
+	}}}
+	// same as captured1, plus a waypoint in front - also not naked.
+	waypoint1 = &fakeInstance{
+		Cluster: cls1, Namespace: namespace.Static("ambient-echo"), Service: "waypoint",
+		ServiceWaypointProxy: "shared", WorkloadWaypointProxy: "shared",
+		Subsets: []echo.SubsetConfig{{
+			Labels: map[string]string{label.SidecarInject.Name: "false"},
+		}},
+	}
+	// opts out of ztunnel too (dataplane-mode=none) - genuinely naked.
+	nakedAmbient1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("ambient-echo"), Service: "naked-ambient", Subsets: []echo.SubsetConfig{{
+		Labels: map[string]string{
+			label.SidecarInject.Name:        "false",
+			label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
+		},
+	}}}
 )
 
 func TestRegularPod(t *testing.T) {
@@ -93,6 +113,9 @@ func TestNaked(t *testing.T) {
 		{app: headless1, expect: false},
 		{app: naked1, expect: true},
 		{app: external1, expect: true},
+		{app: captured1, expect: false},
+		{app: waypoint1, expect: false},
+		{app: nakedAmbient1, expect: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.app.Config().Service, func(t *testing.T) {

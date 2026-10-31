@@ -98,7 +98,8 @@ var (
 	// currently missing pods. This helps distinguish transient errors from permanent ones
 	endpointsWithNoPods = monitoring.NewSum(
 		"pilot_k8s_endpoints_with_no_pods",
-		"Endpoints that does not have any corresponding pods.")
+		"Endpoints that does not have any corresponding pods.",
+	)
 
 	endpointsPendingPodUpdate = monitoring.NewGauge(
 		"pilot_k8s_endpoints_pending_pod",
@@ -415,7 +416,7 @@ func (c *Controller) Cleanup(removeShard bool) error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) error {
+func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) error {
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Get namespace annotations for traffic distribution inheritance
@@ -432,7 +433,7 @@ func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) er
 	case model.EventDelete:
 		c.deleteService(svcConv)
 	default:
-		c.addOrUpdateService(pre, curr, svcConv, event, false)
+		c.addOrUpdateService(curr, svcConv, event, false)
 	}
 
 	return nil
@@ -508,7 +509,7 @@ func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
 	}
 }
 
-func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
+func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
 	networksChanged := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -549,7 +550,7 @@ func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.S
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
-	if serviceUpdateNeedsPush(pre, curr, prevConv, currConv) {
+	if serviceUpdateNeedsPush(prevConv, currConv) {
 		log.Debugf("Service %s in namespace %s updated and needs push", currConv.Hostname, ns)
 		c.handlers.NotifyServiceHandlers(prevConv, currConv, event)
 	}
@@ -654,7 +655,8 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 					return handler(ptr.Empty[T](), obj, model.EventDelete)
 				})
 			},
-		})
+		},
+	)
 }
 
 // HasSynced returns true after the initial state synchronization
@@ -991,11 +993,12 @@ func (c *Controller) workloadInstanceHandler(si *model.WorkloadInstance, event m
 
 	// this is from a workload entry. Store it in separate index so that
 	// the InstancesByPort can use these as well as the k8s pods.
+	var previous *model.WorkloadInstance
 	switch event {
 	case model.EventDelete:
-		c.workloadInstancesIndex.Delete(si)
+		previous = c.workloadInstancesIndex.Delete(si)
 	default: // add or update
-		c.workloadInstancesIndex.Insert(si)
+		previous = c.workloadInstancesIndex.Insert(si)
 	}
 
 	// find the workload entry's service by label selector
@@ -1013,6 +1016,13 @@ func (c *Controller) workloadInstanceHandler(si *model.WorkloadInstance, event m
 		return kube.ServiceHostname(e.Name, e.Namespace, c.opts.DomainSuffix)
 	})
 	c.endpoints.pushEDS(matchedHostnames, si.Namespace)
+
+	// we should trigger a proxy update if any service has selected this workload or
+	// if the labels have changed, as this may affect which services select this workload.
+	labelsChanged := previous != nil && !previous.Endpoint.Labels.Equals(si.Endpoint.Labels)
+	if c.opts.XDSUpdater != nil && (len(matchedServices) > 0 || labelsChanged) {
+		c.opts.XDSUpdater.ProxyUpdate(c.Cluster(), si.Endpoint.FirstAddressOrNil())
+	}
 }
 
 func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event) error {
@@ -1228,7 +1238,7 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 	return nil
 }
 
-func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Service) bool {
+func serviceUpdateNeedsPush(preConv, currConv *model.Service) bool {
 	// New Service - If it is not exported, no need to push.
 	if preConv == nil {
 		return !currConv.Attributes.ExportTo.Contains(visibility.None)
@@ -1238,18 +1248,5 @@ func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Ser
 		currConv.Attributes.ExportTo.Contains(visibility.None) {
 		return false
 	}
-	// Check if there are any changes we care about by comparing `model.Service`s
-	if !preConv.Equals(currConv) {
-		return true
-	}
-	// Also check if target ports are changed since they are not included in `model.Service`
-	// `preConv.Equals(currConv)` already makes sure the length of ports is not changed
-	if prev != nil && curr != nil {
-		if !slices.EqualFunc(prev.Spec.Ports, curr.Spec.Ports, func(a, b v1.ServicePort) bool {
-			return a.TargetPort == b.TargetPort
-		}) {
-			return true
-		}
-	}
-	return false
+	return !preConv.Equals(currConv)
 }

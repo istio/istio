@@ -71,6 +71,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(testlabel.CustomSetup).
+		Label(testlabel.Full).
 		SkipIf("test suite requires at least two clusters", func(ctx resource.Context) bool { return len(ctx.AllClusters()) < 2 }).
 		Setup(func(ctx resource.Context) error {
 			var err error

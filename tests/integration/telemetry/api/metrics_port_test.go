@@ -45,7 +45,7 @@ const (
 // (ENVOY_SECURE_METRICS_PORT / ENVOY_SECURE_MERGED_METRICS_PORT) and the
 // localhost-only restriction on 15090/15020 (METRICS_LOCALHOST_ACCESS_ONLY).
 func TestSecureMetricsPorts(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		target := getSecureMetricsTarget(t)
 
 		t.NewSubTest("mtls-scrape-15091").Run(func(t framework.TestContext) {

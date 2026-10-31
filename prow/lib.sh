@@ -124,7 +124,7 @@ function build_images() {
     # We run tests across all VM types only in postsubmit
     nonDistrolessTargets+="docker.app_sidecar_ubuntu_bionic docker.app_sidecar_debian_12 docker.app_sidecar_rockylinux_9 "
   fi
-  if [[ "${SELECT_TEST}" == "test.integration.ambient.kube" || "${SELECT_TEST}" == "test.integration.kube"  || "${SELECT_TEST}" == "test.integration.helm.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
+  if [[ "${SELECT_TEST}" == test.integration.ambient.kube* || "${SELECT_TEST}" == "test.integration.kube"  || "${SELECT_TEST}" == "test.integration.helm.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
     targets+="docker.ztunnel "
   fi
   targets+="docker.install-cni "
@@ -141,16 +141,22 @@ function build_images() {
   fi
 }
 
-# Creates a local registry for kind nodes to pull images from. Expects that the "kind" network already exists.
-function setup_kind_registry() {
-  # create a registry container if it not running already
+# Starts the local registry used by kind nodes and image builds.
+function start_kind_registry() {
+  local running
   running="$(docker inspect -f '{{.State.Running}}' "${KIND_REGISTRY_NAME}" 2>/dev/null || true)"
   if [[ "${running}" != 'true' ]]; then
-      docker run \
-        -d --restart=always -p "${KIND_REGISTRY_PORT}:5000" --name "${KIND_REGISTRY_NAME}" \
-        registry.istio.io/testing/registry:2
+    docker run \
+      -d --restart=always -p "${KIND_REGISTRY_PORT}:5000" --name "${KIND_REGISTRY_NAME}" \
+      registry.istio.io/testing/registry:2
+  fi
+}
 
-    # Allow kind nodes to reach the registry
+# Configures completed kind clusters to pull images from the local registry.
+function configure_kind_registry() {
+  local registry_network
+  registry_network="$(docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{if eq $name "kind"}}kind{{end}}{{end}}' "${KIND_REGISTRY_NAME}")"
+  if [[ "${registry_network}" != "kind" ]]; then
     docker network connect "kind" "${KIND_REGISTRY_NAME}"
   fi
 

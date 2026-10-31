@@ -78,11 +78,11 @@ func installTrafficExtensionWasm(ctx framework.TestContext, filterName, wasmModu
 
 	args := map[string]any{
 		"TrafficExtensionName": filterName,
-		"TestWasmModuleURL":   wasmModuleURL,
-		"FilterVersion":       filterVersion,
-		"TargetKind":          kind,
-		"TargetGroup":         group,
-		"TargetName":          name,
+		"TestWasmModuleURL":    wasmModuleURL,
+		"FilterVersion":        filterVersion,
+		"TargetKind":           kind,
+		"TargetGroup":          group,
+		"TargetName":           name,
 	}
 
 	if len(imagePullPolicy) != 0 {
@@ -108,7 +108,7 @@ func uninstallTrafficExtensionWasm(ctx framework.TestContext, filterName, path s
 
 // TestTrafficExtension_WasmConfigurations tests WASM TrafficExtension on different targets in ambient mode
 func TestTrafficExtension_WasmConfigurations(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			skipIfGatewayAPIUnsupported(t)
 			testCases := []struct {

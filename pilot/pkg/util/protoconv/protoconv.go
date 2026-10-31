@@ -44,12 +44,28 @@ func marshal(msg proto.Message) ([]byte, error) {
 	if features.EnableVtprotobuf {
 		if vt, ok := msg.(vtStrictMarshal); ok {
 			// Attempt to use more efficient implementation
-			// "Strict" is the equivalent to Deterministic=true below
+			// "Strict" marshals fields in field number order like Deterministic=true below, but it
+			// does not sort map keys. Callers that compare or hash the bytes need MessageToAnyDeterministic.
 			return vt.MarshalVTStrict()
 		}
 	}
 	// If not available, fallback to normal implementation
 	return proto.MarshalOptions{Deterministic: true}.Marshal(msg)
+}
+
+// MessageToAnyDeterministic converts from proto message to proto Any with stable output. Unlike
+// MessageToAny it always sorts map keys, so the bytes can be compared or hashed across calls.
+func MessageToAnyDeterministic(msg proto.Message) *anypb.Any {
+	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
+	if err != nil {
+		log.Error(fmt.Sprintf("error marshaling Any %s: %v", prototext.Format(msg), err))
+		return nil
+	}
+	return &anypb.Any{
+		// nolint: staticcheck
+		TypeUrl: "type.googleapis.com/" + string(msg.ProtoReflect().Descriptor().FullName()),
+		Value:   b,
+	}
 }
 
 // MessageToAny converts from proto message to proto Any

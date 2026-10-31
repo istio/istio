@@ -41,7 +41,7 @@ var (
 
 func TestClusterLocal(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).
+	framework.NewMulticlusterTest(t).
 		RequiresMinClusters(2).
 		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
@@ -156,7 +156,7 @@ spec:
 // secret does not remove the remote cluster's EDS shard when the superseded registry is closed.
 func TestRemoteSecretRotationKeepsCrossClusterTraffic(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).
+	framework.NewMulticlusterTest(t).
 		RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
 			if len(t.Clusters().Primaries()) == 0 {
@@ -256,7 +256,7 @@ spec:
 
 func TestBadRemoteSecret(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).
+	framework.NewMulticlusterTest(t).
 		RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
 			if len(t.Clusters().Primaries()) == 0 {

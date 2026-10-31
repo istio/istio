@@ -34,13 +34,16 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -106,10 +109,10 @@ type clusterWrapper struct {
 	// isDFPCluster indicates whether the cluster is a dynamic forward proxy cluster
 	isDFPCluster bool
 
-	// dnsWrappedLocalityLbEndpoints are the locality lb endpoints wrapped with IstioEndpoints.
-	// It is used to do failover priority label match with proxy labels.
+	// dnsWrappedLocalityLbEndpoints are the locality lb endpoints wrapped with IstioEndpoints, one
+	// entry per locality group. It is used to do failover priority label match with proxy labels.
 	// Only used for DNS type of clusters.
-	dnsWrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
+	dnsWrappedLocalityLbEndpoints []*loadbalancer.WrappedLocalityLbEndpoints
 }
 
 // metadataCerts hosts client certificate related metadata specified in proxy metadata.
@@ -148,6 +151,7 @@ type ClusterBuilder struct {
 	cache                     model.XdsCache
 	credentialSocketExist     bool
 	fileCredentialSocketExist bool
+	connectionSettings        *meshconfig.ProxyConfig_ConnectionSettings
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
@@ -186,6 +190,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 			cb.fileCredentialSocketExist = true
 		}
 	}
+	cb.connectionSettings = resolveConnectionSettings(proxy, req.Push)
 	return cb
 }
 
@@ -452,7 +457,7 @@ func applyBaggageMetadataDiscovery(c *cluster.Cluster) {
 }
 
 func addDisableBaggageDiscoveryMetadata(c *cluster.Cluster) {
-	if features.EnableAmbientBaggage {
+	if features.EnableAmbientBaggage && !features.EnableAmbientTLSProxyHTTPMetrics {
 		if c.Metadata == nil {
 			c.Metadata = &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{},
@@ -482,6 +487,11 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+	}
+	if cs := cb.connectionSettings; cs != nil {
+		if v := safeUint32(cs.GetClusterPerConnectionBufferLimitBytes()); v != nil {
+			c.PerConnectionBufferLimitBytes = v
+		}
 	}
 
 	// Build default alt stat name - This may be overwritten by the MeshConfig options.
@@ -523,10 +533,12 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 			Endpoints:   localityLbEndpoints,
 		}
 	case cluster.Cluster_ORIGINAL_DST:
-		if override, f := service.Attributes.PassthroughTargetPorts[uint32(port.Port)]; f {
+		// Only ServiceEntries with NONE resolution declare an original destination port override.
+		if service.Attributes.ServiceRegistry == provider.External && service.Resolution == model.Passthrough &&
+			port.TargetPort.Type == intstr.Int && port.TargetPort.IntVal > 0 {
 			c.LbConfig = &cluster.Cluster_OriginalDstLbConfig_{
 				OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
-					UpstreamPortOverride: wrappers.UInt32(override),
+					UpstreamPortOverride: wrappers.UInt32(uint32(port.TargetPort.IntVal)),
 				},
 			}
 		}
@@ -551,8 +563,9 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 // from the Host/:authority header. Optional TLS origination is applied when OutboundTrafficPolicy tls is configured.
 func (cb *ClusterBuilder) buildAllowAnyDFPCluster(tls *networking.ClientTLSSettings) *clusterWrapper {
 	c := &cluster.Cluster{
-		Name:     util.AllowAnyDynamicDNSCluster,
-		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
+		Name:           util.AllowAnyDynamicDNSCluster,
+		LbPolicy:       cluster.Cluster_CLUSTER_PROVIDED,
+		CommonLbConfig: &cluster.Cluster_CommonLbConfig{},
 		ClusterDiscoveryType: &cluster.Cluster_ClusterType{ClusterType: &cluster.Cluster_CustomClusterType{
 			Name: "envoy.clusters.dynamic_forward_proxy",
 			TypedConfig: protoconv.MessageToAny(&dfpcluster.ClusterConfig{
@@ -566,6 +579,11 @@ func (cb *ClusterBuilder) buildAllowAnyDFPCluster(tls *networking.ClientTLSSetti
 		ConnectTimeout: cb.req.Push.Mesh.ConnectTimeout,
 	}
 	c.AltStatName = util.DelimitedStatsPrefix(util.AllowAnyDynamicDNSCluster)
+	if cs := cb.connectionSettings; cs != nil {
+		if v := safeUint32(cs.GetClusterPerConnectionBufferLimitBytes()); v != nil {
+			c.PerConnectionBufferLimitBytes = v
+		}
+	}
 	// Use same protocol options as passthrough cluster
 	httpProtocolOptions := passthroughHttpProtocolOptions
 	if shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
@@ -602,8 +620,9 @@ func (cb *ClusterBuilder) buildAllowAnyDFPCluster(tls *networking.ClientTLSSetti
 // and upstream protocol settings.
 func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, port *model.Port) *clusterWrapper {
 	c := &cluster.Cluster{
-		Name:     name,
-		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
+		Name:           name,
+		LbPolicy:       cluster.Cluster_CLUSTER_PROVIDED,
+		CommonLbConfig: &cluster.Cluster_CommonLbConfig{},
 		ClusterDiscoveryType: &cluster.Cluster_ClusterType{ClusterType: &cluster.Cluster_CustomClusterType{
 			Name: "envoy.clusters.dynamic_forward_proxy",
 			TypedConfig: protoconv.MessageToAny(&dfpcluster.ClusterConfig{
@@ -619,6 +638,11 @@ func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, p
 
 	// TODO(keithmattix): Use figure out how to do happy eyeballs with dfp clusters
 	c.AltStatName = util.DelimitedStatsPrefix(name)
+	if cs := cb.connectionSettings; cs != nil {
+		if v := safeUint32(cs.GetClusterPerConnectionBufferLimitBytes()); v != nil {
+			c.PerConnectionBufferLimitBytes = v
+		}
+	}
 	ec := newDFPClusterWrapper(c)
 	cb.setUpstreamProtocol(ec, port)
 	return ec

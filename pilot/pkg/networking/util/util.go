@@ -505,19 +505,18 @@ func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 	return false
 }
 
-// MergeAnyWithAny merges a given any typed message into the given Any typed message by dynamically inferring the
-// type of Any
-func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
-	return mergeAnyWithAny(dst, src, merge.Merge)
+// MergeAnyWithMessage merges a decoded source message into an Any without modifying src.
+func MergeAnyWithMessage(dst *anypb.Any, src proto.Message) (*anypb.Any, error) {
+	return mergeAnyWithMessage(dst, src, merge.Merge)
 }
 
-// MergeAnyWithAnyReplaceList behaves like MergeAnyWithAny, except that repeated (list) fields
+// MergeAnyWithMessageReplaceList behaves like MergeAnyWithMessage, except that repeated (list) fields
 // present in src fully replace the corresponding list in dst instead of being appended to it.
-func MergeAnyWithAnyReplaceList(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
-	return mergeAnyWithAny(dst, src, merge.MergeWithReplaceList)
+func MergeAnyWithMessageReplaceList(dst *anypb.Any, src proto.Message) (*anypb.Any, error) {
+	return mergeAnyWithMessage(dst, src, merge.MergeWithReplaceList)
 }
 
-func mergeAnyWithAny(dst *anypb.Any, src *anypb.Any, mergeFn func(dst, src proto.Message)) (*anypb.Any, error) {
+func mergeAnyWithMessage(dst *anypb.Any, src proto.Message, mergeFn func(dst, src proto.Message)) (*anypb.Any, error) {
 	// Assuming that Pilot is compiled with this type [which should always be the case]
 	var err error
 
@@ -527,14 +526,12 @@ func mergeAnyWithAny(dst *anypb.Any, src *anypb.Any, mergeFn func(dst, src proto
 		return nil, err
 	}
 
-	// get an object of type used by this message
-	srcX, err := src.UnmarshalNew()
-	if err != nil {
-		return nil, err
+	if src == nil {
+		return nil, fmt.Errorf("merge source typed config is not decoded")
 	}
 
 	// Merge the two typed protos
-	mergeFn(dstX, srcX)
+	mergeFn(dstX, src)
 
 	// Convert the merged proto back to dst
 	retVal := protoconv.MessageToAny(dstX)

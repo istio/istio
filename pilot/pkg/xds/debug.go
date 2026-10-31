@@ -353,7 +353,9 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, req *http.Request) {
 	for _, con := range s.SortedClients() {
 		node := con.proxy
 		if node != nil && (namespace == "" || node.GetNamespace() == namespace) {
-			wrs := node.DeepCloneWatchedResources()
+			node.RLock()
+			wrs := node.DeepCloneWatchedResourcesLocked()
+			node.RUnlock()
 			res := make(map[string]ResourceStatus, len(wrs))
 			for _, wr := range wrs {
 				res[wr.TypeUrl] = ResourceStatus{
@@ -1027,9 +1029,10 @@ func cloneProxy(proxy *model.Proxy) *model.Proxy {
 	return out
 }
 
+// getProxyConnection requires an exact proxy ID (pod.namespace) or connection ID, partial matches would expose sibling proxies.
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 	for _, con := range s.Clients() {
-		if strings.Contains(con.ID(), proxyID) {
+		if con.proxy.ID == proxyID || con.ID() == proxyID {
 			out := *con
 			out.proxy = cloneProxy(con.proxy)
 			return &out

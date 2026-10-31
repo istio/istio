@@ -88,6 +88,12 @@
         "labels": {
           "type": "object"
         },
+        "selectorLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "name": {
           "type": "string"
         },
@@ -287,6 +293,9 @@
               },
               "protocol": {
                 "type": "string"
+              },
+              "nodePort": {
+                "type": "integer"
               }
             },
             "required": ["port"]

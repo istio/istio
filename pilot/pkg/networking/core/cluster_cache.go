@@ -49,9 +49,10 @@ type clusterCache struct {
 	endpointBuilder         *endpoints.EndpointBuilder
 
 	// service attributes
-	http2          bool // http2 identifies if the cluster is for an http2 service
-	downstreamAuto bool
-	supportsIPv4   bool
+	http2              bool // http2 identifies if the cluster is for an http2 service
+	downstreamAuto     bool
+	supportsIPv4       bool
+	clusterBufferLimit int32 // per-connection buffer limit from ConnectionSettings
 
 	// dependent configs
 	service         *model.Service
@@ -86,6 +87,8 @@ func (t *clusterCache) Key() any {
 	h.WriteString(strconv.FormatBool(t.supportsIPv4))
 	h.Write(Separator)
 	h.WriteString(strconv.FormatBool(t.hbone))
+	h.Write(Separator)
+	h.WriteString(strconv.FormatInt(int64(t.clusterBufferLimit), 10))
 	h.Write(Separator)
 
 	if t.proxyView != nil {
@@ -203,6 +206,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		http2:                   port.Protocol.IsHTTP2(),
 		downstreamAuto:          cb.sidecarProxy() && port.Protocol.IsUnsupported(),
 		supportsIPv4:            cb.supportsIPv4,
+		clusterBufferLimit:      cb.connectionSettings.GetClusterPerConnectionBufferLimitBytes().GetValue(),
 		service:                 service,
 		destinationRule:         dr,
 		envoyFilterKeys:         efKeys,

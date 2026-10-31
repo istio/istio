@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	istiolog "istio.io/istio/pkg/log"
@@ -60,6 +61,9 @@ func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, w *model.WatchedResou
 	case v3.ClusterType:
 		return g.BuildClusters(proxy, req.Push, w.ResourceNames.UnsortedList()), model.DefaultXdsLogDetails, nil
 	case v3.RouteType:
+		if !xds.RdsNeedsPush(req, proxy) {
+			return nil, model.DefaultXdsLogDetails, nil
+		}
 		return g.BuildHTTPRoutes(proxy, req.Push, w.ResourceNames.UnsortedList()), model.DefaultXdsLogDetails, nil
 	}
 

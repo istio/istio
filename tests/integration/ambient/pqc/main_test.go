@@ -24,7 +24,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
@@ -63,6 +62,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(testlabel.CustomSetup).
 		Label(testlabel.PQC).
+		Label(testlabel.Full).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			ctx.Settings().Ambient = true
 			ctx.Settings().SkipVMs()
@@ -164,7 +164,7 @@ func setupAppsConfig(_ resource.Context) error {
 				CurvePreferences: []string{"X25519MLKEM768"},
 			},
 			Subsets: []echo.SubsetConfig{{
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				Labels: map[string]string{label.SidecarInject.Name: "false"},
 			}},
 		},
 	}

@@ -170,19 +170,26 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 			w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
 		return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
 	}
-	// A NAMESPACE-visibility ServiceEntry must not bind to a waypoint in another namespace: that would
-	// expose it to the waypoint's namespace. Refuse here so every consumer is covered.
-	// ServiceEntryVisibility is nil for consumers it doesn't govern (e.g. Kubernetes Services).
-	if ServiceEntryVisibility != nil && w.Namespace != o.Namespace {
-		var nsLabels map[string]string
-		if ns := krt.FetchOne(ctx, Namespaces, krt.FilterKey(o.Namespace)); ns != nil {
-			nsLabels = (*ns).Labels
-		}
-		if krt.FetchOne(ctx, ServiceEntryVisibility.AsCollection()).VisibilityFor(nsLabels) == model.ServiceVisibilityNamespace {
-			return nil, ReportWaypointCrossNamespaceForbidden(w.ResourceName())
-		}
+	if crossNamespaceWaypointForbidden(ctx, Namespaces, ServiceEntryVisibility, o.Namespace, w.Namespace) {
+		return nil, ReportWaypointCrossNamespaceForbidden(w.ResourceName())
 	}
 	return w, nil
+}
+
+// crossNamespaceWaypointForbidden refuses a cross-namespace waypoint (primary or canary) for a
+// NAMESPACE-visibility ServiceEntry. ServiceEntryVisibility is nil for consumers it doesn't govern
+// (e.g. Kubernetes Services).
+func crossNamespaceWaypointForbidden(ctx krt.HandlerContext, Namespaces krt.Collection[*v1.Namespace],
+	ServiceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher], objNamespace, waypointNamespace string,
+) bool {
+	if ServiceEntryVisibility == nil || waypointNamespace == objNamespace {
+		return false
+	}
+	var nsLabels map[string]string
+	if ns := krt.FetchOne(ctx, Namespaces, krt.FilterKey(objNamespace)); ns != nil {
+		nsLabels = (*ns).Labels
+	}
+	return krt.FetchOne(ctx, ServiceEntryVisibility.AsCollection()).VisibilityFor(nsLabels) == model.ServiceVisibilityNamespace
 }
 
 func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
@@ -294,11 +301,13 @@ func ResolveUseWaypointCanary(
 	return named, weight, valid
 }
 
-// resolveCanaryWaypoint applies the primary waypoint attachment and traffic-type checks.
+// resolveCanaryWaypoint applies the primary waypoint attachment, traffic-type and
+// ServiceEntry-visibility checks.
 func resolveCanaryWaypoint(
 	ctx krt.HandlerContext,
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	serviceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	fallbackNamespace string,
 	named *krt.Named,
 ) (*Waypoint, *model.StatusMessage) {
@@ -312,6 +321,9 @@ func resolveCanaryWaypoint(
 	if w.TrafficType != constants.ServiceTraffic && w.TrafficType != constants.AllTraffic {
 		return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
 	}
+	if crossNamespaceWaypointForbidden(ctx, namespaces, serviceEntryVisibility, fallbackNamespace, w.Namespace) {
+		return nil, ReportWaypointCrossNamespaceForbidden(w.ResourceName())
+	}
 	return w, nil
 }
 
@@ -321,6 +333,7 @@ func buildWeightedWaypoints(
 	ctx krt.HandlerContext,
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	serviceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	o metav1.ObjectMeta,
 	primary *Waypoint,
 	status *model.WaypointBindingStatus,
@@ -340,7 +353,7 @@ func buildWeightedWaypoints(
 		status.Error = ReportWaypointCanaryInvalidWeight(named.ResourceName())
 		return nil
 	}
-	canary, cerr := resolveCanaryWaypoint(ctx, waypoints, namespaces, o.Namespace, named)
+	canary, cerr := resolveCanaryWaypoint(ctx, waypoints, namespaces, serviceEntryVisibility, o.Namespace, named)
 	if cerr != nil {
 		status.Error = cerr
 		return nil
@@ -393,63 +406,64 @@ func gatewayToWaypointTransform(
 }
 
 func GlobalWaypointsCollection(
-	localCluster *multicluster.Cluster,
+	localCluster multicluster.ClusterCollections,
 	localWaypoints krt.Collection[Waypoint],
 	ctrl *multicluster.Controller,
 	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
 	globalNetworks NetworkCollections,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[Waypoint]] {
-	return multicluster.NestedCollectionFromLocalAndRemote(ctrl, localWaypoints, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[Waypoint] {
-		opts := []krt.CollectionOption{
-			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
-			krt.WithDebugging(opts.Debugger()),
-			krt.WithStop(c.GetStop()),
-			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID}),
-		}
-		pods := c.Pods()
-		podsByNamespace := krt.NewNamespaceIndex(pods)
-		gateways := c.Gateways()
-		namespaces := c.Namespaces()
-
-		clusterWaypoints := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *gatewayv1.Gateway) *Waypoint {
-			if len(gateway.Status.Addresses) == 0 {
-				// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
-				// ignore Kubernetes Gateways which aren't waypoints
-				return nil
+	return multicluster.NestedCollectionFromLocalAndRemote(ctrl, localWaypoints,
+		func(ctx krt.HandlerContext, c multicluster.ClusterCollections) *krt.Collection[Waypoint] {
+			opts := []krt.CollectionOption{
+				krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID())),
+				krt.WithDebugging(opts.Debugger()),
+				krt.WithStop(c.GetStop()),
+				krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID()}),
 			}
+			pods := c.Pods()
+			podsByNamespace := krt.NewNamespaceIndex(pods)
+			gateways := c.Gateways()
+			namespaces := c.Namespaces()
 
-			instances := podsByNamespace.Fetch(ctx, gateway.Namespace, krt.FilterLabel(map[string]string{
-				label.IoK8sNetworkingGatewayGatewayName.Name: gateway.Name,
-			}))
+			clusterWaypoints := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *gatewayv1.Gateway) *Waypoint {
+				if len(gateway.Status.Addresses) == 0 {
+					// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod,
+					// it should never be removed after going ready ignore Kubernetes Gateways which aren't waypoints
+					return nil
+				}
 
-			serviceAccounts := slices.Map(instances, func(p *v1.Pod) string {
-				return p.Spec.ServiceAccountName
-			})
+				instances := podsByNamespace.Fetch(ctx, gateway.Namespace, krt.FilterLabel(map[string]string{
+					label.IoK8sNetworkingGatewayGatewayName.Name: gateway.Name,
+				}))
 
-			// default traffic type if neither GatewayClass nor Gateway specify a type
-			trafficType := constants.ServiceTraffic
+				serviceAccounts := slices.Map(instances, func(p *v1.Pod) string {
+					return p.Spec.ServiceAccountName
+				})
 
-			gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
-			if gatewayClass == nil {
-				log.Warnf("could not find GatewayClass %s in local cluster for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
-			} else if tt, found := gatewayClass.Labels[label.IoIstioWaypointFor.Name]; found {
-				// Check for a declared traffic type that is allowed to pass through the Waypoint's GatewayClass
-				trafficType = tt
-			}
+				// default traffic type if neither GatewayClass nor Gateway specify a type
+				trafficType := constants.ServiceTraffic
 
-			// Check for a declared traffic type that is allowed to pass through the Waypoint
-			if tt, found := gateway.Labels[label.IoIstioWaypointFor.Name]; found {
-				trafficType = tt
-			}
+				gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
+				if gatewayClass == nil {
+					log.Warnf("could not find GatewayClass %s in local cluster for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
+				} else if tt, found := gatewayClass.Labels[label.IoIstioWaypointFor.Name]; found {
+					// Check for a declared traffic type that is allowed to pass through the Waypoint's GatewayClass
+					trafficType = tt
+				}
 
-			clusterNetwork := globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
+				// Check for a declared traffic type that is allowed to pass through the Waypoint
+				if tt, found := gateway.Labels[label.IoIstioWaypointFor.Name]; found {
+					trafficType = tt
+				}
 
-			return makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, clusterNetwork)
-		}, opts...)
+				clusterNetwork := globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 
-		return ptr.Of(clusterWaypoints)
-	}, "Waypoints", opts)
+				return makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, clusterNetwork)
+			}, opts...)
+
+			return ptr.Of(clusterWaypoints)
+		}, "Waypoints", opts)
 }
 
 func (a Builder) WaypointsCollection(

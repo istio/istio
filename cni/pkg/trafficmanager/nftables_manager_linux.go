@@ -65,11 +65,11 @@ func (m *NftablesTrafficManager) CreateInpodRules(log *istiolog.Scope, podOverri
 }
 
 // DeleteInpodRules removes nftables rules from a pod's network namespace
-func (m *NftablesTrafficManager) DeleteInpodRules(log *istiolog.Scope) error {
+func (m *NftablesTrafficManager) DeleteInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
 	if m.podNftables == nil {
 		return fmt.Errorf("pod nftables configurator not available (this is likely a host-only traffic manager)")
 	}
-	return m.podNftables.DeleteInpodRules(log)
+	return m.podNftables.DeleteInpodRules(log, podOverrides)
 }
 
 // CreateHostRulesForHealthChecks creates host-level nftables rules for health check handling

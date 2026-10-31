@@ -25,6 +25,9 @@ import (
 type Lazy[T any] interface {
 	// Get returns the value, computing it if necessary.
 	Get() (T, error)
+
+	// MustGet returns the computed value, panicking on error
+	MustGet() T
 }
 
 type lazyImpl[T any] struct {
@@ -51,6 +54,14 @@ func New[T any](f func() (T, error)) Lazy[T] {
 // non-nil error is returned.
 func NewWithRetry[T any](f func() (T, error)) Lazy[T] {
 	return &lazyImpl[T]{getter: f, retry: true}
+}
+
+func (l *lazyImpl[T]) MustGet() T {
+	v, err := l.Get()
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
 
 func (l *lazyImpl[T]) Get() (T, error) {

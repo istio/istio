@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -45,9 +44,9 @@ func (i Address) Equals(other Address) bool {
 		return false
 	}
 	if i.Workload != nil {
-		return i.Workload.Equals(*other.Workload)
+		return i.Workload.Equals(other.Workload)
 	}
-	return i.Service.Equals(*other.Service)
+	return i.Service.Equals(other.Service)
 }
 
 func (i Address) IntoProto() *workloadapi.Address {
@@ -62,11 +61,7 @@ func InferenceHostname(name, namespace, domainSuffix string) host.Name {
 	return host.Name(name + "." + namespace + "." + "inference" + "." + domainSuffix) // Format: "%s.%s.svc.%s"
 }
 
-func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
-	return ptr.Of(precomputeService(*w))
-}
-
-func precomputeService(w model.ServiceInfo) model.ServiceInfo {
+func precomputeService(w *model.ServiceInfo) *model.ServiceInfo {
 	w.AsAddress = model.NewAddressInfo(serviceToAddress(w.Service))
 	w.MarshaledAddress = w.AsAddress.Marshaled
 	return w
@@ -101,7 +96,7 @@ func inferencePoolBuilder(domainSuffix string) krt.TransformationSingle[*inferen
 		for k, v := range s.Spec.Selector.MatchLabels {
 			selector[string(k)] = string(v)
 		}
-		return precomputeServicePtr(&model.ServiceInfo{
+		return precomputeService(&model.ServiceInfo{
 			Service:       svc,
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(selector),

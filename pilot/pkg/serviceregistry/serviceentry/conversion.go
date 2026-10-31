@@ -21,7 +21,9 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
@@ -52,9 +54,10 @@ import (
 
 func convertPort(port *networking.ServicePort) *model.Port {
 	return &model.Port{
-		Name:     port.Name,
-		Port:     int(port.Number),
-		Protocol: protocol.Parse(port.Protocol),
+		Name:       port.Name,
+		Port:       int(port.Number),
+		TargetPort: intstr.FromInt32(int32(port.TargetPort)),
+		Protocol:   protocol.Parse(port.Protocol),
 	}
 }
 
@@ -227,15 +230,8 @@ func convertServices(cfg config.Config, nsAnnotations map[string]string, canonic
 	dnsConnectStrategy := model.GetDNSConnectStrategy(cfg.Annotations)
 
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
-	var portOverrides map[uint32]uint32
 	for _, port := range serviceEntry.Ports {
 		svcPorts = append(svcPorts, convertPort(port))
-		if resolution == model.Passthrough && port.TargetPort != 0 {
-			if portOverrides == nil {
-				portOverrides = map[uint32]uint32{}
-			}
-			portOverrides[port.Number] = port.TargetPort
-		}
 	}
 
 	var exportTo sets.Set[visibility.Instance]
@@ -297,14 +293,13 @@ func convertServices(cfg config.Config, nsAnnotations map[string]string, canonic
 			Ports:          svcPorts,
 			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry:        provider.External,
-				PassthroughTargetPorts: portOverrides,
-				Name:                   ha.host,
-				Namespace:              cfg.Namespace,
-				Labels:                 labels,
-				ExportTo:               exportTo,
-				LabelSelectors:         labelSelectors,
-				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution, DNSConnectStrategy: dnsConnectStrategy},
+				ServiceRegistry: provider.External,
+				Name:            ha.host,
+				Namespace:       cfg.Namespace,
+				Labels:          labels,
+				ExportTo:        exportTo,
+				LabelSelectors:  labelSelectors,
+				K8sAttributes:   model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution, DNSConnectStrategy: dnsConnectStrategy},
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
 		}
@@ -340,7 +335,7 @@ func convertServiceEntryToInstances(
 	meshConfig krt.Collection[meshwatcher.MeshConfigResource],
 	clusterID cluster.ID,
 	networkIDFn networkIDCallback,
-) []*model.ServiceInstance {
+) []*WorkloadServiceInstance {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	endpointsNum := len(serviceEntry.Endpoints)
 	hostnameToServiceInstance := false
@@ -349,7 +344,7 @@ func convertServiceEntryToInstances(
 		endpointsNum = 1
 	}
 
-	out := make([]*model.ServiceInstance, 0, len(serviceEntry.Ports)*endpointsNum)
+	out := make([]*WorkloadServiceInstance, 0, len(serviceEntry.Ports)*endpointsNum)
 	if hostnameToServiceInstance {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			// Note: only convert the hostname to service instance if WorkloadSelector is not set
@@ -360,7 +355,9 @@ func convertServiceEntryToInstances(
 			if serviceEntryPort.TargetPort > 0 {
 				endpointPort = serviceEntryPort.TargetPort
 			}
-			out = append(out, &model.ServiceInstance{
+			out = append(out, &WorkloadServiceInstance{
+				Namespace: cfg.Namespace,
+				Name:      cfg.Name,
 				Endpoint: &model.IstioEndpoint{
 					Addresses:            []string{string(service.Hostname)},
 					EndpointPort:         endpointPort,
@@ -386,7 +383,7 @@ func convertServiceEntryToInstances(
 				Name:      cfg.Name + "-" + strconv.Itoa(i),
 			}
 			wli := convertWorkloadEntryToWorkloadInstance(ctx, endpoint, meta, meshConfig, cfg.Namespace, clusterID, networkIDFn)
-			out = append(out, convertWorkloadInstanceToServiceInstance(wli, service, serviceEntry.Ports)...)
+			out = append(out, convertWorkloadInstanceToInstances(wli, service, serviceEntry.Ports)...)
 		}
 	}
 	return out
@@ -407,10 +404,10 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 
 // The workload instance has pointer to the service and its service port.
 // We need to create our own but we can retain the endpoint already created.
-func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadInstance, service *model.Service,
+func convertWorkloadInstanceToInstances(workloadInstance *model.WorkloadInstance, service *model.Service,
 	serviceEntryPorts []*networking.ServicePort,
-) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0, len(serviceEntryPorts))
+) []*WorkloadServiceInstance {
+	out := make([]*WorkloadServiceInstance, 0, len(serviceEntryPorts))
 	for _, serviceEntryPort := range serviceEntryPorts {
 		var targetPort uint32
 		addrs := workloadInstance.Endpoint.Addresses
@@ -438,7 +435,9 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 			ep.WorkloadName = workloadInstance.Name
 		}
 
-		out = append(out, &model.ServiceInstance{
+		out = append(out, &WorkloadServiceInstance{
+			Namespace:   workloadInstance.Namespace,
+			Name:        workloadInstance.Name,
 			Endpoint:    ep,
 			Service:     service,
 			ServicePort: convertPort(serviceEntryPort),
@@ -480,6 +479,7 @@ func convertWorkloadEntryToWorkloadInstance(
 		locality = pm.SanitizeLocalityLabel(localityLabel)
 	}
 	lbls := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
+	capturedByZtunnel := meta.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Addresses: []string{addr},
@@ -493,10 +493,11 @@ func convertWorkloadEntryToWorkloadInstance(
 			Namespace: meta.Namespace,
 			// Workload entry config name is used as workload name, which will appear in metric label.
 			// After VM auto registry is introduced, workload group annotation should be used for workload name.
-			WorkloadName:   labels.WorkloadNameFromWorkloadEntry(meta.Name, meta.Annotations, meta.Labels),
-			Labels:         lbls,
-			TLSMode:        tlsMode,
-			ServiceAccount: sa,
+			WorkloadName:      labels.WorkloadNameFromWorkloadEntry(meta.Name, meta.Annotations, meta.Labels),
+			Labels:            lbls,
+			TLSMode:           tlsMode,
+			ServiceAccount:    sa,
+			CapturedByZtunnel: capturedByZtunnel,
 		},
 		PortMap:             we.Ports,
 		Namespace:           meta.Namespace,
@@ -545,28 +546,31 @@ func services(
 			// No selector: endpoints from SE directly
 			return slices.Map(services, func(ss *model.Service) ServiceWithInstances {
 				return ServiceWithInstances{
-					Service: ss,
-					TargetPorts: slices.Map(se.Ports, func(p *networking.ServicePort) uint32 {
-						return p.TargetPort
-					}),
+					Service:   ss,
 					Instances: convertServiceEntryToInstances(ctx, cfg, ss, meshConfig, clusterID, networkIDFn),
 				}
 			})
 		}
 
 		dnsService := isDNSTypeService(services[0])
-		selectedWorkloads := workloadsByNamespace.Fetch(
-			ctx,
-			cfg.Namespace,
-			krt.FilterLabel(se.WorkloadSelector.Labels),
-			krt.FilterGeneric(func(o any) bool {
-				wi := o.(*model.WorkloadInstance)
-				if wi.DNSServiceEntryOnly && !dnsService {
-					return false
-				}
-				return true
-			}),
-		)
+		var selectedWorkloads []*model.WorkloadInstance
+
+		// SE with empty workload selector will not select any workloads
+		if len(se.WorkloadSelector.Labels) != 0 {
+			selectedWorkloads = workloadsByNamespace.Fetch(
+				ctx,
+				cfg.Namespace,
+				krt.FilterLabel(se.WorkloadSelector.Labels),
+				krt.FilterGeneric(func(o any) bool {
+					wi := o.(*model.WorkloadInstance)
+					if wi.DNSServiceEntryOnly && !dnsService {
+						return false
+					}
+					return true
+				}),
+			)
+		}
+
 		// krt fetching does not guarantee order, so we need to sort the selected workloads to ensure determinism
 		slices.SortStableFunc(selectedWorkloads, func(a, b *model.WorkloadInstance) int {
 			if r := cmp.Compare(a.Kind, b.Kind); r != 0 {
@@ -581,14 +585,11 @@ func services(
 		res := make([]ServiceWithInstances, 0, len(services))
 		for _, service := range services {
 			swi := ServiceWithInstances{
-				Service: service,
-				TargetPorts: slices.Map(se.Ports, func(p *networking.ServicePort) uint32 {
-					return p.TargetPort
-				}),
-				Instances: make([]*model.ServiceInstance, 0, len(selectedWorkloads)*len(se.Ports)),
+				Service:   service,
+				Instances: make([]*WorkloadServiceInstance, 0, len(selectedWorkloads)*len(se.Ports)),
 			}
 			for _, wi := range selectedWorkloads {
-				swi.Instances = append(swi.Instances, convertWorkloadInstanceToServiceInstance(wi, service, se.Ports)...)
+				swi.Instances = append(swi.Instances, convertWorkloadInstanceToInstances(wi, service, se.Ports)...)
 			}
 			res = append(res, swi)
 		}
@@ -617,7 +618,7 @@ func mergeServicesInstancesByNamespaceHost(
 		sortServicesByCreationTime(s.Objects)
 
 		ports := sets.New[int]()
-		instances := make([]*model.ServiceInstance, 0)
+		instances := make([]*WorkloadServiceInstance, 0)
 		anyDNSServiceEndpoint := false
 		for _, swi := range s.Objects {
 			for _, si := range swi.Instances {

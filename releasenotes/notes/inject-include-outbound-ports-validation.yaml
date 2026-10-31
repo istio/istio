@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: installation
+
+releaseNotes:
+  - |
+    **Fixed** the sidecar injector not validating the
+    `traffic.sidecar.istio.io/includeOutboundPorts` annotation. A malformed
+    value is now rejected at admission, consistent with the sibling traffic
+    port annotations and the CNI redirect path.

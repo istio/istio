@@ -28,38 +28,68 @@ import (
 )
 
 func TestMapCollection(t *testing.T) {
-	opts := testOptions(t)
-	c1 := kube.NewFakeClient()
-	kpc1 := kclient.New[*corev1.Pod](c1)
-	pc1 := clienttest.Wrap(t, kpc1)
-	pods := krt.WrapClient[*corev1.Pod](kpc1, opts.WithName("Pods1")...)
-	c1.RunAndWait(opts.Stop())
-	SimplePods := krt.MapCollection(pods, func(p *corev1.Pod) SimplePod {
-		return SimplePod{
-			Named: Named{
-				Name:      p.Name,
-				Namespace: p.Namespace,
-			},
-			Labeled: Labeled{
-				Labels: p.Labels,
-			},
-			IP: p.Status.PodIP,
+	for _, discardEqual := range []bool{false, true} {
+		name := "default"
+		if discardEqual {
+			name = "discard equal"
 		}
-	}, opts.WithName("SimplePods")...)
-	tt := assert.NewTracker[string](t)
-	SimplePods.Register(TrackerHandler[SimplePod](tt))
-	// Add a pod and make sure we get the event for it in event handlers from the mapped collection
-	pc1.Create(&corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod1",
-			Namespace: "ns1",
-			Labels:    map[string]string{"a": "b"},
-		},
-		Status: corev1.PodStatus{
-			PodIP: "1.2.3.4",
-		},
-	})
-	tt.WaitOrdered("add/ns1/pod1")
+		t.Run(name, func(t *testing.T) {
+			mapOpts := []krt.CollectionOption{krt.WithName("SimplePods")}
+			if discardEqual {
+				mapOpts = append(mapOpts, krt.WithMapDiscardEqual())
+			}
+			opts := testOptions(t)
+			c1 := kube.NewFakeClient()
+			kpc1 := kclient.New[*corev1.Pod](c1)
+			pc1 := clienttest.Wrap(t, kpc1)
+			pods := krt.WrapClient[*corev1.Pod](kpc1, opts.WithName("Pods1")...)
+			c1.RunAndWait(opts.Stop())
+			SimplePods := krt.MapCollection(pods, func(p *corev1.Pod) SimplePod {
+				return SimplePod{
+					Named: Named{
+						Name:      p.Name,
+						Namespace: p.Namespace,
+					},
+					Labeled: Labeled{
+						Labels: p.Labels,
+					},
+					IP: p.Status.PodIP,
+				}
+			}, opts.With(mapOpts...)...)
+			tt := assert.NewTracker[string](t)
+			SimplePods.RegisterBatch(func(events []krt.Event[SimplePod]) {
+				if len(events) == 0 {
+					tt.Record("empty")
+				}
+				for _, event := range events {
+					TrackerHandler[SimplePod](tt)(event)
+				}
+			}, true)
+			// Add a pod and make sure we get the event for it in event handlers from the mapped collection
+			pod := pc1.Create(&corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: "ns1",
+					Labels:    map[string]string{"a": "b"},
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.2.3.4",
+				},
+			})
+			tt.WaitOrdered("add/ns1/pod1")
+
+			pod.Annotations = map[string]string{"ignored": "change"}
+			pod = pc1.Update(pod)
+			pod.Status.PodIP = "1.2.3.5"
+			pc1.UpdateStatus(pod)
+			pc1.Delete(pod.Name, pod.Namespace)
+			if discardEqual {
+				tt.WaitOrdered("update/ns1/pod1", "delete/ns1/pod1")
+			} else {
+				tt.WaitOrdered("update/ns1/pod1", "update/ns1/pod1", "delete/ns1/pod1")
+			}
+		})
+	}
 }
 
 func TestMapCollectionWithIndex(t *testing.T) {

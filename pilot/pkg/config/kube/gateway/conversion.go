@@ -101,7 +101,7 @@ func sortedConfigByCreationTime(configs []config.Config) []config.Config {
 
 func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 	obj *k8s.HTTPRoute, pos int, enforceRefGrant bool,
-) (*istio.HTTPRoute, *inferencePoolConfig, *ConfigError) {
+) (*istio.HTTPRoute, inferencePoolConfigs, *ConfigError) {
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
 		vs.Name = string(*r.Name)
@@ -461,32 +461,36 @@ func routeMeta(obj controllers.Object) map[string]string {
 // see https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1alpha2.HTTPRouteRule
 func sortHTTPRoutes(routes []*istio.HTTPRoute) {
 	sort.SliceStable(routes, func(i, j int) bool {
-		if len(routes[i].Match) == 0 {
-			return false
-		} else if len(routes[j].Match) == 0 {
-			return true
-		}
-		// Only look at match[0], we always generate only one match
-		m1, m2 := routes[i].Match[0], routes[j].Match[0]
-		r1, r2 := getURIRank(m1), getURIRank(m2)
-		len1, len2 := getURILength(m1), getURILength(m2)
-		switch {
-		// 1: Exact/Prefix/Regex
-		case r1 != r2:
-			return r1 > r2
-		case len1 != len2:
-			return len1 > len2
-			// 2: method math
-		case (m1.Method == nil) != (m2.Method == nil):
-			return m1.Method != nil
-			// 3: number of header matches
-		case len(m1.Headers) != len(m2.Headers):
-			return len(m1.Headers) > len(m2.Headers)
-			// 4: number of query matches
-		default:
-			return len(m1.QueryParams) > len(m2.QueryParams)
-		}
+		return httpRouteLess(routes[i], routes[j])
 	})
+}
+
+func httpRouteLess(i, j *istio.HTTPRoute) bool {
+	if len(i.Match) == 0 {
+		return false
+	} else if len(j.Match) == 0 {
+		return true
+	}
+	// Only look at match[0], we always generate only one match
+	m1, m2 := i.Match[0], j.Match[0]
+	r1, r2 := getURIRank(m1), getURIRank(m2)
+	len1, len2 := getURILength(m1), getURILength(m2)
+	switch {
+	// 1: Exact/Prefix/Regex
+	case r1 != r2:
+		return r1 > r2
+	case len1 != len2:
+		return len1 > len2
+		// 2: method match
+	case (m1.Method == nil) != (m2.Method == nil):
+		return m1.Method != nil
+		// 3: number of header matches
+	case len(m1.Headers) != len(m2.Headers):
+		return len(m1.Headers) > len(m2.Headers)
+		// 4: number of query matches
+	default:
+		return len(m1.QueryParams) > len(m2.QueryParams)
+	}
 }
 
 func parentMeta(obj controllers.Object, sectionName *k8s.SectionName) map[string]string {
@@ -982,7 +986,7 @@ func buildHTTPDestination(
 	forwardTo []k8s.HTTPBackendRef,
 	ns string,
 	enforceRefGrant bool,
-) ([]*istio.HTTPRouteDestination, *inferencePoolConfig, *ConfigError, *ConfigError) {
+) ([]*istio.HTTPRouteDestination, inferencePoolConfigs, *ConfigError, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil, nil, nil
 	}
@@ -1001,11 +1005,19 @@ func buildHTTPDestination(
 	}
 
 	var invalidBackendErr *ConfigError
-	var ipCfg *inferencePoolConfig
+	var ipCfg inferencePoolConfigs
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
 		dst, ipconfig, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.HTTPRoute)
-		ipCfg = ipconfig
+		// Keyed by destination host so the xDS layer can match each weighted cluster back to the
+		// pool it came from. Collapsing these into one config per rule would hand a single pool's
+		// endpoint picker every request the rule serves.
+		if ipconfig != nil && ipconfig.enableExtProc {
+			if ipCfg == nil {
+				ipCfg = inferencePoolConfigs{}
+			}
+			ipCfg[dst.GetHost()] = ipconfig
+		}
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1127,6 +1139,10 @@ func buildGRPCDestination(
 	return res, invalidBackendErr, nil
 }
 
+// inferencePoolConfigs collects the InferencePool backendRefs of one route rule, keyed by the
+// hostname of the Service Istio synthesizes for each pool.
+type inferencePoolConfigs map[string]*inferencePoolConfig
+
 type inferencePoolConfig struct {
 	enableExtProc             bool
 	endpointPickerDst         string
@@ -1155,7 +1171,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 	var hostname string
 	switch ref {
 	case gvk.XBackend:
-		if !features.EnableAlphaGatewayAPI {
+		if !ctx.Flags.EnableAlphaGatewayAPI {
 			return &istio.Destination{}, nil, &ConfigError{
 				Reason:  InvalidDestinationKind,
 				Message: "The Alpha Gateway API is not enabled, XBackend is invalid. To enable, set PILOT_ENABLE_ALPHA_GATEWAY_API to true in istiod.",
@@ -1182,16 +1198,16 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		// Unlike a Service, the port is declared on the Backend itself, so backendRef.port is
 		// optional. When it is set it must agree with the Backend's port.
-		if to.Port != nil && *to.Port != k8s.PortNumber(backend.Spec.Port.Port) {
+		if to.Port != nil && *to.Port != k8s.PortNumber(backend.Spec.Port.Number) {
 			invalidBackendErr = &ConfigError{
 				Reason:  InvalidDestinationNotFound,
-				Message: fmt.Sprintf("backend(%s) does not expose port %d, expected %d", to.Name, *to.Port, backend.Spec.Port.Port),
+				Message: fmt.Sprintf("backend(%s) does not expose port %d, expected %d", to.Name, *to.Port, backend.Spec.Port.Number),
 			}
 			return &istio.Destination{}, nil, invalidBackendErr
 		}
 		return &istio.Destination{
 			Host: hostname,
-			Port: &istio.PortSelector{Number: uint32(backend.Spec.Port.Port)},
+			Port: &istio.PortSelector{Number: uint32(backend.Spec.Port.Number)},
 		}, nil, invalidBackendErr
 	case gvk.Service:
 		if strings.Contains(string(to.Name), ".") {
@@ -1223,7 +1239,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case gvk.InferencePool:
-		if !features.EnableGatewayAPIInferenceExtension {
+		if !ctx.Flags.EnableGatewayAPIInferenceExtension {
 			return &istio.Destination{}, nil, &ConfigError{
 				Reason:  InvalidDestinationKind,
 				Message: "InferencePool is not enabled. To enable, set ENABLE_GATEWAY_API_INFERENCE_EXTENSION to true in istiod",
@@ -2065,7 +2081,15 @@ func reportUnmanagedGatewayStatus(
 	}
 
 	status.Addresses = slices.Map(obj.Spec.Addresses, func(e k8s.GatewaySpecAddress) k8s.GatewayStatusAddress {
-		return k8s.GatewayStatusAddress(e)
+		var routability *k8s.GatewayAddressRoutabilityType
+		if e.Routability != "" {
+			routability = ptr.Of(e.Routability)
+		}
+		return k8s.GatewayStatusAddress{
+			Type:        e.Type,
+			Value:       e.Value,
+			Routability: routability,
+		}
 	})
 	status.Listeners = nil
 	status.Conditions = gatewaycommon.SetListenerConditions(obj.Generation, status.Conditions, gatewayConditions)

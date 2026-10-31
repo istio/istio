@@ -725,9 +725,10 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 
 func TestValidateTLS(t *testing.T) {
 	testCases := []struct {
-		name  string
-		tls   *networking.ClientTLSSettings
-		valid bool
+		name            string
+		tls             *networking.ClientTLSSettings
+		configNamespace string
+		valid           bool
 	}{
 		{
 			name: "SIMPLE: Credential Name set correctly",
@@ -855,10 +856,134 @@ func TestValidateTLS(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "SIMPLE: CaCertCredentialName set alone",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "backend-ca",
+			},
+			valid: true,
+		},
+		{
+			name: "SIMPLE: CaCertCredentialName set alongside CredentialName",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CredentialName:       "some credential",
+				CaCertCredentialName: "backend-ca",
+			},
+			valid: true,
+		},
+		{
+			name: "MUTUAL: CaCertCredentialName set with file based client certificate",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_MUTUAL,
+				CaCertCredentialName: "backend-ca",
+				ClientCertificate:    "cert",
+				PrivateKey:           "key",
+			},
+			valid: true,
+		},
+		{
+			name: "MUTUAL: CaCertCredentialName set without a client certificate",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_MUTUAL,
+				CaCertCredentialName: "backend-ca",
+			},
+			valid: false,
+		},
+		{
+			name: "ISTIO_MUTUAL: CaCertCredentialName set",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_ISTIO_MUTUAL,
+				CaCertCredentialName: "backend-ca",
+			},
+			valid: false,
+		},
+		{
+			name: "DISABLE: CaCertCredentialName set",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_DISABLE,
+				CaCertCredentialName: "backend-ca",
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: CaCertCredentialName set with CaCertificates",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "backend-ca",
+				CaCertificates:       "/etc/certs/root-cert.pem",
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: CaCertCredentialName set with CaCrl",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "backend-ca",
+				CaCrl:                "/etc/certs/crl.pem",
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: CaCertCredentialName set with InsecureSkipVerify",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "backend-ca",
+				InsecureSkipVerify:   &wrappers.BoolValue{Value: true},
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CaCertCredentialName set with InsecureSkipVerify",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_MUTUAL,
+				CaCertCredentialName: "backend-ca",
+				ClientCertificate:    "cert",
+				PrivateKey:           "key",
+				InsecureSkipVerify:   &wrappers.BoolValue{Value: true},
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: configmap:// CaCertCredentialName in the configuration namespace",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "configmap://backend/backend-ca",
+			},
+			configNamespace: "backend",
+			valid:           true,
+		},
+		{
+			name: "SIMPLE: configmap:// CaCertCredentialName in another namespace",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "configmap://other/backend-ca",
+			},
+			configNamespace: "backend",
+			valid:           false,
+		},
+		{
+			name: "SIMPLE: configmap:// CaCertCredentialName without a configuration namespace",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "configmap://backend/backend-ca",
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: configmap:// CaCertCredentialName without a namespace",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "configmap://backend-ca",
+			},
+			configNamespace: "backend",
+			valid:           false,
+		},
 	}
 
 	for _, tc := range testCases {
-		if got := ValidateTLS("", tc.tls); (got == nil) != tc.valid {
+		if got := ValidateTLS(tc.configNamespace, tc.tls); (got == nil) != tc.valid {
 			t.Errorf("ValidateTLS(%q) => got valid=%v, want valid=%v",
 				tc.name, got == nil, tc.valid)
 		}

@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -238,6 +239,8 @@ type AgentOptions struct {
 	// Note that the path is not configurable by design - only the socket file name.
 	WorkloadIdentitySocketFile string
 
+	WorkloadIdentitySocketTimeout time.Duration
+
 	EnvoySkipDeprecatedLogs bool
 }
 
@@ -271,7 +274,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		pilotSAN = []string{config.GetPilotSan(a.proxyConfig.DiscoveryAddress)}
 	}
 
-	credentialSocketExists, err := checkSocket(context.TODO(), security.CredentialNameSocketPath)
+	credentialSocketExists, err := checkSocket(context.TODO(), security.CredentialNameSocketPath, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check credential SDS socket: %v", err)
 	}
@@ -392,7 +395,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	// Are we listening to the Istio default SDS server socket, or something else?
 	isIstioSDS := configuredAgentSocketPath == security.GetIstioSDSServerSocketPath()
 
-	socketExists, err := checkSocket(ctx, configuredAgentSocketPath)
+	socketExists, err := waitForSocket(ctx, configuredAgentSocketPath, a.cfg.WorkloadIdentitySocketTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check SDS socket: %v", err)
 	}
@@ -723,13 +726,58 @@ func socketFileExists(path string) bool {
 	return false
 }
 
+// socketPollInterval is how frequently we re-check for the workload SDS socket while
+// waiting for an external SDS provider to bind it.
+const socketPollInterval = 500 * time.Millisecond
+
+// waitForSocket checks for a healthy SDS socket at socketPath, optionally
+// waiting up until the duration of timeout for one to appear. Default behavior
+// when a timeout is not configured performs a single check. Waiting is useful
+// when an external SDS provider binds its socket after the agent has started.
+// Check must complete before the Envoy bootstrap is generated, since whether a
+// custom SDS socket is in use is recorded in static node metadata.
+func waitForSocket(ctx context.Context, socketPath string, timeout time.Duration) (bool, error) {
+	if timeout <= 0 {
+		return checkSocket(ctx, socketPath, true)
+	}
+
+	log := log.WithLabels("path", socketPath)
+	log.Infof("waiting up to %v for workload SDS socket to become available", timeout)
+
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	for {
+		socketExists, err := checkSocket(waitCtx, socketPath, false)
+		if err != nil {
+			return false, err
+		}
+		if socketExists {
+			return true, nil
+		}
+		if !sleep.UntilContext(waitCtx, socketPollInterval) {
+			break
+		}
+	}
+
+	// The agent is shutting down, so do not fall through to the final check.
+	if ctx.Err() != nil {
+		return false, fmt.Errorf("interrupted while waiting for SDS socket: %v", context.Cause(ctx))
+	}
+
+	log.Warnf("timed out after %v waiting for workload SDS socket", timeout)
+	// Check once more to ensure we remove an unhealthy socket.
+	return checkSocket(ctx, socketPath, true)
+}
+
 // Checks whether the socket exists and is responsive.
 // If it doesn't exist, returns (false, nil)
-// If it exists and is NOT responsive, tries to delete the socket file.
+// If it exists and is NOT responsive, and removeUnhealthy is false, returns (false, nil).
+// If it exists and is NOT responsive, and removeUnhealthy is true, tries to delete the socket file.
 // If it can be deleted, returns (false, nil).
 // If it cannot be deleted, returns (false, error).
 // Otherwise, returns (true, nil)
-func checkSocket(ctx context.Context, socketPath string) (bool, error) {
+func checkSocket(ctx context.Context, socketPath string, removeUnhealthy bool) (bool, error) {
 	log := log.WithLabels("path", socketPath)
 	socketExists := socketFileExists(socketPath)
 	if !socketExists {
@@ -739,6 +787,9 @@ func checkSocket(ctx context.Context, socketPath string) (bool, error) {
 	err := socketHealthCheck(ctx, socketPath)
 	if err != nil {
 		log.Debugf("SDS socket detected but not healthy: %v", err)
+		if !removeUnhealthy {
+			return false, nil
+		}
 		err = os.Remove(socketPath)
 		if err != nil {
 			return false, fmt.Errorf("existing SDS socket could not be removed: %v", err)

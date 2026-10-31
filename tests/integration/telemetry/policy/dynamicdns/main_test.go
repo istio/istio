@@ -47,6 +47,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
+		Label(label.Full).
 		Setup(istio.Setup(&ist, setupConfig)).
 		Run()
 }

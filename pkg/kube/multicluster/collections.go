@@ -44,19 +44,21 @@ func NestedCollectionIndexByCluster[T any](
 }
 
 // NestedCollectionFromLocalAndRemote builds a collection of collections that merges
-// a local collection with per-cluster remote collections derived from the Controller's
-// Clusters() collection.
+// a local collection with per-cluster remote collections derived from the Controller's clusters
+// collection.
+//
+// See NestedManyCollectionsFromLocalAndRemote for the contract clusterToCollection must honor.
 func NestedCollectionFromLocalAndRemote[T any](
 	ctrl *Controller,
 	localCollection krt.Collection[T],
-	clusterToCollection krt.TransformationSingle[*Cluster, krt.Collection[T]],
+	clusterToCollection krt.TransformationSingle[ClusterCollections, krt.Collection[T]],
 	name string,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[T]] {
 	return NestedManyCollectionsFromLocalAndRemote(
 		ctrl,
 		[]krt.Collection[T]{localCollection},
-		func(ctx krt.HandlerContext, c *Cluster) []krt.Collection[T] {
+		func(ctx krt.HandlerContext, c ClusterCollections) []krt.Collection[T] {
 			col := clusterToCollection(ctx, c)
 			if col == nil {
 				return nil
@@ -70,16 +72,32 @@ func NestedCollectionFromLocalAndRemote[T any](
 
 // NestedManyCollectionsFromLocalAndRemote builds a collection of collections that merges
 // multiple local collections with per-cluster remote collections derived from the Controller's
-// Clusters() collection. This is a generalization of NestedCollectionFromLocalAndRemote for
+// clusters collection. This is a generalization of NestedCollectionFromLocalAndRemote for
 // cases where each cluster produces multiple collections instead of one.
+//
+// clusterToCollections is called once per cluster generation — a cluster whose credentials rotate is
+// a new generation and is rebuilt from scratch. It receives a ClusterCollections view rather than the
+// *Cluster, and it must:
+//   - build every collection it returns with krt.WithStop(c.GetStop()), so the handler registrations
+//     it makes on the cluster's informer-backed collections are released when the cluster goes away.
+//     Using a process-wide stop channel instead leaks the registration, the informers and the cluster
+//     itself;
+//   - return nil if it cannot build the collections yet (for example a krt.Fetch on another
+//     per-cluster collection that has not been computed yet). The cluster is then omitted until the
+//     transformation is recomputed;
+//   - not retain the ClusterCollections, or the collections it returns, past the call.
+//
+// The returned collections are cached per (cluster ID, kubeconfig SHA) so that unrelated recomputes
+// of the clusters collection do not rebuild them, and they are dropped from the cache when the
+// cluster is deleted.
 func NestedManyCollectionsFromLocalAndRemote[T any](
 	ctrl *Controller,
 	localCollections []krt.Collection[T],
-	clusterToCollections func(krt.HandlerContext, *Cluster) []krt.Collection[T],
+	clusterToCollections func(krt.HandlerContext, ClusterCollections) []krt.Collection[T],
 	name string,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[T]] {
-	clustersCollection := ctrl.Clusters()
+	clustersCollection := ctrl.clusters
 	// The local collections are fixed for the lifetime of the process, so a static container is enough.
 	localContainer := krt.NewStaticCollection(
 		nil,
@@ -108,7 +126,7 @@ func NestedManyCollectionsFromLocalAndRemote[T any](
 		if existing := cache.Get(c.ID, c.kubeConfigSha); existing != nil {
 			return existing
 		}
-		cols := clusterToCollections(ctx, c)
+		cols := clusterToCollections(ctx, ClusterCollections{cluster: c})
 		if cols == nil {
 			log.Warnf("no collections for %s returned for cluster %v", name, c.ID)
 			return nil

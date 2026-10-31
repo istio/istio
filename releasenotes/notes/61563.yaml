@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 61563
+releaseNotes:
+  - |
+    **Improved** mesh configuration load failures with source-specific error and fallback logging and the `istiod_mesh_config_load_errors_total` counter.

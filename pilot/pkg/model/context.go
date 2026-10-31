@@ -484,6 +484,7 @@ var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
 //
 // Listener generation code will still use the SidecarScope object directly
 // as it needs the set of services for each listener port.
+// For routers and ambient east-west gateways, SetGatewaysForProxy must be called first to select gateway VirtualServices.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	sidecarScope := node.SidecarScope
 
@@ -602,7 +603,7 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	node.PrevMergedGateway = &PrevMergedGateway{
 		ContainsAutoPassthroughGateways: prevMergedGateway.ContainsAutoPassthroughGateways,
 		AutoPassthroughSNIHosts:         prevMergedGateway.GetAutoPassthroughGatewaySNIHosts(),
-		GatewayNameForServer:            prevMergedGateway.GatewayNameForServer,
+		GatewayNames:                    prevMergedGateway.GatewayNames,
 	}
 }
 
@@ -1001,10 +1002,9 @@ func (node *Proxy) ShallowCloneWatchedResources() map[string]*WatchedResource {
 	return maps.Clone(node.WatchedResources)
 }
 
-// DeepCloneWatchedResources clones the watched resources
-func (node *Proxy) DeepCloneWatchedResources() map[string]WatchedResource {
-	node.RLock()
-	defer node.RUnlock()
+// DeepCloneWatchedResourcesLocked clones the watched resources.
+// The caller must hold the proxy read or write lock.
+func (node *Proxy) DeepCloneWatchedResourcesLocked() map[string]WatchedResource {
 	m := make(map[string]WatchedResource, len(node.WatchedResources))
 	for k, v := range node.WatchedResources {
 		m[k] = *v
@@ -1175,12 +1175,20 @@ func IsWaypointProxy(node *Proxy) bool {
 }
 
 func ShouldCreateDoubleHBONEResources(p *Proxy) bool {
-	isHBONESendEnabled := bool(!p.Metadata.DisableHBONESend) && features.EnableHBONESend
+	if !features.EnableAmbientMultiNetwork {
+		return false
+	}
 
-	// Note that we only consider EnableHBONESend for ingress gateway, as traditionally
-	// that flag has been ignored for waypoints when generating endpoint/cluster discovery
-	// information.
-	return features.EnableAmbientMultiNetwork &&
-		(IsIngressGateway(p) && features.EnableAmbientIngressMultiNetwork && isHBONESendEnabled) ||
-		(IsWaypointProxy(p) && features.EnableAmbientWaypointMultiNetwork)
+	switch {
+	case IsIngressGateway(p):
+		// Note that we only consider EnableHBONESend for ingress gateway, as traditionally
+		// that flag has been ignored for waypoints when generating endpoint/cluster discovery
+		// information.
+		isHBONESendEnabled := bool(!p.Metadata.DisableHBONESend) && features.EnableHBONESend
+		return features.EnableAmbientIngressMultiNetwork && isHBONESendEnabled
+	case IsWaypointProxy(p):
+		return features.EnableAmbientWaypointMultiNetwork
+	default:
+		return false
+	}
 }

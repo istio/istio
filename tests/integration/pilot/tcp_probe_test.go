@@ -30,7 +30,7 @@ import (
 )
 
 func TestTcpProbe(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			ns := namespace.NewOrFail(t, namespace.Config{Prefix: "tcp-probe", Inject: true})
 			for _, testCase := range []struct {

@@ -48,6 +48,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
+		Label(label.Full).
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
 			t.Settings().SkipTProxy = true
@@ -56,12 +57,17 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			ctx.Settings().SkipVMs()
 			ctx.Settings().SkipTProxy = true
+
+			cfg.EnableCNI = false
+			cfg.DeployGatewayAPI = true
+			cfg.DeployEastWestGW = false
 			if ctx.Settings().AmbientMultiNetwork {
 				cfg.DeployEastWestGW = true
+				cfg.SkipDeployCrossClusterSecrets = false
+				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK"] = "true"
+				cfg.Values["pilot.env.AMBIENT_ENABLE_BAGGAGE"] = "true"
 			}
-			cfg.EnableCNI = false
-			cfg.DeployEastWestGW = false
-			cfg.DeployGatewayAPI = true
+
 			cfg.ControlPlaneValues = `
 profile: ambient
 meshConfig:
@@ -126,9 +132,6 @@ func TestCrossNamespaceWaypoint(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			if !crd.SupportsGatewayAPI(t) {
 				t.Skip("requires gateway API (k8s 1.31+)")
-			}
-			if t.Settings().AmbientMultiNetwork {
-				t.Skip("https://github.com/istio/istio/issues/57878")
 			}
 			// Steps:
 			// 1. create namespace for the waypoint

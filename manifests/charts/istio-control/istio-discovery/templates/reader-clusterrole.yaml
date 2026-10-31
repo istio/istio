@@ -33,6 +33,12 @@ rules:
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]
+{{- if (eq ((coalesce .Values.global.platform .Values.platform) | default "") "openshift") }}
+  # OpenShift: read SecurityContextConstraints to discover the injected proxy's UID/GID.
+  - apiGroups: ["security.openshift.io"]
+    resources: ["securitycontextconstraints"]
+    verbs: ["get", "list", "watch"]
+{{- end }}
   - apiGroups: ["discovery.k8s.io"]
     resources: ["endpointslices"]
     verbs: ["get", "list", "watch"]

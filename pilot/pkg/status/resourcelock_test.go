@@ -16,6 +16,7 @@ package status
 
 import (
 	"context"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -25,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // TestLockLoop is a regression test for an issue that cause infinite loops in the worker handler
@@ -111,8 +113,10 @@ func TestResourceLock_Lock(t *testing.T) {
 	c2 := mgr.CreateIstioStatusController(fakefunc)
 	workers := NewWorkerPool(func(_ *config.Config) {
 	}, func(resource Resource) *config.Config {
+		// The live object is at whatever generation was last observed and pushed.
+		gen, _ := strconv.ParseInt(resource.Generation, 10, 64)
 		return &config.Config{
-			Meta: config.Meta{Generation: 11},
+			Meta: config.Meta{Generation: gen},
 		}
 	}, 10)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -136,4 +140,59 @@ func TestResourceLock_Lock(t *testing.T) {
 	result := atomic.LoadInt32(&runCount)
 	g.Expect(result).To(Equal(int32(3)))
 	cancel()
+}
+
+// TestWorkQueuePushUpdatesGeneration is a regression test for status updates being silently dropped.
+// A second Push for an object that is still queued must carry the newer generation forward, otherwise
+// the worker sees a generation mismatch against the live object and drops the write without retrying.
+func TestWorkQueuePushUpdatesGeneration(t *testing.T) {
+	g := NewWithT(t)
+	wq := WorkQueue{cache: map[lockResource]cacheEntry{}}
+	ctl := &Controller{}
+	res := Resource{
+		GroupVersionResource: schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "backendtlspolicies"},
+		Namespace:            "default",
+		Name:                 "policy",
+	}
+
+	gen1 := res
+	gen1.Generation = "1"
+	wq.Push(gen1, ctl, "status for generation 1")
+
+	// the object is updated before the worker gets to it
+	gen2 := res
+	gen2.Generation = "2"
+	wq.Push(gen2, ctl, "status for generation 2")
+
+	target, progress := wq.Pop(sets.New[lockResource]())
+	g.Expect(target.Generation).To(Equal("2"))
+	g.Expect(progress[ctl]).To(Equal("status for generation 2"))
+}
+
+// TestWorkerPoolSkipsStaleGeneration verifies the guard that stops a status computed for an old
+// generation from being written over a newer object.
+func TestWorkerPoolSkipsStaleGeneration(t *testing.T) {
+	g := NewWithT(t)
+	wrote := make(chan struct{}, 1)
+	mgr := NewManager(nil)
+	c := mgr.CreateIstioStatusController(func(status Manipulator, context any) {})
+	workers := NewWorkerPool(func(_ *config.Config) {
+		wrote <- struct{}{}
+	}, func(_ Resource) *config.Config {
+		// live object has moved on
+		return &config.Config{Meta: config.Meta{Generation: 12}}
+	}, 10)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	workers.Run(ctx)
+
+	stale := Resource{
+		GroupVersionResource: schema.GroupVersionResource{Group: "r1", Version: "r1"},
+		Namespace:            "r1",
+		Name:                 "r1",
+		Generation:           "11",
+	}
+	workers.Push(stale, c, nil)
+
+	g.Consistently(wrote, 100*time.Millisecond).ShouldNot(Receive())
 }

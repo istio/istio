@@ -541,7 +541,7 @@ func TestRequestAuthentication(t *testing.T) {
 // TestIngressRequestAuthentication tests beta authn policy for jwt on ingress.
 // The policy is also set at global namespace, with authorization on ingressgateway.
 func TestIngressRequestAuthentication(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
 			config.New(t).
@@ -724,7 +724,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 
 // TestGatewayAPIRequestAuthentication tests beta authn policy for jwt on gateway API.
 func TestGatewayAPIRequestAuthentication(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewFullTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)

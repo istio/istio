@@ -101,6 +101,16 @@ func WithJoinUnchecked() CollectionOption {
 	}
 }
 
+// WithMapDiscardEqual suppresses update events whose mapped outputs are Equal.
+// This only applies to MapCollection, which forwards all events by default.
+// Use it when mapping discards fields that can change independently of the output.
+// Equality is checked separately for each registered handler.
+func WithMapDiscardEqual() CollectionOption {
+	return func(c *collectionOptions) {
+		c.mapDiscardEqual = true
+	}
+}
+
 // WithMetadata adds metadata to the collection. This is mainly useful
 // for creating collections of collections where the metadata is needed to
 // fetch a specific collection.

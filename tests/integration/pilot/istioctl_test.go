@@ -56,12 +56,36 @@ var (
 	describePodAOutput = describeSvcAOutput
 )
 
+func getPodID(i echo.Instance) (string, error) {
+	wls, err := i.Workloads()
+	if err != nil {
+		return "", nil
+	}
+
+	for _, wl := range wls {
+		return wl.PodName(), nil
+	}
+
+	return "", fmt.Errorf("no workloads")
+}
+
+func jsonUnmarshallOrFail(t test.Failer, context, s string) any {
+	t.Helper()
+	var val any
+
+	// this is guarded by prettyPrint
+	if err := json.Unmarshal([]byte(s), &val); err != nil {
+		t.Fatalf("Could not unmarshal %s response %s", context, s)
+	}
+	return val
+}
+
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
 // TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data
 func TestVersion(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).RequiresSingleCluster().
+		NewFullTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
 
@@ -85,7 +109,7 @@ func TestVersion(t *testing.T) {
 func TestXdsVersion(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).RequiresSingleCluster().
+		NewFullTest(t).RequiresSingleCluster().
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
@@ -108,7 +132,7 @@ func TestXdsVersion(t *testing.T) {
 
 func TestDescribe(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).RequiresSingleCluster().
+	framework.NewFullTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/a.yaml").ApplyOrFail(t)
 
@@ -153,22 +177,9 @@ func TestDescribe(t *testing.T) {
 		})
 }
 
-func getPodID(i echo.Instance) (string, error) {
-	wls, err := i.Workloads()
-	if err != nil {
-		return "", nil
-	}
-
-	for _, wl := range wls {
-		return wl.PodName(), nil
-	}
-
-	return "", fmt.Errorf("no workloads")
-}
-
 func TestProxyConfig(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).RequiresSingleCluster().
+	framework.NewFullTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
@@ -272,20 +283,9 @@ func TestProxyConfig(t *testing.T) {
 		})
 }
 
-func jsonUnmarshallOrFail(t test.Failer, context, s string) any {
-	t.Helper()
-	var val any
-
-	// this is guarded by prettyPrint
-	if err := json.Unmarshal([]byte(s), &val); err != nil {
-		t.Fatalf("Could not unmarshal %s response %s", context, s)
-	}
-	return val
-}
-
 func TestProxyStatus(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).RequiresSingleCluster().
+	framework.NewFullTest(t).RequiresSingleCluster().
 		RequiresLocalControlPlane(). // https://github.com/istio/istio/issues/37051
 		Run(func(t framework.TestContext) {
 			const timeoutFlag = "--timeout=10s"
@@ -358,7 +358,7 @@ func TestProxyStatus(t *testing.T) {
 
 func TestAuthZCheck(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).RequiresSingleCluster().
+	framework.NewFullTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			istioLabel := "ingressgateway"
 			if labelOverride := i.Settings().IngressGatewayIstioLabel; labelOverride != "" {
@@ -427,7 +427,7 @@ func TestAuthZCheck(t *testing.T) {
 
 func TestKubeInject(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).RequiresSingleCluster().
+	framework.NewFullTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 			var output string
@@ -441,7 +441,7 @@ func TestKubeInject(t *testing.T) {
 
 func TestRemoteClusters(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).RequiresMinClusters(2).
+	framework.NewMulticlusterTest(t).RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
 			for _, cluster := range t.Clusters().Primaries() {
 				t.NewSubTest(cluster.StableName()).Run(func(t framework.TestContext) {

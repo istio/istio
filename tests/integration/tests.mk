@@ -5,6 +5,10 @@
 # The following flags (in addition to ${V}) can be specified on the command-line, or the environment. This
 # is primarily used by the CI systems.
 _INTEGRATION_TEST_FLAGS := $(INTEGRATION_TEST_FLAGS)
+INTEGRATION_TEST_TAGS ?= integ
+INTEGRATION_TEST_TAGS_ENVIRONMENT := integ
+INTEGRATION_TEST_TAGS_MULTICLUSTER := integ
+INTEGRATION_TEST_TAGS_FUZZ := integfuzz,integ
 
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 ifneq ($(CI),)
@@ -40,10 +44,15 @@ ifneq ($(IP_FAMILIES),)
    _INTEGRATION_TEST_FLAGS += --istio.test.IPFamilies=$(IP_FAMILIES)
 endif
 
-_INTEGRATION_TEST_SELECT_FLAGS ?= --istio.test.select=$(TEST_SELECT)
+_INTEGRATION_TEST_SELECT := $(TEST_SELECT)
+_INTEGRATION_TEST_ENVIRONMENT_SELECT := $(TEST_SELECT)
+_INTEGRATION_TEST_MULTICLUSTER_SELECT := $(TEST_SELECT)
 ifneq ($(JOB_TYPE),postsubmit)
-	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-postsubmit"
+	_INTEGRATION_TEST_SELECT := $(_INTEGRATION_TEST_SELECT),-postsubmit
+	_INTEGRATION_TEST_ENVIRONMENT_SELECT := $(_INTEGRATION_TEST_ENVIRONMENT_SELECT),-postsubmit,-full,-multicluster
+	_INTEGRATION_TEST_MULTICLUSTER_SELECT := $(_INTEGRATION_TEST_MULTICLUSTER_SELECT),-postsubmit,-full
 endif
+_INTEGRATION_TEST_SELECT := $(_INTEGRATION_TEST_SELECT),-multicluster
 
 # both ipv6 only and dual stack support ipv6
 support_ipv6 =
@@ -53,7 +62,9 @@ else ifeq ($(KIND_IP_FAMILY),dual)
 	support_ipv6 = yes
 endif
 ifdef support_ipv6
-	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-ipv4"
+	_INTEGRATION_TEST_SELECT := $(_INTEGRATION_TEST_SELECT),-ipv4
+	_INTEGRATION_TEST_ENVIRONMENT_SELECT := $(_INTEGRATION_TEST_ENVIRONMENT_SELECT),-ipv4
+	_INTEGRATION_TEST_MULTICLUSTER_SELECT := $(_INTEGRATION_TEST_MULTICLUSTER_SELECT),-ipv4
 	# Fundamentally, VMs should support IPv6. However, our test framework uses a contrived setup to test VMs
 	# such that they run in the cluster. In particular, they configure DNS to a public DNS server.
 	# For CI, our nodes do not have IPv6 external connectivity. This means the cluster *cannot* reach these external
@@ -62,6 +73,10 @@ ifdef support_ipv6
 	# of the edge cases. This work was captured in https://github.com/howardjohn/istio/tree/tf/vm-ipv6.
 	_INTEGRATION_TEST_FLAGS += --istio.test.skipVM
 endif
+
+_INTEGRATION_TEST_SELECT_FLAGS := --istio.test.select=$(_INTEGRATION_TEST_SELECT)
+_INTEGRATION_TEST_ENVIRONMENT_SELECT_FLAGS := --istio.test.select=$(_INTEGRATION_TEST_ENVIRONMENT_SELECT)
+_INTEGRATION_TEST_MULTICLUSTER_SELECT_FLAGS := --istio.test.select=$(_INTEGRATION_TEST_MULTICLUSTER_SELECT)
 
 # $(INTEGRATION_TEST_KUBECONFIG) overrides all kube config settings.
 _INTEGRATION_TEST_KUBECONFIG ?= $(INTEGRATION_TEST_KUBECONFIG)
@@ -86,9 +101,13 @@ endif
 
 
 # Precompile tests before running. See https://blog.howardjohn.info/posts/go-build-times/#integration-tests.
+define run-test-with-tags
+$(GO) test -exec=true -toolexec=$(REPO_ROOT)/tools/go-compile-without-link -vet=off -tags=$2 $3 $1
+$(GO) test -p 1 ${T} -tags=$2 -vet=off -timeout 30m $3 $1 ${_INTEGRATION_TEST_FLAGS} $4 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+endef
+
 define run-test
-$(GO) test -exec=true -toolexec=$(REPO_ROOT)/tools/go-compile-without-link -vet=off -tags=integ $2 $1
-$(GO) test -p 1 ${T} -tags=integ -vet=off -timeout 30m $2 $1 ${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+$(call run-test-with-tags,$1,$(INTEGRATION_TEST_TAGS),$2,$(_INTEGRATION_TEST_SELECT_FLAGS))
 endef
 
 # Ensure that all test files are tagged properly. This ensures that we don't accidentally skip tests
@@ -101,9 +120,17 @@ check-go-tag:
 test.integration.%.kube: | $(JUNIT_REPORT) check-go-tag
 	$(call run-test,./tests/integration/$(subst .,/,$*)/$(if $(SINGLE_PACKAGE),,...))
 
+# Run the representative tests for a component in a nonstandard environment.
+test.integration.%.kube.environment: | $(JUNIT_REPORT) check-go-tag
+	$(call run-test-with-tags,./tests/integration/$(subst .,/,$*)/$(if $(SINGLE_PACKAGE),,...),$(INTEGRATION_TEST_TAGS_ENVIRONMENT),,$(_INTEGRATION_TEST_ENVIRONMENT_SELECT_FLAGS))
+
+# Run representative and multicluster-only tests for a component.
+test.integration.%.kube.multicluster: | $(JUNIT_REPORT) check-go-tag
+	$(call run-test-with-tags,./tests/integration/$(subst .,/,$*)/$(if $(SINGLE_PACKAGE),,...),$(INTEGRATION_TEST_TAGS_MULTICLUSTER),,$(_INTEGRATION_TEST_MULTICLUSTER_SELECT_FLAGS))
+
 # Generate integration fuzz test targets for kubernetes environment.
 test.integration-fuzz.%.kube: | $(JUNIT_REPORT) check-go-tag
-	$(call run-test,./tests/integration/$(subst .,/,$*)/...,-tags="integfuzz integ")
+	$(call run-test-with-tags,./tests/integration/$(subst .,/,$*)/...,$(INTEGRATION_TEST_TAGS_FUZZ),,$(_INTEGRATION_TEST_SELECT_FLAGS))
 
 # Generate presubmit integration test targets for each component in kubernetes environment
 test.integration.%.kube.presubmit:
@@ -119,15 +146,10 @@ test.integration.kube: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
 	$(call run-test,./tests/integration/...)
 
-# Defines a target to run a standard set of tests in various different environments (IPv6, distroless, ARM, etc)
-# In presubmit, this target runs a minimal set. In postsubmit, all tests are run
+# Defines a target to run a standard set of tests in various different environments (IPv6, distroless, ARM, etc).
 .PHONY: test.integration.kube.environment
 test.integration.kube.environment: | $(JUNIT_REPORT) check-go-tag
-ifeq (${JOB_TYPE},postsubmit)
-	$(call run-test,./tests/integration/...)
-else
-	$(call run-test,./tests/integration/security/ ./tests/integration/pilot/,-run="TestReachability|TestTraffic|TestGatewayConformance")
-endif
+	$(call run-test-with-tags,./tests/integration/security/ ./tests/integration/pilot/,$(INTEGRATION_TEST_TAGS_ENVIRONMENT),-run="TestReachability|TestTraffic|TestGatewayConformance",$(_INTEGRATION_TEST_ENVIRONMENT_SELECT_FLAGS))
 
 # Agentgateway support is currently experimental. Only used to run agentgateway tests as optional
 .PHONY: test.integration.kube.agentgateway

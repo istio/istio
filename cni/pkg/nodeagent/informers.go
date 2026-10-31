@@ -255,8 +255,10 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 	log := log.WithLabels("ns", latestEventPod.Namespace, "name", latestEventPod.Name)
 
 	ns := s.namespaces.Get(latestEventPod.Namespace, "")
-	if ns == nil {
-		log.Errorf("failed to find namespace %v, skipping this event", ns)
+	// A pod and its namespace can be deleted together, so the namespace may already be
+	// gone from the cache when the pod delete arrives. Deletes must still clean up.
+	if ns == nil && event.Event != controllers.EventDelete {
+		log.Errorf("failed to find namespace %v, skipping this event", latestEventPod.Namespace)
 		return nil
 	}
 
@@ -399,9 +401,13 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// we *do not* want to check the cache for the pod - because it (probably)
 		// won't be there anymore. So for this case *alone*, we check the most recent
 		// pod information from the triggering event.
+		var nsLabels map[string]string
+		if ns != nil {
+			nsLabels = ns.Labels
+		}
 		if util.PodFullyEnrolled(latestEventPod) ||
 			util.PodPartiallyEnrolled(latestEventPod) ||
-			s.enablementSelector.Matches(latestEventPod, ns.Labels) {
+			s.enablementSelector.Matches(latestEventPod, nsLabels) {
 			log.Debugf("pod is deleted and was or should be captured, removing from ztunnel")
 			if err := s.dataplane.RemovePodFromMesh(s.ctx, latestEventPod, true); err != nil {
 				log.Warnf("Unable to send pod to ztunnel for removal. Will retry. RemovePodFrmMesh returned: %v", err)

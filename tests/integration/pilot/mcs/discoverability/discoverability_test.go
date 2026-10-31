@@ -81,6 +81,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		Label(label.Multicluster).
 		Label(label.CustomSetup).
 		RequireMinVersion(17).
 		RequireMinClusters(2).

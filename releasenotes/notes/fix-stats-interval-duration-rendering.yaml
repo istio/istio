@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+releaseNotes:
+- |
+  **Fixed** the `sidecar.istio.io/statsFlushInterval` annotation producing an invalid Envoy
+  bootstrap for values of one minute or more, and for sub-second values, which prevented the
+  proxy from starting.
+- |
+  **Fixed** the `sidecar.istio.io/statsEvictionInterval` annotation silently truncating
+  sub-second precision.

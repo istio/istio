@@ -27,7 +27,7 @@ import (
 func TestTproxy(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			if t.Settings().Skip(echo.TProxy) {

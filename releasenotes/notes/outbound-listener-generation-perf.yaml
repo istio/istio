@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Improved** sidecar outbound listener generation performance, notably for headless services with many endpoints
+  and for many TCP services sharing a port, such as CIDR ServiceEntries. The generated configuration is unchanged.

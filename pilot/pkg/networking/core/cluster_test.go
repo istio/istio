@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -1472,6 +1473,23 @@ func TestApplyOutlierDetection(t *testing.T) {
 			g.Expect(c.OutlierDetection).To(Equal(tt.o))
 		})
 	}
+}
+
+// TestApplyOutlierDetectionNilCommonLbConfig guards against a nil pointer panic when
+// CommonLbConfig is unset on the cluster passed in, which is the case for DFP clusters
+// built by buildDFPCluster and buildAllowAnyDFPCluster.
+func TestApplyOutlierDetectionNilCommonLbConfig(t *testing.T) {
+	g := NewWithT(t)
+
+	c := &cluster.Cluster{}
+	g.Expect(c.CommonLbConfig).To(BeNil())
+
+	applyOutlierDetection(&model.Service{}, c, &networking.OutlierDetection{
+		MinHealthPercent: 10,
+	})
+
+	g.Expect(c.CommonLbConfig).ToNot(BeNil())
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 }
 
 func TestApplyOutlierDetectionErrorCodes(t *testing.T) {
@@ -3677,6 +3695,27 @@ func TestBuildDeltaClusters(t *testing.T) {
 		},
 	}
 
+	sidecarWithOtherNamespaceEgressHosts := &networking.Sidecar{
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{"baz/test.com"},
+			},
+		},
+	}
+
+	// The memory registry keys services by hostname, so same-hostname services in different
+	// namespaces are defined as ServiceEntries.
+	testServiceEntry := func(namespace string, port uint32) config.Config {
+		return config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Name: "test", Namespace: namespace},
+			Spec: &networking.ServiceEntry{
+				Hosts:      []string{"test.com"},
+				Ports:      []*networking.ServicePort{{Number: port, Name: "http", Protocol: "HTTP"}},
+				Resolution: networking.ServiceEntry_STATIC,
+			},
+		}
+	}
+
 	fooService := &model.Service{
 		Hostname: host.Name("foo.com"),
 		Ports: []*model.Port{
@@ -3808,10 +3847,15 @@ func TestBuildDeltaClusters(t *testing.T) {
 				ServicePort: &model.Port{Port: 8080},
 				Endpoint:    &model.IstioEndpoint{Addresses: []string{"127.0.0.1"}, ServicePortName: "8080", EndpointPort: 8080},
 			}},
-			watchedResourceNames: []string{"outbound|7070||test.com", "inbound|7070||", "inbound|8080||"},
-			usedDelta:            true,
-			removedClusters:      []string{"inbound|7070||", "outbound|7070||test.com"},
-			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster", "inbound|8080||", "outbound|8080||test.com"},
+			watchedResourceNames: []string{
+				"outbound|7070||test.com", "outbound|7070|subset-1|test.com", "outbound|7070|subset-2|test.com",
+				"outbound|8080||testnew.com", "inbound|7070||", "inbound|8080||",
+			},
+			usedDelta: true,
+			removedClusters: []string{
+				"inbound|7070||", "outbound|7070|subset-1|test.com", "outbound|7070|subset-2|test.com", "outbound|7070||test.com",
+			},
+			expectedClusters: []string{"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster", "inbound|8080||", "outbound|8080||test.com"},
 		},
 		{
 			name:     "destination rule with no subsets is updated",
@@ -4031,6 +4075,41 @@ func TestBuildDeltaClusters(t *testing.T) {
 			expectedClusters: []string{
 				"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
 				"outbound|8080||testnew.com",
+			},
+		},
+		{
+			name: "sidecar update selecting same hostname in another namespace",
+			prevConfigs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.Sidecar,
+						Name:             "default",
+						Namespace:        proxyNamespace,
+					},
+					Spec: sidecarWithEgressHosts,
+				},
+				testServiceEntry("bar", 8080),
+				testServiceEntry("baz", 9090),
+			},
+			configs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.Sidecar,
+						Name:             "default",
+						Namespace:        proxyNamespace,
+					},
+					Spec: sidecarWithOtherNamespaceEgressHosts,
+				},
+				testServiceEntry("bar", 8080),
+				testServiceEntry("baz", 9090),
+			},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.Sidecar, Name: "default", Namespace: proxyNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|8080||test.com"},
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
+				"outbound|9090||test.com",
 			},
 		},
 		{
@@ -4360,6 +4439,36 @@ func TestBuildDeltaClusters(t *testing.T) {
 	}
 }
 
+// TestBuildDeltaClustersSidecarDropsDynamicDNS verifies that clusters without a service hostname are
+// reconciled on scope changes, so a Sidecar overriding mesh ALLOW_ANY_DYNAMIC_DNS deletes the DFP cluster.
+func TestBuildDeltaClustersSidecarDropsDynamicDNS(t *testing.T) {
+	m := mesh.DefaultMeshConfig()
+	m.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{
+		Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS,
+	}
+	sidecar := config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Name: "default", Namespace: TestServiceNamespace},
+		Spec: &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY},
+		},
+	}
+	cg := NewConfigGenTest(t, TestOptions{MeshConfig: m})
+	proxy := cg.SetupProxy(&model.Proxy{IPAddresses: []string{"127.0.0.1"}, ConfigNamespace: TestServiceNamespace})
+	applyConfigDiff(t, cg, nil, []config.Config{sidecar})
+	pc := model.NewPushContext()
+	pc.InitContext(cg.env, nil, nil)
+	cg.env.SetPushContext(pc)
+	proxy.SetSidecarScope(cg.env.PushContext())
+
+	_, removed, delta := cg.DeltaClusters(proxy,
+		sets.New(model.ConfigKey{Kind: kind.Sidecar, Name: sidecar.Name, Namespace: sidecar.Namespace}),
+		&model.WatchedResource{ResourceNames: sets.New(
+			util.AllowAnyDynamicDNSCluster, util.BlackHoleCluster, util.PassthroughCluster, util.InboundPassthroughCluster,
+		)})
+	assert.Equal(t, delta, true)
+	assert.Equal(t, removed, []string{util.AllowAnyDynamicDNSCluster})
+}
+
 func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 	test.SetForTest(t, &features.EnableHBONESend, false)
@@ -4667,6 +4776,99 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 		},
 	}
 
+	// EnvoyFilter applied to the gateway that opts testnew.com in via the referenced-services
+	// annotation, as done for ext_proc/ext_authz targets that no route points at.
+	envoyFilterReferencingTestService2 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.EnvoyFilter,
+			Name:             "referenced-services",
+			Namespace:        proxyNamespace,
+			Annotations:      map[string]string{"envoyfilter.istio.io/referenced-services": "testnew.com"},
+		},
+		Spec: &networking.EnvoyFilter{
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"istio": "ingressgateway"}},
+		},
+	}
+
+	// Wildcard DYNAMIC_DNS ServiceEntry fixtures, used to verify that the delta cluster path
+	// (BuildDeltaClusters -> PushContext.ServiceAttachedToGateway) discriminates a wildcard host
+	// named by a VirtualService route from a same-shaped wildcard host that is not, the same
+	// way the full-build path (PushContext.GatewayServices) does.
+	wildcardGatewayName := proxyNamespace + "/wildcard-gateway"
+
+	wildcardGatewayConfig := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.Gateway,
+			Name:             "wildcard-gateway",
+			Namespace:        proxyNamespace,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"*.destination1.com"},
+					Port:  &networking.Port{Name: "tls-d1", Number: 443, Protocol: "TLS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+				},
+				{
+					Hosts: []string{"*.destination2.com"},
+					Port:  &networking.Port{Name: "tls-d2", Number: 444, Protocol: "TLS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+				},
+			},
+		},
+	}
+
+	// Only destination1 is named by a route. destination2 has a matching Server but no
+	// VirtualService route, so it must never reach the gateway's delta cluster filter.
+	wildcardVirtualService := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "wildcard-vs",
+			Namespace:        TestServiceNamespace,
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.destination1.com"},
+			Gateways: []string{wildcardGatewayName},
+			Tls: []*networking.TLSRoute{{
+				Match: []*networking.TLSMatchAttributes{{
+					SniHosts: []string{"*.destination1.com"},
+					Port:     443,
+				}},
+				Route: []*networking.RouteDestination{{
+					Destination: &networking.Destination{
+						Host: "*.destination1.com",
+						Port: &networking.PortSelector{Number: 443},
+					},
+				}},
+			}},
+		},
+	}
+
+	wildcardDestination1 := &model.Service{
+		Hostname: host.Name("*.destination1.com"),
+		Ports: []*model.Port{
+			{Name: "tls", Port: 443, Protocol: protocol.TLS},
+		},
+		Resolution:   model.DynamicDNS,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
+	wildcardDestination2 := &model.Service{
+		Hostname: host.Name("*.destination2.com"),
+		Ports: []*model.Port{
+			{Name: "tls", Port: 443, Protocol: protocol.TLS},
+		},
+		Resolution:   model.DynamicDNS,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
 	testCases := []struct {
 		name                 string
 		services             []*model.Service
@@ -4725,10 +4927,15 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 			configs:  []config.Config{gatewayConfig, vsForTestService1},
 			configUpdated: sets.New(
 				model.ConfigKey{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}),
-			watchedResourceNames: []string{"outbound|7070||test.com"},
-			usedDelta:            true,
-			removedClusters:      []string{"outbound|7070||test.com"},
-			expectedClusters:     []string{"BlackHoleCluster", "outbound|8080||test.com"},
+			watchedResourceNames: []string{
+				"outbound|7070||test.com", "outbound|7070|subset-1|test.com", "outbound|7070|subset-2|test.com",
+				"outbound|8080||testnew.com",
+			},
+			usedDelta: true,
+			removedClusters: []string{
+				"outbound|7070|subset-1|test.com", "outbound|7070|subset-2|test.com", "outbound|7070||test.com",
+			},
+			expectedClusters: []string{"BlackHoleCluster", "outbound|8080||test.com"},
 		},
 		{
 			name:     "destination rule with no subsets is updated",
@@ -5042,6 +5249,69 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 			},
 		},
 		{
+			name:     "virtual service updated keeps envoyfilter referenced service",
+			services: []*model.Service{testService1, testService2},
+			prevConfigs: []config.Config{gatewayConfig, envoyFilterReferencingTestService2, {
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test-virtualservice",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: virtualServiceOriginal,
+			}},
+			configs: []config.Config{gatewayConfig, envoyFilterReferencingTestService2, {
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test-virtualservice",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: virtualServiceSubsetDestination,
+			}},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.VirtualService, Name: "test-virtualservice", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com", "outbound|8080||testnew.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster",
+			},
+		},
+		{
+			name:     "virtual service removed keeps envoyfilter referenced service",
+			services: []*model.Service{testService1, testService2},
+			prevConfigs: []config.Config{gatewayConfig, envoyFilterReferencingTestService2, {
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test-virtualservice",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: virtualServiceOriginal,
+			}},
+			configs: []config.Config{gatewayConfig, envoyFilterReferencingTestService2},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.VirtualService, Name: "test-virtualservice", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com", "outbound|8080||testnew.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|8080||test.com"},
+			expectedClusters: []string{
+				"BlackHoleCluster",
+			},
+		},
+		{
+			name:     "peer authentication update rebuilds envoyfilter referenced service",
+			services: []*model.Service{testService1, testService2},
+			configs:  []config.Config{gatewayConfig, envoyFilterReferencingTestService2, vsForTestService1},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.PeerAuthentication, Name: "test.com", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com", "outbound|8080||testnew.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster",
+				"outbound|8080||test.com", "outbound|8080||testnew.com",
+			},
+		},
+		{
 			name:     "virtual service targeting service with subsets is removed",
 			services: []*model.Service{testService1, testService2},
 			prevConfigs: []config.Config{gatewayConfig, {
@@ -5104,6 +5374,28 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 				"outbound|8080||test.com", "outbound|8080||testnew.com",
 			},
 		},
+		{
+			name:     "wildcard service referenced by route is added",
+			services: []*model.Service{wildcardDestination1, wildcardDestination2},
+			configs:  []config.Config{wildcardGatewayConfig, wildcardVirtualService},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.destination1.com", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters:     []string{"BlackHoleCluster", "outbound|443||*.destination1.com"},
+		},
+		{
+			name:     "wildcard service with no route is not added",
+			services: []*model.Service{wildcardDestination1, wildcardDestination2},
+			configs:  []config.Config{wildcardGatewayConfig, wildcardVirtualService},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.destination2.com", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters:     []string{"BlackHoleCluster"},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -5128,8 +5420,8 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 				pc := model.NewPushContext()
 				pc.InitContext(cg.env, nil, nil)
 				cg.env.SetPushContext(pc)
-				proxy.SetSidecarScope(cg.env.PushContext())
 				proxy.SetGatewaysForProxy(cg.env.PushContext())
+				proxy.SetSidecarScope(cg.env.PushContext())
 			}
 			clusters, removed, delta := cg.DeltaClusters(proxy, tc.configUpdated,
 				&model.WatchedResource{ResourceNames: sets.New(tc.watchedResourceNames...)})
@@ -5141,6 +5433,149 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 			assert.Equal(t, len(cg.env.PushContext().GetMetric(model.DuplicatedClusters.Name())), 0)
 		})
 	}
+}
+
+// TestGatewayWildcardDynamicDNSSurvivesFilteredGatewayCDS confirms that
+// PILOT_FILTER_GATEWAY_CLUSTER_CONFIG performs a real exact-string match on wildcard
+// DYNAMIC_DNS services, rather than passing every wildcard host through unconditionally.
+// A wildcard host named by a VirtualService route's destination.host must produce a
+// dynamic-forward-proxy cluster in Router CDS. A same-shaped wildcard host with no
+// VirtualService route on the gateway must not.
+func TestGatewayWildcardDynamicDNSSurvivesFilteredGatewayCDS(t *testing.T) {
+	g := NewWithT(t)
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
+
+	proxyNamespace := "foo"
+	gatewayName := proxyNamespace + "/wildcard-gateway"
+
+	// wildcardService1 is named by the VirtualService route below, and must survive the
+	// gateway-cluster filter.
+	wildcardService1 := &model.Service{
+		Hostname: host.Name("*.destination1.com"),
+		Ports: []*model.Port{
+			{
+				Name:     "tls",
+				Port:     443,
+				Protocol: protocol.TLS,
+			},
+		},
+		Resolution:   model.DynamicDNS,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
+	// wildcardService2 has the same shape (wildcard host, DYNAMIC_DNS resolution) but no
+	// VirtualService route names it on this gateway. It is the negative control: if the
+	// gateway-cluster filter is not doing a real exact-string match, this cluster would leak
+	// through too.
+	wildcardService2 := &model.Service{
+		Hostname: host.Name("*.destination2.com"),
+		Ports: []*model.Port{
+			{
+				Name:     "tls",
+				Port:     443,
+				Protocol: protocol.TLS,
+			},
+		},
+		Resolution:   model.DynamicDNS,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
+	gatewayConfig := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.Gateway,
+			Name:             "wildcard-gateway",
+			Namespace:        proxyNamespace,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"*.destination1.com"},
+					Port:  &networking.Port{Name: "tls-d1", Number: 443, Protocol: "TLS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+				},
+				{
+					Hosts: []string{"*.destination2.com"},
+					Port:  &networking.Port{Name: "tls-d2", Number: 444, Protocol: "TLS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+				},
+			},
+		},
+	}
+
+	// Only destination1 is named by a route. destination2 has a matching Server (above) but
+	// no VirtualService route, so it must never reach the gateway's CDS filter.
+	virtualService := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "wildcard-vs",
+			Namespace:        TestServiceNamespace,
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.destination1.com"},
+			Gateways: []string{gatewayName},
+			Tls: []*networking.TLSRoute{{
+				Match: []*networking.TLSMatchAttributes{{
+					SniHosts: []string{"*.destination1.com"},
+					Port:     443,
+				}},
+				Route: []*networking.RouteDestination{{
+					Destination: &networking.Destination{
+						Host: "*.destination1.com",
+						Port: &networking.PortSelector{Number: 443},
+					},
+				}},
+			}},
+		},
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{wildcardService1, wildcardService2},
+		Configs:  []config.Config{gatewayConfig, virtualService},
+	})
+
+	proxy := cg.SetupProxy(&model.Proxy{
+		IPAddresses:     []string{"127.0.0.1"},
+		ConfigNamespace: proxyNamespace,
+		Type:            model.Router,
+		Labels:          map[string]string{"istio": "ingressgateway"},
+	})
+
+	clusters := cg.Clusters(proxy)
+
+	referencedName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", wildcardService1.Hostname, 443)
+	unreferencedName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", wildcardService2.Hostname, 443)
+
+	var referenced, unreferenced *cluster.Cluster
+	var gotNames []string
+	for _, c := range clusters {
+		gotNames = append(gotNames, c.Name)
+		switch c.Name {
+		case referencedName:
+			referenced = c
+		case unreferencedName:
+			unreferenced = c
+		}
+	}
+
+	// Positive case: the referenced wildcard host must produce a dynamic-forward-proxy cluster.
+	if referenced == nil {
+		t.Fatalf("expected wildcard DFP cluster %q in Router CDS with "+
+			"FilterGatewayClusterConfig=true, but it was not present. Got clusters: %v",
+			referencedName, gotNames)
+	}
+	g.Expect(referenced.LbPolicy).To(Equal(cluster.Cluster_CLUSTER_PROVIDED))
+
+	// Negative control: a same-shaped wildcard host with no VirtualService route must not
+	// leak through. Without this check, the positive case alone cannot tell a correct
+	// exact-string filter apart from a filter that is not filtering anything.
+	g.Expect(unreferenced).To(BeNil())
 }
 
 func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
@@ -5182,4 +5617,65 @@ func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
 	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
 		"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
 	}))
+}
+
+func TestBackendPolicyRemovalClearsPortTLS(t *testing.T) {
+	const h = "backend.default.svc.cluster.local"
+	user := config.Config{
+		Meta: config.Meta{Name: "user-dr", Namespace: "default", CreationTimestamp: time.Unix(2, 0), GroupVersionKind: gvk.DestinationRule},
+		Spec: &networking.DestinationRule{Host: h, TrafficPolicy: &networking.TrafficPolicy{
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
+				Port: &networking.PortSelector{Number: 8080},
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_ROUND_ROBIN},
+				},
+			}},
+		}},
+	}
+	backend := config.Config{
+		Meta: config.Meta{
+			Name: "generated-backend-policy", Namespace: "default", CreationTimestamp: time.Unix(1, 0),
+			GroupVersionKind: gvk.DestinationRule, Annotations: map[string]string{constants.InternalParentNames: "BackendTLSPolicy/policy.default"},
+		},
+		Spec: &networking.DestinationRule{Host: h, TrafficPolicy: &networking.TrafficPolicy{
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
+				Port: &networking.PortSelector{Number: 8080},
+				Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE, Sni: h},
+			}},
+		}},
+	}
+	cg := NewConfigGenTest(t, TestOptions{
+		Configs:  []config.Config{user, backend},
+		Services: []*model.Service{buildService(h, "10.0.0.1", protocol.HTTP, time.Unix(1, 0))},
+	})
+	check := func(wantTLS bool) {
+		t.Helper()
+		for _, c := range cg.Clusters(cg.SetupProxy(nil)) {
+			if c.Name != "outbound|8080||"+h {
+				continue
+			}
+			gotTLS := c.GetTransportSocket() != nil
+			t.Logf("want TLS=%v Envoy CDS transport_socket=%v", wantTLS, gotTLS)
+			if gotTLS != wantTLS {
+				t.Errorf("CDS TLS=%v, want %v after backend policy removal", gotTLS, wantTLS)
+			}
+			return
+		}
+		t.Fatal("backend cluster missing")
+	}
+	check(true)
+	stored := cg.Store().Get(gvk.DestinationRule, "user-dr", "default")
+	if stored.Spec.(*networking.DestinationRule).TrafficPolicy.PortLevelSettings[0].Tls != nil {
+		t.Error("merging generated BackendTLSPolicy mutated the cached user DestinationRule")
+	}
+	if err := cg.Store().Delete(gvk.DestinationRule, "generated-backend-policy", "default", nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := cg.Store().Get(gvk.DestinationRule, "generated-backend-policy", "default"); got != nil {
+		t.Fatal("backend policy remains in config store")
+	}
+	next := model.NewPushContext()
+	next.InitContext(cg.Env(), nil, nil)
+	cg.Env().SetPushContext(next)
+	check(false)
 }

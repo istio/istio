@@ -115,7 +115,7 @@ distribute:
 func TestLocality(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			destA := apps.B[0]

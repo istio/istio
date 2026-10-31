@@ -38,8 +38,10 @@ type delayedClient[T controllers.ComparableObject] struct {
 
 	hm       sync.Mutex
 	handlers []delayedHandler
-	indexers []delayedIndex[T]
-	started  <-chan struct{}
+	// registrations maps placeholders handed out before set() to the real registrations.
+	registrations map[delayedHandlerRegistration]cache.ResourceEventHandlerRegistration
+	indexers      []delayedIndex[T]
+	started       <-chan struct{}
 }
 
 type delayedHandler struct {
@@ -147,6 +149,9 @@ func (s *delayedClient[T]) HasSyncedIgnoringHandlers() bool {
 func (s *delayedClient[T]) ShutdownHandlers() {
 	if c := s.inf.Load(); c != nil {
 		(*c).ShutdownHandlers()
+		s.hm.Lock()
+		defer s.hm.Unlock()
+		s.registrations = nil
 	} else {
 		s.hm.Lock()
 		defer s.hm.Unlock()
@@ -156,7 +161,16 @@ func (s *delayedClient[T]) ShutdownHandlers() {
 
 func (s *delayedClient[T]) ShutdownHandler(registration cache.ResourceEventHandlerRegistration) {
 	if c := s.inf.Load(); c != nil {
-		(*c).ShutdownHandlers()
+		// Translate a placeholder handed out before set() to the real registration.
+		if dr, ok := registration.(delayedHandlerRegistration); ok {
+			s.hm.Lock()
+			if reg, f := s.registrations[dr]; f {
+				registration = reg
+				delete(s.registrations, dr)
+			}
+			s.hm.Unlock()
+		}
+		(*c).ShutdownHandler(registration)
 	} else {
 		s.hm.Lock()
 		defer s.hm.Unlock()
@@ -182,9 +196,13 @@ func (s *delayedClient[T]) set(inf Informer[T]) {
 		s.inf.Swap(&inf)
 		s.hm.Lock()
 		defer s.hm.Unlock()
+		if len(s.handlers) > 0 && s.registrations == nil {
+			s.registrations = make(map[delayedHandlerRegistration]cache.ResourceEventHandlerRegistration, len(s.handlers))
+		}
 		for _, h := range s.handlers {
 			reg := inf.AddEventHandler(h)
 			h.hasSynced.hasSynced.Store(ptr.Of(reg.HasSynced))
+			s.registrations[h.hasSynced] = reg
 		}
 		s.handlers = nil
 		for _, i := range s.indexers {

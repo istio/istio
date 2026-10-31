@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/transport"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -197,6 +198,9 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 	if len(config.UserAgent) == 0 {
 		config.UserAgent = IstioUserAgent()
 	}
+	// Bound every request this config's clients send.
+	config.WrapTransport = transport.Wrappers(config.WrapTransport, WrapTransportWithDeadlines)
+	setResponseHeaderTimeout(config, kubeHeaderTimeout)
 
 	return config
 }

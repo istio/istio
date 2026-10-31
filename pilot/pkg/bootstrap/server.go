@@ -1133,17 +1133,24 @@ func hasCustomTLSCerts(tlsOptions TLSOptions) (ok bool, tlsCertPath, tlsKeyPath,
 		return true, tlsOptions.CertFile, tlsOptions.KeyFile, tlsOptions.CaCertFile
 	}
 
-	if ok = checkPathsExist(constants.DefaultPilotTLSCert, constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCert); ok {
-		tlsCertPath = constants.DefaultPilotTLSCert
-		tlsKeyPath = constants.DefaultPilotTLSKey
-		caCertPath = constants.DefaultPilotTLSCaCert
-		return ok, tlsCertPath, tlsKeyPath, caCertPath
-	}
-
+	// Priority order for the CA file, when tls.crt/tls.key are found at the default mount path
+	// (i.e. the DNS cert is provisioned externally, e.g. by cert-manager istio-csr or a manually
+	// created Secret):
+	// 1. DefaultPilotTLSCaCertAlternatePath (ca.crt): co-located with tls.crt/tls.key, so it
+	//    always matches the serving cert.
+	// 2. DefaultPilotTLSCaCert (root-cert.pem): the mesh trust bundle (istio-ca-root-cert
+	//    ConfigMap), used as a fallback since it may not match the serving cert's CA.
 	if ok = checkPathsExist(constants.DefaultPilotTLSCert, constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCertAlternatePath); ok {
 		tlsCertPath = constants.DefaultPilotTLSCert
 		tlsKeyPath = constants.DefaultPilotTLSKey
 		caCertPath = constants.DefaultPilotTLSCaCertAlternatePath
+		return ok, tlsCertPath, tlsKeyPath, caCertPath
+	}
+
+	if ok = checkPathsExist(constants.DefaultPilotTLSCert, constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCert); ok {
+		tlsCertPath = constants.DefaultPilotTLSCert
+		tlsKeyPath = constants.DefaultPilotTLSKey
+		caCertPath = constants.DefaultPilotTLSCaCert
 		return ok, tlsCertPath, tlsKeyPath, caCertPath
 	}
 

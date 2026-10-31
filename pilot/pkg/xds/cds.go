@@ -88,7 +88,9 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 			headlessOnly = false
 		}
 
-		if proxy.Type == model.Router {
+		// Ambient east-west gateways merge Gateway resources like routers do, and their AUTO_PASSTHROUGH
+		// servers drive the SNI-DNAT clusters, so Gateway changes must be considered for them as well.
+		if proxy.Type == model.Router || proxy.IsAmbientEastWestGateway() {
 			if config.Kind == kind.Gateway {
 				// Do the check outside of the loop since its slow; just trigger we need it
 				checkGateway = true
@@ -117,7 +119,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	if checkGateway {
 		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
 		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
-		gatewayNamesChanged := proxy.MergedGateway == nil || !slices.EqualUnordered(proxy.MergedGateway.GetGatewayNames(), proxy.PrevMergedGateway.GetGatewayNames())
+		gatewayNamesChanged := !slices.Equal(proxy.MergedGateway.GetGatewayNames(), proxy.PrevMergedGateway.GetGatewayNames())
 		if autoPassthroughModeChanged || autoPassthroughHostsChanged || gatewayNamesChanged {
 			needsPush = true
 		}
@@ -141,7 +143,6 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req
 	return clusters, logs, nil
 }
 
-// GenerateDeltas for CDS currently only builds deltas when services change. todo implement changes for DestinationRule, etc
 func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {

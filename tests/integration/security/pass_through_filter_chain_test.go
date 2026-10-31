@@ -34,7 +34,7 @@ import (
 // TestPassThroughFilterChain tests the authN and authZ policy on the pass through filter chain.
 func TestPassThroughFilterChain(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewFullTest(t).
 		Run(func(t framework.TestContext) {
 			type expect struct {
 				port echo.Port

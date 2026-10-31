@@ -15,6 +15,7 @@
 package model
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"testing"
@@ -22,6 +23,7 @@ import (
 	"github.com/cespare/xxhash/v2"
 	"github.com/google/go-cmp/cmp"
 	fuzz "github.com/google/gofuzz"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -55,7 +57,7 @@ func TestNewAddressInfo(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := NewAddressInfo(tt.address)
-			wantAddress := protoconv.MessageToAny(tt.address)
+			wantAddress := protoconv.MessageToAnyDeterministic(tt.address)
 			assert.Equal(t, got.Marshaled, wantAddress)
 			assert.Equal(t, got.Version, strconv.FormatUint(xxhash.Sum64(wantAddress.Value), 16))
 
@@ -63,8 +65,34 @@ func TestNewAddressInfo(t *testing.T) {
 				assert.Equal(t, got.MarshaledWorkload, nil)
 				return
 			}
-			assert.Equal(t, got.MarshaledWorkload, protoconv.MessageToAny(tt.wantMarshaledWorkload))
+			assert.Equal(t, got.MarshaledWorkload, protoconv.MessageToAnyDeterministic(tt.wantMarshaledWorkload))
 		})
+	}
+}
+
+// The pre-marshaled bytes back Equals and Version, so two builds of the same workload must
+// produce identical bytes. Workload.services is a map, which only holds if map keys are sorted.
+func TestNewAddressInfoStable(t *testing.T) {
+	mk := func() *workloadapi.Address {
+		svcs := make(map[string]*workloadapi.PortList, 6)
+		for i := range 6 {
+			svcs["ns/svc-"+strconv.Itoa(i)+".ns.svc.cluster.local"] = &workloadapi.PortList{
+				Ports: []*workloadapi.Port{{ServicePort: 80, TargetPort: 8080}},
+			}
+		}
+		return &workloadapi.Address{Type: &workloadapi.Address_Workload{Workload: &workloadapi.Workload{
+			Uid: "cluster/ns/wl", Name: "wl", Namespace: "ns", Services: svcs,
+		}}}
+	}
+	first := NewAddressInfo(mk())
+	for range 200 {
+		got := NewAddressInfo(mk())
+		assert.Equal(t, got.Marshaled.Value, first.Marshaled.Value)
+		assert.Equal(t, got.MarshaledWorkload.Value, first.MarshaledWorkload.Value)
+		assert.Equal(t, got.Version, first.Version)
+		a := WorkloadInfo{Workload: first.GetWorkload(), MarshaledAddress: first.Marshaled}
+		b := WorkloadInfo{Workload: got.GetWorkload(), MarshaledAddress: got.Marshaled}
+		assert.Equal(t, a.Equals(&b), true)
 	}
 }
 
@@ -585,31 +613,35 @@ func TestServicesEqual(t *testing.T) {
 		},
 		{
 			first: &Service{
-				Attributes: ServiceAttributes{
-					PassthroughTargetPorts: map[uint32]uint32{80: 8080},
-				},
+				Ports: PortList{{Port: 80, TargetPort: intstr.FromInt32(8080)}},
 			},
 			other: &Service{
-				Attributes: ServiceAttributes{
-					PassthroughTargetPorts: map[uint32]uint32{80: 8081},
-				},
+				Ports: PortList{{Port: 80, TargetPort: intstr.FromInt32(8081)}},
 			},
 			shouldEq: false,
-			name:     "different passthrough target ports",
+			name:     "different target ports",
 		},
 		{
 			first: &Service{
-				Attributes: ServiceAttributes{
-					PassthroughTargetPorts: map[uint32]uint32{80: 8080},
-				},
+				Ports: PortList{{Port: 80, TargetPort: intstr.FromInt32(8080)}},
 			},
 			other: &Service{
-				Attributes: ServiceAttributes{
-					PassthroughTargetPorts: map[uint32]uint32{80: 8080},
-				},
+				Ports: PortList{{Port: 80, TargetPort: intstr.FromInt32(8080)}},
 			},
 			shouldEq: true,
-			name:     "matching passthrough target ports",
+			name:     "matching target ports",
+		},
+		{
+			first:    &Service{Ports: PortList{{Port: 80, TargetPort: intstr.FromString("http")}}},
+			other:    &Service{Ports: PortList{{Port: 80, TargetPort: intstr.FromString("http-v2")}}},
+			shouldEq: false,
+			name:     "different target port names",
+		},
+		{
+			first:    &Service{Ports: PortList{{Port: 80, TargetPort: intstr.FromString("http")}}},
+			other:    &Service{Ports: PortList{{Port: 80, TargetPort: intstr.FromString("http")}}},
+			shouldEq: true,
+			name:     "matching target port names",
 		},
 	}
 
@@ -660,6 +692,58 @@ func TestFuzzServiceDeepCopy(t *testing.T) {
 	}
 }
 
+func TestServiceInstanceDeepCopyTargetPort(t *testing.T) {
+	for _, port := range []*Port{
+		{Name: "http", Port: 80, TargetPort: intstr.FromInt32(8080)},
+		{Name: "http", Port: 80, TargetPort: intstr.FromString("http-v2")},
+	} {
+		originalPort := *port
+		instance := &ServiceInstance{
+			Service:     &Service{Ports: PortList{port}},
+			ServicePort: port,
+			Endpoint:    &IstioEndpoint{EndpointPort: 8080},
+		}
+		copied := instance.DeepCopy()
+		assert.Equal(t, copied.Equals(instance), true)
+		copied.ServicePort.TargetPort = intstr.FromInt32(9090)
+		copied.Service.Ports[0].TargetPort = intstr.FromString("changed")
+		assert.Equal(t, *instance.ServicePort, originalPort)
+		assert.Equal(t, *instance.Service.Ports[0], originalPort)
+	}
+}
+
+func TestPortTargetPortJSON(t *testing.T) {
+	cases := []struct {
+		name       string
+		targetPort intstr.IntOrString
+		want       string
+	}{
+		{"unspecified", intstr.IntOrString{}, `{"port":80}`},
+		{"numeric", intstr.FromInt32(8080), `{"port":80,"targetPort":8080}`},
+		{"named", intstr.FromString("http"), `{"port":80,"targetPort":"http"}`},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			port := Port{Port: 80, TargetPort: tt.targetPort}
+			b, err := json.Marshal(port)
+			assert.NoError(t, err)
+			assert.Equal(t, string(b), tt.want)
+			var decoded Port
+			assert.NoError(t, json.Unmarshal(b, &decoded))
+			assert.Equal(t, decoded, port)
+		})
+	}
+}
+
+func TestPortListEqualsIgnoringTargetPorts(t *testing.T) {
+	ports := PortList{{Name: "http", Port: 80, TargetPort: intstr.FromInt32(8080)}}
+	other := PortList{{Name: "http", Port: 80, TargetPort: intstr.FromString("http-v2")}}
+	assert.Equal(t, ports.Equals(other), false)
+	assert.Equal(t, ports.EqualsIgnoringTargetPorts(other), true)
+	other[0].Port = 81
+	assert.Equal(t, ports.EqualsIgnoringTargetPorts(other), false)
+}
+
 func TestParseSubsetKeyHostname(t *testing.T) {
 	tests := []struct {
 		in, out string
@@ -683,6 +767,7 @@ func TestGetAllAddresses(t *testing.T) {
 		name                   string
 		service                *Service
 		ipMode                 IPMode
+		nodeType               NodeType
 		dualStackEnabled       bool
 		ambientEnabled         bool
 		autoAllocationEnabled  bool
@@ -788,6 +873,34 @@ func TestGetAllAddresses(t *testing.T) {
 			expectedExtraAddresses: []string{},
 		},
 		{
+			name: "IPv4 mode, waypoint proxy, auto-allocation enabled, expected both auto-allocated addresses",
+			service: &Service{
+				DefaultAddress:           "0.0.0.0",
+				AutoAllocatedIPv4Address: "240.240.0.1",
+				AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+			},
+			ipMode:                 IPv4,
+			nodeType:               Waypoint,
+			ambientEnabled:         true,
+			autoAllocationEnabled:  true,
+			expectedAddresses:      []string{"240.240.0.1", "2001:2::f0f0:e351"},
+			expectedExtraAddresses: []string{"2001:2::f0f0:e351"},
+		},
+		{
+			name: "IPv6 mode, waypoint proxy, auto-allocation enabled, expected both auto-allocated addresses",
+			service: &Service{
+				DefaultAddress:           "0.0.0.0",
+				AutoAllocatedIPv4Address: "240.240.0.1",
+				AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+			},
+			ipMode:                 IPv6,
+			nodeType:               Waypoint,
+			ambientEnabled:         true,
+			autoAllocationEnabled:  true,
+			expectedAddresses:      []string{"240.240.0.1", "2001:2::f0f0:e351"},
+			expectedExtraAddresses: []string{"2001:2::f0f0:e351"},
+		},
+		{
 			name: "IPv6 mode, auto-allocation enabled, expected auto-allocated address",
 			service: &Service{
 				DefaultAddress:           "0.0.0.0",
@@ -890,7 +1003,7 @@ func TestGetAllAddresses(t *testing.T) {
 			if tc.ambientEnabled {
 				test.SetForTest(t, &features.EnableAmbient, true)
 			}
-			proxy := &Proxy{Metadata: &NodeMetadata{ClusterID: "id"}, ipMode: tc.ipMode}
+			proxy := &Proxy{Metadata: &NodeMetadata{ClusterID: "id"}, ipMode: tc.ipMode, Type: tc.nodeType}
 			if tc.autoAllocationEnabled {
 				proxy.Metadata.DNSCapture = true
 				proxy.Metadata.DNSAutoAllocate = true
@@ -1310,6 +1423,32 @@ func TestGetTrafficDistribution(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInfoEqualsPointers(t *testing.T) {
+	t.Run("service", func(t *testing.T) {
+		var nilInfo *ServiceInfo
+		assert.Equal(t, nilInfo.Equals(nil), true)
+		assert.Equal(t, nilInfo.Equals(&ServiceInfo{}), false)
+
+		first := &ServiceInfo{Service: &workloadapi.Service{Namespace: "ns", Hostname: "svc.example.com"}}
+		second := &ServiceInfo{Service: &workloadapi.Service{Namespace: "ns", Hostname: "svc.example.com"}}
+		assert.Equal(t, first.Equals(second), true)
+		second.Scope = Global
+		assert.Equal(t, first.Equals(second), false)
+	})
+
+	t.Run("workload", func(t *testing.T) {
+		var nilInfo *WorkloadInfo
+		assert.Equal(t, nilInfo.Equals(nil), true)
+		assert.Equal(t, nilInfo.Equals(&WorkloadInfo{}), false)
+
+		first := &WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/ns/pod"}}
+		second := &WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/ns/pod"}}
+		assert.Equal(t, first.Equals(second), true)
+		second.Source.Kind = kind.Pod
+		assert.Equal(t, first.Equals(second), false)
+	})
 }
 
 func TestServiceInfoWaypointConditions(t *testing.T) {

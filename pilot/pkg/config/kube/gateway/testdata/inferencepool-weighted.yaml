@@ -1,0 +1,152 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "*.domain.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+# One rule weighting traffic across two InferencePools - the canary shape from llm-d's
+# blue-green rollout. Each pool has its own endpoint picker.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: weighted-pools
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["canary.domain.example"]
+  rules:
+  - name: split
+    matches:
+    - path:
+        type: PathPrefix
+        value: /v1
+    backendRefs:
+    - name: infpool-gen
+      group: inference.networking.k8s.io
+      kind: InferencePool
+      weight: 90
+    - name: infpool-gen2
+      group: inference.networking.k8s.io
+      kind: InferencePool
+      weight: 10
+---
+# An InferencePool sharing a rule with an ordinary Service. The Service belongs to no pool.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mixed-backends
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["mixed.domain.example"]
+  rules:
+  - name: mixed
+    backendRefs:
+    - name: infpool-gen
+      group: inference.networking.k8s.io
+      kind: InferencePool
+      weight: 90
+    - name: httpbin
+      port: 80
+      weight: 10
+---
+# Two HTTPRoutes on the same gateway and hostname, each with a rule named "primary". Rule names
+# are user-supplied and only unique within one HTTPRoute, so these collide when the routes are
+# merged into a single VirtualService.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: same-rule-name-1
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["merged.domain.example"]
+  rules:
+  - name: primary
+    matches:
+    - path:
+        type: PathPrefix
+        value: /one
+    backendRefs:
+    - name: infpool-gen
+      group: inference.networking.k8s.io
+      kind: InferencePool
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: same-rule-name-2
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["merged.domain.example"]
+  rules:
+  - name: primary
+    matches:
+    - path:
+        type: PathPrefix
+        value: /two
+    backendRefs:
+    - name: infpool-gen2
+      group: inference.networking.k8s.io
+      kind: InferencePool
+---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: infpool-gen
+  namespace: default
+spec:
+  targetPorts:
+  - number: 8000
+  selector:
+    matchLabels:
+      app: vllm-llama3-8b-instruct
+  endpointPickerRef:
+    name: ext-proc-svc
+    port:
+      number: 9002
+---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: infpool-gen2
+  namespace: default
+spec:
+  targetPorts:
+  - number: 8000
+  selector:
+    matchLabels:
+      app: vllm-llama3-8b-instruct-canary
+  endpointPickerRef:
+    name: ext-proc-svc-2
+    port:
+      number: 9002

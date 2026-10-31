@@ -16,13 +16,20 @@ package testutil
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test/env"
 )
 
 type TestCase struct {
@@ -72,5 +79,21 @@ func VerifyOutput(t *testing.T, cmd *cobra.Command, c TestCase) {
 		if fErr != nil {
 			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.Args, " "), fErr)
 		}
+	}
+}
+
+// RootCertConfigMap returns an istio-ca-root-cert configmap in ns. Empty data uses the pilot test root cert.
+func RootCertConfigMap(t *testing.T, ns, data string) *corev1.ConfigMap {
+	t.Helper()
+	if data == "" {
+		pem, err := os.ReadFile(filepath.Join(env.IstioSrc, "tests/testdata/certs/pilot/root-cert.pem"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data = string(pem)
+	}
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: controller.CACertNamespaceConfigMap, Namespace: ns},
+		Data:       map[string]string{constants.CACertNamespaceConfigMapDataName: data},
 	}
 }

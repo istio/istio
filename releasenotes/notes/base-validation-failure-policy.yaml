@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** `istioctl install --set values.base.validationFailurePolicy` being rejected as an
+    unknown field. The value was already supported by the `base` and `istiod` charts, but was
+    missing from the operator's `values_types.proto` schema.

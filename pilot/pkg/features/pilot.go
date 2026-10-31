@@ -181,6 +181,14 @@ var (
 		"The taint key used by the node-untaint controller to identify nodes that should be untainted.",
 	).Get()
 
+	// registerAmbient (not env.Register): forced false in sidecar mode, where there is no ztunnel.
+	NodeUntaintCheckZtunnel = registerAmbient(
+		"PILOT_NODE_UNTAINT_CHECK_ZTUNNEL",
+		true,  // with ambient: also require ztunnel ready before untainting
+		false, // without ambient: no ztunnel exists, keep istio-cni-only behavior
+		"If enabled, the node-untaint controller also requires ztunnel to be ready on a node before "+
+			"removing the readiness taint. Only applies when ambient is enabled.")
+
 	EnableIPAutoallocate = env.Register(
 		"PILOT_ENABLE_IP_AUTOALLOCATE",
 		true,

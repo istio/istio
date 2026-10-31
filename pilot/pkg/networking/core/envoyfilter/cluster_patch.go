@@ -51,7 +51,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Merg
 			clusterMatch(c, cp, hosts) {
 			return nil
 		}
-		if !isMergeOperation(cp.Operation) {
+		if !model.IsMergeOperation(cp.Operation) {
 			IncrementEnvoyFilterMetric(cp.Key(), Cluster, applied)
 			continue
 		}
@@ -114,7 +114,7 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		dst := ts.GetTypedConfig()
 		srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
 		if dst != nil && srcPatch != nil {
-			retVal, errMerge := mergeAnyPatchValue(cp.Operation, dst, srcPatch)
+			retVal, errMerge := mergeAnyPatchValue(cp.Operation, dst, cp.TransportSocketTypedConfig)
 			if errMerge != nil {
 				return false, fmt.Errorf("function mergeAnyPatchValue failed for ApplyClusterMerge: %v", errMerge)
 			}
