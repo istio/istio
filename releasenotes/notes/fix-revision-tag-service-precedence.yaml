@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where a revision tag represented by a Service and a MutatingWebhookConfiguration pointing to different revisions
+  caused both revisions to manage resources selected by that tag. Service-based tags now take precedence.
