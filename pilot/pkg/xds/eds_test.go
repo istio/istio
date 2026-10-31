@@ -29,7 +29,9 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	uatomic "go.uber.org/atomic"
@@ -54,6 +56,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 // The connect and reconnect tests are removed - ADS already has coverage, and the
@@ -2342,4 +2345,300 @@ spec:
 	if !reflect.DeepEqual(want, gotPriority) {
 		t.Errorf("CLA priorities = %v, want %v", gotPriority, want)
 	}
+}
+
+type sidecarWaypointIndex struct {
+	model.NoopAmbientIndexes
+	key  string
+	info model.ServiceWaypointInfo
+}
+
+func (s sidecarWaypointIndex) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
+	if key != s.key {
+		return nil
+	}
+
+	return []model.ServiceWaypointInfo{s.info}
+}
+
+// TestSidecarWaypointEDSUpdate verifies that sidecar EDS replaces stale waypoint endpoints after an update.
+func TestSidecarWaypointEDSUpdate(t *testing.T) {
+	test.SetForTest(t, &features.EnableSidecarWaypointRouting, true)
+
+	const (
+		namespace           = "default"
+		destinationHostname = "app.default.svc.cluster.local"
+		waypointHostname    = "waypoint.default.svc.cluster.local"
+		destinationVIP      = "10.0.0.1"
+		initialWaypointIP   = "192.0.2.1"
+		updatedWaypointIP   = "192.0.2.2"
+	)
+
+	destinationService := &model.Service{
+		Hostname:       host.Name(destinationHostname),
+		DefaultAddress: destinationVIP,
+		Ports: model.PortList{{
+			Name:     "http",
+			Port:     80,
+			Protocol: protocol.HTTP,
+		}},
+		Attributes: model.ServiceAttributes{Name: "app", Namespace: namespace},
+	}
+	waypointService := &model.Service{
+		Hostname: host.Name(waypointHostname),
+		Ports: model.PortList{{
+			Name:     "hbone",
+			Port:     15008,
+			Protocol: protocol.HTTP,
+		}},
+		Attributes: model.ServiceAttributes{Name: "waypoint", Namespace: namespace},
+	}
+	ambientIndex := &sidecarWaypointIndex{
+		key: namespace + "/" + destinationHostname,
+		info: model.ServiceWaypointInfo{
+			Service: &workloadapi.Service{
+				Name:      "app",
+				Namespace: namespace,
+				Hostname:  destinationHostname,
+				Waypoint: &workloadapi.GatewayAddress{
+					Destination: &workloadapi.GatewayAddress_Hostname{
+						Hostname: &workloadapi.NamespacedHostname{
+							Namespace: namespace,
+							Hostname:  waypointHostname,
+						},
+					},
+					HboneMtlsPort: 15008,
+				},
+			},
+			WaypointHostname: waypointHostname,
+		},
+	}
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+		Services:     []*model.Service{destinationService, waypointService},
+		AmbientIndex: ambientIndex,
+	})
+	setWaypointEndpoint := func(address string) {
+		s.MemRegistry.SetEndpoints(waypointHostname, namespace, []*model.IstioEndpoint{{
+			Addresses:       []string{address},
+			ServicePortName: "hbone",
+			EndpointPort:    15008,
+		}})
+	}
+	setWaypointEndpoint(initialWaypointIP)
+	// Register a backend endpoint so the unenrollment check detects accidental backend fallback
+	// instead of passing because no backend endpoints exist.
+	s.MemRegistry.SetEndpoints(destinationHostname, namespace, []*model.IstioEndpoint{{
+		Addresses:       []string{"192.0.2.10"},
+		ServicePortName: "http",
+		EndpointPort:    8080,
+	}})
+	s.EnsureSynced(t)
+
+	proxy := s.SetupProxy(&model.Proxy{Type: model.SidecarProxy})
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutboundWaypoint, "", host.Name(destinationHostname), 80)
+	watched := &model.WatchedResource{ResourceNames: sets.New(clusterName)}
+	generator := s.Discovery.Generators[v3.EndpointType]
+	generate := func(req *model.PushRequest) []string {
+		t.Helper()
+		resources, _, err := generator.Generate(proxy, watched, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(resources) != 1 {
+			t.Fatalf("expected one EDS resource, got %d", len(resources))
+		}
+		cla := &endpoint.ClusterLoadAssignment{}
+		if err := resources[0].Resource.UnmarshalTo(cla); err != nil {
+			t.Fatalf("failed to unmarshal EDS resource: %v", err)
+		}
+
+		return xdstest.ExtractEndpoints(cla)
+	}
+
+	initial := generate(&model.PushRequest{Push: s.PushContext(), Start: time.Now(), Forced: true})
+	assert.Equal(t, initial, []string{"connect_originate;" + destinationVIP + ":80;" + initialWaypointIP + ":15008"})
+
+	setWaypointEndpoint(updatedWaypointIP)
+	updated := generate(&model.PushRequest{
+		Push:  s.PushContext(),
+		Start: time.Now(),
+		ConfigsUpdated: sets.New(model.ConfigKey{
+			Kind:      kind.Endpoints,
+			Name:      waypointHostname,
+			Namespace: namespace,
+		}),
+	})
+	assert.Equal(t, updated, []string{"connect_originate;" + destinationVIP + ":80;" + updatedWaypointIP + ":15008"})
+
+	ambientIndex.key = ""
+
+	unenrolled := generate(&model.PushRequest{
+		Push:   s.PushContext(),
+		Start:  time.Now(),
+		Forced: true,
+	})
+	assert.Equal(t, len(unenrolled), 0,
+		"an old delegation cluster must not fall back to backend endpoints after unenrollment")
+}
+
+func TestSidecarWaypointEnrollmentPreservesOldHTTPPath(t *testing.T) {
+	test.SetForTest(t, &features.EnableSidecarWaypointRouting, true)
+
+	const (
+		namespace           = "default"
+		destinationHostname = "app.default.svc.cluster.local"
+		destinationVIP      = "10.0.0.1"
+		backendIP           = "192.0.2.10"
+		waypointHostname    = "waypoint.default.svc.cluster.local"
+		waypointIP          = "192.0.2.20"
+	)
+
+	destinationService := &model.Service{
+		Hostname:       host.Name(destinationHostname),
+		DefaultAddress: destinationVIP,
+		Ports: model.PortList{{
+			Name:     "http",
+			Port:     80,
+			Protocol: protocol.HTTP,
+		}},
+		Attributes: model.ServiceAttributes{
+			Name:      "app",
+			Namespace: namespace,
+		},
+	}
+
+	waypointService := &model.Service{
+		Hostname: host.Name(waypointHostname),
+		Ports: model.PortList{{
+			Name:     "hbone",
+			Port:     15008,
+			Protocol: protocol.HTTP,
+		}},
+		Attributes: model.ServiceAttributes{
+			Name:      "waypoint",
+			Namespace: namespace,
+		},
+	}
+
+	ambientIndex := &sidecarWaypointIndex{}
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+		Services:     []*model.Service{destinationService, waypointService},
+		AmbientIndex: ambientIndex,
+		ConfigString: fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: add-policy-header
+  namespace: %s
+spec:
+  hosts:
+  - %s
+  http:
+  - headers:
+      response:
+        add:
+          x-l7-processed: once
+    route:
+    - destination:
+        host: %s
+        port:
+          number: 80
+        `, namespace, destinationHostname, destinationHostname),
+	})
+	s.MemRegistry.SetEndpoints(destinationHostname, namespace, []*model.IstioEndpoint{{
+		Addresses:       []string{backendIP},
+		ServicePortName: "http",
+		EndpointPort:    8080,
+	}})
+	s.MemRegistry.SetEndpoints(waypointHostname, namespace, []*model.IstioEndpoint{{
+		Addresses:       []string{waypointIP},
+		ServicePortName: "hbone",
+		EndpointPort:    15008,
+	}})
+	s.EnsureSynced(t)
+
+	proxy := s.SetupProxy(&model.Proxy{
+		Type:            model.SidecarProxy,
+		ConfigNamespace: namespace,
+	})
+
+	var oldRoute *route.Route
+	for _, rc := range s.Routes(proxy) {
+		for _, vh := range rc.GetVirtualHosts() {
+			if !slices.Contains(vh.GetDomains(), destinationHostname) {
+				continue
+			}
+			assert.Equal(t, len(vh.GetRoutes()), 1)
+			oldRoute = vh.GetRoutes()[0]
+		}
+	}
+	if oldRoute == nil {
+		t.Fatal("pre-enrollment HTTP route not found")
+	}
+
+	oldClusterName := oldRoute.GetRoute().GetCluster()
+	if oldClusterName == "" {
+		t.Fatal("pre-enrollment HTTP route has no destination cluster")
+	}
+
+	assert.Equal(t, oldRoute.GetResponseHeadersToAdd(), []*core.HeaderValueOption{{
+		Header: &core.HeaderValue{
+			Key:   "x-l7-processed",
+			Value: "once",
+		},
+		AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+	}})
+
+	watched := &model.WatchedResource{
+		ResourceNames: sets.New(oldClusterName),
+	}
+	generator := s.Discovery.Generators[v3.EndpointType]
+	generatorEndpoints := func() []string {
+		t.Helper()
+
+		resources, _, err := generator.Generate(proxy, watched, &model.PushRequest{
+			Push:   s.PushContext(),
+			Start:  time.Now(),
+			Forced: true,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(resources) != 1 {
+			t.Fatalf("expected one EDS resource, got %d", len(resources))
+		}
+
+		cla := &endpoint.ClusterLoadAssignment{}
+		if err := resources[0].Resource.UnmarshalTo(cla); err != nil {
+			t.Fatalf("unmarshaling EDS resource: %v", err)
+		}
+		assert.Equal(t, cla.GetClusterName(), oldClusterName)
+
+		return xdstest.ExtractEndpoints(cla)
+	}
+
+	assert.Equal(t, generatorEndpoints(), []string{backendIP + ":8080"})
+
+	ambientIndex.key = namespace + "/" + destinationHostname
+	ambientIndex.info = model.ServiceWaypointInfo{
+		Service: &workloadapi.Service{
+			Name:      "app",
+			Namespace: namespace,
+			Hostname:  destinationHostname,
+			Waypoint: &workloadapi.GatewayAddress{
+				Destination: &workloadapi.GatewayAddress_Hostname{
+					Hostname: &workloadapi.NamespacedHostname{
+						Namespace: namespace,
+						Hostname:  waypointHostname,
+					},
+				},
+				HboneMtlsPort: 15008,
+			},
+		},
+		WaypointHostname: waypointHostname,
+	}
+
+	assert.Equal(t, generatorEndpoints(), []string{backendIP + ":8080"},
+		"enrollment must not redirect the old HTTP-processing path through the waypoint")
 }

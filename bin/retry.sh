@@ -46,7 +46,7 @@ function retry {
     unset SHELL # Don't let environment control which shell to use
     if isatty; then
       if [ "$(uname)" == "Darwin" ]; then
-        script -q -r "${tmpFile}" "${*}"
+        script -q -r "${tmpFile}" "$@"
       else
         script --flush --quiet --return "${tmpFile}" --command "${*}"
       fi

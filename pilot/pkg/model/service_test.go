@@ -130,6 +130,7 @@ func TestParseSubsetKey(t *testing.T) {
 		{"|||", "", "", "", 0},
 		{"outbound_.8080_.v1_.foo.example.org", TrafficDirectionOutbound, "v1", "foo.example.org", 8080},
 		{"inbound_.8080_.v1_.foo.example.org", TrafficDirectionInbound, "v1", "foo.example.org", 8080},
+		{"outbound-waypoint|80||example.com", TrafficDirectionOutboundWaypoint, "", "example.com", 80},
 	}
 
 	for _, tt := range tests {
