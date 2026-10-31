@@ -572,6 +572,10 @@ func applyFailoverPriorities(
 			}
 		}
 	}
+	// Envoy keeps only the first copy of a repeated host, so lead with the highest priority.
+	sort.SliceStable(localityLbEndpoints, func(i, j int) bool {
+		return localityLbEndpoints[i].Priority < localityLbEndpoints[j].Priority
+	})
 	loadAssignment.Endpoints = localityLbEndpoints
 }
 
