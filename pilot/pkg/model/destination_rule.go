@@ -196,7 +196,7 @@ func MergeTrafficPolicy(mergedPolicy, subsetPolicy *networking.TrafficPolicy, ha
 	if subsetPolicy.ProxyProtocol != nil {
 		mergedPolicy.ProxyProtocol = subsetPolicy.ProxyProtocol
 	}
-	if subsetPolicy.RetryBudget != nil {
+	if subsetPolicy.RetryBudget != nil || hasPortLevel {
 		mergedPolicy.RetryBudget = subsetPolicy.RetryBudget
 	}
 	return mergedPolicy
@@ -251,6 +251,9 @@ func mergeBackendPolicyPortLevelSettings(user, backend []*networking.TrafficPoli
 		}
 		if up.Tls == nil {
 			up.Tls = bp.Tls
+		}
+		if up.RetryBudget == nil {
+			up.RetryBudget = bp.RetryBudget
 		}
 	}
 	return merged

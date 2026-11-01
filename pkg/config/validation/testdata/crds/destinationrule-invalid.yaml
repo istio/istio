@@ -35,3 +35,17 @@ spec:
       warmup:
         duration: 300s
         aggression: -0.1
+---
+_err: 'spec.trafficPolicy.portLevelSettings[0].retryBudget.percent: Invalid value'
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: bookinfo-ratings
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 8080
+      retryBudget:
+        percent: 150.0
