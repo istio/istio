@@ -134,15 +134,15 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			}
 
 			// Test LDS
-			gotLDS := ldsNeedsPush(proxy, req)
+			gotLDS := LdsNeedsPush(proxy, req)
 			if gotLDS != tt.expectLDS {
-				t.Errorf("ldsNeedsPush() = %v, want %v", gotLDS, tt.expectLDS)
+				t.Errorf("LdsNeedsPush() = %v, want %v", gotLDS, tt.expectLDS)
 			}
 
 			// Test CDS
-			_, gotCDS := cdsNeedsPush(req, proxy)
+			_, gotCDS := CdsNeedsPush(req, proxy)
 			if gotCDS != tt.expectCDS {
-				t.Errorf("cdsNeedsPush() = %v, want %v", gotCDS, tt.expectCDS)
+				t.Errorf("CdsNeedsPush() = %v, want %v", gotCDS, tt.expectCDS)
 			}
 
 			// Test RDS
