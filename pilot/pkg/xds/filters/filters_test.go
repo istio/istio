@@ -21,9 +21,12 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/wellknown"
@@ -168,4 +171,33 @@ func TestMxFilters(t *testing.T) {
 			}),
 		},
 	})
+}
+
+func TestConnectAuthorityFilterPeerDirectRemoteIP(t *testing.T) {
+	for name, f := range map[string]*hcm.HttpFilter{
+		"ConnectAuthorityFilter":          ConnectAuthorityFilter,
+		"ConnectAuthorityFilterPre1_29_2": ConnectAuthorityFilterPre1_29_2,
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := &sfs.Config{}
+			if err := f.GetTypedConfig().UnmarshalTo(cfg); err != nil {
+				t.Fatal(err)
+			}
+			var found *sfsvalue.FilterStateValue
+			for _, v := range cfg.GetOnRequestHeaders() {
+				if v.GetObjectKey() == util.PeerDirectRemoteIPFilterStateKey {
+					found = v
+				}
+			}
+			if found == nil {
+				t.Fatalf("filter state value %q not found", util.PeerDirectRemoteIPFilterStateKey)
+			}
+			// The value must be the direct peer, not the remote address that headers on the CONNECT request can
+			// change, and must be created by a factory of hashable addresses, so that internal connections are not
+			// shared between HBONE connections with different peers.
+			assert.Equal(t, found.GetFactoryKey(), "envoy.filters.listener.original_dst.remote_ip")
+			assert.Equal(t, found.GetFormatString().GetTextFormatSource().GetInlineString(), "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%")
+			assert.Equal(t, found.GetSharedWithUpstream(), sfsvalue.FilterStateValue_ONCE)
+		})
+	}
 }

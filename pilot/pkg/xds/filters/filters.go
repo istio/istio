@@ -311,6 +311,27 @@ var (
 						},
 						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
 					}, {
+						// The direct peer of the HBONE connection, which authorization policy on the internal listener
+						// matches ipBlocks against, as the direct remote address there is internal. Unlike the remote
+						// address above, it is not affected by headers on the CONNECT request. The object is hashable,
+						// so internal connections are never shared between different HBONE connections.
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: util.PeerDirectRemoteIPFilterStateKey,
+						},
+						FactoryKey: util.PeerDirectRemoteAddressFilterStateFactory,
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
 						Key: &sfsvalue.FilterStateValue_ObjectKey{
 							ObjectKey: "io.istio.peer_principal",
 						},
@@ -426,6 +447,27 @@ var (
 									TextFormatSource: &core.DataSource{
 										Specifier: &core.DataSource_InlineString{
 											InlineString: "%DOWNSTREAM_REMOTE_ADDRESS%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						// The direct peer of the HBONE connection, which authorization policy on the internal listener
+						// matches ipBlocks against, as the direct remote address there is internal. Unlike the remote
+						// address above, it is not affected by headers on the CONNECT request. The object is hashable,
+						// so internal connections are never shared between different HBONE connections.
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: util.PeerDirectRemoteIPFilterStateKey,
+						},
+						FactoryKey: util.PeerDirectRemoteAddressFilterStateFactory,
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
 										},
 									},
 								},

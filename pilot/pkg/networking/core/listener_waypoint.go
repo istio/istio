@@ -115,6 +115,14 @@ func (lb *ListenerBuilder) buildEastWestTLSPassthroughListeners() []*listener.Li
 	if !isAmbientEastWestGateway(lb.node) || lb.node.MergedGateway == nil {
 		return nil
 	}
+	// These are not internal listeners, so the downstream peer must be read from the connection, not filter state.
+	oldAuthzBuilder, oldAuthzCustomBuilder := lb.authzBuilder, lb.authzCustomBuilder
+	lb.authzBuilder = authz.NewBuilder(authz.Local, lb.push, lb.node, false)
+	lb.authzCustomBuilder = authz.NewBuilder(authz.Custom, lb.push, lb.node, false)
+	defer func() {
+		lb.authzBuilder, lb.authzCustomBuilder = oldAuthzBuilder, oldAuthzCustomBuilder
+	}()
+
 	mergedGateway := lb.node.MergedGateway
 	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 	tlsHostsByPort := map[uint32]map[string]string{}
