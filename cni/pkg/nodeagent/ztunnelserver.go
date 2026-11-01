@@ -99,7 +99,7 @@ func (c *connMgr) deleteConn(conn ZtunnelConnection) {
 		}
 	}
 	c.connectionSet = retainedConns
-	log.Infof("ztunnel disconnected, total connected %s", len(c.connectionSet))
+	log.Infof("ztunnel disconnected, total connected %d", len(c.connectionSet))
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
