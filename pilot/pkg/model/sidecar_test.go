@@ -2896,6 +2896,16 @@ func TestCreateSidecarScope(t *testing.T) {
 				})
 			}
 			assert.Equal(t, tt.expectedServices, sidecarScope.services)
+			// Each hostname's egress listener services are kept unmerged; VirtualService-only destinations have none.
+			egressServices := map[host.Name][]*Service{}
+			for _, el := range sidecarScope.EgressListeners {
+				for _, s := range el.services {
+					egressServices[s.Hostname] = append(egressServices[s.Hostname], s)
+				}
+			}
+			for _, s := range sidecarScope.services {
+				assert.Equal(t, sidecarScope.ServicesForEgressHostname(s.Hostname), egressServices[s.Hostname])
+			}
 			if tt.sidecarConfig != nil {
 				dr := sidecarScope.DestinationRule(TrafficDirectionOutbound,
 					&Proxy{
@@ -2906,6 +2916,101 @@ func TestCreateSidecarScope(t *testing.T) {
 				assert.Equal(t, dr, tt.expectedDr)
 			}
 		})
+	}
+}
+
+func TestServicesForEgressHostname(t *testing.T) {
+	newService := func(hostname string, registry provider.ID, ports PortList) *Service {
+		return &Service{
+			Hostname:   host.Name(hostname),
+			Ports:      ports,
+			Attributes: ServiceAttributes{Name: hostname, Namespace: "ns", ServiceRegistry: registry},
+		}
+	}
+	routeTo := func(s *Service, port uint32) *config.Config {
+		return &config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: s.Hostname.String(), Namespace: "ns"},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"route.example.com"},
+				Http: []*networking.HTTPRoute{{Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: s.Hostname.String(), Port: &networking.PortSelector{Number: port}},
+				}}}},
+			},
+		}
+	}
+	single := newService("single.ns.svc.cluster.local", provider.Kubernetes, port7443)
+	multiPort := newService("multi.ns.svc.cluster.local", provider.Kubernetes, twoPorts)
+	entry := newService("decorated.example.com", provider.External, port7443)
+	kube := newService("decorated.example.com", provider.Kubernetes, port7443)
+	routeOnly := newService("route-only.ns.svc.cluster.local", provider.Kubernetes, port7443)
+	repeated1 := newService("repeated.example.com", provider.External, port7443)
+	repeated2 := newService("repeated.example.com", provider.External, port803x)
+
+	ps := NewPushContext()
+	ps.exportToDefaults.service = sets.New(visibility.Public)
+	ps.ServiceIndex.public = []*Service{single}
+	ps.Mesh = mesh.DefaultMeshConfig()
+	ps.setDestinationRules(nil)
+	for _, s := range []*Service{multiPort, kube, routeOnly} {
+		ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{"ns": s}
+	}
+	sc := &SidecarScope{
+		Namespace: "ns",
+		EgressListeners: []*IstioEgressListenerWrapper{
+			{
+				services:        []*Service{single, multiPort, entry, repeated1},
+				virtualServices: []*config.Config{routeTo(multiPort, 8000), routeTo(kube, 7443), routeTo(routeOnly, 7443)},
+			},
+			{services: []*Service{repeated2}},
+		},
+	}
+	sc.collectImportedServices(ps, "ns")
+
+	for hostname, want := range map[host.Name][]*Service{
+		single.Hostname: {single},
+		// Merged with the VirtualService destination port.
+		multiPort.Hostname: {multiPort},
+		// Replaced by the Kubernetes VirtualService destination.
+		entry.Hostname:     {entry},
+		repeated1.Hostname: {repeated1, repeated2},
+		routeOnly.Hostname: nil,
+	} {
+		if got := sc.ServicesForEgressHostname(hostname); !slices.Equal(got, want) {
+			t.Errorf("%s: got %v, want %v", hostname, got, want)
+		}
+	}
+	if _, f := sc.unmergedEgressServices[single.Hostname]; f {
+		t.Errorf("%s has a single unmerged service and must not be stored separately", single.Hostname)
+	}
+	// Gateway scopes have no egress listener services.
+	if got := DefaultSidecarScopeForGateway(ps, "ns").ServicesForEgressHostname(single.Hostname); got != nil {
+		t.Errorf("gateway scope: got %v, want none", got)
+	}
+}
+
+func TestDependsOnConfigUnmergedEgressServices(t *testing.T) {
+	const hostname = "shared.example.com"
+	newEntry := func(ns string) *Service {
+		return &Service{
+			Hostname:   hostname,
+			Ports:      port7443,
+			Attributes: ServiceAttributes{Name: hostname, Namespace: ns, ServiceRegistry: provider.External},
+		}
+	}
+	ps := NewPushContext()
+	ps.Mesh = mesh.DefaultMeshConfig()
+	sc := &SidecarScope{
+		Namespace:       "a",
+		EgressListeners: []*IstioEgressListenerWrapper{{services: []*Service{newEntry("a"), newEntry("b")}}},
+	}
+	sc.collectImportedServices(ps, "a")
+
+	for _, k := range []kind.Kind{kind.ServiceEntry, kind.Endpoints, kind.DNSName} {
+		for ns, want := range map[string]bool{"a": true, "b": true, "c": false} {
+			if got := sc.DependsOnConfig(ConfigKey{k, hostname, ns}, ps.Mesh.RootNamespace); got != want {
+				t.Errorf("%v %s/%s: got %v, want %v", k, ns, hostname, got, want)
+			}
+		}
 	}
 }
 
@@ -3298,6 +3403,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 		return map[ConfigKey]bool{
 			{kind.ServiceEntry, svcName, ns}:   contains,
 			{kind.Endpoints, svcName, ns}:      contains,
+			{kind.DNSName, svcName, ns}:        contains,
 			{kind.VirtualService, vsName, ns}:  contains,
 			{kind.DestinationRule, drName, ns}: contains,
 		}

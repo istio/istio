@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,11 +50,15 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	dnsClient "istio.io/istio/pkg/dns/client"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 	wasmcache "istio.io/istio/pkg/wasm"
 )
 
@@ -611,4 +616,174 @@ func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 
 func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
 	return setupDownstreamConnectionUDS(t, proxy.xdsUdsPath)
+}
+
+func TestNDSDeltaHandler(t *testing.T) {
+	info := func(ip, registry string) *dnsProto.NameTable_NameInfo {
+		return &dnsProto.NameTable_NameInfo{Ips: []string{ip}, Registry: registry}
+	}
+	resource := func(hostname string, table map[string]*dnsProto.NameTable_NameInfo) *discovery.Resource {
+		return &discovery.Resource{Name: hostname, Resource: protoconv.MessageToAny(&dnsProto.NameTable{Table: table})}
+	}
+	host := func(hostname, ip string) *discovery.Resource {
+		return resource(hostname, map[string]*dnsProto.NameTable_NameInfo{hostname: info(ip, "Kubernetes")})
+	}
+	newHandler := func() (*ndsDeltaHandler, *dnsClient.LocalDNSServer) {
+		dnsServer := &dnsClient.LocalDNSServer{}
+		return &ndsDeltaHandler{dnsServer: dnsServer, resources: sets.New[string]()}, dnsServer
+	}
+	ips := func(dnsServer *dnsClient.LocalDNSServer) map[string][]string {
+		out := map[string][]string{}
+		for name, info := range dnsServer.NameTable().GetTable() {
+			out[name] = info.Ips
+		}
+		return out
+	}
+	handle := func(t *testing.T, h *ndsDeltaHandler, resources []*discovery.Resource, removed []string) {
+		t.Helper()
+		if _, err := h.Handle(nil, resources, removed); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	t.Run("applies additions, updates and removals", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		handle(t, h, []*discovery.Resource{host("a.default.svc.cluster.local", "10.0.0.1"), host("b.default.svc.cluster.local", "10.0.0.2")}, nil)
+		handle(t, h, []*discovery.Resource{host("b.default.svc.cluster.local", "10.0.0.3")}, []string{"a.default.svc.cluster.local"})
+		assert.Equal(t, ips(dnsServer), map[string][]string{"b.default.svc.cluster.local": {"10.0.0.3"}})
+	})
+
+	t.Run("replacing a headless resource drops its removed pods", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		headless := "mysql.db.svc.cluster.local"
+		handle(t, h, []*discovery.Resource{resource(headless, map[string]*dnsProto.NameTable_NameInfo{
+			headless:                             {Ips: []string{"10.0.0.1", "10.0.0.2"}, Registry: "Kubernetes"},
+			"mysql-0.mysql.db.svc.cluster.local": info("10.0.0.1", "Kubernetes"),
+			"mysql-1.mysql.db.svc.cluster.local": info("10.0.0.2", "Kubernetes"),
+		})}, nil)
+		handle(t, h, []*discovery.Resource{resource(headless, map[string]*dnsProto.NameTable_NameInfo{
+			headless:                             info("10.0.0.1", "Kubernetes"),
+			"mysql-0.mysql.db.svc.cluster.local": info("10.0.0.1", "Kubernetes"),
+		})}, nil)
+		assert.Equal(t, ips(dnsServer), map[string][]string{
+			headless:                             {"10.0.0.1"},
+			"mysql-0.mysql.db.svc.cluster.local": {"10.0.0.1"},
+		})
+	})
+
+	t.Run("exact names win over aliases", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		svc := "reviews.default.svc.cluster.local"
+		kube := info("10.0.0.1", "Kubernetes")
+		kube.Aliases = []string{"reviews", "reviews.default", "reviews.default.svc"}
+		handle(t, h, []*discovery.Resource{
+			resource(svc, map[string]*dnsProto.NameTable_NameInfo{svc: kube}),
+			host("reviews", "192.0.2.1"),
+		}, nil)
+		got := ips(dnsServer)
+		assert.Equal(t, got["reviews"], []string{"192.0.2.1"})
+		assert.Equal(t, got["reviews.default"], []string{"10.0.0.1"})
+
+		// Removing the exact owner reveals the alias it shadowed.
+		handle(t, h, nil, []string{"reviews"})
+		assert.Equal(t, ips(dnsServer)["reviews"], []string{"10.0.0.1"})
+	})
+
+	t.Run("prefers Kubernetes entries, then resource name order", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		pod := "x.headless.ns.svc.cluster.local"
+		handle(t, h, []*discovery.Resource{
+			resource(pod, map[string]*dnsProto.NameTable_NameInfo{pod: info("192.0.2.1", "External")}),
+			resource("headless.ns.svc.cluster.local", map[string]*dnsProto.NameTable_NameInfo{pod: info("10.0.0.1", "Kubernetes")}),
+			resource("a.example.com", map[string]*dnsProto.NameTable_NameInfo{"shared.example.com": info("192.0.2.2", "External")}),
+			resource("b.example.com", map[string]*dnsProto.NameTable_NameInfo{"shared.example.com": info("192.0.2.3", "External")}),
+		}, nil)
+		got := ips(dnsServer)
+		assert.Equal(t, got[pod], []string{"10.0.0.1"})
+		assert.Equal(t, got["shared.example.com"], []string{"192.0.2.2"})
+
+		// Removing the headless service exposes the ServiceEntry it shadowed.
+		handle(t, h, nil, []string{"headless.ns.svc.cluster.local"})
+		assert.Equal(t, ips(dnsServer)[pod], []string{"192.0.2.1"})
+	})
+
+	t.Run("legacy unnamed table replaces all resources", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		handle(t, h, []*discovery.Resource{host("a.default.svc.cluster.local", "10.0.0.1")}, nil)
+		handle(t, h, []*discovery.Resource{resource("", map[string]*dnsProto.NameTable_NameInfo{
+			"b.default.svc.cluster.local": info("10.0.0.2", "Kubernetes"),
+		})}, []string{"a.default.svc.cluster.local"})
+		assert.Equal(t, ips(dnsServer), map[string][]string{"b.default.svc.cluster.local": {"10.0.0.2"}})
+		assert.Equal(t, len(h.initialResourceVersions(nil)), 0)
+		if _, resolved := dnsServer.NameTableSnapshot(); resolved {
+			t.Fatal("legacy table must replace the Delta NDS index")
+		}
+
+		// Later resources start from an empty index, so names from before the legacy table do not return.
+		handle(t, h, []*discovery.Resource{host("c.default.svc.cluster.local", "10.0.0.3")}, nil)
+		assert.Equal(t, ips(dnsServer), map[string][]string{"c.default.svc.cluster.local": {"10.0.0.3"}})
+	})
+
+	t.Run("partially rejected response applies valid resources and removals", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		handle(t, h, []*discovery.Resource{
+			host("a.default.svc.cluster.local", "10.0.0.1"),
+			host("b.default.svc.cluster.local", "10.0.0.2"),
+		}, nil)
+		malformed := func(hostname string) *discovery.Resource {
+			return &discovery.Resource{Name: hostname, Resource: protoconv.MessageToAny(&discovery.Resource{})}
+		}
+		resources := []*discovery.Resource{
+			host("c.default.svc.cluster.local", "10.0.0.3"),
+			malformed("b.default.svc.cluster.local"),
+			malformed("d.default.svc.cluster.local"),
+			{Name: "e.default.svc.cluster.local"},
+		}
+		_, err := h.Handle(nil, resources, []string{"a.default.svc.cluster.local"})
+		if err == nil {
+			t.Fatal("expected malformed resources to be rejected")
+		}
+		for _, hostname := range []string{"b.default.svc.cluster.local", "d.default.svc.cluster.local", "e.default.svc.cluster.local"} {
+			if !strings.Contains(err.Error(), hostname) {
+				t.Fatalf("NACK %q does not name rejected resource %s", err, hostname)
+			}
+		}
+		// The removal and valid addition apply, and b keeps its previously accepted table.
+		assert.Equal(t, ips(dnsServer), map[string][]string{
+			"b.default.svc.cluster.local": {"10.0.0.2"},
+			"c.default.svc.cluster.local": {"10.0.0.3"},
+		})
+		// Rejected additions are not reported as held on reconnect, so istiod sends them again.
+		assert.Equal(t, h.initialResourceVersions(nil), map[string]string{"b.default.svc.cluster.local": "", "c.default.svc.cluster.local": ""})
+
+		handle(t, h, []*discovery.Resource{host("d.default.svc.cluster.local", "10.0.0.4")}, nil)
+		assert.Equal(t, ips(dnsServer)["d.default.svc.cluster.local"], []string{"10.0.0.4"})
+	})
+
+	t.Run("initial resource versions list accepted hostnames", func(t *testing.T) {
+		h, _ := newHandler()
+		handle(t, h, []*discovery.Resource{host("a.default.svc.cluster.local", "10.0.0.1"), host("b.default.svc.cluster.local", "10.0.0.2")}, nil)
+		assert.Equal(t, h.initialResourceVersions(nil), map[string]string{"a.default.svc.cluster.local": "", "b.default.svc.cluster.local": ""})
+	})
+
+	t.Run("retired stream cannot publish after reconnect", func(t *testing.T) {
+		h, dnsServer := newHandler()
+		oldConnection := &ProxyConnection{}
+		newConnection := &ProxyConnection{}
+		h.initialResourceVersions(oldConnection)
+		oldResources := []*discovery.Resource{host("old.default.svc.cluster.local", "10.0.0.1")}
+		if active, err := h.Handle(oldConnection, oldResources, nil); err != nil || !active {
+			t.Fatalf("initial response failed: active=%v err=%v", active, err)
+		}
+
+		assert.Equal(t, h.initialResourceVersions(newConnection), map[string]string{"old.default.svc.cluster.local": ""})
+		newResources := []*discovery.Resource{host("new.default.svc.cluster.local", "10.0.0.2")}
+		if active, err := h.Handle(newConnection, newResources, []string{"old.default.svc.cluster.local"}); err != nil || !active {
+			t.Fatalf("new response failed: active=%v err=%v", active, err)
+		}
+		if active, err := h.Handle(oldConnection, oldResources, nil); err != nil || active {
+			t.Fatalf("retired response was not discarded: active=%v err=%v", active, err)
+		}
+		assert.Equal(t, ips(dnsServer), map[string][]string{"new.default.svc.cluster.local": {"10.0.0.2"}})
+	})
 }
