@@ -161,6 +161,10 @@ spec:
           value: bar
         - name: ISTIO_META_TLS_CLIENT_KEY
           value: /etc/identity2/client/keys/client-key.pem
+        - name: ISTIO_ENVOY_ADMIN_TRANSPORT
+          value: TCP
+        - name: ISTIO_NATIVE_SIDECAR
+          value: "true"
         image: registry.istio.io/testing/proxyv2:latest
         lifecycle:
           preStop:
