@@ -44,6 +44,7 @@ var fieldMap = map[string]int{
 	"{.spec.trafficPolicy.tls.caCertificates}":                      1,
 	"{.spec.trafficPolicy.portLevelSettings[0].tls.caCertificates}": 1,
 	"{.spec.configPatches[0].patch.value}":                          1,
+	"{.spec.configPatches[0].patch.value.name}":                     1,
 }
 
 func TestExtractLabelFromSelectorString(t *testing.T) {
@@ -86,6 +87,7 @@ func TestConstants(t *testing.T) {
 		MetadataName,
 		DestinationRuleTLSCert,
 		fmt.Sprintf(EnvoyFilterConfigPath, 0),
+		fmt.Sprintf(EnvoyFilterConfigName, 0),
 	}
 
 	for _, v := range constantsPath {
