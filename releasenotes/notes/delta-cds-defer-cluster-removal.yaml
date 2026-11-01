@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/62298
+  - https://github.com/argoproj/argo-rollouts/issues/4195
+releaseNotes:
+  - |
+    **Fixed** an issue where requests to a sidecar could fail with `503 NC` (`cluster_not_found`) when its pods stopped
+    backing a `Service`, for example when Argo Rollouts switches a `Service` selector at the end of a rollout.
+    Over delta XDS, istiod removed the pods' inbound clusters before Envoy applied, and drained, the listeners that
+    still referred to them. Cluster removals are now held until the proxy has ACKed its listeners and routes and its
+    drain duration has passed. This can be disabled by setting `PILOT_DEFER_CLUSTER_REMOVAL=false`.
