@@ -187,7 +187,8 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	authzCustomBuilder := lb.authzCustomBuilder
 	authzBuilder := lb.authzBuilder
 	if policySvc != nil {
-		useFilterState := lb.node.Type == model.Waypoint
+		// Read the peer the same way as the listener-wide builders, which know whether this is an internal listener.
+		useFilterState := authzBuilder.UseFilterState()
 		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, useFilterState, policySvc)
 		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, useFilterState, policySvc)
 	}

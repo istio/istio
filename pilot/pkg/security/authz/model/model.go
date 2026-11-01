@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"strings"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	"k8s.io/apimachinery/pkg/types"
 
 	authzpb "istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
@@ -297,6 +299,12 @@ func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Perm
 }
 
 func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
+	// useAuthenticated is false on listeners that read the downstream peer from filter state, where the source IP
+	// must be read from filter state too.
+	if g, ok := r.g.(srcIPGenerator); ok && !useAuthenticated {
+		return g.filterStatePrincipals(r, action)
+	}
+
 	var principals []*rbacpb.Principal
 	if r.extended != nil {
 		if len(r.values) > 0 {
@@ -350,6 +358,23 @@ func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_A
 		}
 	}
 	return principals, nil
+}
+
+// cidrRanges parses values as IPs or CIDRs. As in checkError, an invalid value fails the rule in an ALLOW policy, and
+// is skipped otherwise.
+func (r rule) cidrRanges(values []string, action rbacpb.RBAC_Action) ([]*core.CidrRange, error) {
+	var ranges []*core.CidrRange
+	for _, value := range values {
+		cidr, err := util.AddrStrToCidrRange(value)
+		if err != nil {
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		ranges = append(ranges, cidr)
+	}
+	return ranges, nil
 }
 
 func (r rule) checkError(action rbacpb.RBAC_Action, err error) error {
