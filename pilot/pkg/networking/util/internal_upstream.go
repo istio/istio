@@ -24,6 +24,23 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
+const (
+	// PeerDirectRemoteIPFilterStateKey is a filter state key where a listener that terminates the downstream
+	// connection, such as the HBONE CONNECT termination listener, stores the direct remote address of that
+	// connection for the internal listener it forwards to. On the internal listener the direct remote address is an
+	// internal Envoy address, so authorization policy matches source IPs against this value instead.
+	//
+	// The value is connection scoped: every CONNECT stream multiplexed on one HBONE connection has the same direct
+	// peer. This matches ztunnel, which enforces ipBlocks against the peer of the HBONE connection too, and which
+	// pools HBONE connections per source workload and source IP.
+	PeerDirectRemoteIPFilterStateKey = "io.istio.peer_direct_remote_ip"
+
+	// PeerDirectRemoteAddressFilterStateFactory creates the PeerDirectRemoteIPFilterStateKey object from an
+	// "IP:port" string. Its objects are hashable addresses, so Envoy does not share an upstream internal connection
+	// between downstream connections with different peers.
+	PeerDirectRemoteAddressFilterStateFactory = "envoy.filters.listener.original_dst.remote_ip"
+)
+
 func RawBufferTransport() *core.TransportSocket {
 	return &core.TransportSocket{
 		Name:       "raw_buffer",
