@@ -1132,6 +1132,57 @@ func TestAuthorizationPolicyRevisionFiltering(t *testing.T) {
 	})
 }
 
+func TestAmbientIndex_AuthorizationPolicySelectors(t *testing.T) {
+	for _, namespace := range []string{testNS, systemNS} {
+		t.Run(namespace, func(t *testing.T) {
+			s := newAmbientTestServer(t, testC, testNW, "")
+			s.addPods(t, "127.0.0.1", "labeled", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+			s.addPods(t, "127.0.0.2", "unlabeled", "sa1", nil, nil, true, corev1.PodRunning)
+			s.we.CreateOrUpdate(generateWorkloadEntry("127.0.0.3", "other", "other", "sa1", nil, nil))
+			assert.EventuallyEqual(t, func() int {
+				return len(s.lookup(s.addrXdsName("127.0.0.3")))
+			}, 1)
+			s.assertEvent(t, s.podXdsName("labeled"), s.podXdsName("unlabeled"))
+
+			cases := []struct {
+				name          string
+				selector      *v1beta1.WorkloadSelector
+				selectLabeled bool
+				selectAll     bool
+			}{
+				{name: "unset"},
+				{name: "empty", selector: &v1beta1.WorkloadSelector{}, selectAll: true},
+				{name: "matching labels", selector: &v1beta1.WorkloadSelector{MatchLabels: map[string]string{"app": "a"}}, selectLabeled: true},
+				{name: "nonmatching labels", selector: &v1beta1.WorkloadSelector{MatchLabels: map[string]string{"app": "b"}}},
+				{name: "empty labels", selector: &v1beta1.WorkloadSelector{MatchLabels: map[string]string{}}, selectAll: true},
+				{name: "unset again"},
+			}
+			for _, tt := range cases {
+				t.Run(tt.name, func(t *testing.T) {
+					s.addPolicy(t, "deny-8080", namespace, nil, gvk.AuthorizationPolicy, func(o controllers.Object) {
+						pol := o.(*clientsecurityv1beta1.AuthorizationPolicy)
+						pol.Spec.Selector = tt.selector
+						pol.Spec.Action = auth.AuthorizationPolicy_DENY
+						pol.Spec.Rules = []*auth.Rule{{
+							To: []*auth.Rule_To{{Operation: &auth.Operation{Ports: []string{"8080"}}}},
+						}}
+					})
+					s.assertEvent(t, "deny-8080")
+					for i, selected := range []bool{tt.selectAll || tt.selectLabeled, tt.selectAll, tt.selectAll && namespace == systemNS} {
+						var want []string
+						if selected {
+							want = []string{namespace + "/deny-8080"}
+						}
+						assert.EventuallyEqual(t, func() []string {
+							return s.lookup(s.addrXdsName(fmt.Sprintf("127.0.0.%d", i+1)))[0].GetWorkload().GetAuthorizationPolicies()
+						}, want)
+					}
+				})
+			}
+		})
+	}
+}
+
 // TODO(nmittler): Consider splitting this into multiple, smaller tests.
 func TestAmbientIndex_Policy(t *testing.T) {
 	cases := []struct {
