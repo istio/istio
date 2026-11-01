@@ -65,6 +65,8 @@ func TestMergeUpdateRequest(t *testing.T) {
 	push0 := &PushContext{}
 	// trivially different push contexts just for testing
 	push1 := &PushContext{ProxyStatus: make(map[string]map[string]ProxyPushStatus)}
+	olderPush, newerPush := NewPushContext(), NewPushContext()
+	olderPush.PushVersion, newerPush.PushVersion = "older", "newer"
 
 	var t0 time.Time
 	t1 := t0.Add(time.Minute)
@@ -117,6 +119,18 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Reason: NewReasonStats(ServiceUpdate, ServiceUpdate, EndpointUpdate),
 				Forced: true,
 			},
+		},
+		{
+			"keep newer push context",
+			&PushRequest{Push: newerPush},
+			&PushRequest{Push: olderPush},
+			PushRequest{Push: newerPush},
+		},
+		{
+			"keep push context when other has none",
+			&PushRequest{Push: push0},
+			&PushRequest{},
+			PushRequest{Push: push0},
 		},
 		{
 			"skip config type merge: one empty",
@@ -2354,6 +2368,7 @@ func TestInitPushContext(t *testing.T) {
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}, func() {}),
 		cmpopts.IgnoreUnexported(IstioEndpoint{}),
+		cmpopts.IgnoreFields(PushContext{}, "seq"),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
 		protocmp.Transform(),
 	)
