@@ -984,6 +984,8 @@ type buildClusterOpts struct {
 	isDrWithSelector          bool
 	credentialSocketExist     bool
 	fileCredentialSocketExist bool
+	// Gateway client identity is independent of the backend policy's server validation credentials.
+	gatewayBackendClientCredential string
 }
 
 func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {

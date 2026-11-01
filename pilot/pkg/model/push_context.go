@@ -2416,6 +2416,31 @@ func (ps *PushContext) initGateways(env *Environment) {
 	}
 }
 
+// kubernetesGatewayParent returns the Kubernetes Gateway parent for a given
+// Istio Gateway config, and a boolean representing whether a parentGateway exists.
+func kubernetesGatewayParent(gatewayConfig config.Config) (types.NamespacedName, bool) {
+	if parent := gatewayConfig.Annotations[constants.InternalGatewayParent]; parent != "" {
+		namespace, name, found := strings.Cut(parent, "/")
+		if found && namespace != "" && name != "" {
+			return types.NamespacedName{Namespace: namespace, Name: name}, true
+		}
+	}
+	for parent := range strings.SplitSeq(gatewayConfig.Annotations[constants.InternalParentNames], ",") {
+		encoded, found := strings.CutPrefix(parent, gvk.KubernetesGateway.Kind+"/")
+		if !found {
+			continue
+		}
+		namespaceSeparator := strings.LastIndexByte(encoded, '.')
+		if namespaceSeparator < 0 {
+			continue
+		}
+		nameAndSection, namespace := encoded[:namespaceSeparator], encoded[namespaceSeparator+1:]
+		name, _, _ := strings.Cut(nameAndSection, "/")
+		return types.NamespacedName{Namespace: namespace, Name: name}, true
+	}
+	return types.NamespacedName{}, false
+}
+
 func (ps *PushContext) initAmbient(env *Environment) {
 	ps.ambientIndex = env
 }
@@ -2433,6 +2458,7 @@ type gatewayWithInstances struct {
 	// This supports the legacy behavior of selecting gateways by pod label selector
 	legacyGatewaySelector bool
 	instances             []ServiceTarget
+	clientCertificateRef  string
 }
 
 func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
@@ -2446,6 +2472,11 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	}
 
 	for _, cfg := range configs {
+		var clientCertificateRef string
+		parentGateway, ok := kubernetesGatewayParent(cfg)
+		if ok {
+			clientCertificateRef = ps.GatewayAPIController.GetGatewayBackendClientCredentialName(parentGateway)
+		}
 		gw := cfg.Spec.(*networking.Gateway)
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
 			gwsvcs := strings.Split(gwsvcstr, ",")
@@ -2459,15 +2490,15 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			}
 			// Only if we have a matching instance should we apply the configuration
 			if len(matchingInstances) > 0 {
-				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, false, matchingInstances})
+				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, false, matchingInstances, clientCertificateRef})
 			}
 		} else if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceTargets})
+			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceTargets, clientCertificateRef})
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			if gatewaySelector.SubsetOf(proxy.Labels) {
-				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceTargets})
+				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceTargets, clientCertificateRef})
 			}
 		}
 	}

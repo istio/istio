@@ -135,6 +135,8 @@ const (
 	InternalParentNames = "internal.istio.io/parents"
 	// InternalParentNamespace contains, for internally-generated resource, the namespace of the parent, if different then current.
 	InternalParentNamespace = "internal.istio.io/parent-namespace"
+	// InternalGatewayParent identifies the Kubernetes Gateway that owns an internally-generated Gateway from a ListenerSet.
+	InternalGatewayParent = "internal.istio.io/gateway-parent"
 	// The service account name that gateway workloads are running at. Used to verify that
 	// only service accounts associated with gateway workloads can query secrets.
 	// Empty means any service account name within the namespace.
