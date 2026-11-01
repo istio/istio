@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** a warning in istio-cni when `cniBinDir` contains none of the other plugins in the CNI chain, which usually means the container runtime searches a different directory and cannot find the istio-cni plugin.
