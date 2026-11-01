@@ -2554,6 +2554,38 @@ func (ps *PushContext) AllInstancesSupportHBONE(service *Service, port *Port) bo
 	return true
 }
 
+// HeadlessServiceNeedsHBONE reports whether a sidecar on proxyNetwork should reach the pods of a headless service
+// port over HBONE. Every pod must support HBONE and be on the proxy's network, and at least one pod must be unable
+// to accept legacy Istio mTLS (an ambient pod), unless HBONE is preferred. Requiring an ambient pod keeps
+// all-sidecar headless services on legacy mTLS, matching the EDS path.
+// Downstream patch for https://github.com/istio/istio/issues/54921.
+func (ps *PushContext) HeadlessServiceNeedsHBONE(service *Service, port *Port, proxyNetwork network.ID) bool {
+	instances := ps.ServiceEndpointsByPort(service, port.Port, nil)
+	if len(instances) == 0 {
+		return false
+	}
+	needsHBONE := features.PreferHBONESend
+	for _, e := range instances {
+		if e.Network != proxyNetwork {
+			return false
+		}
+		addressSupportsTunnel := SupportsTunnel(e.Labels, TunnelHTTP)
+		for _, addr := range e.Addresses {
+			if addressSupportsTunnel {
+				break
+			}
+			addressSupportsTunnel = ps.SupportsTunnel(e.Network, addr)
+		}
+		if !addressSupportsTunnel {
+			return false
+		}
+		if e.TLSMode != IstioMutualTLSModeLabel {
+			needsHBONE = true
+		}
+	}
+	return needsHBONE
+}
+
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
 // policies (both alpha and beta) in the system. The function always returns MTLSUnknown for external service.
 // The result is a best effort. It is because the PeerAuthentication is workload-based, this function is unable

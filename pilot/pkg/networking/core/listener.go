@@ -1001,6 +1001,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 
 		case istionetworking.ListenerProtocolTCP:
 			opts = buildSidecarOutboundTCPListenerOpts(listenerOpts, virtualServices)
+			maybeAddHeadlessHBONEFilterState(listenerOpts, opts)
 
 			// Check if conflict happens
 			if currentListenerEntry != nil {
