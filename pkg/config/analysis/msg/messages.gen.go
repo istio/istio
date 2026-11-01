@@ -283,6 +283,10 @@ var (
 	// EnvoyFilterMayClearRouteCache defines a diag.MessageType for message "EnvoyFilterMayClearRouteCache".
 	// Description: Using EnvoyFilters with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run.
 	EnvoyFilterMayClearRouteCache = diag.NewMessageType(diag.Warning, "IST0178", "Using an EnvoyFilter with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run. This can cause a request to be routed differently than it was when the route-dependent filter was evaluated. See https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_filters.html#security-considerations.")
+
+	// NoDefaultRevision defines a diag.MessageType for message "NoDefaultRevision".
+	// Description: No sidecar injector serves the default revision, so there is no default revision or default revision tag.
+	NoDefaultRevision = diag.NewMessageType(diag.Warning, "IST0179", "No default revision or default revision tag was found. Namespaces labeled istio-injection=enabled get no sidecar injection, and resources without an istio.io/rev label are not owned by a defined revision. Set one with `istioctl tag set default --revision <revision>`.")
 )
 
 // All returns a list of all known message types.
@@ -357,6 +361,7 @@ func All() []*diag.MessageType {
 		GatewayAPICRDVersionBelowMinimum,
 		ConflictingServiceEntryProtocol,
 		EnvoyFilterMayClearRouteCache,
+		NoDefaultRevision,
 	}
 }
 
@@ -1036,6 +1041,14 @@ func NewConflictingServiceEntryProtocol(r *resource.Instance, serviceEntryNames 
 func NewEnvoyFilterMayClearRouteCache(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		EnvoyFilterMayClearRouteCache,
+		r,
+	)
+}
+
+// NewNoDefaultRevision returns a new diag.Message based on NoDefaultRevision.
+func NewNoDefaultRevision(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		NoDefaultRevision,
 		r,
 	)
 }
