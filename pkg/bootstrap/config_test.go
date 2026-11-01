@@ -401,6 +401,42 @@ func TestZoneAwareRoutingTemplateParam(t *testing.T) {
 	}
 }
 
+func TestHBONEConnectWaitBootstrapMetadata(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		envs     []string
+		metadata map[string]string
+		want     bool
+	}{
+		{name: "unset"},
+		{name: "environment enabled", envs: []string{"ISTIO_META_ENABLE_HBONE_CONNECT_WAIT=true"}, want: true},
+		{name: "environment disabled", envs: []string{"ISTIO_META_ENABLE_HBONE_CONNECT_WAIT=false"}},
+		{name: "proxy metadata enabled", metadata: map[string]string{"ISTIO_META_ENABLE_HBONE_CONNECT_WAIT": "true"}, want: true},
+		{name: "proxy metadata disabled", metadata: map[string]string{"ISTIO_META_ENABLE_HBONE_CONNECT_WAIT": "false"}},
+		{
+			name: "environment overrides proxy metadata", envs: []string{"ISTIO_META_ENABLE_HBONE_CONNECT_WAIT=false"},
+			metadata: map[string]string{"ISTIO_META_ENABLE_HBONE_CONNECT_WAIT": "true"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			node, err := GetNodeMetaData(MetadataOptions{
+				ID:          "sidecar~1.2.3.4~app.default~cluster.local",
+				Envs:        tt.envs,
+				ProxyConfig: &v1alpha1.ProxyConfig{ProxyMetadata: tt.metadata},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if bool(node.Metadata.EnableHBONEConnectWait) != tt.want {
+				t.Fatalf("CONNECT wait enabled = %v, want %v", node.Metadata.EnableHBONEConnectWait, tt.want)
+			}
+			if tt.want && node.RawMetadata["ENABLE_HBONE_CONNECT_WAIT"] != "true" {
+				t.Fatal("missing CONNECT wait flag in bootstrap node metadata")
+			}
+		})
+	}
+}
+
 func TestGlobalDownstreamConnectionLimitPrecedence(t *testing.T) {
 	tests := []struct {
 		name     string

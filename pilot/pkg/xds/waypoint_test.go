@@ -26,6 +26,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -34,6 +35,7 @@ import (
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
@@ -297,6 +299,72 @@ func TestWaypointEndpoints(t *testing.T) {
 		// Tunnel doesn't support multiple IPs
 		"connect_originate;1.1.1.2:80",
 	})
+}
+
+func TestHBONEConnectWaitWaypointEndpoints(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
+	for _, appProtocol := range []string{"HTTP", "HTTP2", "TCP"} {
+		t.Run(appProtocol, func(t *testing.T) {
+			d, proxy := setupWaypointTest(t,
+				waypointGateway, waypointSvc, waypointInstance,
+				appPod, appPodNoMesh, appWorkloadEntry,
+				strings.ReplaceAll(appServiceEntry, "protocol: HTTP", "protocol: "+appProtocol))
+			subset := "http"
+			if appProtocol == "TCP" {
+				subset = "tcp"
+			}
+			name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, "app.com", 80)
+			stock := xdstest.ExtractClusters(d.Clusters(proxy))[name]
+			if stock == nil {
+				t.Fatal("missing stock service cluster")
+			}
+			for _, enabled := range []bool{false, true} {
+				t.Run(fmt.Sprintf("enabled=%t", enabled), func(t *testing.T) {
+					proxy.Metadata.EnableHBONEConnectWait = model.StringBool(enabled)
+					c := xdstest.ExtractClusters(d.Clusters(proxy))[name]
+					if c == nil {
+						t.Fatal("missing service cluster")
+					}
+					assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, enabled)
+					listenerName := "connect_originate"
+					if enabled {
+						listenerName = util.HBONEOriginationAdapterListener
+					}
+					assignments := d.Endpoints(proxy)
+					assert.Equal(t, slices.Sort(xdstest.ExtractLoadAssignments(assignments)[name]), []string{
+						"1.1.1.3:80,[2001:20::3]:80",
+						listenerName + ";1.1.1.1:80",
+						listenerName + ";1.1.1.2:80",
+					})
+					for _, locality := range xdstest.ExtractLocalityLbEndpoints(assignments)[name] {
+						for _, ep := range locality.LbEndpoints {
+							// Resolve the first matching transport using the generated EDS metadata.
+							transport := c.TransportSocket
+							metadata := ep.GetMetadata().GetFilterMetadata()[util.EnvoyTransportSocketMetadataKey].GetFields()
+							for _, match := range c.TransportSocketMatches {
+								matches := true
+								for key, value := range match.Match.Fields {
+									if !proto.Equal(metadata[key], value) {
+										matches = false
+										break
+									}
+								}
+								if matches {
+									transport = match.TransportSocket
+									break
+								}
+							}
+							if enabled && ep.GetEndpoint().Address.GetEnvoyInternalAddress() != nil {
+								assert.Equal(t, transport, util.WaypointHBONEOriginationAdapterTransportSocket())
+							} else {
+								assert.Equal(t, transport, stock.TransportSocket)
+							}
+						}
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestWaypointTelemetry(t *testing.T) {
@@ -603,24 +671,53 @@ spec:
 }
 
 func TestIngressUseWaypoint(t *testing.T) {
+	test.SetForTest(t, &features.EnableHBONESend, true)
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 	d, _ := setupWaypointTest(t,
 		waypointGateway,
 		waypointSvc,
 		appPod, appPodNoMesh,
 		waypointInstance, appWorkloadEntry,
 		appServiceEntry)
-	ingressProxy := d.SetupProxy(&model.Proxy{
-		Type:            model.Router,
-		ConfigNamespace: "default",
-		IPAddresses:     []string{"3.0.0.3"}, // Arbitrary
-	})
-
-	eps := slices.Sort(xdstest.ExtractLoadAssignments(d.Endpoints(ingressProxy))["outbound|80||app.com"])
-	assert.Equal(t, eps, []string{
-		// 1.2.3.4: Service VIP
-		// 3.0.0.1: Waypoint Pod IP
-		"connect_originate;1.2.3.4:80;3.0.0.1:15008",
-	})
+	for _, adapter := range []bool{false, true} {
+		t.Run(fmt.Sprintf("adapter=%t", adapter), func(t *testing.T) {
+			ingressProxy := d.SetupProxy(&model.Proxy{
+				Type: model.Router, ConfigNamespace: "default",
+				IPAddresses: []string{"3.0.0.3"},
+				Metadata: &model.NodeMetadata{
+					EnableHBONEConnectWait: model.StringBool(adapter),
+				},
+			})
+			listenerName := "connect_originate"
+			transportName := "envoy.transport_sockets.internal_upstream"
+			if adapter {
+				listenerName = util.HBONEOriginationAdapterListener
+				transportName = util.HBONEOriginationAdapterTransport
+			}
+			eps := slices.Sort(xdstest.ExtractLoadAssignments(d.Endpoints(ingressProxy))["outbound|80||app.com"])
+			// Preserve the service VIP as CONNECT authority and the waypoint as outer peer.
+			assert.Equal(t, eps, []string{listenerName + ";1.2.3.4:80;3.0.0.1:15008"})
+			clusters := xdstest.ExtractClusters(d.Clusters(ingressProxy))
+			c := clusters["outbound|80||app.com"]
+			if c == nil || clusters["connect_originate"] == nil {
+				t.Fatal("missing service or outer HBONE cluster")
+			}
+			found := false
+			for _, match := range c.TransportSocketMatches {
+				if match.Name == "hbone" {
+					found = true
+					assert.Equal(t, match.TransportSocket.Name, transportName)
+				}
+			}
+			assert.Equal(t, found, true)
+			assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, adapter)
+			assert.Equal(t, c.LoadBalancingPolicy == nil, true)
+			listeners := d.Listeners(ingressProxy)
+			assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationAdapterListener, listeners) != nil, adapter)
+			assert.Equal(t, xdstest.ExtractListener("connect_originate", listeners) != nil, true)
+		})
+	}
 }
 
 func TestWaypointClusterWithDynamicDNS(t *testing.T) {

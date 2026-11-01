@@ -138,6 +138,27 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 		l = append(l, buildConnectOriginateListener(push, node, class))
 	}
 
+	if util.HBONEConnectWaitEnabled(node) {
+		class := istionetworking.ListenerClassSidecarOutbound
+		if node.IsWaypointProxy() {
+			class = istionetworking.ListenerClassSidecarInbound
+		}
+		if node.Type == model.Router {
+			class = istionetworking.ListenerClassGateway
+		}
+		// The HBONE cluster's pool signals CONNECT readiness. Keep stock TCP proxy
+		// and the adapter listener names recognized by the peer-metadata filter.
+		adapter := buildConnectOriginateListener(push, node, class)
+		adapter.Name = util.HBONEOriginationAdapterListener
+		l = append(l, adapter)
+		if model.ShouldCreateDoubleHBONEResources(node) {
+			outer := buildOuterConnectOriginateListener(push, node)
+			outer.Name = util.HBONEOuterOriginationAdapterListener
+			inner := buildInnerConnectOriginateListener(push, node)
+			inner.Name = util.HBONEInnerOriginationAdapterListener
+			l = append(l, outer, inner)
+		}
+	}
 	return l
 }
 
@@ -1622,7 +1643,7 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
 		TunnelingConfig:  tunnel,
 	}
-	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, hboneOriginationListenerClass(proxy))
 
 	sfs := &listener.Filter{
 		Name: "propagate_endpoint_metadata",
@@ -1649,7 +1670,7 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 			Filters: filters,
 		}},
 	}
-	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, hboneOriginationListenerClass(proxy))
 	return l
 }
 
@@ -1686,7 +1707,7 @@ func buildOuterConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 			HeadersToAdd: headers,
 		},
 	}
-	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, hboneOriginationListenerClass(proxy))
 
 	l := &listener.Listener{
 		Name:              DoubleHBONEOuterConnectOriginate,
@@ -1704,6 +1725,6 @@ func buildOuterConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 			}},
 		}},
 	}
-	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, hboneOriginationListenerClass(proxy))
 	return l
 }

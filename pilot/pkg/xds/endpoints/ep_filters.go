@@ -248,6 +248,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 				addr := net.JoinHostPort(gwAddr, strconv.Itoa(gwPort))
 				svcPort := b.servicePort(b.port)
+				listenerName := innerConnectOriginate
+				if b.hboneConnectWait {
+					listenerName = util.HBONEInnerOriginationAdapterListener
+				}
 
 				gwEp = &endpoint.LbEndpoint{
 					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -255,7 +259,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 							// We need to redirect to an internal listener that will tunnel the data through
 							// a double-HBONE, we still use the E/W gateway address though for the endpoint
 							// id.
-							Address: util.BuildInternalAddressWithIdentifier(innerConnectOriginate, addr),
+							Address: util.BuildInternalAddressWithIdentifier(listenerName, addr),
 						},
 					},
 					LoadBalancingWeight: &wrappers.UInt32Value{
@@ -278,7 +282,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				gwEp.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(gwAddr, gwPort, "")
 				// and we need the original service domain name and port that to put in the :authority of the HTTP2 CONNECT.
 				util.AppendDoubleHBONEMetadata(string(b.service.Hostname), svcPort.Port, gwEp.Metadata)
-				if b.dir != model.TrafficDirectionInboundVIP {
+				if b.dir != model.TrafficDirectionInboundVIP || b.hboneConnectWait {
 					gwEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 						Fields: map[string]*structpb.Value{
 							model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
