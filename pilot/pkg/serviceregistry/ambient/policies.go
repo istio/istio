@@ -25,6 +25,7 @@ import (
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
@@ -168,7 +169,8 @@ func PolicyCollections(
 ) (krt.Collection[model.WorkloadAuthorization], krt.Collection[model.WorkloadAuthorization]) {
 	AuthzDerivedPolicies := krt.NewCollection(authzPolicies, func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WorkloadAuthorization {
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
-		pol, status := convertAuthorizationPolicy(meshCfg.GetRootNamespace(), i)
+		tdBundle := trustdomain.NewBundle(meshCfg.GetTrustDomain(), meshCfg.GetTrustDomainAliases())
+		pol, status := convertAuthorizationPolicy(meshCfg.GetRootNamespace(), tdBundle, i)
 		if status == nil && pol == nil {
 			return nil
 		}

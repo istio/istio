@@ -293,6 +293,27 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			log.Infof("should join leader-election for cluster %s: %t", cluster.ID, shouldLead)
 		}
 
+		// Unlike the CA certificate below, the accepted trust domains are needed whichever CA issues
+		// certificates, so they are written wherever we lead.
+		if shouldLead || configCluster {
+			m.s.RunComponentAsyncAndWait("trust domains controller", func(_ <-chan struct{}) error {
+				log.Infof("joining leader-election for %s in %s on cluster %s",
+					leaderelection.TrustDomainsController, options.SystemNamespace, options.ClusterID)
+				election := leaderelection.
+					NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.TrustDomainsController, m.revision, !configCluster, client).
+					AddRunFunction(func(leaderStop <-chan struct{}) {
+						log.Infof("starting trust domains controller for cluster %s", cluster.ID)
+						c := NewTrustDomainsController(client, m.opts.MeshWatcher)
+						// As for the namespace controller, informers are started with the cluster stop, not the
+						// leader election stop, since they are created lazily once we hold the lock.
+						client.RunAndWait(clusterStopCh)
+						c.Run(leaderStop)
+					})
+				election.Run(clusterStopCh)
+				return nil
+			})
+		}
+
 		if m.distributeCACert && (shouldLead || configCluster) {
 			if features.EnableClusterTrustBundles {
 				// Block server exit on graceful termination of the leader controller.
