@@ -301,6 +301,31 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	istioEndpoints []*IstioEndpoint,
 	logPushType bool,
 ) PushType {
+	return e.updateServiceEndpoints(shard, hostname, namespace, istioEndpoints, logPushType, true)
+}
+
+// ReplaceServiceEndpoints is UpdateServiceEndpoints for callers that only publish endpoints when they
+// changed, such as krt collections, which already compare every endpoint. It skips the per-endpoint diff
+// and always pushes, but still tracks ServiceAccounts, which can require a full push.
+// Unlike UpdateServiceEndpoints, adding only endpoints that are not ready still triggers a push.
+func (e *EndpointIndex) ReplaceServiceEndpoints(
+	shard ShardKey,
+	hostname string,
+	namespace string,
+	istioEndpoints []*IstioEndpoint,
+	logPushType bool,
+) PushType {
+	return e.updateServiceEndpoints(shard, hostname, namespace, istioEndpoints, logPushType, false)
+}
+
+func (e *EndpointIndex) updateServiceEndpoints(
+	shard ShardKey,
+	hostname string,
+	namespace string,
+	istioEndpoints []*IstioEndpoint,
+	logPushType bool,
+	diff bool,
+) PushType {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not delete the keys from EndpointIndex map - that will trigger
@@ -327,7 +352,10 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	ep.Lock()
 	defer ep.Unlock()
 	oldIstioEndpoints := ep.Shards[shard]
-	newIstioEndpoints, needPush := endpointUpdateRequiresPush(oldIstioEndpoints, istioEndpoints)
+	newIstioEndpoints, needPush := istioEndpoints, true
+	if diff {
+		newIstioEndpoints, needPush = endpointUpdateRequiresPush(oldIstioEndpoints, istioEndpoints)
+	}
 
 	if !needPush {
 		log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
@@ -373,7 +401,7 @@ func endpointUpdateRequiresPush(oldIstioEndpoints []*IstioEndpoint, incomingEndp
 	// will ensure that if a new pod comes with a non ready endpoint,
 	// we do not unnecessarily push that config to Envoy.
 	omap := make(map[string]*IstioEndpoint, len(oldIstioEndpoints))
-	nmap := make(map[string]*IstioEndpoint, len(newIstioEndpoints))
+	nmap := make(map[string]*IstioEndpoint, len(incomingEndpoints))
 	// Add new endpoints only if they are ever ready once to shards
 	// so that full push does not send them from shards.
 	for _, oie := range oldIstioEndpoints {

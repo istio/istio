@@ -332,6 +332,10 @@ type XDSUpdater interface {
 	// registry name.
 	EDSUpdate(shard ShardKey, hostname string, namespace string, entry []*IstioEndpoint)
 
+	// EDSReplace is EDSUpdate for callers that only publish endpoints when they changed, such as krt
+	// collections. It skips comparing the endpoints with the previous ones and always pushes.
+	EDSReplace(shard ShardKey, hostname string, namespace string, entry []*IstioEndpoint)
+
 	// EDSCacheUpdate is called when the list of endpoints or labels in a Service is changed.
 	// For each cluster and hostname, the full list of active endpoints (including empty list)
 	// must be sent. The shard name is used as a key - current implementation is using the

@@ -134,7 +134,7 @@ func (i index[K, O]) AsCollection(opts ...CollectionOption) IndexCollection[K, O
 			maybeUnregisterCollectionFromDebugger(c, o.debugger)
 		}()
 	}
-	return newCollection[IndexObject[K, O]](c)
+	return newCollection(c)
 }
 
 // Fetch fetches all entries from the index with dependency tracking

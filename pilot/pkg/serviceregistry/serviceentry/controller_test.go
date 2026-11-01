@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/maps"
@@ -226,6 +227,156 @@ func TestWorkloadEntryHealthEvents(t *testing.T) {
 	}
 }
 
+func TestServiceEndpointDeletionHandlers(t *testing.T) {
+	const namespace, hostname = "namespace", "example.com"
+	obj := &InstancesByNamespaceHost{Key: namespace + "/" + hostname}
+	for _, publishEmpty := range []bool{false, true} {
+		t.Run(fmt.Sprintf("endpoint handler deletion/publishEmpty=%v", publishEmpty), func(t *testing.T) {
+			fx := xdsfake.NewFakeXDS()
+			// No output collections are set: publication and deletion must rely only on the event.
+			sd := &Controller{XdsUpdater: fx}
+			if publishEmpty {
+				old := &InstancesByNamespaceHost{Key: obj.Key, Endpoints: []*model.IstioEndpoint{{Addresses: []string{"1.2.3.4"}}}}
+				sd.pushServiceEndpointUpdates([]krt.Event[*InstancesByNamespaceHost]{{
+					Event: controllers.EventUpdate, Old: &old, New: &obj,
+				}})
+				assert.Equal(t, assert.ChannelHasItem(t, fx.Events), Event{Type: "eds", ID: hostname, Namespace: namespace})
+			}
+			sd.pushServiceEndpointUpdates([]krt.Event[*InstancesByNamespaceHost]{{
+				Event: controllers.EventDelete,
+				Old:   &obj,
+			}})
+			assert.Equal(t, assert.ChannelHasItem(t, fx.Events), Event{Type: "service", ID: hostname, Namespace: namespace})
+			assert.Equal(t, assert.ChannelHasItem(t, fx.Events), Event{Type: "xds", ID: hostname, Reason: model.NewReasonStats(model.ServiceUpdate)})
+			fx.AssertEmpty(t, 0)
+		})
+	}
+	t.Run("service handler ignores deleted index buckets", func(t *testing.T) {
+		fx := xdsfake.NewFakeXDS()
+		sd := &Controller{XdsUpdater: fx}
+		bucket := krt.IndexObject[string, *model.Service]{Key: namespace + "/" + hostname}
+		sd.pushServiceUpdates([]krt.Event[krt.IndexObject[string, *model.Service]]{{
+			Event: controllers.EventDelete,
+			Old:   &bucket,
+		}})
+		fx.AssertEmpty(t, 0)
+	})
+}
+
+func TestServiceEndpointUpdatesSeparatePushReasons(t *testing.T) {
+	const namespace = "namespace"
+	fx := xdsfake.NewFakeXDS()
+	services := krt.NewStaticCollection[*model.Service](nil, []*model.Service{{
+		Hostname: "dns.example.com", Attributes: model.ServiceAttributes{Namespace: namespace},
+	}})
+	sd := &Controller{XdsUpdater: fx, outputs: Outputs{
+		ServicesByNamespaceHost: krt.NewIndex(services, "namespaceHost", func(svc *model.Service) []string {
+			return []string{svc.Attributes.Namespace + "/" + string(svc.Hostname)}
+		}).AsCollection(),
+	}}
+	deleted := &InstancesByNamespaceHost{Key: namespace + "/deleted.example.com"}
+	oldDNS := &InstancesByNamespaceHost{Key: namespace + "/dns.example.com", HasDNSServiceEndpoint: true}
+	dns := &InstancesByNamespaceHost{
+		Key:                   oldDNS.Key,
+		Endpoints:             []*model.IstioEndpoint{{Addresses: []string{"1.2.3.4"}}},
+		HasDNSServiceEndpoint: true,
+	}
+	sd.pushServiceEndpointUpdates([]krt.Event[*InstancesByNamespaceHost]{
+		{Event: controllers.EventDelete, Old: &deleted},
+		{Event: controllers.EventUpdate, Old: &oldDNS, New: &dns},
+	})
+	// Both endpoint mutations precede the config pushes, which retain their distinct reasons and hosts.
+	assert.Equal(t, assert.ChannelHasItem(t, fx.Events), Event{Type: "service", ID: "deleted.example.com", Namespace: namespace})
+	assert.Equal(t, assert.ChannelHasItem(t, fx.Events), Event{Type: "eds", ID: "dns.example.com", Namespace: namespace, Endpoints: dns.Endpoints})
+	assert.Equal(t, assert.ChannelHasItem(t, fx.Events), Event{
+		Type: "xds", ID: "dns.example.com", Reason: model.NewReasonStats(model.EndpointUpdate),
+	})
+	assert.Equal(t, assert.ChannelHasItem(t, fx.Events), Event{
+		Type: "xds", ID: "deleted.example.com", Reason: model.NewReasonStats(model.ServiceUpdate),
+	})
+	fx.AssertEmpty(t, 0)
+}
+
+func TestServiceEndpointUpdatesIndependentOfServiceExistence(t *testing.T) {
+	const namespace, hostname = "namespace", "example.com"
+	for _, exists := range []bool{false, true} {
+		for _, event := range []controllers.EventType{controllers.EventAdd, controllers.EventUpdate} {
+			t.Run(fmt.Sprintf("exists=%v/event=%v", exists, event), func(t *testing.T) {
+				fx := xdsfake.NewFakeXDS()
+				obj := &InstancesByNamespaceHost{
+					Key:                   namespace + "/" + hostname,
+					Endpoints:             []*model.IstioEndpoint{{Addresses: []string{"1.2.3.4"}}},
+					HasDNSServiceEndpoint: true,
+				}
+				// Endpoint events must be published even if the service index has already
+				// removed the service; a delete/recreate may coalesce without another endpoint event.
+				serviceNamespace := "other"
+				if exists {
+					serviceNamespace = namespace
+				}
+				services := krt.NewStaticCollection[*model.Service](nil, []*model.Service{{
+					Hostname: host.Name(hostname), Attributes: model.ServiceAttributes{Namespace: serviceNamespace},
+				}})
+				sd := &Controller{XdsUpdater: fx, outputs: Outputs{
+					ServicesByNamespaceHost: krt.NewIndex(services, "namespaceHost", func(svc *model.Service) []string {
+						return []string{svc.Attributes.Namespace + "/" + string(svc.Hostname)}
+					}).AsCollection(),
+				}}
+				ev := krt.Event[*InstancesByNamespaceHost]{Event: event, New: &obj}
+				if event == controllers.EventUpdate {
+					ev.Old = &obj
+				}
+				sd.pushServiceEndpointUpdates([]krt.Event[*InstancesByNamespaceHost]{ev})
+				expectEvents(t, fx,
+					Event{Type: "eds", ID: hostname, Namespace: namespace, EndpointCount: 1},
+					Event{Type: "xds", ID: hostname})
+				fx.AssertEmpty(t, 0)
+			})
+		}
+	}
+}
+
+func TestServiceEndpointLifetimeWithoutEndpoints(t *testing.T) {
+	store, sd, fx := initServiceDiscovery(t)
+	se := httpStatic.DeepCopy()
+	se.Spec.(*networking.ServiceEntry).Endpoints = nil
+	overlay := se.DeepCopy()
+	overlay.Name += "-overlay"
+	// Removing se must push the loss of its first port even though overlay keeps the host alive.
+	overlay.Spec.(*networking.ServiceEntry).Ports = overlay.Spec.(*networking.ServiceEntry).Ports[1:]
+	hostname := se.Spec.(*networking.ServiceEntry).Hosts[0]
+	key := se.Namespace + "/" + hostname
+	deleted := assert.NewTracker[string](t)
+	sd.outputs.ServiceInstancesByNamespaceHost.RegisterBatch(func(events []krt.Event[*InstancesByNamespaceHost]) {
+		for _, e := range events {
+			if e.Event == controllers.EventDelete {
+				deleted.Record(e.Latest().ResourceName())
+			}
+		}
+	}, false)
+
+	createConfigs([]*config.Config{&se}, store, t)
+	expectEvents(t, fx, Event{Type: "service", ID: hostname}, Event{Type: "xds", ID: hostname})
+	assert.EventuallyEqual(t, func() *InstancesByNamespaceHost {
+		return ptr.OrEmpty(sd.outputs.ServiceInstancesByNamespaceHost.GetKey(key))
+	}, &InstancesByNamespaceHost{Key: key})
+
+	createConfigs([]*config.Config{&overlay}, store, t)
+	expectEvents(t, fx, Event{Type: "service", ID: hostname}, Event{Type: "xds", ID: hostname})
+	deleteConfigs([]*config.Config{&se}, store, t)
+	expectEvents(t, fx, Event{Type: "service", ID: hostname}, Event{Type: "xds", ID: hostname})
+	assert.EventuallyEqual(t, func() int {
+		return len(ptr.OrEmpty(sd.outputs.ServicesByNamespaceHost.GetKey(key)).Objects)
+	}, 1)
+	assert.Equal(t, sd.outputs.ServiceInstancesByNamespaceHost.GetKey(key) != nil, true)
+	deleted.Empty()
+
+	deleteConfigs([]*config.Config{&overlay}, store, t)
+	expectEvents(t, fx, Event{Type: "service", ID: hostname}, Event{Type: "xds", ID: hostname})
+	deleted.WaitOrdered(key)
+	assert.Equal(t, sd.outputs.ServiceInstancesByNamespaceHost.GetKey(key), nil)
+}
+
 func TestServiceDiscoveryServices(t *testing.T) {
 	store, sd, fx := initServiceDiscovery(t)
 	expectedServices := []*model.Service{
@@ -245,6 +396,8 @@ func TestServiceDiscoveryServices(t *testing.T) {
 		Event{Type: "xds", ID: "*.google.com"},
 		Event{Type: "service", ID: "*.google.com", Namespace: httpDNS.Namespace},
 		Event{Type: "eds", ID: "*.google.com", Namespace: httpDNS.Namespace},
+		// DNS endpoints are inlined into the cluster, so publishing them requests a push of their own.
+		Event{Type: "xds", ID: "*.google.com"},
 	)
 	createConfigs([]*config.Config{httpDNSRR}, store, t)
 	expectEvents(
@@ -252,6 +405,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 		Event{Type: "xds", ID: "*.istio.io"},
 		Event{Type: "service", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
 		Event{Type: "eds", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
+		Event{Type: "xds", ID: "*.istio.io"},
 	)
 	createConfigs([]*config.Config{tcpStatic}, store, t)
 	expectEvents(
@@ -492,10 +646,10 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlayUpdatedNs, "httpStaticOverlay-1", []string{"7.7.7.7"}, 4567, httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"namespace": "bar"}, PlainText),
 		}
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNs, 0, instances)
-		// svcUpdate is not triggered since `httpStatic` is there and has instances, so we should
-		// not delete the endpoints shards of "*.google.com". We xpect a full push as the service has changed.
+		// The surviving index bucket emits a service update and a full push, without deleting its shard.
 		expectEvents(
 			t, events,
+			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
 			Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
 			Event{Type: "xds", ID: "*.google.com"},
 		)
@@ -504,12 +658,23 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		deleteConfigs([]*config.Config{httpStatic}, store, t)
 		// svcUpdate is triggered since "*.google.com" in same namespace is deleted and
 		// we need to delete endpoint shards. We expect a full push as the service has changed.
-		expectEvents(
-			t, events,
+		// The endpoint handler requests the push after removing the shard.
+		expectServiceDeletionEvents(
+			t, events, "*.google.com", httpStatic.Namespace,
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStatic.Namespace},
-			Event{Type: "eds", ID: "*.google.com", Namespace: httpStatic.Namespace},
 			Event{Type: "xds", ID: "*.google.com"},
 		)
+
+		// The service-index handler skips deletes without emitting a notification. Wait for a
+		// later service event on that handler so it has processed the deletion before we recreate.
+		marker := httpStatic.DeepCopy()
+		marker.Name = "service-handler-marker"
+		marker.Spec.(*networking.ServiceEntry).Hosts = []string{"service-handler-marker.example.com"}
+		marker.Spec.(*networking.ServiceEntry).Endpoints = nil
+		createConfigs([]*config.Config{&marker}, store, t)
+		expectEvents(t, events,
+			Event{Type: "service", ID: "service-handler-marker.example.com", Namespace: marker.Namespace},
+			Event{Type: "xds", ID: "service-handler-marker.example.com"})
 
 		// add back httpStatic
 		createConfigs([]*config.Config{httpStatic}, store, t)
@@ -603,10 +768,9 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 
 		// restore this config and remove the added host.
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
-		expectEvents(
-			t, events,
+		expectServiceDeletionEvents(
+			t, events, "other.com", httpStatic.Namespace,
 			Event{Type: "service", ID: "other.com", Namespace: httpStatic.Namespace},
-			Event{Type: "eds", ID: "other.com", Namespace: httpStatic.Namespace},
 			Event{Type: "xds", ID: "other.com"},
 		) // service deleted
 	})
@@ -644,7 +808,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "tcpdns.com", Namespace: tcpDNS.Namespace},
 			Event{Type: "eds", ID: "tcpdns.com", Namespace: tcpDNS.Namespace},
-			Event{Type: "xds", ID: "tcpdns.com"}) // service added
+			Event{Type: "xds", ID: "tcpdns.com"}, // service added
+			Event{Type: "xds", ID: "tcpdns.com"}) // DNS endpoints published
 
 		// now update the config
 		createConfigs([]*config.Config{tcpDNSUpdated}, store, t)
@@ -674,7 +839,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			Event{Type: "service", ID: "selector1.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
-			Event{Type: "eds", ID: "selector1.com", Namespace: httpStaticOverlay.Namespace},
+			// selector1.com selects no workloads, so it has no endpoints and gets no EDS update.
 			Event{Type: "xds", ID: "*.google.com,selector1.com"}) // service added
 
 		selector1Updated := func() *config.Config {
@@ -690,6 +855,103 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "service", ID: "selector1.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "xds", ID: "*.google.com,selector1.com"}) // service updated
+	})
+}
+
+// Tests that merging produces the same endpoint order regardless of the order instances come in.
+func TestMergeServiceInstancesDeterministic(t *testing.T) {
+	cfg := selector.DeepCopy()
+	cfg.Spec.(*networking.ServiceEntry).Addresses = []string{"10.0.0.1", "10.0.0.2"}
+	workload := &model.WorkloadInstance{
+		Namespace: "selector",
+		Name:      "wl",
+		Endpoint:  &model.IstioEndpoint{Addresses: []string{"2.2.2.2"}},
+	}
+	var instances []*WorkloadServiceInstance
+	for _, service := range convertServices(cfg, nil, false) {
+		instances = append(instances, convertWorkloadInstanceToInstances(workload, service)...)
+	}
+	want := []string{
+		"selector/wl/2.2.2.2/tcp-444",
+		"selector/wl/2.2.2.2/http-445",
+		"selector/wl/2.2.2.2/tcp-444",
+		"selector/wl/2.2.2.2/http-445",
+	}
+	assert.Equal(t, len(instances), len(want))
+	// The index can return ports and service address variants in any order.
+	for offset := range len(instances) {
+		for _, reverse := range []bool{false, true} {
+			input := append(slices.Clone(instances[offset:]), instances[:offset]...)
+			if reverse {
+				slices.Reverse(input)
+			}
+			merged, _ := mergeServiceInstances(input)
+			assert.Equal(t, slices.Map(merged, func(i *model.IstioEndpoint) string {
+				return i.Key()
+			}), want)
+		}
+	}
+}
+
+// Tests that a DNS round robin service yields a port to an older service with the same host, even one of
+// another resolution, and that this does not depend on the order instances come in.
+func TestMergeServiceInstancesDNSRoundRobinYieldsToOlderService(t *testing.T) {
+	instance := func(name string, resolution networking.ServiceEntry_Resolution, created time.Time, address string) *WorkloadServiceInstance {
+		cfg := config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Name: name, Namespace: "ns", CreationTimestamp: created},
+			Spec: &networking.ServiceEntry{
+				Hosts:            []string{"h.example.com"},
+				Ports:            []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+				Resolution:       resolution,
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"app": "a"}},
+			},
+		}
+		wi := &model.WorkloadInstance{
+			Namespace: "ns",
+			Name:      name + "-wl",
+			Kind:      model.WorkloadEntryKind,
+			Endpoint:  &model.IstioEndpoint{Addresses: []string{address}},
+		}
+		return convertWorkloadInstanceToInstances(wi, convertServices(cfg, nil, false)[0])[0]
+	}
+	now := time.Now()
+	// The younger round robin service sorts first by name, so its precedence must come from creation time.
+	roundRobin := instance("a-round-robin", networking.ServiceEntry_DNS_ROUND_ROBIN, now.Add(time.Hour), "2.2.2.2")
+	static := instance("b-static", networking.ServiceEntry_STATIC, now, "1.1.1.1")
+
+	for _, input := range [][]*WorkloadServiceInstance{{roundRobin, static}, {static, roundRobin}} {
+		merged, _ := mergeServiceInstances(input)
+		assert.Equal(t, slices.Map(merged, func(ep *model.IstioEndpoint) string {
+			return ep.FirstAddressOrNil()
+		}), []string{"1.1.1.1"})
+	}
+}
+
+// Tests that a DNS round robin service keeps a Pod over a WorkloadEntry for the same port, whatever their
+// names, matching the ordering used before instances were derived per workload.
+func TestMergeServiceInstancesPrefersPods(t *testing.T) {
+	cfg := selector.DeepCopy()
+	cfg.Spec.(*networking.ServiceEntry).Resolution = networking.ServiceEntry_DNS_ROUND_ROBIN
+	service := convertServices(cfg, nil, false)[0]
+	pod := &model.WorkloadInstance{
+		Namespace: "selector",
+		Name:      "z-pod",
+		Kind:      model.PodKind,
+		Endpoint:  &model.IstioEndpoint{Addresses: []string{"2.2.2.2"}},
+	}
+	we := &model.WorkloadInstance{
+		Namespace: "selector",
+		Name:      "a-workload-entry",
+		Kind:      model.WorkloadEntryKind,
+		Endpoint:  &model.IstioEndpoint{Addresses: []string{"3.3.3.3"}},
+	}
+	instances := append(convertWorkloadInstanceToInstances(we, service), convertWorkloadInstanceToInstances(pod, service)...)
+	merged, _ := mergeServiceInstances(instances)
+	assert.Equal(t, slices.Map(merged, func(i *model.IstioEndpoint) string {
+		return i.Key()
+	}), []string{
+		"selector/z-pod/2.2.2.2/tcp-444",
+		"selector/z-pod/2.2.2.2/http-445",
 	})
 }
 
@@ -732,6 +994,7 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		Event{Type: "service", ID: "example.com", Namespace: se1.Namespace},
 		Event{Type: "eds", ID: "example.com", Namespace: se1.Namespace, EndpointCount: len(expectedPrimary)},
 		Event{Type: "xds", ID: se1.Spec.(*networking.ServiceEntry).Hosts[0]},
+		Event{Type: "xds", ID: se1.Spec.(*networking.ServiceEntry).Hosts[0]}, // DNS endpoints published
 	)
 
 	createConfigs([]*config.Config{seMulti}, store, t)
@@ -744,6 +1007,7 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		Event{Type: "service", ID: "muladdrs.example.com", Namespace: seMulti.Namespace},
 		Event{Type: "eds", ID: "muladdrs.example.com", Namespace: seMulti.Namespace, EndpointCount: len(expectedMul)},
 		Event{Type: "xds", ID: seMulti.Spec.(*networking.ServiceEntry).Hosts[0]},
+		Event{Type: "xds", ID: seMulti.Spec.(*networking.ServiceEntry).Hosts[0]}, // DNS endpoints published
 	)
 
 	otherNs := ptr.Of(dnsRoundRobinLBSE1.DeepCopy())
@@ -770,6 +1034,7 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		Event{Type: "service", ID: "example.com", Namespace: otherNs.Namespace},
 		Event{Type: "eds", ID: "example.com", Namespace: otherNs.Namespace, EndpointCount: len(otherNsExpected)},
 		Event{Type: "xds", ID: otherNs.Spec.(*networking.ServiceEntry).Hosts[0]},
+		Event{Type: "xds", ID: otherNs.Spec.(*networking.ServiceEntry).Hosts[0]}, // DNS endpoints published
 	)
 
 	se2 := ptr.Of(dnsRoundRobinLBSE2.DeepCopy())
@@ -795,6 +1060,83 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	expectServiceInstances(t, sd, otherNs, 0, otherNsExpected)
 }
 
+// Tests that DNSRoundRobinLB deduplication only applies to the published endpoints. The single endpoint
+// limit is a property of the outbound LOGICAL_DNS cluster; every workload backing the service still serves
+// it, so each keeps its ServiceTargets, including when the published endpoint changes.
+func TestDnsRoundRobinLBServiceTargetsIgnoreDeduplication(t *testing.T) {
+	t.Run("inline endpoints across service entries", func(t *testing.T) {
+		store, sd, _ := initServiceDiscovery(t)
+
+		se1 := ptr.Of(dnsRoundRobinLBSE1.DeepCopy())
+		se1.Spec.(*networking.ServiceEntry).Endpoints = []*networking.WorkloadEntry{{
+			Address: "1.1.1.1",
+			Ports:   map[string]uint32{"http-445": 444, "http-446": 445},
+		}}
+		se2 := ptr.Of(dnsRoundRobinLBSE2.DeepCopy())
+		se2.Spec.(*networking.ServiceEntry).Endpoints = []*networking.WorkloadEntry{{
+			Address: "2.2.2.2",
+			Ports:   map[string]uint32{"http-445": 444},
+		}}
+		se1Instances := []*WorkloadServiceInstance{
+			makeInstance(se1, "dns-round-robin-1-0", []string{"1.1.1.1"}, 444, se1.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{}, PlainText),
+			makeInstance(se1, "dns-round-robin-1-0", []string{"1.1.1.1"}, 445, se1.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{}, PlainText),
+		}
+		se2Instances := []*WorkloadServiceInstance{
+			makeInstance(se2, "dns-round-robin-2-0", []string{"2.2.2.2"}, 444, se2.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{}, PlainText),
+		}
+
+		createConfigs([]*config.Config{se1}, store, t)
+		expectServiceInstances(t, sd, se1, 0, se1Instances)
+		createConfigs([]*config.Config{se2}, store, t)
+
+		// Only the first service entry's endpoints are published for the host...
+		expectServiceInstances(t, sd, se1, 0, se1Instances)
+		expectServiceInstances(t, sd, se2, 0, se1Instances)
+		// ...but the endpoint of the second still gets its own targets.
+		expectProxyInstances(t, sd, se1Instances, []string{"1.1.1.1"})
+		expectProxyInstances(t, sd, se2Instances, []string{"2.2.2.2"})
+
+		// Once the first service entry goes away the second one's endpoint is published, and its targets
+		// are left untouched.
+		deleteConfigs([]*config.Config{se1}, store, t)
+		expectServiceInstances(t, sd, se2, 0, se2Instances)
+		expectProxyInstances(t, sd, nil, []string{"1.1.1.1"})
+		expectProxyInstances(t, sd, se2Instances, []string{"2.2.2.2"})
+	})
+
+	t.Run("selected workloads", func(t *testing.T) {
+		store, sd, _ := initServiceDiscovery(t)
+
+		se := ptr.Of(selector.DeepCopy())
+		se.Spec.(*networking.ServiceEntry).Resolution = networking.ServiceEntry_DNS_ROUND_ROBIN
+		ports := se.Spec.(*networking.ServiceEntry).Ports
+		workload := func(name, address string) (*config.Config, []*WorkloadServiceInstance) {
+			wle := createWorkloadEntry(name, se.Namespace, &networking.WorkloadEntry{
+				Address:        address,
+				Labels:         map[string]string{"app": "wle"},
+				ServiceAccount: "default",
+			})
+			return wle, []*WorkloadServiceInstance{
+				makeWorkloadEntryInstanceWithServiceAccount(se, name, []string{address}, 444, ports[0], map[string]string{"app": "wle"}, "default"),
+				makeWorkloadEntryInstanceWithServiceAccount(se, name, []string{address}, 445, ports[1], map[string]string{"app": "wle"}, "default"),
+			}
+		}
+		// Instances are ordered by workload name, so wl-a is the one published for every port.
+		wlA, wlAInstances := workload("wl-a", "2.2.2.2")
+		wlB, wlBInstances := workload("wl-b", "3.3.3.3")
+
+		createConfigs([]*config.Config{se, wlA, wlB}, store, t)
+		expectServiceInstances(t, sd, se, 0, wlAInstances)
+		expectProxyInstances(t, sd, wlAInstances, []string{"2.2.2.2"})
+		expectProxyInstances(t, sd, wlBInstances, []string{"3.3.3.3"})
+
+		deleteConfigs([]*config.Config{wlA}, store, t)
+		expectServiceInstances(t, sd, se, 0, wlBInstances)
+		expectProxyInstances(t, sd, nil, []string{"2.2.2.2"})
+		expectProxyInstances(t, sd, wlBInstances, []string{"3.3.3.3"})
+	})
+}
+
 func TestEmptyWorkloadSelectorMatchesNoWorkloads(t *testing.T) {
 	store, sd, events := initServiceDiscovery(t)
 
@@ -811,7 +1153,7 @@ func TestEmptyWorkloadSelectorMatchesNoWorkloads(t *testing.T) {
 	createConfigs([]*config.Config{&se}, store, t)
 	expectEvents(t, events,
 		Event{Type: "service", ID: "selector.com", Namespace: se.Namespace},
-		Event{Type: "eds", ID: "selector.com", Namespace: se.Namespace},
+		// An empty selector matches no workloads, so the service has no endpoints and gets no EDS update.
 		Event{Type: "xds", ID: "selector.com"})
 
 	createConfigs([]*config.Config{wle}, store, t)
@@ -855,7 +1197,6 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "xds", ID: "selector.com"})
 	})
 
@@ -901,13 +1242,13 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectProxyInstances(t, sd, instances, []string{"2.2.2.2"})
 		expectServiceInstances(t, sd, selector, 0, []*WorkloadServiceInstance{})
 		expectServiceInstances(t, sd, updated, 0, instances)
-		expectEvents(
-			t, events,
+		expectServiceDeletionEvents(
+			t, events, "selector.com", selector.Namespace,
 			Event{Type: "service", ID: "updated.com", Namespace: selector.Namespace},
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "updated.com", Namespace: selector.Namespace},
-			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "xds", ID: "selector.com,updated.com"},
+			Event{Type: "xds", ID: "updated.com"},
+			Event{Type: "xds", ID: "selector.com"},
 			// the workload is now an endpoint of updated.com instead of selector.com
 			Event{Type: "proxy", ID: "2.2.2.2"},
 		)
@@ -933,13 +1274,13 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectProxyInstances(t, sd, instances, []string{"2.2.2.2"})
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectServiceInstances(t, sd, updated, 0, []*WorkloadServiceInstance{})
-		expectEvents(
-			t, events,
+		expectServiceDeletionEvents(
+			t, events, "updated.com", selector.Namespace,
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "service", ID: "updated.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "eds", ID: "updated.com", Namespace: selector.Namespace},
-			Event{Type: "xds", ID: "selector.com,updated.com"},
+			Event{Type: "xds", ID: "selector.com"},
+			Event{Type: "xds", ID: "updated.com"},
 			Event{Type: "proxy", ID: "2.2.2.2"},
 		)
 	})
@@ -952,7 +1293,6 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
-			Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
 			Event{Type: "xds", ID: "dns.selector.com"})
 	})
 
@@ -1094,22 +1434,21 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			Event{Type: "eds", ID: "selector.com"},
 		)
 		deleteConfigs([]*config.Config{selector}, store, t)
-		expectEvents(
-			t, events,
-			Event{Type: "eds", ID: "selector.com"},
+		expectServiceDeletionEvents(
+			t, events, "selector.com", selector.Namespace,
 			Event{Type: "service", ID: "selector.com"},
 			Event{Type: "xds", ID: "selector.com"},
 		)
 		deleteConfigs([]*config.Config{dnsWle}, store, t)
-		// no xds event since dnsWle contains an IP address
+		// DNS endpoints are inlined into the cluster, so losing the last one still has to regenerate it.
 		expectEvents(
 			t, events,
 			Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
+			Event{Type: "xds", ID: "dns.selector.com"},
 		)
 		deleteConfigs([]*config.Config{dnsSelector}, store, t)
-		expectEvents(
-			t, events,
-			Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
+		expectServiceDeletionEvents(
+			t, events, "dns.selector.com", dnsSelector.Namespace,
 			Event{Type: "service", ID: "dns.selector.com"},
 			Event{Type: "xds", ID: "dns.selector.com"},
 		)
@@ -1163,7 +1502,6 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "xds", ID: "selector.com"})
 	})
 
@@ -1190,7 +1528,8 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		instances = []*WorkloadServiceInstance{}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, []string{"2.2.2.2"})
-		expectEvents(t, events,
+		expectEvents(
+			t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0},
 			// The WorkloadEntry still exists (relabeled), so it no longer matches selector.com -
 			// push its own proxy so it drops the stale ServiceTarget.
@@ -1242,7 +1581,8 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, []string{"3.3.3.3"})
-		expectEvents(t, events,
+		expectEvents(
+			t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
 			// The WorkloadEntry still exists (relabeled), so it no longer matches selector.com -
 			// push its own proxy so it drops the stale ServiceTarget.
@@ -1303,7 +1643,6 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectServiceInstances(t, sd, selectorDNS, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selectorDNS.Namespace},
-			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace},
 			Event{Type: "xds", ID: "selector.com"})
 	})
 
@@ -1473,7 +1812,6 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "xds", ID: "selector.com"})
 	})
 
@@ -1484,7 +1822,6 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
-			Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
 			Event{Type: "xds", ID: "dns.selector.com"})
 	})
 
@@ -1665,7 +2002,6 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "xds"})
 	})
 
@@ -1855,7 +2191,6 @@ func TestPodEndpointForcesOwnProxyPush(t *testing.T) {
 	createConfigs([]*config.Config{selector}, store, t)
 	expectEvents(t, events,
 		Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
-		Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 		Event{Type: "xds", ID: "selector.com"})
 
 	pod := &model.WorkloadInstance{
@@ -1903,7 +2238,6 @@ func TestWorkloadEntryEndpointPushesProxyOnce(t *testing.T) {
 	createConfigs([]*config.Config{selector}, store, t)
 	expectEvents(t, events,
 		Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
-		Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 		Event{Type: "xds", ID: "selector.com"})
 
 	// Same shape as a pod-derived instance, but explicitly a WorkloadEntry.
@@ -1946,7 +2280,6 @@ func TestServiceEntrySelectorChangeForcesProxyPush(t *testing.T) {
 	createConfigs([]*config.Config{selector}, store, t)
 	expectEvents(t, events,
 		Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
-		Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 		Event{Type: "xds", ID: "selector.com"})
 
 	wle := createWorkloadEntry("wl", selector.Name,
@@ -1990,6 +2323,53 @@ func TestServiceEntrySelectorChangeForcesProxyPush(t *testing.T) {
 	}, retry.Timeout(5*time.Second))
 }
 
+// Changing a selected WorkloadEntry's address keeps its instance UIDs, so the instances are updated
+// rather than deleted and re-added. Its ServiceTargets still move from the old address to the new one,
+// so the proxies at both addresses must be pushed.
+func TestWorkloadEntryAddressChangeForcesProxyPush(t *testing.T) {
+	store, sd, events := initServiceDiscovery(t)
+
+	createConfigs([]*config.Config{selector}, store, t)
+	expectEvents(t, events,
+		Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
+		Event{Type: "xds", ID: "selector.com"})
+
+	wle := createWorkloadEntry("wl", selector.Name,
+		&networking.WorkloadEntry{
+			Address:        "2.2.2.2",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: "default",
+		})
+	createConfigs([]*config.Config{wle}, store, t)
+	expectEvents(t, events,
+		Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
+		Event{Type: "proxy", ID: "2.2.2.2"})
+
+	moved := createWorkloadEntry("wl", selector.Name,
+		&networking.WorkloadEntry{
+			Address:        "3.3.3.3",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: "default",
+		})
+	createConfigs([]*config.Config{moved}, store, t)
+	expectEvents(t, events,
+		Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
+		Event{Type: "proxy", ID: "2.2.2.2"},
+		Event{Type: "proxy", ID: "3.3.3.3"})
+
+	retry.UntilSuccessOrFail(t, func() error {
+		oldProxy := &model.Proxy{IPAddresses: []string{"2.2.2.2"}, Metadata: &model.NodeMetadata{}}
+		if got := len(sd.GetProxyServiceTargets(oldProxy)); got != 0 {
+			return fmt.Errorf("expected 0 service targets at the old address, got %d", got)
+		}
+		newProxy := &model.Proxy{IPAddresses: []string{"3.3.3.3"}, Metadata: &model.NodeMetadata{}}
+		if got := len(sd.GetProxyServiceTargets(newProxy)); got != 2 {
+			return fmt.Errorf("expected 2 service targets at the new address, got %d", got)
+		}
+		return nil
+	}, retry.Timeout(5*time.Second))
+}
+
 // Removing a workload entirely - rather than just unselecting it - must not push its own proxy:
 // there is no useful recomputation left to trigger, since the workload (and its proxy connection,
 // if any) is going away. Covers both a WorkloadEntry config deletion and an external (pod) deletion.
@@ -2000,7 +2380,6 @@ func TestWorkloadRemovalSkipsOwnProxyPush(t *testing.T) {
 		createConfigs([]*config.Config{selector}, store, t)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "xds", ID: "selector.com"})
 
 		wle := createWorkloadEntry("wl", selector.Name,
@@ -2026,7 +2405,6 @@ func TestWorkloadRemovalSkipsOwnProxyPush(t *testing.T) {
 		createConfigs([]*config.Config{selector}, store, t)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "xds", ID: "selector.com"})
 
 		pod := &model.WorkloadInstance{
@@ -2078,6 +2456,37 @@ func expectProxyTargets(t testing.TB, sd *Controller, expected []model.ServiceTa
 func expectEvents(t testing.TB, ch *xdsfake.Updater, events ...Event) {
 	t.Helper()
 	ch.StrictMatchOrFail(t, events...)
+}
+
+// Removing the instances may publish an empty endpoint set before the service key is deleted.
+// Allow that optional EDS event, but still require all deletion notifications and config pushes.
+func expectServiceDeletionEvents(t testing.TB, ch *xdsfake.Updater, hostname, namespace string, events ...Event) {
+	t.Helper()
+	allowEDS := true
+	for len(events) > 0 {
+		e := assert.ChannelHasItem(t, ch.Events)
+		if allowEDS && e.Type == "eds" && e.ID == hostname && e.Namespace == namespace && len(e.Endpoints) == 0 {
+			allowEDS = false
+			continue
+		}
+		if e.Type == "service" && e.ID == hostname && e.Namespace == namespace {
+			allowEDS = false
+		}
+		matched := false
+		for i, want := range events {
+			if e.Type == want.Type &&
+				(want.ID == "" || e.ID == want.ID) &&
+				(want.Namespace == "" || e.Namespace == want.Namespace) &&
+				(want.EndpointCount == 0 || len(e.Endpoints) == want.EndpointCount) {
+				events = slices.Delete(events, i)
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			t.Fatalf("unexpected event %+v; waiting for %+v", e, events)
+		}
+	}
 }
 
 func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, port int, expected ...[]*WorkloadServiceInstance) {
