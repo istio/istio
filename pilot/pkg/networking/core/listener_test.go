@@ -4383,3 +4383,104 @@ func TestApplyDownstreamTLSDefaults(t *testing.T) {
 		})
 	}
 }
+
+func TestSidecarWaypointListenerDelegation(t *testing.T) {
+	test.SetForTest(t, &features.EnableSidecarWaypointRouting, true)
+
+	const (
+		namespace       = "default"
+		serviceHostname = "server.default.svc.cluster.local"
+	)
+
+	tests := []struct {
+		name    string
+		configs []config.Config
+	}{
+		{
+			name: "default route",
+		},
+		{
+			name: "explicit TCP route",
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "server",
+					Namespace:        namespace,
+				},
+				Spec: &networking.VirtualService{
+					Hosts: []string{serviceHostname},
+					Tcp: []*networking.TCPRoute{{
+						Route: []*networking.RouteDestination{{
+							Destination: &networking.Destination{
+								Host: serviceHostname,
+								Port: &networking.PortSelector{Number: 80},
+							},
+						}},
+					}},
+				},
+			}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			service := &model.Service{
+				Hostname:       host.Name(serviceHostname),
+				DefaultAddress: "10.0.0.1",
+				Ports: model.PortList{{
+					Name:     "http",
+					Port:     80,
+					Protocol: protocol.HTTP,
+				}},
+				Attributes: model.ServiceAttributes{
+					Name:      "server",
+					Namespace: namespace,
+				},
+			}
+
+			cg := NewConfigGenTest(t, TestOptions{
+				Services: []*model.Service{service},
+				Configs:  tc.configs,
+			})
+			cg.env.AmbientIndexes = sidecarWaypointAmbientIndex{
+				key: namespace + "/" + serviceHostname,
+				info: model.ServiceWaypointInfo{
+					WaypointHostname: "waypoint.default.svc.cluster.local",
+				},
+			}
+
+			push := model.NewPushContext()
+			push.InitContext(cg.env, nil, nil)
+			cg.env.SetPushContext(push)
+
+			proxy := cg.SetupProxy(&model.Proxy{
+				Type:            model.SidecarProxy,
+				ConfigNamespace: namespace,
+			})
+
+			lis := xdstest.ExtractListener("10.0.0.1_80", cg.Listeners(proxy))
+			if lis == nil {
+				t.Fatal("service listener not found")
+			}
+
+			if len(lis.FilterChains) != 1 {
+				t.Fatalf("expected 1 filter chain, got %d", len(lis.FilterChains))
+			}
+			chain := lis.FilterChains[0]
+
+			if xdstest.ExtractHTTPConnectionManager(t, chain) != nil {
+				t.Fatal("delegated listener must not perform HTTP processing")
+			}
+
+			tcpProxy := xdstest.ExtractTCPProxy(t, chain)
+			if tcpProxy == nil {
+				t.Fatal("delegated listener must contain a TCP proxy")
+			}
+
+			expected := model.BuildSubsetKey(
+				model.TrafficDirectionOutboundWaypoint, "", service.Hostname, 80,
+			)
+			assert.Equal(t, tcpProxy.GetCluster(), expected)
+		})
+	}
+}

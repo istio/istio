@@ -129,8 +129,8 @@ func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
-	// CDS needs to be pushed for waypoint proxies on kind.Address changes, so we need to push EDS as well.
-	if proxy.Type == model.Waypoint && waypointNeedsPush(req, proxy) {
+	// Waypoint attachment changes can affect EDS.
+	if waypointNeedsPush(req, proxy) {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
@@ -146,7 +146,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, 
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 
-	resources, logDetails := eds.buildEndpoints(proxy, req, w, canSendPartialFullPushes(req))
+	resources, logDetails := eds.buildEndpoints(proxy, req, w, canSendPartialFullPushes(req, proxy))
 	return resources, logDetails, nil
 }
 
@@ -157,13 +157,21 @@ func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushReque
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 
-	partialPush := canSendPartialFullPushes(req)
+	partialPush := canSendPartialFullPushes(req, proxy)
 	resources, logs := eds.buildEndpoints(proxy, req, w, partialPush)
 	return resources, nil, logs, partialPush, nil
 }
 
-func canSendPartialFullPushes(req *model.PushRequest) bool {
+func canSendPartialFullPushes(req *model.PushRequest, proxy *model.Proxy) bool {
 	if req.Forced {
+		return false
+	}
+	// A destination service can use endpoints owned by its waypoint service instead of its own.
+	// The endpoint update is keyed by the waypoint hostname, while the sidecar's outbound EDS
+	// cluster for the destination service is keyed by the destination hostname.
+	if proxy.Type == model.SidecarProxy && features.EnableSidecarWaypointRouting &&
+		(model.HasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints) ||
+			model.HasConfigsOfKind(req.ConfigsUpdated, kind.ServiceEntry)) {
 		return false
 	}
 
