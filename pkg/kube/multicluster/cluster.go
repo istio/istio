@@ -27,9 +27,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/mesh/kubemesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
@@ -97,6 +99,11 @@ func (cc ClusterCollections) GetStop() <-chan struct{} {
 	return cc.cluster.stop
 }
 
+// MeshConfig returns the restricted mesh configuration for this cluster generation.
+func (cc ClusterCollections) MeshConfig() krt.Singleton[meshwatcher.RestrictedMeshConfig] {
+	return cc.cluster.MeshConfig()
+}
+
 // Namespaces returns the namespaces collection.
 func (cc ClusterCollections) Namespaces() krt.Collection[*corev1.Namespace] {
 	return cc.cluster.namespaces()
@@ -143,6 +150,9 @@ type Cluster struct {
 	// SourceSecret identifies the secret that produced this cluster (for remote clusters).
 	SourceSecret types.NamespacedName
 
+	systemNamespace   string
+	meshConfigMapName string
+
 	stop chan struct{}
 	// initialSync is marked when RunAndWait completes
 	initialSync *atomic.Bool
@@ -171,12 +181,19 @@ type Cluster struct {
 
 // remoteClusterCollections holds per-cluster KRT collections.
 type remoteClusterCollections struct {
+	meshConfig     krt.Singleton[meshwatcher.RestrictedMeshConfig]
 	namespaces     krt.Collection[*corev1.Namespace]
 	pods           krt.Collection[*corev1.Pod]
 	services       krt.Collection[*corev1.Service]
 	endpointSlices krt.Collection[*discovery.EndpointSlice]
 	nodes          krt.Collection[*corev1.Node]
 	gateways       krt.Collection[*gatewayv1.Gateway]
+}
+
+// MeshConfig exposes only trust domain and service scope. Unavailable remote configuration
+// falls back to the config cluster after the remote sync timeout.
+func (c *Cluster) MeshConfig() krt.Singleton[meshwatcher.RestrictedMeshConfig] {
+	return c.remoteClusterCollections.Load().meshConfig
 }
 
 // namespaces returns the namespaces collection.
@@ -308,16 +325,19 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, handlers []handler, ac
 	// Build a namespace watcher. This must have no filter, since this is our input to the filter itself.
 	// This must be done before we build components, so they can access the filter.
 	namespaces := kclient.New[*corev1.Namespace](c.Client)
-	// When this cluster stops, clean up the namespace watcher
+	meshFactory := informerfactory.NewSharedInformerFactory()
+	// When this cluster stops, clean up the namespace watcher and join the optional
+	// mesh informer's goroutines, which are not owned by the main client's factory.
 	go func() {
 		<-c.stop
 		namespaces.ShutdownHandlers()
+		meshFactory.Shutdown()
 	}()
 	// This will start a namespace informer and wait for it to be ready.
 	filter := filter.NewDiscoveryNamespacesFilter(namespaces, mesh, c.stop)
 	kube.SetObjectFilter(c.Client, filter)
 
-	c.remoteClusterCollections.Store(buildClusterCollections(c.Client, c.ID, opts))
+	c.remoteClusterCollections.Store(buildClusterCollections(c.Client, c.ID, c.buildMeshConfigCollection(mesh, meshFactory, opts), opts))
 
 	// Invoke handler callbacks (clusterAdded/clusterUpdated)
 	syncers := make([]ComponentConstraint, 0, len(handlers))
@@ -370,9 +390,39 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, handlers []handler, ac
 	c.closeSyncedCh()
 }
 
+// optionalMeshClient keeps the optional ConfigMap informer out of the cluster client's
+// RunAndWait barrier. NewConfigMapSource starts it independently with the cluster stop channel.
+type optionalMeshClient struct {
+	kube.Client
+	factory informerfactory.InformerFactory
+}
+
+func (c optionalMeshClient) Informers() informerfactory.InformerFactory {
+	return c.factory
+}
+
+func (c *Cluster) buildMeshConfigCollection(
+	mesh meshwatcher.WatcherCollection,
+	factory informerfactory.InformerFactory,
+	opts krt.OptionsBuilder,
+) krt.Singleton[meshwatcher.RestrictedMeshConfig] {
+	if c.meshConfigMapName == "" {
+		return meshwatcher.NewRestrictedCollection(mesh, nil, 0, opts)
+	}
+	client := optionalMeshClient{Client: c.Client, factory: factory}
+	source := kubemesh.NewConfigMapSource(client, c.systemNamespace, c.meshConfigMapName, kubemesh.MeshConfigKey, opts)
+	remote := meshwatcher.NewCollection(opts, source)
+	return meshwatcher.NewRestrictedCollection(mesh, remote, features.RemoteClusterTimeout, opts)
+}
+
 // buildClusterCollections creates the standard KRT collections for a cluster.
 // This is used for both config and remote clusters to ensure identical collection setup.
-func buildClusterCollections(client kube.Client, clusterID cluster.ID, opts krt.OptionsBuilder) *remoteClusterCollections {
+func buildClusterCollections(
+	client kube.Client,
+	clusterID cluster.ID,
+	meshConfig krt.Singleton[meshwatcher.RestrictedMeshConfig],
+	opts krt.OptionsBuilder,
+) *remoteClusterCollections {
 	defaultFilter := kclient.Filter{
 		ObjectFilter: client.ObjectFilter(),
 	}
@@ -429,6 +479,7 @@ func buildClusterCollections(client kube.Client, clusterID cluster.ID, opts krt.
 	)...)
 
 	return &remoteClusterCollections{
+		meshConfig:     meshConfig,
 		namespaces:     Namespaces,
 		pods:           Pods,
 		services:       Services,
