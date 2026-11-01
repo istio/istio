@@ -85,6 +85,11 @@ const (
 	// for incoming HBONE connections. This header when set to waypoint indicates that request has been processed
 	// by a waypoint already and therfore L7 policies have been applied already and we should skip them.
 	RequestSourceFilterStateKey = "io.istio.source"
+
+	// GatewayWildcardTLSTargetFilterStateKey is a filter state key where a gateway stores the wildcard
+	// DYNAMIC_DNS destination of an ISTIO_MUTUAL connection, as "<host>:<port>". The internal listener selects
+	// the filter chain of that destination with it.
+	GatewayWildcardTLSTargetFilterStateKey = "io.istio.gateway_wildcard_tls_target"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -496,6 +501,22 @@ var (
 		},
 	}
 
+	// GatewayDownstreamPeerFilter hands the mTLS peer identity and the original addresses of a gateway connection
+	// to an internal listener, with the same keys that ConnectAuthorityFilter uses for waypoints. A gateway has no
+	// HBONE CONNECT request, so the values are set once the downstream TLS handshake completes.
+	GatewayDownstreamPeerFilter = &listener.Filter{
+		Name: "downstream_peer",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&sfsnetwork.Config{
+				OnDownstreamTlsHandshake: []*sfsvalue.FilterStateValue{
+					sharedFilterStateValue(OriginalDstFilterStateKey, "", "%DOWNSTREAM_LOCAL_ADDRESS%"),
+					sharedFilterStateValue("envoy.filters.listener.original_dst.remote_ip", "", "%DOWNSTREAM_REMOTE_ADDRESS%"),
+					sharedFilterStateValue("io.istio.peer_principal", "istio.hashable_string", "%DOWNSTREAM_PEER_URI_SAN%"),
+				},
+			}),
+		},
+	}
+
 	// WaypointXFCCClientIdentityFilter synthesizes an x-forwarded-client-cert header
 	// on the waypoint main_internal HCM, populated from the ztunnel-provided source
 	// workload identity kept in filter state. mTLS is terminated on the outer
@@ -854,5 +875,37 @@ func buildDynamicForwardProxyFilter(dnsCacheConfigName string, lookupFamily clus
 				},
 			}),
 		},
+	}
+}
+
+// BuildGatewayWildcardTLSTargetFilter hands the wildcard DYNAMIC_DNS destination of a gateway connection to the
+// internal listener, which selects the filter chain of the destination with it. Like the peer identity, it is set
+// once the downstream TLS handshake completes.
+func BuildGatewayWildcardTLSTargetFilter(target string) *listener.Filter {
+	return &listener.Filter{
+		Name: "wildcard_tls_target",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&sfsnetwork.Config{
+				OnDownstreamTlsHandshake: []*sfsvalue.FilterStateValue{
+					sharedFilterStateValue(GatewayWildcardTLSTargetFilterStateKey, "istio.hashable_string", target),
+				},
+			}),
+		},
+	}
+}
+
+// sharedFilterStateValue sets a filter state object from a format string and shares it once with the upstream.
+func sharedFilterStateValue(key, factoryKey, format string) *sfsvalue.FilterStateValue {
+	return &sfsvalue.FilterStateValue{
+		Key:        &sfsvalue.FilterStateValue_ObjectKey{ObjectKey: key},
+		FactoryKey: factoryKey,
+		Value: &sfsvalue.FilterStateValue_FormatString{
+			FormatString: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_TextFormatSource{
+					TextFormatSource: &core.DataSource{Specifier: &core.DataSource_InlineString{InlineString: format}},
+				},
+			},
+		},
+		SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
 	}
 }
