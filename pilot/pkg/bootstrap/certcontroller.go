@@ -233,6 +233,12 @@ func (s *Server) initFileCertificateWatches(tlsOptions TLSOptions) error {
 	if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
 		return fmt.Errorf("set keyCertBundle failed: %v", err)
 	}
+	return s.watchFileCertificates(tlsOptions)
+}
+
+// watchFileCertificates sets up fsnotify watches and the certificate rotation loop for the
+// given cert/key/ca files.
+func (s *Server) watchFileCertificates(tlsOptions TLSOptions) error {
 	for _, file := range []string{tlsOptions.CertFile, tlsOptions.KeyFile, tlsOptions.CaCertFile} {
 		log.Infof("adding watcher for certificate %s", file)
 		if err := s.fileWatcher.Add(file); err != nil {
@@ -275,6 +281,61 @@ func (s *Server) initFileCertificateWatches(tlsOptions TLSOptions) error {
 		return nil
 	})
 	return nil
+}
+
+// watchForCustomTLSCerts watches the well-known cert paths for a custom TLS cert that's
+// provisioned externally later (e.g. by cert-manager istio-csr). This is the fallback
+// used when no custom TLS certs or known cert provider is configured.
+func (s *Server) watchForCustomTLSCerts(args *PilotArgs) {
+	tlsOptions := TLSOptions{
+		CertFile:   constants.DefaultPilotTLSCert,
+		KeyFile:    constants.DefaultPilotTLSKey,
+		CaCertFile: constants.DefaultPilotTLSCaCertAlternatePath,
+	}
+	if err := s.watchFileCertificates(tlsOptions); err != nil {
+		log.Warnf("unable to watch for a certificate provisioned later: %v", err)
+		return
+	}
+	s.watchIstiodCertReload()
+	s.watchSecureDiscoveryService(args)
+	log.Infof("watching %s, %s, %s in case an externally-provisioned istiod certificate appears later",
+		tlsOptions.CertFile, tlsOptions.KeyFile, tlsOptions.CaCertFile)
+}
+
+// watchSecureDiscoveryService finishes setting up the secure discovery service once a
+// certificate that was missing at startup shows up, so port 15012 opens without an istiod restart.
+func (s *Server) watchSecureDiscoveryService(args *PilotArgs) {
+	if args.ServerOptions.SecureGRPCAddr == "" {
+		// Secure discovery is not enabled - nothing to complete later.
+		return
+	}
+	id, watchCh := s.istiodCertBundleWatcher.AddWatcher()
+	s.addStartFunc("secure discovery service (late cert)", func(stop <-chan struct{}) error {
+		go func() {
+			defer s.istiodCertBundleWatcher.RemoveWatcher(id)
+			select {
+			case <-stop:
+			case <-watchCh:
+				s.completeSecureDiscoveryServiceInit(args)
+			}
+		}()
+		return nil
+	})
+}
+
+// completeSecureDiscoveryServiceInit re-initializes the secure discovery service after a
+// certificate that was missing at startup is loaded for the first time.
+func (s *Server) completeSecureDiscoveryServiceInit(args *PilotArgs) {
+	trustDomain := s.environment.Mesh().GetTrustDomain()
+	if err := s.initSecureDiscoveryService(args, trustDomain); err != nil {
+		log.Errorf("error initializing secure discovery service for a certificate provisioned later: %v", err)
+		return
+	}
+	if err := s.startSecureGrpcListener(); err != nil {
+		log.Errorf("error starting secure discovery service for a certificate provisioned later: %v", err)
+		return
+	}
+	log.Infof("secure discovery service is now available using the externally-provisioned istiod certificate")
 }
 
 func (s *Server) reloadIstiodCert(watchCh <-chan struct{}, stopCh <-chan struct{}) {

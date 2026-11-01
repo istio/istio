@@ -27,6 +27,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/http2"
+	"google.golang.org/grpc"
 	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -1243,6 +1244,133 @@ func checkCert(t *testing.T, s *Server, cert, key []byte) bool {
 		t.Fatal("fail to load test certs.")
 	}
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
+}
+
+// TestInitIstiodCerts_SecretCreatedLate: istiod cert from an external source (e.g. cert-manager
+// istio-csr) not ready at startup should still get picked up once it shows up.
+func TestInitIstiodCerts_SecretCreatedLate(t *testing.T) {
+	// no istiod CA, no known provider
+	test.SetForTest(t, &features.EnableCAServer, false)
+	test.SetForTest(t, &features.PilotCertProvider, constants.CertProviderIstiod)
+
+	// cert paths are relative - use an empty temp dir
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+	// mount dir exists even for an unset "optional: true" Secret volume
+	if err := os.MkdirAll(filepath.Dir(constants.DefaultPilotTLSCert), os.ModePerm); err != nil {
+		t.Fatalf("MkdirAll(%v) failed: %v", constants.DefaultPilotTLSCert, err)
+	}
+
+	stop := make(chan struct{})
+	s := &Server{
+		fileWatcher:             filewatcher.NewWatcher(),
+		server:                  server.New(),
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
+	}
+	defer func() {
+		close(stop)
+		_ = s.fileWatcher.Close()
+	}()
+
+	args := &PilotArgs{Namespace: "istio-system"}
+	if err := s.initIstiodCerts(args, "istiod.istio-system.svc"); err != nil {
+		t.Fatalf("initIstiodCerts failed: %v", err)
+	}
+
+	if _, err := s.getIstiodCertificate(nil); err == nil {
+		t.Fatal("expected no cert to be loaded yet, but one was found")
+	}
+
+	if err := s.server.Start(stop); err != nil {
+		t.Fatalf("Could not invoke startFuncs: %v", err)
+	}
+
+	// secret created late
+	if err := loadCertFilesAtPaths(TLSFSLoadPaths{
+		constants.DefaultPilotTLSCert,
+		constants.DefaultPilotTLSKey,
+		constants.DefaultPilotTLSCaCertAlternatePath,
+	}); err != nil {
+		t.Fatalf("loadCertFilesAtPaths failed: %v", err)
+	}
+
+	g := NewWithT(t)
+
+	// should be picked up without a restart
+	g.Eventually(func() error {
+		_, err := s.getIstiodCertificate(nil)
+		return err
+	}, "10s", "100ms").Should(Succeed())
+
+	if !checkCert(t, s, testcerts.ServerCert, testcerts.ServerKey) {
+		t.Errorf("Istiod certificate does not match the expectation")
+	}
+}
+
+// TestInitIstiodCerts_SecretCreatedLate_SecureDiscoveryService checks that the secure discovery
+// service (port 15012) still comes up once a certificate arrives after startup.
+func TestInitIstiodCerts_SecretCreatedLate_SecureDiscoveryService(t *testing.T) {
+	// no istiod CA, no known provider
+	test.SetForTest(t, &features.EnableCAServer, false)
+	test.SetForTest(t, &features.PilotCertProvider, constants.CertProviderIstiod)
+
+	// cert paths are relative - use an empty temp dir
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+	// mount dir exists even for an unset "optional: true" Secret volume
+	if err := os.MkdirAll(filepath.Dir(constants.DefaultPilotTLSCert), os.ModePerm); err != nil {
+		t.Fatalf("MkdirAll(%v) failed: %v", constants.DefaultPilotTLSCert, err)
+	}
+
+	configDir := t.TempDir()
+	args := NewPilotArgs(func(p *PilotArgs) {
+		p.Namespace = "istio-system"
+		p.ServerOptions = DiscoveryServerOptions{
+			// Dynamically assign all ports.
+			HTTPAddr:       ":0",
+			MonitoringAddr: ":0",
+			GRPCAddr:       ":0",
+			SecureGRPCAddr: ":0",
+		}
+		p.RegistryOptions = RegistryOptions{
+			FileDir: configDir,
+		}
+		p.ShutdownDuration = 1 * time.Millisecond
+	})
+
+	g := NewWithT(t)
+	s, err := NewServer(args, func(s *Server) {
+		s.kubeClient = kube.NewFakeClient()
+	})
+	g.Expect(err).To(Succeed())
+
+	// no cert available yet - secure discovery service must not have been set up
+	g.Expect(s.getSecureGrpcServer()).To(BeNil())
+
+	stop := make(chan struct{})
+	g.Expect(s.Start(stop)).To(Succeed())
+	defer func() {
+		close(stop)
+		s.WaitUntilCompletion()
+	}()
+
+	g.Expect(s.getSecureGrpcServer()).To(BeNil())
+
+	// secret created late
+	if err := loadCertFilesAtPaths(TLSFSLoadPaths{
+		constants.DefaultPilotTLSCert,
+		constants.DefaultPilotTLSKey,
+		constants.DefaultPilotTLSCaCertAlternatePath,
+	}); err != nil {
+		t.Fatalf("loadCertFilesAtPaths failed: %v", err)
+	}
+
+	// should be picked up without a restart, and the listener actually opened
+	g.Eventually(func() *grpc.Server {
+		return s.getSecureGrpcServer()
+	}, "10s", "100ms").ShouldNot(BeNil())
 }
 
 func TestGetDNSNames(t *testing.T) {
