@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 49950
+
+releaseNotes:
+  - |
+    **Added** the `PILOT_AGENT_NATIVE_HISTOGRAMS` environment variable to pilot-agent. When enabled, the agent's own histogram metrics are recorded as Prometheus native histograms instead of fixed buckets. Native histograms are only carried by the protobuf format, so text scrapes see just the `_sum` and `_count` series. Disabled by default.
