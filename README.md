@@ -79,7 +79,7 @@ core components, install artifacts, and sample programs. It includes:
 
     - [pilot](pilot/). This directory
 contains platform-specific code to populate the
-[abstract service model](https://istio.io/docs/concepts/traffic-management/#pilot), dynamically reconfigure the proxies
+[abstract service model](https://istio.io/latest/docs/ops/deployment/architecture/), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
 [routing rules](https://istio.io/latest/docs/reference/config/networking/) into proxy specific configuration.
 
