@@ -1,0 +1,233 @@
+# InferencePools and the HTTPRoutes that decide which Gateways serve them, for
+# extproc-collision-reported.yaml and extproc-collision-skipped.yaml. Pool Gateways: default/inference-gateway and
+# default/cross-ns-gateway (large-pool and small-pool), and default/status-gateway, routes-ns/inference-gateway,
+# routes-ns/other-ns-gateway and routes-ns/no-condition-gateway (large-pool). No other Gateway named here serves a pool.
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: large-pool
+  namespace: default
+spec:
+  endpointPickerRef:
+    name: large-pool-epp
+    port:
+      number: 9002
+  selector:
+    matchLabels:
+      app: large-pool
+  targetPorts:
+  - number: 8000
+---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: small-pool
+  namespace: default
+spec:
+  endpointPickerRef:
+    name: small-pool-epp
+    port:
+      number: 9002
+  selector:
+    matchLabels:
+      app: small-pool
+  targetPorts:
+  - number: 8000
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: model-routes
+  namespace: default
+spec:
+  parentRefs:
+  - name: inference-gateway
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: large-pool
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: small-pool
+---
+# From routes-ns, to a Gateway in default and two in routes-ns, one named like a Gateway in default, with the
+# pool allowed by the ReferenceGrant below.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cross-ns-routes
+  namespace: routes-ns
+spec:
+  parentRefs:
+  - name: cross-ns-gateway
+    namespace: default
+  - name: other-ns-gateway
+  - name: inference-gateway
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: large-pool
+      namespace: default
+---
+# A second route to cross-ns-gateway: the Gateway serves the pools of both.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: small-model-routes
+  namespace: default
+spec:
+  parentRefs:
+  - name: cross-ns-gateway
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: small-pool
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: routes-ns-pools
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: routes-ns
+  to:
+  - group: inference.networking.k8s.io
+    kind: InferencePool
+---
+# None of these is a pool backend: a Service named like the pool, the wrong group or kind, a pool that
+# does not exist, and weight 0, which istiod drops.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: not-pool-routes
+  namespace: default
+spec:
+  parentRefs:
+  - name: not-pool-gateway
+  rules:
+  - backendRefs:
+    - name: large-pool
+      port: 80
+    - group: example.com
+      kind: InferencePool
+      name: large-pool
+    - group: inference.networking.k8s.io
+      kind: Service
+      name: large-pool
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: no-such-pool
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: large-pool
+      weight: 0
+---
+# The backend's namespace defaults to the route's, routes-ns, which has no pool.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: same-ns-routes
+  namespace: routes-ns
+spec:
+  parentRefs:
+  - name: same-ns-gateway
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: large-pool
+---
+# Parents that are not Gateways.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: non-gateway-parent-routes
+  namespace: default
+spec:
+  parentRefs:
+  - group: example.com
+    kind: Gateway
+    name: example-parent
+  - kind: Service
+    name: service-parent
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: large-pool
+---
+# With a status, its parents replace parentRefs: Istio accepted the route on status-gateway and reported no
+# Accepted condition, which is not a denial, on routes-ns/no-condition-gateway; another controller owns
+# other-gateway, and a Service parent is not a Gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: status-routes
+  namespace: default
+spec:
+  parentRefs:
+  - name: status-gateway
+  - name: no-condition-gateway
+    namespace: routes-ns
+  - name: other-gateway
+  - kind: Service
+    name: service-parent
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: large-pool
+status:
+  parents:
+  - controllerName: istio.io/gateway-controller
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: status-gateway
+      namespace: "" # empty means the route's namespace
+    conditions:
+    - type: Accepted
+      status: "True"
+      reason: Accepted
+  - controllerName: istio.io/gateway-controller
+    parentRef:
+      name: no-condition-gateway
+      namespace: routes-ns
+  - controllerName: example.com/other-controller
+    parentRef:
+      name: other-gateway
+  - controllerName: istio.io/gateway-controller
+    parentRef:
+      kind: Service
+      name: service-parent
+---
+# A status with one parent: Istio denied the route on denied-gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: denied-routes
+  namespace: default
+spec:
+  parentRefs:
+  - name: denied-gateway
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: large-pool
+status:
+  parents:
+  - controllerName: istio.io/gateway-controller
+    parentRef:
+      name: denied-gateway
+    conditions:
+    - type: Accepted
+      status: "False"
+      reason: NotAllowedByListeners
