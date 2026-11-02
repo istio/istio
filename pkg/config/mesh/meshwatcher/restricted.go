@@ -36,8 +36,12 @@ func NewRestrictedCollection(
 	syncTimeout time.Duration,
 	opts krt.OptionsBuilder,
 ) krt.Singleton[RestrictedMeshConfig] {
-	snapshot := krt.NewStatic[MeshConfigResource](nil, remote == nil, opts.WithName("OptionalRemoteMeshConfig")...)
-	if remote != nil {
+	var remoteConfig krt.Collection[MeshConfigResource]
+	if remote == nil {
+		remoteConfig = krt.NewDisabledCollection[MeshConfigResource](opts.WithName("OptionalRemoteMeshConfig")...)
+	} else {
+		snapshot := krt.NewStatic[MeshConfigResource](nil, false, opts.WithName("OptionalRemoteMeshConfig")...)
+		remoteConfig = snapshot.AsCollection()
 		reg := remote.AsCollection().RegisterBatch(func(events []krt.Event[MeshConfigResource]) {
 			snapshot.Set(remote.Get())
 		}, true)
@@ -61,7 +65,7 @@ func NewRestrictedCollection(
 
 	return krt.NewSingleton(func(ctx krt.HandlerContext) *RestrictedMeshConfig {
 		fallbackConfig := ptr.OrEmpty(krt.FetchOne(ctx, local.AsCollection())).MeshConfig
-		primaryConfig := ptr.OrEmpty(krt.FetchOne(ctx, snapshot.AsCollection())).MeshConfig
+		primaryConfig := ptr.OrEmpty(krt.FetchOne(ctx, remoteConfig)).MeshConfig
 		selected := primaryConfig
 		if selected == nil {
 			selected = fallbackConfig
