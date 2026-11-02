@@ -134,11 +134,9 @@ func HTTPRouteCollection(
 			routes := gwResult.routes
 			if parent.IsMesh() {
 				routes = meshResult.routes
-				// for mesh routes, build one VS per namespace/port->host
 				routeKey = obj.Namespace
 				if parent.OriginalReference.Port != nil {
 					routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
-					routeKey += "/" + strconv.Itoa(int(*parent.OriginalReference.Port))
 				}
 				ref := types.NamespacedName{
 					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gatewayv1.Namespace(obj.Namespace))),
@@ -362,11 +360,9 @@ func GRPCRouteCollection(
 			routes := gwResult.routes
 			if parent.IsMesh() {
 				routes = meshResult.routes
-				// for mesh routes, build one VS per namespace/port->host
 				routeKey = obj.Namespace
 				if parent.OriginalReference.Port != nil {
 					routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
-					routeKey += "/" + strconv.Itoa(int(*parent.OriginalReference.Port))
 				}
 				ref := types.NamespacedName{
 					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gatewayv1.Namespace(obj.Namespace))),
