@@ -973,6 +973,8 @@ type buildClusterOpts struct {
 	fileCredentialSocketExist bool
 	// Gateway client identity is independent of the backend policy's server validation credentials.
 	gatewayBackendClientCredential string
+	// Set during Gateway TLS composition to disable the implicit CA lookup from CredentialName.
+	credentialNameForClientOnly bool
 }
 
 func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {
