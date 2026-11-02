@@ -34,6 +34,7 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	googleproto "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -461,21 +462,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 			authorityKey := fmt.Sprintf("%s:%d", svc.Hostname, port.Port)
 			tcpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port)
 
-			cc := inboundChainConfig{
-				clusterName:   tcpClusterName,
-				policyService: svc,
-				port: model.ServiceInstancePort{
-					ServicePort: port,
-					TargetPort:  uint32(port.Port),
-				},
-				bind:  "0.0.0.0",
-				hbone: true,
-				telemetryMetadata: telemetry.FilterChainMetadata{
-					InstanceHostname:           svc.Hostname,
-					KubernetesServiceNamespace: svc.Attributes.Namespace,
-					KubernetesServiceName:      svc.Attributes.Name,
-				},
-			}
+			cc := newWaypointInboundChainConfig(svc, port, tcpClusterName)
 			var tcpChain, httpChain *listener.FilterChain
 			origDst := svc.GetAddressForProxy(lb.node) + ":" + portString
 			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
@@ -949,8 +936,6 @@ func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, c
 	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	var filters []*listener.Filter
 	httpOpts := &httpListenerOpts{
-		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc),
-		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
 			ServerName:                 ph.ServerName,
@@ -965,6 +950,7 @@ func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, c
 		isWaypoint:                true,
 		policySvc:                 svc,
 	}
+	httpOpts.rds, httpOpts.routeConfig = lb.waypointRouteSource(svc, cc)
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {
 		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
@@ -1411,4 +1397,92 @@ func (lb *ListenerBuilder) globalServiceVIPs(svc *model.Service) []string {
 		addresses = netutil.FilterAddressesByIPFamily(addresses, lb.node.SupportsIPv4(), lb.node.SupportsIPv6())
 	}
 	return addresses
+}
+
+// newWaypointInboundChainConfig builds the inboundChainConfig for a Service port on the waypoint.
+// Used by both the listener builder and the RDS generator.
+func newWaypointInboundChainConfig(svc *model.Service, port *model.Port, clusterName string) inboundChainConfig {
+	return inboundChainConfig{
+		clusterName:   clusterName,
+		policyService: svc,
+		port: model.ServiceInstancePort{
+			ServicePort: port,
+			TargetPort:  uint32(port.Port),
+		},
+		bind:  "0.0.0.0",
+		hbone: true,
+		telemetryMetadata: telemetry.FilterChainMetadata{
+			InstanceHostname:           svc.Hostname,
+			KubernetesServiceNamespace: svc.Attributes.Namespace,
+			KubernetesServiceName:      svc.Attributes.Name,
+		},
+	}
+}
+
+// parseWaypointServiceChainName parses a waypoint Service HTTP chain name (inbound-vip|<port>|http|<hostname>),
+// which is also used as the RDS route name. Returns ok=false for any other name, including TCP chains
+// and the direct pod access chain.
+func parseWaypointServiceChainName(name string) (hostname host.Name, port int, ok bool) {
+	if !strings.HasPrefix(name, string(model.TrafficDirectionInboundVIP)+"|") {
+		return "", 0, false
+	}
+	dir, subset, hostname, port := model.ParseSubsetKey(name)
+	if dir != model.TrafficDirectionInboundVIP || subset != "http" || hostname == "" || port <= 0 {
+		return "", 0, false
+	}
+	return hostname, port, true
+}
+
+// waypointServiceChainUsesRDS returns true if the chain's route table should be served over RDS
+// rather than inlined. Only Service chains qualify, and only when PILOT_ENABLE_WAYPOINT_RDS is set.
+func waypointServiceChainUsesRDS(svc *model.Service, chainName string) bool {
+	if !features.EnableWaypointRDS || svc == nil {
+		return false
+	}
+	_, _, ok := parseWaypointServiceChainName(chainName)
+	return ok
+}
+
+// waypointRouteSource returns either the RDS route name or the inline route config for the chain's HCM.
+// With RDS, a VirtualService/HTTPRoute change only updates the RouteConfiguration; the filter chain is
+// untouched, so existing connections are not drained.
+func (lb *ListenerBuilder) waypointRouteSource(svc *model.Service, cc inboundChainConfig) (rdsName string, inline *route.RouteConfiguration) {
+	if waypointServiceChainUsesRDS(svc, cc.clusterName) {
+		return cc.clusterName, nil
+	}
+	return "", buildWaypointInboundHTTPRouteConfig(lb, svc, cc)
+}
+
+// buildWaypointRDSRouteConfig builds the RouteConfiguration for a waypoint Service chain RDS name.
+// Returns nil if the name is not a Service chain or the Service/port is not known to this proxy;
+// the caller then falls back to the default handling.
+func (configgen *ConfigGeneratorImpl) buildWaypointRDSRouteConfig(node *model.Proxy, push *model.PushContext, routeName string) *route.RouteConfiguration {
+	hostname, portNum, ok := parseWaypointServiceChainName(routeName)
+	if !ok {
+		return nil
+	}
+	lb := NewListenerBuilder(node, push)
+	svc := lb.serviceForHostname(hostname)
+	if svc == nil {
+		return nil
+	}
+	port, found := svc.Ports.GetByPort(portNum)
+	if !found {
+		return nil
+	}
+	cc := newWaypointInboundChainConfig(svc, port, routeName)
+	return buildWaypointInboundHTTPRouteConfig(lb, svc, cc)
+}
+
+// buildWaypointRouteResource returns the RDS resource for a waypoint Service chain, or nil if the proxy
+// is not a waypoint, the feature is disabled, or the name is not a Service chain.
+func (configgen *ConfigGeneratorImpl) buildWaypointRouteResource(node *model.Proxy, push *model.PushContext, routeName string) *discovery.Resource {
+	if node.Type != model.Waypoint || !features.EnableWaypointRDS {
+		return nil
+	}
+	rc := configgen.buildWaypointRDSRouteConfig(node, push, routeName)
+	if rc == nil {
+		return nil
+	}
+	return &discovery.Resource{Name: routeName, Resource: protoconv.MessageToAny(rc)}
 }
