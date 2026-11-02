@@ -291,8 +291,10 @@ spec:
         ]
     - name: ISTIO_META_APP_CONTAINERS
       value: "{{ $containers | join "," }}"
+    {{- if ne (toString $readinessTimeout) "3" }}
     - name: PROXY_READINESS_PROBE_TIMEOUT
       value: "{{ $readinessTimeout }}s"
+    {{- end }}
     - name: GOMEMLIMIT
       valueFrom:
         resourceFieldRef:
