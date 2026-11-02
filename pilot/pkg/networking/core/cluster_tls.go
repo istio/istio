@@ -144,6 +144,19 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		}
 	}
 
+	if cb.proxyType == model.Router && opts.gatewayBackendClientCredential != "" && tls.Mode == networking.ClientTLSSettings_SIMPLE {
+		tls = tls.DeepCopy()
+		if tls.CaCertCredentialName == "" {
+			// TODO(ericdbishop): Should we change how the backend CA is stored for
+			// BackendTLSPolicy?
+			// The original tls.CredentialName holds backend CA trust.
+			// Move the backend CA to CaCertCredentialName.
+			tls.CaCertCredentialName = tls.CredentialName
+		}
+		tls.Mode = networking.ClientTLSSettings_MUTUAL
+		tls.CredentialName = opts.gatewayBackendClientCredential
+	}
+
 	c := opts.mutable
 	var tlsContext *tlsv3.UpstreamTlsContext
 	var err error
@@ -193,12 +206,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		}
 	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext, err = constructUpstreamTLS(opts, tls, c, false)
-		if err == nil && cb.proxyType == model.Router && opts.gatewayBackendClientCredential != "" {
-			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(
-				tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				sec_model.ConstructSdsSecretConfigForCredential(opts.gatewayBackendClientCredential, opts.credentialSocketExist, nil),
-			)
-		}
 
 	case networking.ClientTLSSettings_MUTUAL:
 		tlsContext, err = constructUpstreamTLS(opts, tls, c, true)
