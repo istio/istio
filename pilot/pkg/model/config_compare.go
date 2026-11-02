@@ -54,8 +54,10 @@ func NeedsPush(prev config.Config, curr config.Config) bool {
 
 // istioMetadataChanged returns true if any key containing istio.io was added, removed or changed.
 func istioMetadataChanged(prev, curr map[string]string) bool {
+	n := 0
 	for k, v := range curr {
 		if strings.Contains(k, "istio.io") {
+			n++
 			if pv, f := prev[k]; !f || pv != v {
 				return true
 			}
@@ -63,12 +65,10 @@ func istioMetadataChanged(prev, curr map[string]string) bool {
 	}
 	for k := range prev {
 		if strings.Contains(k, "istio.io") {
-			if _, f := curr[k]; !f {
-				return true
-			}
+			n--
 		}
 	}
-	return false
+	return n != 0
 }
 
 func alwaysPush(m config.Meta) bool {
