@@ -624,3 +624,27 @@ func TestUpdateEndpointCacheForSliceWithMultiAddrs(t *testing.T) {
 		})
 	}
 }
+
+func TestEndpointSliceMetadataOnlyUpdate(t *testing.T) {
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+
+	createServiceWithoutClusterIP(controller, "svc1", "nsa", nil,
+		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+	fx.WaitOrFail(t, "service")
+
+	createEndpoints(t, controller, "svc1", "nsa", []string{"tcp-port"}, []string{"128.0.0.1"}, nil, nil)
+	host := string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix))
+	fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: host})
+	fx.Clear()
+
+	esClient := clienttest.Wrap(t, controller.endpoints.slices)
+	es := esClient.Get("svc1", "nsa").DeepCopy()
+	es.Annotations = map[string]string{"example.com/git-sha": "abc"}
+	esClient.Update(es)
+	fx.AssertEmpty(t, 100*time.Millisecond)
+
+	es = esClient.Get("svc1", "nsa").DeepCopy()
+	es.Endpoints = append(es.Endpoints, discovery.Endpoint{Addresses: []string{"128.0.0.2"}})
+	esClient.Update(es)
+	fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: host})
+}
