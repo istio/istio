@@ -410,13 +410,6 @@ func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope
 }
 
 func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace string) {
-	serviceMatchingPort := func(s *Service, ilw *IstioEgressListenerWrapper, ports sets.Set[int]) *Service {
-		if ilw.matchPort {
-			return serviceMatchingListenerPort(s, ilw)
-		}
-		return serviceMatchingVirtualServicePorts(s, ports)
-	}
-
 	imported := 0
 	for _, ilw := range sc.EgressListeners {
 		imported += len(ilw.services)
@@ -432,7 +425,8 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 			sc.appendSidecarServices(servicesAdded, s)
 		}
 
-		// Infer more possible destinations from virtual services
+		// Infer more possible destinations from virtual services. These are CDS dependencies,
+		// so select their ports using the route destinations, which may differ from the listener port.
 		// Services chosen here will not override services explicitly requested in ilw.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
@@ -445,7 +439,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 				// Default to this hostname in our config namespace
 				if s, ok := byNamespace[configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					if matchedSvc := serviceMatchingPort(s, ilw, ports); matchedSvc != nil {
+					if matchedSvc := serviceMatchingVirtualServicePorts(s, ports); matchedSvc != nil {
 						sc.appendSidecarServices(servicesAdded, matchedSvc)
 					}
 				} else {
@@ -463,7 +457,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 						pickNamespace = pickBestVisibleNamespace
 					}
 					if ns := pickNamespace(ps, byNamespace, configNamespace); ns != "" {
-						if matchedSvc := serviceMatchingPort(byNamespace[ns], ilw, ports); matchedSvc != nil {
+						if matchedSvc := serviceMatchingVirtualServicePorts(byNamespace[ns], ports); matchedSvc != nil {
 							sc.appendSidecarServices(servicesAdded, matchedSvc)
 						}
 					}
@@ -991,13 +985,8 @@ func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapp
 			}
 			// when there are multiple ports, construct service with listener port
 			sc := service.ShallowCopy()
-			sc.Ports = []*Port{
-				{
-					Name:     port.Name,
-					Port:     port.Port,
-					Protocol: port.Protocol,
-				},
-			}
+			p := *port
+			sc.Ports = PortList{&p}
 			return sc
 		}
 	}
@@ -1032,9 +1021,7 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[i
 	// If the service has more than one port, and the Virtual Service only
 	// specifies destination ports not found in the service, we'll simply
 	// not add the service to the sidecar as an optimization, because
-	// traffic will not route properly anyway. This matches the above
-	// behavior in serviceMatchingListenerPort for ports specified on the
-	// sidecar egress listener.
+	// traffic will not route properly anyway.
 	log.Warnf("Failed to find any VirtualService destination ports %v exposed by Service %s", vsDestPorts, service.Hostname)
 	return nil
 }
@@ -1133,7 +1120,7 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 		}
 
 		// if both services have the same ports, no need to merge and we save a deepcopy
-		if existing.Ports.Equals(s.Ports) {
+		if existing.Ports.EqualsIgnoringTargetPorts(s.Ports) {
 			log.Debugf("Service %s/%s from registry %s ignored as it has the same ports as %s/%s/%s", s.Attributes.Namespace, s.Hostname,
 				s.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
 			return

@@ -113,10 +113,12 @@ _internal_defaults_do_not_set:
   # SELinux options to set in the istio-cni-node pods. You may need to set this to `type: spc_t` for some platforms.
   seLinuxOptions: {}
 
-  # Use `useAppArmorAnnotation: true` to set up appArmor profile via `container.apparmor.security.beta.kubernetes.io` annotation.
-  # This is required for Kubernetes 1.29 (and earlier) which does not support setting appArmorProfile in the
-  # securityContext. Otherwise, appArmor profile will be set via appArmorProfile setting in securityContext.
-  useAppArmorAnnotation: true
+  # By default, the appArmor profile is set via the `appArmorProfile` field in the securityContext, which is
+  # supported since Kubernetes 1.30.
+  # Set `useAppArmorAnnotation: true` to set up the appArmor profile via the deprecated
+  # `container.apparmor.security.beta.kubernetes.io` annotation instead. This is only needed for
+  # Kubernetes 1.29 (and earlier), which does not support `appArmorProfile` in the securityContext.
+  useAppArmorAnnotation: false
 
   resources:
     requests:

@@ -60,8 +60,8 @@ spec:
         # Add AppArmor annotation
         # This is required to avoid conflicts with AppArmor profiles which block certain
         # privileged pod capabilities.
-        # Required for Kubernetes 1.29 which does not support setting appArmorProfile in the
-        # securityContext which is otherwise preferred.
+        # Only needed for Kubernetes 1.29 (and earlier) which does not support setting appArmorProfile in the
+        # securityContext, which is used by default.
         {{- if .Values.useAppArmorAnnotation }}
         container.apparmor.security.beta.kubernetes.io/install-cni: unconfined
         {{- end }}
@@ -114,8 +114,8 @@ spec:
           securityContext:
             # This is required to avoid conflicts with AppArmor profiles which block certain
             # privileged pod capabilities.
-            # For Kubernetes >= 1.30 appArmorProfile should be used, for earlier versions this is set
-            # with container.apparmor.security.beta.kubernetes.io annotation
+            # For Kubernetes >= 1.30 appArmorProfile is used by default. For earlier versions this is set
+            # with the container.apparmor.security.beta.kubernetes.io annotation (useAppArmorAnnotation: true).
             {{- if not .Values.useAppArmorAnnotation }}
             appArmorProfile:
               type: Unconfined

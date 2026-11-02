@@ -1,0 +1,8 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: ambient
+  values:
+    cni:
+      env:
+        EXPERIMENTAL_KATA_RUNTIMECLASS_NAMES: kata-l3fwd

@@ -18,12 +18,15 @@ import (
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	gw "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
@@ -103,4 +106,33 @@ func setupControllerWithoutGatewayClasses(t *testing.T, objs ...runtime.Object) 
 	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 
 	return controller
+}
+
+func TestMergeLivePolicyStatus(t *testing.T) {
+	ancestor := func(name string, controller gw.GatewayController, gen int64) gw.PolicyAncestorStatus {
+		return gw.PolicyAncestorStatus{
+			AncestorRef:    gw.ParentReference{Name: gw.ObjectName(name)},
+			ControllerName: controller,
+			Conditions:     []metav1.Condition{{Type: string(gw.PolicyConditionAccepted), ObservedGeneration: gen}},
+		}
+	}
+	mesh := gw.GatewayController(constants.ManagedGatewayMeshController)
+	agw := gw.GatewayController(constants.ManagedAgentgatewayController)
+	// Another controller already wrote generation 2 for its entry.
+	live := &gw.PolicyStatus{Ancestors: []gw.PolicyAncestorStatus{
+		ancestor("svc", mesh, 1),
+		ancestor("agw-gateway", agw, 2),
+	}}
+	// Our desired status was computed from an older snapshot, which still has the other controller's entry at generation 1.
+	desired := &gw.PolicyStatus{Ancestors: []gw.PolicyAncestorStatus{
+		ancestor("svc", mesh, 2),
+		ancestor("agw-gateway", agw, 1),
+	}}
+	got := mergeLivePolicyStatus(live, desired)
+	assert.Equal(t, got, any(&gw.PolicyStatus{Ancestors: []gw.PolicyAncestorStatus{
+		ancestor("svc", mesh, 2),
+		ancestor("agw-gateway", agw, 2),
+	}}))
+	// Live status must not be mutated.
+	assert.Equal(t, live.Ancestors[0], ancestor("svc", mesh, 1))
 }

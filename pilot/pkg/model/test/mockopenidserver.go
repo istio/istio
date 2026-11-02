@@ -102,6 +102,11 @@ type MockOpenIDDiscoveryServer struct {
 	// this is used to simulate network errors and test the refresh logic in jwks resolver.
 	ReturnReorderedKeyAfterFirstNumHits uint64
 
+	// The mock server will start to return a response that is not valid JWKS format (still HTTP 200)
+	// after the first number of hits for public key, this is used to test that the refresh logic in
+	// jwks resolver rejects a non-JWKS body instead of caching it.
+	ReturnInvalidJWKSAfterFirstNumHits uint64
+
 	// If both TLSKeyFile and TLSCertFile are set, Start() will attempt to start a HTTPS server.
 	TLSKeyFile  string
 	TLSCertFile string
@@ -271,6 +276,11 @@ func (ms *MockOpenIDDiscoveryServer) jwtPubKey(w http.ResponseWriter, req *http.
 
 	if ms.ReturnReorderedKeyAfterFirstNumHits != 0 && atomic.LoadUint64(&ms.PubKeyHitNum) >= ms.ReturnReorderedKeyAfterFirstNumHits+1 {
 		fmt.Fprintf(w, "%v", JwtPubKey1Reordered)
+		return
+	}
+
+	if ms.ReturnInvalidJWKSAfterFirstNumHits != 0 && atomic.LoadUint64(&ms.PubKeyHitNum) >= ms.ReturnInvalidJWKSAfterFirstNumHits+1 {
+		fmt.Fprintf(w, "%v", JwtPubKeyNoKeys)
 		return
 	}
 

@@ -2531,97 +2531,6 @@ func TestBuildDeltaHTTPRoutes(t *testing.T) {
 		}
 	})
 
-	t.Run("deleted service entry falls back to a full rebuild", func(t *testing.T) {
-		previous := NewConfigGenTest(t, TestOptions{
-			Services:       services,
-			ConfigPointers: []*config.Config{sidecarConfig},
-		})
-		previousProxy := previous.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
-		current := NewConfigGenTest(t, TestOptions{
-			Services:       services[1:],
-			ConfigPointers: []*config.Config{sidecarConfig},
-		})
-		proxy := current.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
-		proxy.PrevSidecarScope = previousProxy.SidecarScope
-
-		routes, _, _, usedDelta := current.ConfigGen.BuildDeltaHTTPRoutes(proxy, &model.PushRequest{
-			Push: current.PushContext(),
-			ConfigsUpdated: sets.New(model.ConfigKey{
-				Kind: kind.ServiceEntry, Name: "svc-a.default.svc.cluster.local", Namespace: "default",
-			}),
-		}, watched)
-		if usedDelta {
-			t.Fatal("expected a full rebuild, since ServiceEntry is not a delta-eligible kind")
-		}
-		got := sets.New[string]()
-		for _, route := range routes {
-			got.Insert(route.Name)
-		}
-		if !got.Equals(sets.New("8080", "9090")) {
-			t.Fatalf("got routes %v, want [8080 9090]", got)
-		}
-	})
-
-	t.Run("deleted service alias falls back to a full rebuild", func(t *testing.T) {
-		// Import both the concrete host and its alias so matchingAliasService retains
-		// Aliases on the previous-scope service.
-		aliasSidecar := &config.Config{
-			Meta: config.Meta{
-				Name:             "sc-alias",
-				Namespace:        "default",
-				GroupVersionKind: gvk.Sidecar,
-			},
-			Spec: &networking.Sidecar{
-				Egress: []*networking.IstioEgressListener{
-					{
-						Port: &networking.SidecarPort{Number: 8080, Protocol: "HTTP", Name: "a"},
-						Hosts: []string{
-							"default/svc-a.default.svc.cluster.local",
-							"default/alias.default.svc.cluster.local",
-						},
-					},
-					{
-						Port:  &networking.SidecarPort{Number: 9090, Protocol: "HTTP", Name: "b"},
-						Hosts: []string{"default/svc-b.default.svc.cluster.local"},
-					},
-				},
-			},
-		}
-		concrete := buildHTTPService("svc-a.default.svc.cluster.local", visibility.Public, wildcardIPv4, "default", 8080)
-		concrete.Attributes.Aliases = []model.NamespacedHostname{{
-			Hostname:  "alias.default.svc.cluster.local",
-			Namespace: "default",
-		}}
-		unaliased := buildHTTPService("svc-a.default.svc.cluster.local", visibility.Public, wildcardIPv4, "default", 8080)
-		previous := NewConfigGenTest(t, TestOptions{
-			Services:       []*model.Service{concrete, services[1]},
-			ConfigPointers: []*config.Config{aliasSidecar},
-		})
-		previousProxy := previous.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
-		current := NewConfigGenTest(t, TestOptions{
-			Services:       []*model.Service{unaliased, services[1]},
-			ConfigPointers: []*config.Config{aliasSidecar},
-		})
-		proxy := current.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
-		proxy.PrevSidecarScope = previousProxy.SidecarScope
-
-		routes, _, _, usedDelta := current.ConfigGen.BuildDeltaHTTPRoutes(proxy, &model.PushRequest{
-			Push: current.PushContext(),
-			ConfigsUpdated: sets.New(model.ConfigKey{
-				Kind: kind.ServiceEntry, Name: "alias.default.svc.cluster.local", Namespace: "default",
-			}),
-		}, watched)
-		if usedDelta {
-			t.Fatal("expected a full rebuild, since ServiceEntry is not a delta-eligible kind")
-		}
-		got := sets.New[string]()
-		for _, route := range routes {
-			got.Insert(route.Name)
-		}
-		if !got.Equals(sets.New("8080", "9090")) {
-			t.Fatalf("got routes %v, want [8080 9090]", got)
-		}
-	})
 }
 
 func TestBuildDeltaHTTPRoutesGateway(t *testing.T) {
@@ -2799,4 +2708,107 @@ func TestBuildDeltaHTTPRoutesGateway(t *testing.T) {
 			t.Fatalf("expected all watched routes rebuilt, got %d", len(routes))
 		}
 	})
+}
+
+// A VirtualService can route to a different port than its Sidecar egress listener.
+// The route's destination cluster must be imported without exposing additional
+// services or ports on the listener.
+func TestSidecarVirtualServiceDestinationPorts(t *testing.T) {
+	for _, namespace := range []string{"default", "other"} {
+		for _, tt := range []struct {
+			name          string
+			backendPorts  []int
+			importBackend bool
+		}{
+			{name: "single port", backendPorts: []int{8080}},
+			{name: "multiple ports", backendPorts: []int{8080, 9090}},
+			{name: "includes listener port", backendPorts: []int{80, 8080, 9090}},
+			{name: "merge with direct import", backendPorts: []int{80, 8080, 9090}, importBackend: true},
+		} {
+			t.Run(namespace+"/"+tt.name, func(t *testing.T) {
+				backend := &model.Service{
+					Hostname:       "backend.example.com",
+					DefaultAddress: "10.0.0.2",
+					Attributes:     model.ServiceAttributes{Name: "backend", Namespace: namespace},
+				}
+				for _, port := range tt.backendPorts {
+					backend.Ports = append(backend.Ports, &model.Port{
+						Name: fmt.Sprintf("http-%d", port), Port: port, Protocol: protocol.HTTP,
+					})
+				}
+				cg := NewConfigGenTest(t, TestOptions{
+					Services: []*model.Service{
+						{
+							Hostname:       "frontend.example.com",
+							DefaultAddress: "10.0.0.1",
+							Attributes:     model.ServiceAttributes{Name: "frontend", Namespace: "default"},
+							Ports: model.PortList{
+								{Name: "http", Port: 80, Protocol: protocol.HTTP},
+								{Name: "http-unused", Port: 9090, Protocol: protocol.HTTP},
+							},
+						},
+						backend,
+					},
+					ConfigTemplateInput: tt.importBackend,
+					ConfigString: `
+apiVersion: networking.istio.io/v1
+kind: Sidecar
+metadata:
+  name: default
+  namespace: default
+spec:
+  egress:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*/frontend.example.com"
+{{ if . }}
+    - "*/backend.example.com"
+{{ end }}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: frontend
+  namespace: default
+spec:
+  hosts:
+  - frontend.example.com
+  http:
+  - route:
+    - destination:
+        host: backend.example.com
+        port:
+          number: 8080
+`,
+				})
+				proxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
+				const destinationCluster = "outbound|8080||backend.example.com"
+				foundRoute := false
+				for _, rc := range cg.Routes(proxy) {
+					for _, vh := range rc.VirtualHosts {
+						if vh.Name == "frontend.example.com:80" {
+							assert.Equal(t, len(vh.Routes), 1)
+							assert.Equal(t, vh.Routes[0].GetRoute().GetCluster(), destinationCluster)
+							foundRoute = true
+						}
+					}
+				}
+				assert.Equal(t, foundRoute, true)
+				clusters := xdstest.ExtractClusters(cg.Clusters(proxy))
+				if clusters[destinationCluster] == nil {
+					t.Errorf("HTTP route references missing cluster %s", destinationCluster)
+				}
+				assert.Equal(t, clusters["outbound|80||backend.example.com"] != nil, tt.importBackend)
+				assert.Equal(t, clusters["outbound|9090||backend.example.com"] == nil, true)
+				assert.Equal(t, clusters["outbound|9090||frontend.example.com"] == nil, true)
+				for _, svc := range proxy.SidecarScope.EgressListeners[0].Services() {
+					assert.Equal(t, len(svc.Ports), 1)
+					assert.Equal(t, svc.Ports[0].Port, 80)
+				}
+			})
+		}
+	}
 }

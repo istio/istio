@@ -1608,6 +1608,53 @@ func TestInformerPodDeleteInExcludedNsHandledIfEnrolled(t *testing.T) {
 	fs.AssertExpectations(t)
 }
 
+func TestInformerPodDeleteHandledIfNamespaceGone(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Enrolled pod deleted together with its namespace, so the namespace is no longer in the cache
+	fakePod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "gone-ns",
+			Annotations: map[string]string{
+				annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled,
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+		},
+	}
+
+	client := kube.NewFakeClient()
+
+	fs := &fakeServer{}
+
+	fs.On("RemovePodFromMesh",
+		ctx,
+		mock.Anything,
+		true,
+	).Once().Return(nil)
+
+	handlers, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 0, 0)
+
+	fakeEvent := controllers.Event{
+		Event: controllers.EventDelete,
+		Old:   fakePod,
+		New:   nil,
+	}
+	handlers.reconcile(fakeEvent)
+
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "delete"}, monitortest.Exactly(1))
+
+	fs.AssertExpectations(t)
+}
+
 func TestInformerLabeledPodInExcludedNsNotEnrolled(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"

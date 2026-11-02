@@ -29,7 +29,7 @@ import (
 
 // TestCollectionChangingFilterKeyDependency is a regression test for a memory leak where changing
 // the FilterKey used in a Fetch (e.g., relabeling a pod's waypoint) left stale reverse-index
-// entries in dependencyState.indexedDependencies that were never cleaned up.
+// entries in dependencyState.indexedDependencies.data that were never cleaned up.
 func TestCollectionChangingFilterKeyDependency(t *testing.T) {
 	stop := test.NewStop(t)
 	opts := NewOptionsBuilder(stop, "test", GlobalDebugHandler)
@@ -111,8 +111,8 @@ func TestCollectionChangingFilterKeyDependency(t *testing.T) {
 	oldIdxKey := indexedDependency{id: configMapsUID, key: "ns/waypoint-old", typ: getKeyType}
 	newIdxKey := indexedDependency{id: configMapsUID, key: "ns/waypoint-new", typ: getKeyType}
 
-	hasOld := mc.dependencyState.indexedDependencies[oldIdxKey].Contains(podKey)
-	hasNew := mc.dependencyState.indexedDependencies[newIdxKey].Contains(podKey)
+	hasOld := mc.dependencyState.indexedDependencies.data[oldIdxKey].Contains(podKey)
+	hasNew := mc.dependencyState.indexedDependencies.data[newIdxKey].Contains(podKey)
 	mc.mu.RUnlock()
 
 	if hasOld {
@@ -128,7 +128,7 @@ func TestCollectionChangingFilterKeyDependency(t *testing.T) {
 	assert.EventuallyEqual(t, Bindings.List, nil)
 
 	mc.mu.RLock()
-	hasNewAfterDelete := mc.dependencyState.indexedDependencies[newIdxKey].Contains(podKey)
+	hasNewAfterDelete := mc.dependencyState.indexedDependencies.data[newIdxKey].Contains(podKey)
 	mc.mu.RUnlock()
 
 	if hasNewAfterDelete {
