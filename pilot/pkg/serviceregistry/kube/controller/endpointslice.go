@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"maps"
 	"strings"
 	"sync"
 
@@ -37,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
