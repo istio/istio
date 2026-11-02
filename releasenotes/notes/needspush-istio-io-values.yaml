@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where a metadata-only update to an Istio config resource, such as a GitOps tool writing an
+  annotation, triggered a push whenever the resource carried any `istio.io` label or annotation, for example
+  `istio.io/rev`. A push is now triggered only when the spec or the value of an `istio.io` label or annotation changes.
