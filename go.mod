@@ -2,6 +2,9 @@ module istio.io/istio
 
 go 1.27.1
 
+// go 1.24 made listeners use MPTCP by default; istio does not need it
+godebug multipathtcp=0
+
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6

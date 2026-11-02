@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+- |
+  **Fixed** Istio Go components (istiod, pilot-agent, istioctl, istio-cni) accepting Multipath TCP (MPTCP)
+  connections by default since Go 1.24. MPTCP is now disabled; clients fall back to TCP. Set
+  `GODEBUG=multipathtcp=2` to restore the previous behavior.
