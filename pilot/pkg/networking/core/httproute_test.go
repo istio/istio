@@ -2530,7 +2530,6 @@ func TestBuildDeltaHTTPRoutes(t *testing.T) {
 			t.Fatalf("got routes %v, want [8080]", got)
 		}
 	})
-
 }
 
 func TestBuildDeltaHTTPRoutesGateway(t *testing.T) {
