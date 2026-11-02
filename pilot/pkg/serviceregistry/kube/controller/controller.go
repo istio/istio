@@ -265,7 +265,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
 	if c.opts.SystemNamespace != "" {
-		registerHandlers[*v1.Namespace](
+		registerHandlers(
 			c,
 			c.namespaces,
 			"Namespaces",
@@ -281,7 +281,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	// Namespace annotation handler for traffic-distribution inheritance
 	// When namespace annotations change, reprocess all services in that namespace
-	registerHandlers[*v1.Namespace](
+	registerHandlers(
 		c,
 		c.namespaces,
 		"Namespaces-TrafficDistribution",
@@ -306,7 +306,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodes = kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: kubelib.StripNodeUnusedFields})
-	registerHandlers[*v1.Node](c, c.nodes, "Nodes", c.onNodeEvent, nil)
+	registerHandlers(c, c.nodes, "Nodes", c.onNodeEvent, nil)
 
 	c.podsClient = kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
 		ObjectFilter:    kubeClient.ObjectFilter(),
@@ -318,20 +318,15 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			return c.endpoints.podArrived(key.Name, key.Namespace)
 		})
 	})
-	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
+	registerHandlers(c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
 	c.meshConfig = options.MeshConfig
-	// Remote configuration can become available after startup. Push updates when
-	// the restricted values change, and release this registration during Cleanup.
 	if !options.ConfigCluster && options.XDSUpdater != nil {
 		c.meshConfigHandlerRegistration = c.meshConfig.AsCollection().RegisterBatch(func(events []krt.Event[meshwatcher.RestrictedMeshConfig]) {
 			for _, event := range events {
-				// RegisterBatch(false) skips existing state, but an initial Add can
-				// still arrive if the singleton has not finished computing yet.
-				// Initial discovery already uses that value; only changes need a push.
 				if event.Event != controllers.EventUpdate {
 					continue
 				}

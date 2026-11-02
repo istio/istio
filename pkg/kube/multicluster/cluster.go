@@ -406,9 +406,6 @@ func (c *Cluster) buildMeshConfigCollection(
 	factory informerfactory.InformerFactory,
 	opts krt.OptionsBuilder,
 ) krt.Singleton[meshwatcher.RestrictedMeshConfig] {
-	if c.meshConfigMapName == "" {
-		return meshwatcher.NewRestrictedCollection(mesh, nil, 0, opts)
-	}
 	client := optionalMeshClient{Client: c.Client, factory: factory}
 	source := kubemesh.NewConfigMapSource(client, c.systemNamespace, c.meshConfigMapName, kubemesh.MeshConfigKey, opts)
 	remote := meshwatcher.NewCollection(opts, source)
