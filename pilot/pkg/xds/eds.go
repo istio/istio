@@ -107,6 +107,7 @@ var skippedEdsConfigs = sets.New(
 	kind.AuthorizationPolicy,
 	kind.RequestAuthentication,
 	kind.Secret,
+	kind.ConfigMap,
 	kind.Telemetry,
 	kind.WasmPlugin,
 	kind.TrafficExtension,

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 52073
+releaseNotes:
+  - |
+    **Fixed** `istiod` only tolerating the default `cni.istio.io/not-ready` taint. When `taint.name` is set to a
+    custom taint, the `istiod` deployment now tolerates that taint, so `istiod` can be scheduled onto nodes that
+    still carry it.
