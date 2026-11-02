@@ -634,7 +634,7 @@ func TestEndpointSliceMetadataOnlyUpdate(t *testing.T) {
 
 	createEndpoints(t, controller, "svc1", "nsa", []string{"tcp-port"}, []string{"128.0.0.1"}, nil, nil)
 	host := string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix))
-	fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: host})
+	fx.MatchOrFail(t, xdsfake.Event{Type: "xds full", ID: host})
 	fx.Clear()
 
 	esClient := clienttest.Wrap(t, controller.endpoints.slices)
@@ -646,5 +646,5 @@ func TestEndpointSliceMetadataOnlyUpdate(t *testing.T) {
 	es = esClient.Get("svc1", "nsa").DeepCopy()
 	es.Endpoints = append(es.Endpoints, discovery.Endpoint{Addresses: []string{"128.0.0.2"}})
 	esClient.Update(es)
-	fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: host})
+	fx.MatchOrFail(t, xdsfake.Event{Type: "xds full", ID: host})
 }
