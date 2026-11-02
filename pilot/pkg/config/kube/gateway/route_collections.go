@@ -136,13 +136,13 @@ func HTTPRouteCollection(
 				routes = meshResult.routes
 				// for mesh routes, build one VS per namespace/port->host
 				routeKey = obj.Namespace
-				if parent.OriginalReference.Port != nil {
-					routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
-					routeKey += "/" + strconv.Itoa(int(*parent.OriginalReference.Port))
-				}
 				ref := types.NamespacedName{
 					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gatewayv1.Namespace(obj.Namespace))),
 					Name:      string(parent.OriginalReference.Name),
+				}
+				if meshPort := meshParentPort(ctx, ref, parent); meshPort != nil {
+					routes = augmentPortMatch(routes, *meshPort)
+					routeKey += "/" + strconv.Itoa(int(*meshPort))
 				}
 				if parent.InternalKind == gvk.ServiceEntry {
 					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(ref.String())))
@@ -364,13 +364,13 @@ func GRPCRouteCollection(
 				routes = meshResult.routes
 				// for mesh routes, build one VS per namespace/port->host
 				routeKey = obj.Namespace
-				if parent.OriginalReference.Port != nil {
-					routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
-					routeKey += "/" + strconv.Itoa(int(*parent.OriginalReference.Port))
-				}
 				ref := types.NamespacedName{
 					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gatewayv1.Namespace(obj.Namespace))),
 					Name:      string(parent.OriginalReference.Name),
+				}
+				if meshPort := meshParentPort(ctx, ref, parent); meshPort != nil {
+					routes = augmentPortMatch(routes, *meshPort)
+					routeKey += "/" + strconv.Itoa(int(*meshPort))
 				}
 				if parent.InternalKind == gvk.ServiceEntry {
 					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(ref.String())))
@@ -478,12 +478,12 @@ func TCPRouteCollection(
 			vsHosts := []string{"*"}
 			if parent.IsMesh() {
 				routes = meshResult.routes
-				if parent.OriginalReference.Port != nil {
-					routes = augmentTCPPortMatch(routes, *parent.OriginalReference.Port)
-				}
 				ref := types.NamespacedName{
 					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gatewayv1.Namespace(obj.Namespace))),
 					Name:      string(parent.OriginalReference.Name),
+				}
+				if meshPort := meshParentPort(ctx, ref, parent); meshPort != nil {
+					routes = augmentTCPPortMatch(routes, *meshPort)
 				}
 				if parent.InternalKind == gvk.ServiceEntry {
 					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(ref.String())))
@@ -590,7 +590,7 @@ func TLSRouteCollection(
 				} else {
 					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, ctx.DomainSuffix)}
 				}
-				routes = augmentTLSPortMatch(routes, parent.OriginalReference.Port, vsHosts)
+				routes = augmentTLSPortMatch(routes, meshParentPort(ctx, ref, parent), vsHosts)
 			} else if parent.Hostname != "" {
 				// For gateway parents with a listener hostname constraint, intersect the route
 				// hostnames with the listener hostname per the Gateway API spec.
@@ -676,6 +676,33 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 	})
 	parents := createRouteStatus(rpResults, obj.GetNamespace(), obj.GetGeneration(), GetCommonRouteStateParents(obj))
 	return parents, parentRefs, meshResult, gwResult
+}
+
+// meshParentPort returns the Service port a mesh parent reference selects, or nil when it selects all of
+// them. A numeric port is used as given; otherwise a sectionName is resolved to the number of the Service
+// port it names, so a route bound to a port by name is scoped to that port instead of every port the
+// Service exposes. ServiceEntry parents keep their existing behavior: their ports are not Service ports.
+func meshParentPort(ctx RouteContext, ref types.NamespacedName, parent routeParentReference) *gatewayv1.PortNumber {
+	if parent.InternalKind != gvk.Service {
+		return parent.OriginalReference.Port
+	}
+	if parent.OriginalReference.Port != nil {
+		return parent.OriginalReference.Port
+	}
+	if parent.OriginalReference.SectionName == nil || *parent.OriginalReference.SectionName == "" {
+		return nil
+	}
+	sectionName := string(*parent.OriginalReference.SectionName)
+	svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(ref.String())))
+	if svc == nil {
+		return nil
+	}
+	for _, port := range svc.Spec.Ports {
+		if port.Name == sectionName {
+			return ptr.Of(port.Port)
+		}
+	}
+	return nil
 }
 
 // RouteContext defines a common set of inputs to a route collection. This should be built once per route translation and

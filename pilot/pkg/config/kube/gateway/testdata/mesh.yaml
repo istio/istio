@@ -112,7 +112,7 @@ spec:
   - group: ""
     kind: Service
     name: echo-1
-    port: 8080
+    port: 34000
   - group: ""
     kind: Service
     name: echo-2
