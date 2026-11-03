@@ -20,8 +20,6 @@ import (
 
 // TODO: Fix skipped tests and reenable these features.
 var skippedExtendedFeatures = []features.Feature{
-	// GatewayBackendClientCertificateFeature, GatewayInvalidTLSBackendConfiguration
-	features.GatewayBackendClientCertificateFeature,
 	// HTTPRouteHTTPSListenerDetectMisdirectedRequests
 	features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature,
 	// UDPRoute* - Istio does not support UDPRoute
