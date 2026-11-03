@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 62587
+
+releaseNotes:
+- |
+  **Fixed** the ztunnel Helm chart ignoring `global.proxy.clusterDomain`. ztunnel now gets the `CLUSTER_DOMAIN`
+  environment variable, so its DNS proxy works on clusters with a custom cluster domain.
