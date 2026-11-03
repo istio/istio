@@ -111,10 +111,12 @@ type Outputs struct {
 	// - XDS ProxyUpdate for service instance changes.
 	ServiceInstances     krt.Collection[*WorkloadServiceInstance]
 	ServiceInstancesByIP krt.Index[string, *WorkloadServiceInstance]
-	// Workloads is a collection of local workload instances.
+	// WorkloadEntries is a collection of local workload entries as WorkloadInstances.
 	// Use cases:
 	// - Notifying workload instance handlers.
-	Workloads krt.Collection[*model.WorkloadInstance]
+	WorkloadEntries krt.Collection[*model.WorkloadInstance]
+	// AllWorkloads includes local and external workloads used to build service instances.
+	AllWorkloads krt.Collection[*model.WorkloadInstance]
 }
 
 type ServiceWithInstances struct {
@@ -300,7 +302,7 @@ func newController(
 			s.outputs.ServiceInstances.RegisterBatch(s.pushProxyUpdates, false),
 		)
 	}
-	s.handlers = append(s.handlers, s.outputs.Workloads.RegisterBatch(s.notifyWorkloadHandlers, false))
+	s.handlers = append(s.handlers, s.outputs.WorkloadEntries.RegisterBatch(s.notifyWorkloadHandlers, false))
 
 	return s
 }
@@ -422,10 +424,11 @@ func (s *Controller) buildCollections(sendUnhealthy bool) {
 			ServiceInstancesByNamespaceHost: mergedInstancesByNamespaceHost,
 			ServiceInstances:                allInstances,
 			ServiceInstancesByIP:            instancesByIP,
+			AllWorkloads:                    allWorkloads,
 		}
 	}
 
-	s.outputs.Workloads = wleWorkloads
+	s.outputs.WorkloadEntries = wleWorkloads
 }
 
 func (s *Controller) pushServiceEndpointUpdates(events []krt.Event[*InstancesByNamespaceHost]) {
@@ -540,9 +543,10 @@ func (s *Controller) pushProxyUpdates(events []krt.Event[*WorkloadServiceInstanc
 			push(oldKey)
 			push(newKey)
 		case controllers.EventDelete:
-			external := s.inputs.ExternalWorkloads.GetKey(si.Namespace + "/" + si.Name)
-			we := s.inputs.WorkloadEntries.GetKey(si.Namespace + "/" + si.Name)
-			if external == nil && we == nil {
+			// Instance UIDs start with the workload kind, namespace, and name.
+			kind, _, _ := strings.Cut(si.UID, "/")
+			namespacedName := si.Namespace + "/" + si.Name
+			if s.outputs.AllWorkloads.GetKey(kind+"/"+namespacedName) == nil {
 				// this workload no longer exists, we don't need to update any proxy
 				continue
 			}
@@ -683,7 +687,7 @@ func (s *Controller) AppendWorkloadHandler(h func(*model.WorkloadInstance, model
 }
 
 func (s *Controller) HasSynced() bool {
-	if !s.outputs.Workloads.HasSynced() {
+	if !s.outputs.WorkloadEntries.HasSynced() {
 		return false
 	}
 

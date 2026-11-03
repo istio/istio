@@ -2182,6 +2182,71 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 	}
 }
 
+func TestWorkloadInstanceSameNameDifferentKinds(t *testing.T) {
+	for _, source := range []string{"config", "external"} {
+		t.Run(source, func(t *testing.T) {
+			store, sd, _ := initServiceDiscovery(t)
+			createConfigs([]*config.Config{selector}, store, t)
+			pod := &model.WorkloadInstance{
+				Name: "shared", Namespace: selector.Namespace, Kind: model.PodKind,
+				Endpoint: &model.IstioEndpoint{
+					Addresses: []string{"2.2.2.2"},
+					Labels:    map[string]string{"app": "wle"},
+				},
+			}
+			wle := pod.DeepCopy()
+			wle.Kind = model.WorkloadEntryKind
+			wle.Endpoint.Addresses = []string{"3.3.3.3"}
+			updateWLE := func(event model.Event) {
+				t.Helper()
+				if source == "external" {
+					sd.WorkloadInstanceHandler(wle, event)
+					return
+				}
+				cfg := createWorkloadEntry(wle.Name, wle.Namespace, &networking.WorkloadEntry{
+					Address: wle.Endpoint.Addresses[0], Labels: wle.Endpoint.Labels,
+				})
+				if event == model.EventDelete {
+					deleteConfigs([]*config.Config{cfg}, store, t)
+				} else {
+					createConfigs([]*config.Config{cfg}, store, t)
+				}
+			}
+			svc := convertServices(*selector, nil, false)[0]
+			expectAddresses := func(want ...string) {
+				t.Helper()
+				assert.EventuallyEqual(t, func() []string {
+					endpoints := GetEndpointsForPort(svc, sd.XdsUpdater.(*xdsfake.Updater).Delegate.(*model.FakeEndpointIndexUpdater).Index, svc.Ports[0].Port)
+					return slices.Sort(slices.Map(endpoints, func(ep *model.IstioEndpoint) string {
+						return ep.FirstAddressOrNil()
+					}))
+				}, want)
+			}
+
+			sd.WorkloadInstanceHandler(pod, model.EventAdd)
+			expectAddresses("2.2.2.2")
+			updateWLE(model.EventAdd)
+			expectAddresses("2.2.2.2", "3.3.3.3")
+
+			pod = pod.DeepCopy()
+			pod.Endpoint.Addresses = []string{"2.2.2.3"}
+			sd.WorkloadInstanceHandler(pod, model.EventUpdate)
+			expectAddresses("2.2.2.3", "3.3.3.3")
+			wle = wle.DeepCopy()
+			wle.Endpoint.Addresses = []string{"3.3.3.4"}
+			updateWLE(model.EventUpdate)
+			expectAddresses("2.2.2.3", "3.3.3.4")
+
+			sd.WorkloadInstanceHandler(pod, model.EventDelete)
+			expectAddresses("3.3.3.4")
+			sd.WorkloadInstanceHandler(pod, model.EventAdd)
+			expectAddresses("2.2.2.3", "3.3.3.4")
+			updateWLE(model.EventDelete)
+			expectAddresses("2.2.2.3")
+		})
+	}
+}
+
 // A pod reaches this registry only after its proxy connected and snapshotted ServiceTargets from an
 // empty membership. Nothing else recomputes that snapshot, so the registry must push the pod's own
 // proxy once the pod starts backing a ServiceEntry.
