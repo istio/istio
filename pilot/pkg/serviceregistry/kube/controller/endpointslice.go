@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/discovery/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -57,8 +59,18 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 		slices:        slices,
 		endpointCache: newEndpointSliceCache(),
 	}
-	registerHandlers[*v1.EndpointSlice](c, slices, "EndpointSlice", out.onEvent, nil)
+	registerHandlers[*v1.EndpointSlice](c, slices, "EndpointSlice", out.onEvent, endpointSliceUnchanged)
 	return out
+}
+
+// endpointSliceUnchanged filters out updates that only touch fields we do not read,
+// e.g. annotations written by GitOps tools on every sync. Without this, every such write
+// to a slice of a headless service with non-HTTP ports triggers a push to all proxies.
+func endpointSliceUnchanged(old, cur *v1.EndpointSlice) bool {
+	return old.AddressType == cur.AddressType &&
+		maps.Equal(old.Labels, cur.Labels) &&
+		equality.Semantic.DeepEqual(old.Endpoints, cur.Endpoints) &&
+		equality.Semantic.DeepEqual(old.Ports, cur.Ports)
 }
 
 func (esc *endpointSliceController) podArrived(name, ns string) error {
