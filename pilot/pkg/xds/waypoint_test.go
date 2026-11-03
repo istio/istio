@@ -37,8 +37,11 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/slices"
@@ -1286,4 +1289,111 @@ func TestWaypointScopedAddressPush(t *testing.T) {
 		},
 	})
 	ads.ExpectResponse(t)
+}
+
+// TestWaypointDeltaClustersRouteToNonWaypointService verifies that a VirtualService-only delta push
+// adds the waypoint's outbound cluster for a backend that a new route references, and removes it
+// when the route is deleted. The route does not change the set of visible services, so the delta
+// must reconcile against the waypoint's route-referenced services rather than the sidecar scope diff.
+func TestWaypointDeltaClustersRouteToNonWaypointService(t *testing.T) {
+	// Mesh routes are only indexed by the services they attach to when waypoints are enabled.
+	test.SetForTest(t, &features.EnableAmbientWaypoints, true)
+	backendServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: backend
+  namespace: default
+spec:
+  hosts: [backend.com]
+  addresses: [1.2.3.5]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+`
+	vs := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "app-to-backend",
+			Namespace:        "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts: []string{"app.com"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "backend.com", Port: &networking.PortSelector{Number: 80}},
+				}},
+			}},
+		},
+	}
+	vsKey := sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: vs.Name, Namespace: vs.Namespace})
+	backendCluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", "backend.com", 80)
+	// Clusters the waypoint always has, independent of routes. These must never be removed by the
+	// outbound reconciliation.
+	alwaysPresent := []string{
+		model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80),
+		"main_internal",
+		"encap",
+		"connect_originate",
+	}
+
+	d, proxy := setupWaypointTest(t,
+		waypointGateway, waypointSvc, waypointInstance,
+		appServiceEntry, appWorkloadEntry, backendServiceEntry)
+
+	// Recompute the push context and the proxy's scope after a config change, so that
+	// PrevSidecarScope is set like in a real push.
+	repush := func(wantVirtualServices int) {
+		retry.UntilOrFail(t, func() bool {
+			return len(d.Env().VirtualServiceController.MergedVirtualServices()) == wantVirtualServices
+		}, retry.Timeout(time.Second*5))
+		pc := model.NewPushContext()
+		pc.InitContext(d.Env(), nil, nil)
+		d.Env().SetPushContext(pc)
+		proxy.SetSidecarScope(pc)
+	}
+	clusterNames := func() sets.String {
+		return sets.New(slices.Map(d.Clusters(proxy), (*clusterv3.Cluster).GetName)...)
+	}
+
+	watched := clusterNames()
+	for _, c := range alwaysPresent {
+		assert.Equal(t, watched.Contains(c), true)
+	}
+	assert.Equal(t, watched.Contains(backendCluster), false)
+
+	// Add the route. The delta must add the backend's outbound cluster.
+	if _, err := d.Store().Create(vs); err != nil {
+		t.Fatal(err)
+	}
+	repush(1)
+	clusters, removed, delta := d.DeltaClusters(proxy, vsKey, &model.WatchedResource{ResourceNames: watched})
+	assert.Equal(t, delta, true)
+	built := sets.New(slices.Map(clusters, (*clusterv3.Cluster).GetName)...)
+	assert.Equal(t, built.Contains(backendCluster), true)
+	for _, c := range alwaysPresent {
+		assert.Equal(t, slices.Contains(removed, c), false)
+	}
+	// The delta result must match a full build.
+	full := clusterNames()
+	assert.Equal(t, sets.SortedList(watched.Union(built).DeleteAll(removed...)), sets.SortedList(full))
+
+	// Remove the route. The delta must remove the backend's outbound cluster.
+	watched = full
+	if err := d.Store().Delete(gvk.VirtualService, vs.Name, vs.Namespace, nil); err != nil {
+		t.Fatal(err)
+	}
+	repush(0)
+	clusters, removed, delta = d.DeltaClusters(proxy, vsKey, &model.WatchedResource{ResourceNames: watched})
+	assert.Equal(t, delta, true)
+	assert.Equal(t, slices.Contains(removed, backendCluster), true)
+	built = sets.New(slices.Map(clusters, (*clusterv3.Cluster).GetName)...)
+	assert.Equal(t, built.Contains(backendCluster), false)
+	for _, c := range alwaysPresent {
+		assert.Equal(t, slices.Contains(removed, c), false)
+	}
+	full = clusterNames()
+	assert.Equal(t, full.Contains(backendCluster), false)
+	assert.Equal(t, sets.SortedList(watched.Union(built).DeleteAll(removed...)), sets.SortedList(full))
 }

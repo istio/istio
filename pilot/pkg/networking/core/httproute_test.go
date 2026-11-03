@@ -2349,3 +2349,106 @@ func TestWaypointInboundRouteHashPolicyNilService(t *testing.T) {
 		}
 	}
 }
+
+// A VirtualService can route to a different port than its Sidecar egress listener.
+// The route's destination cluster must be imported without exposing additional
+// services or ports on the listener.
+func TestSidecarVirtualServiceDestinationPorts(t *testing.T) {
+	for _, namespace := range []string{"default", "other"} {
+		for _, tt := range []struct {
+			name          string
+			backendPorts  []int
+			importBackend bool
+		}{
+			{name: "single port", backendPorts: []int{8080}},
+			{name: "multiple ports", backendPorts: []int{8080, 9090}},
+			{name: "includes listener port", backendPorts: []int{80, 8080, 9090}},
+			{name: "merge with direct import", backendPorts: []int{80, 8080, 9090}, importBackend: true},
+		} {
+			t.Run(namespace+"/"+tt.name, func(t *testing.T) {
+				backend := &model.Service{
+					Hostname:       "backend.example.com",
+					DefaultAddress: "10.0.0.2",
+					Attributes:     model.ServiceAttributes{Name: "backend", Namespace: namespace},
+				}
+				for _, port := range tt.backendPorts {
+					backend.Ports = append(backend.Ports, &model.Port{
+						Name: fmt.Sprintf("http-%d", port), Port: port, Protocol: protocol.HTTP,
+					})
+				}
+				cg := NewConfigGenTest(t, TestOptions{
+					Services: []*model.Service{
+						{
+							Hostname:       "frontend.example.com",
+							DefaultAddress: "10.0.0.1",
+							Attributes:     model.ServiceAttributes{Name: "frontend", Namespace: "default"},
+							Ports: model.PortList{
+								{Name: "http", Port: 80, Protocol: protocol.HTTP},
+								{Name: "http-unused", Port: 9090, Protocol: protocol.HTTP},
+							},
+						},
+						backend,
+					},
+					ConfigTemplateInput: tt.importBackend,
+					ConfigString: `
+apiVersion: networking.istio.io/v1
+kind: Sidecar
+metadata:
+  name: default
+  namespace: default
+spec:
+  egress:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*/frontend.example.com"
+{{ if . }}
+    - "*/backend.example.com"
+{{ end }}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: frontend
+  namespace: default
+spec:
+  hosts:
+  - frontend.example.com
+  http:
+  - route:
+    - destination:
+        host: backend.example.com
+        port:
+          number: 8080
+`,
+				})
+				proxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
+				const destinationCluster = "outbound|8080||backend.example.com"
+				foundRoute := false
+				for _, rc := range cg.Routes(proxy) {
+					for _, vh := range rc.VirtualHosts {
+						if vh.Name == "frontend.example.com:80" {
+							assert.Equal(t, len(vh.Routes), 1)
+							assert.Equal(t, vh.Routes[0].GetRoute().GetCluster(), destinationCluster)
+							foundRoute = true
+						}
+					}
+				}
+				assert.Equal(t, foundRoute, true)
+				clusters := xdstest.ExtractClusters(cg.Clusters(proxy))
+				if clusters[destinationCluster] == nil {
+					t.Errorf("HTTP route references missing cluster %s", destinationCluster)
+				}
+				assert.Equal(t, clusters["outbound|80||backend.example.com"] != nil, tt.importBackend)
+				assert.Equal(t, clusters["outbound|9090||backend.example.com"] == nil, true)
+				assert.Equal(t, clusters["outbound|9090||frontend.example.com"] == nil, true)
+				for _, svc := range proxy.SidecarScope.EgressListeners[0].Services() {
+					assert.Equal(t, len(svc.Ports), 1)
+					assert.Equal(t, svc.Ports[0].Port, 80)
+				}
+			})
+		}
+	}
+}

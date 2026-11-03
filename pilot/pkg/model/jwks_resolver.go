@@ -292,8 +292,12 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.
 		timeout:           timeout,
 	})
 	if err != nil {
-		// fetching the public key in the background
-		jwksuriChannel <- key
+		// Fetch the public key in the background.
+		select {
+		case jwksuriChannel <- key:
+		default:
+			log.Debugf("JWKS background fetch queue is full, deferring fetch of %q to the periodic refresh", jwksURI)
+		}
 	}
 	return pubKey, err
 }

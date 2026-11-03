@@ -17,6 +17,7 @@ package model
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -207,6 +208,42 @@ func TestGetPublicKeyWithEmptyIssuerAndEmptyJwksURI(t *testing.T) {
 	_, err := r.GetPublicKey("", "", testRequestTimeout)
 	if err == nil {
 		t.Errorf("GetPublicKey(\"\", \"\") fails: expected error, got no error")
+	}
+}
+
+func TestGetPublicKeyDoesNotBlockWhenBackgroundChannelFull(t *testing.T) {
+	// No refresher is started, so nothing drains jwksuriChannel.
+	r := &JwksResolver{httpClient: &http.Client{}}
+	drain := func() {
+		for {
+			select {
+			case <-jwksuriChannel:
+			default:
+				return
+			}
+		}
+	}
+	drain()
+	defer drain()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		// More failing lookups than the channel can hold.
+		for i := 0; i < cap(jwksuriChannel)*3; i++ {
+			// An unparseable URI fails immediately and enqueues a background fetch.
+			if _, err := r.GetPublicKey("", fmt.Sprintf("://bad-%d", i), testRequestTimeout); err == nil {
+				t.Errorf("expected error for call %d", i)
+			}
+		}
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("GetPublicKey blocked on a full jwksuriChannel")
+	}
+	if got := len(jwksuriChannel); got != cap(jwksuriChannel) {
+		t.Errorf("expected channel to be full (%d), got %d", cap(jwksuriChannel), got)
 	}
 }
 

@@ -38,6 +38,7 @@ var skippedCdsConfigs = sets.New(
 	kind.AuthorizationPolicy,
 	kind.RequestAuthentication,
 	kind.Secret,
+	kind.ConfigMap,
 	kind.Telemetry,
 	kind.WasmPlugin,
 	kind.TrafficExtension,
@@ -88,7 +89,9 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 			headlessOnly = false
 		}
 
-		if proxy.Type == model.Router {
+		// Ambient east-west gateways merge Gateway resources like routers do, and their AUTO_PASSTHROUGH
+		// servers drive the SNI-DNAT clusters, so Gateway changes must be considered for them as well.
+		if proxy.Type == model.Router || proxy.IsAmbientEastWestGateway() {
 			if config.Kind == kind.Gateway {
 				// Do the check outside of the loop since its slow; just trigger we need it
 				checkGateway = true
