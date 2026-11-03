@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 62522
+releaseNotes:
+  - |
+    **Fixed** `AuthorizationPolicy` `ipBlocks` and `notIpBlocks` matching on
+    waypoint and sidecar HBONE internal listeners to use the downstream
+    client's direct remote IP address instead of the internal Envoy address.
