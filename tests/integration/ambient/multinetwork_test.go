@@ -25,11 +25,14 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
