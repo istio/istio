@@ -137,7 +137,7 @@ func TestCredentialUpdatePushes(t *testing.T) {
 			got := pushes{
 				CDS: cds,
 				LDS: ldsNeedsPush(proxy, req),
-				RDS: RdsNeedsPush(req, proxy),
+				RDS: rdsNeedsPush(req, proxy),
 				EDS: edsNeedsPush(req, proxy),
 				NDS: ndsNeedsPush(req, proxy),
 				SDS: sdsNeedsPush(req.Forced, req.ConfigsUpdated),
