@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -108,6 +109,207 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 		return routeConfigurations, model.DefaultXdsLogDetails
 	}
 	return routeConfigurations, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", hit, hit+miss)}
+}
+
+// rdsDeltaConfigTypes are the config kinds delta RDS knows how to map to the specific watched
+// route names they can affect, for both Sidecar/Waypoint and Router (gateway) proxies. Any update
+// containing a kind outside this set falls back to a full rebuild of every watched route, since we
+// cannot precisely bound the impact.
+//
+// This is deliberately narrower than every kind that can affect a route (e.g. Gateway and
+// ServiceEntry updates also do): Gateway/ServiceEntry impact can only be bounded precisely by
+// tracking additional state (previous route-to-gateway associations, inferred VirtualService
+// destinations, a gateway's own backing Service) that doesn't exist today, and the benchmarked
+// savings for those update kinds are smaller than for VirtualService-only changes. Falling back to
+// a full rebuild for them is simpler and avoids that extra state.
+var rdsDeltaConfigTypes = sets.New(kind.VirtualService)
+
+// shouldUseDeltaRoutes decides whether BuildDeltaHTTPRoutes can compute a precise delta for this
+// push, or must fall back to rebuilding every route the proxy currently watches.
+func shouldUseDeltaRoutes(node *model.Proxy, updates *model.PushRequest) bool {
+	if !features.EnableDeltaRDS {
+		return false
+	}
+	if updates == nil || updates.Forced {
+		return false
+	}
+	switch node.Type {
+	case model.SidecarProxy, model.Waypoint:
+	case model.Router:
+		if node.MergedGateway == nil {
+			return false
+		}
+	default:
+		return false
+	}
+	for key := range updates.ConfigsUpdated {
+		if !rdsDeltaConfigTypes.Contains(key.Kind) {
+			return false
+		}
+	}
+	return true
+}
+
+// BuildDeltaHTTPRoutes returns only the route configurations whose content can be affected by
+// updates.ConfigsUpdated, computed against the set of route names the proxy currently watches.
+// If a precise delta cannot be determined, it falls back to rebuilding every watched route
+// (matching BuildHTTPRoutes), with usedDelta=false.
+func (configgen *ConfigGeneratorImpl) BuildDeltaHTTPRoutes(node *model.Proxy, req *model.PushRequest,
+	watched *model.WatchedResource,
+) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
+	if !shouldUseDeltaRoutes(node, req) {
+		routes, log := configgen.BuildHTTPRoutes(node, req, watched.ResourceNames.UnsortedList())
+		return routes, nil, log, false
+	}
+
+	var affected sets.String
+	if node.Type == model.Router {
+		affected = affectedGatewayRouteNames(node, req.ConfigsUpdated, watched.ResourceNames)
+	} else {
+		affected = affectedRouteNames(node, req.ConfigsUpdated, watched.ResourceNames)
+	}
+	if affected.IsEmpty() {
+		return nil, nil, model.DefaultXdsLogDetails, true
+	}
+	routes, log := configgen.BuildHTTPRoutes(node, req, sets.SortedList(affected))
+	return routes, nil, log, true
+}
+
+// affectedRouteNames returns the subset of watched route names whose built content can change
+// because of the given config updates. shouldUseDeltaRoutes guarantees cfgs only contains
+// VirtualService kinds here. Each distinct egress listener backing a watched route is evaluated
+// for affectedness at most once, no matter how many watched routes resolve to it (e.g. every route
+// maps to the same catch-all listener when no Sidecar resource is configured), via an O(1) hash
+// lookup per update using IstioEgressListenerWrapper.DependsOnConfig.
+func affectedRouteNames(node *model.Proxy, cfgs sets.Set[model.ConfigKey], watched sets.String) sets.String {
+	listenerAffected := make(map[*model.IstioEgressListenerWrapper]bool)
+	isListenerAffected := func(egressListener *model.IstioEgressListenerWrapper) bool {
+		if egressListener == nil {
+			return false
+		}
+		if affected, ok := listenerAffected[egressListener]; ok {
+			return affected
+		}
+		affected := egressListenerAffectedByUpdates(egressListener, cfgs)
+		listenerAffected[egressListener] = affected
+		return affected
+	}
+
+	affected := sets.New[string]()
+	for routeName := range watched {
+		if routeAffectedByUpdates(node, routeName, isListenerAffected) {
+			affected.Insert(routeName)
+		}
+	}
+	return affected
+}
+
+// routeAffectedByUpdates reports whether the route config identified by routeName can be affected
+// by the config updates isListenerAffected was built from. Both the current and previous
+// SidecarScopes are checked: a deleted or retargeted config may be absent from the current scope
+// but still need to remove configuration Envoy has already received. When the current egress
+// listener backing routeName cannot be resolved, it conservatively reports the route as affected.
+func routeAffectedByUpdates(node *model.Proxy, routeName string, isListenerAffected func(*model.IstioEgressListenerWrapper) bool) bool {
+	listenerPort, _, _ := extractListenerPort(routeName)
+	egressListener := node.SidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
+	if egressListener == nil {
+		return true
+	}
+	if isListenerAffected(egressListener) {
+		return true
+	}
+	if node.PrevSidecarScope == nil {
+		return false
+	}
+	previousEgressListener := node.PrevSidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
+	return previousEgressListener != nil && isListenerAffected(previousEgressListener)
+}
+
+// egressListenerAffectedByUpdates reports whether egressListener's built content depends on any
+// of the given VirtualService updates, via an O(1) hash lookup per update using
+// IstioEgressListenerWrapper.DependsOnConfig.
+func egressListenerAffectedByUpdates(egressListener *model.IstioEgressListenerWrapper, updatedKeys sets.Set[model.ConfigKey]) bool {
+	for key := range updatedKeys {
+		if egressListener.DependsOnConfig(key) {
+			return true
+		}
+	}
+	return false
+}
+
+// affectedGatewayRouteNames returns the subset of watched gateway route names whose built content
+// can change because of the given VirtualService updates, for a Router (gateway) proxy. Route
+// names are keyed by the gateway(s) whose Servers are bound to that route
+// (node.MergedGateway.ServersByRouteName), mirroring how buildGatewayHTTPRouteConfig resolves a
+// route name to the VirtualServices it builds from.
+//
+// Whether each gateway is affected by cfgs is resolved once per gateway up front, since the same
+// handful of gateways typically back many routes -- re-running SidecarScope.GatewayVirtualServices
+// for every (route, config) pair would otherwise repeat the same lookup for every route a gateway
+// serves.
+func affectedGatewayRouteNames(node *model.Proxy, cfgs sets.Set[model.ConfigKey], watched sets.String) sets.String {
+	merged := node.MergedGateway
+	allGatewayNames := sets.New[string]()
+	for _, gatewayName := range merged.GatewayNameForServer {
+		allGatewayNames.Insert(gatewayName)
+	}
+	affectedGateways := sets.New[string]()
+	for gatewayName := range allGatewayNames {
+		for key := range cfgs {
+			if gatewayAffectedByConfig(node, gatewayName, key) {
+				affectedGateways.Insert(gatewayName)
+				break
+			}
+		}
+	}
+
+	affected := sets.New[string]()
+	for routeName := range watched {
+		servers, ok := merged.ServersByRouteName[routeName]
+		if !ok {
+			// The gateway(s) that used to serve this route may have just been removed or
+			// retargeted; we have no history to bound the impact (PrevMergedGateway does not
+			// track ServersByRouteName), so conservatively rebuild it. This matches
+			// buildGatewayHTTPRouteConfig's own fallback to an empty route in this situation.
+			affected.Insert(routeName)
+			continue
+		}
+		for _, server := range servers {
+			if affectedGateways.Contains(merged.GatewayNameForServer[server]) {
+				affected.Insert(routeName)
+				break
+			}
+		}
+	}
+	return affected
+}
+
+// gatewayAffectedByConfig reports whether the gateway identified by gatewayName (formatted
+// "namespace/name", matching MergedGateway.GatewayNameForServer) has a VirtualService bound to it
+// matching key. Both the current and previous SidecarScope are checked: a VirtualService that was
+// just removed or retargeted away from this gateway will no longer show up in the current scope,
+// but Envoy may still hold route content built from it, so the route still needs rebuilding to
+// drop the stale content.
+func gatewayAffectedByConfig(node *model.Proxy, gatewayName string, key model.ConfigKey) bool {
+	if gatewayVirtualServicesContain(node.SidecarScope, gatewayName, key) {
+		return true
+	}
+	return gatewayVirtualServicesContain(node.PrevSidecarScope, gatewayName, key)
+}
+
+// gatewayVirtualServicesContain reports whether scope's VirtualServices bound to gatewayName
+// include the config identified by key. scope may be nil (e.g. node.PrevSidecarScope before the
+// first push).
+func gatewayVirtualServicesContain(scope *model.SidecarScope, gatewayName string, key model.ConfigKey) bool {
+	if scope == nil {
+		return false
+	}
+	for _, vs := range scope.GatewayVirtualServices(gatewayName) {
+		if vs.Name == key.Name && vs.Namespace == key.Namespace {
+			return true
+		}
+	}
+	return false
 }
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
