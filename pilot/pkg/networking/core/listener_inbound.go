@@ -24,9 +24,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -53,7 +51,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -127,6 +124,22 @@ func (cc inboundChainConfig) Name(protocol istionetworking.ListenerProtocol) str
 	}
 	// Everything else derived from bind/port
 	return getListenerName(cc.bind, int(cc.port.TargetPort), istionetworking.TransportProtocolTCP)
+}
+
+// chainName names the chain for protocol. With the sidecar-ambient bridge enabled, main_internal
+// selects chains by name, so a sniffed port's HTTP chain cannot share the plain chain's name.
+func (cc inboundChainConfig) chainName(protocol istionetworking.ListenerProtocol) string {
+	name := cc.Name(protocol)
+	if cc.bridged() && protocol == istionetworking.ListenerProtocolHTTP {
+		name += "-http"
+	}
+	return name
+}
+
+// bridged reports whether this is a main_internal chain for one of the sidecar's ports and the
+// sidecar-ambient bridge is enabled, so the chain may receive tunnels addressed by service hostname.
+func (cc inboundChainConfig) bridged() bool {
+	return cc.hbone && !cc.passthrough && sidecarAmbientBridgeEnabled()
 }
 
 // ToFilterChainMatch builds the FilterChainMatch for the config
@@ -347,7 +360,7 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 				FilterChainMatch: cc.ToFilterChainMatch(opt),
 				Filters:          lb.buildInboundNetworkFiltersForHTTP(cc),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
-				Name:             cc.Name(opt.Protocol),
+				Name:             cc.chainName(opt.Protocol),
 			}
 
 		case istionetworking.ListenerProtocolTCP:
@@ -355,9 +368,15 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 				FilterChainMatch: cc.ToFilterChainMatch(opt),
 				Filters:          lb.buildInboundNetworkFilters(cc),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
-				Name:             cc.Name(opt.Protocol),
+				Name:             cc.chainName(opt.Protocol),
 			}
 
+		}
+		if cc.bridged() && len(lb.node.IPAddresses) > 0 {
+			// A tunnel addressed by service hostname restores no destination address, so the chain
+			// supplies the workload's own address for its port instead.
+			dst := net.JoinHostPort(lb.node.IPAddresses[0], strconv.Itoa(int(cc.port.TargetPort)))
+			filterChain.Filters = append([]*listener.Filter{xdsfilters.BuildSetDstAddressFilter(dst)}, filterChain.Filters...)
 		}
 		if cc.configMetadata != nil {
 			filterChain.Metadata = util.BuildConfigInfoMetadata(*cc.configMetadata)
@@ -943,14 +962,17 @@ func (c hboneChains) onMatch() *matcher.Matcher_OnMatch {
 //
 // An ambient client on another network reaches this workload through the ambient east-west
 // gateway, which forwards the inner tunnel unterminated. Its authority is the service hostname
-// rather than an address, since a pod address from another network means nothing here, so the
-// original destination cannot be restored from it. The matcher therefore first matches
-// <service hostname>:<port> for this workload's own services against the authority, and routes
-// to a copy of that port's chain that sets the original destination to the workload address.
+// rather than an address, since a pod address from another network means nothing here, so no
+// original destination can be restored from it. The matcher therefore first matches
+// <service hostname>:<port> for this workload's own services against the authority and routes to
+// that port's chain, which records the workload address as the destination (see inboundChainForOpts).
 // Everything else falls through to the same selection filter_chain_match did: destination IP
 // (this workload), destination port, then application protocol where the port is sniffed, with
 // the catch-all chains as the fallback.
 func (lb *ListenerBuilder) useHBONEFilterChainMatcher(l *listener.Listener) {
+	if len(lb.node.IPAddresses) == 0 {
+		return
+	}
 	byPort := map[uint32]*hboneChains{}
 	catchAll := &hboneChains{}
 	for _, c := range l.FilterChains {
@@ -968,12 +990,6 @@ func (lb *ListenerBuilder) useHBONEFilterChainMatcher(l *listener.Listener) {
 			chains.plain = c
 		}
 	}
-	// The matcher selects chains by name, which must be unique; sniffed ports share one.
-	for _, chains := range byPort {
-		if chains.plain != nil && chains.http != nil && chains.plain.Name == chains.http.Name {
-			chains.http.Name += "-http"
-		}
-	}
 
 	ports := match.NewDestinationPort()
 	for port, chains := range byPort {
@@ -987,30 +1003,16 @@ func (lb *ListenerBuilder) useHBONEFilterChainMatcher(l *listener.Listener) {
 	root := ips.BuildMatcher()
 
 	authorities := &matcher.Matcher_MatcherTree_MatchMap{Map: map[string]*matcher.Matcher_OnMatch{}}
-	byAuthority := map[uint32]*hboneChains{}
 	for _, st := range lb.node.ServiceTargets {
-		if st.Service == nil || st.Port.ServicePort == nil || len(lb.node.IPAddresses) == 0 {
+		if st.Service == nil || st.Port.ServicePort == nil {
 			continue
 		}
 		chains := byPort[st.Port.TargetPort]
 		if chains == nil {
 			continue
 		}
-		if byAuthority[st.Port.TargetPort] == nil {
-			dst := net.JoinHostPort(lb.node.IPAddresses[0], strconv.Itoa(int(st.Port.TargetPort)))
-			copied := &hboneChains{
-				plain: withOriginalDst(chains.plain, dst),
-				http:  withOriginalDst(chains.http, dst),
-			}
-			for _, c := range []*listener.FilterChain{copied.plain, copied.http} {
-				if c != nil {
-					l.FilterChains = append(l.FilterChains, c)
-				}
-			}
-			byAuthority[st.Port.TargetPort] = copied
-		}
 		authority := net.JoinHostPort(string(st.Service.Hostname), strconv.Itoa(st.Port.ServicePort.Port))
-		authorities.Map[authority] = byAuthority[st.Port.TargetPort].onMatch()
+		authorities.Map[authority] = chains.onMatch()
 	}
 	if len(authorities.Map) > 0 {
 		root = &matcher.Matcher{
@@ -1026,29 +1028,4 @@ func (lb *ListenerBuilder) useHBONEFilterChainMatcher(l *listener.Listener) {
 		c.FilterChainMatch = nil
 	}
 	l.FilterChainMatcher = root
-}
-
-// withOriginalDst returns a copy of chain, named for the authority branch, that first sets the
-// original destination its upstream connection goes to.
-func withOriginalDst(chain *listener.FilterChain, dst string) *listener.FilterChain {
-	if chain == nil {
-		return nil
-	}
-	c := protomarshal.Clone(chain)
-	c.Name += "-authority"
-	setDst := &listener.Filter{
-		Name: "set_dst_address",
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&sfsnetwork.Config{
-			OnNewConnection: []*sfsvalue.FilterStateValue{{
-				Key: &sfsvalue.FilterStateValue_ObjectKey{ObjectKey: "envoy.network.transport_socket.original_dst_address"},
-				Value: &sfsvalue.FilterStateValue_FormatString{FormatString: &core.SubstitutionFormatString{
-					Format: &core.SubstitutionFormatString_TextFormatSource{
-						TextFormatSource: &core.DataSource{Specifier: &core.DataSource_InlineString{InlineString: dst}},
-					},
-				}},
-			}},
-		})},
-	}
-	c.Filters = append([]*listener.Filter{setDst}, c.Filters...)
-	return c
 }

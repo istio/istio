@@ -29,9 +29,9 @@ import (
 
 // A cross-network inner tunnel forwarded by the ambient east-west gateway carries the service
 // hostname as its CONNECT authority. With the bridge enabled, the sidecar's main_internal must use
-// a matcher that routes <hostname>:<port> to a copy of that port's chain which sets the original
-// destination, while keeping address-based selection for everything else. With the bridge
-// disabled main_internal keeps filter_chain_match.
+// a matcher that routes <hostname>:<port> to that port's chain, which records the workload address
+// as the destination, while keeping address-based selection for everything else. With the bridge
+// disabled main_internal keeps filter_chain_match and its chains are unchanged.
 func TestSidecarHBONEServiceAddressedConnect(t *testing.T) {
 	test.SetForTest(t, &features.EnableSidecarHBONEListening, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
@@ -72,6 +72,12 @@ func TestSidecarHBONEServiceAddressedConnect(t *testing.T) {
 				if internal.FilterChainMatcher != nil {
 					t.Fatalf("main_internal should keep filter_chain_match when the bridge is disabled")
 				}
+				for _, c := range internal.FilterChains {
+					renamed := c.Name != model.VirtualInboundCatchAllHTTPFilterChainName && strings.HasSuffix(c.Name, "-http")
+					if renamed || c.Filters[0].Name == "set_dst_address" {
+						t.Errorf("chain %s should be unchanged when the bridge is disabled", c.Name)
+					}
+				}
 				return
 			}
 
@@ -103,22 +109,22 @@ func TestSidecarHBONEServiceAddressedConnect(t *testing.T) {
 				chains[c.Name] = c
 			}
 			for name, dst := range map[string]string{
-				"0.0.0.0_8080-authority":      "1.1.1.1:8080",
-				"0.0.0.0_7070-authority":      "1.1.1.1:7070",
-				"0.0.0.0_7070-http-authority": "1.1.1.1:7070",
+				"0.0.0.0_8080-http": "1.1.1.1:8080",
+				"0.0.0.0_7070":      "1.1.1.1:7070",
+				"0.0.0.0_7070-http": "1.1.1.1:7070",
 			} {
 				c := chains[name]
 				if c == nil {
-					t.Errorf("missing authority chain %s; have %v", name, sets.SortedList(names))
+					t.Errorf("missing chain %s; have %v", name, sets.SortedList(names))
 					continue
 				}
 				if c.Filters[0].Name != "set_dst_address" || !strings.Contains(c.Filters[0].String(), dst) {
-					t.Errorf("chain %s should first set the original destination to %s", name, dst)
+					t.Errorf("chain %s should first record %s as the destination", name, dst)
 				}
 			}
-			for _, name := range []string{"0.0.0.0_8080", "0.0.0.0_7070", "0.0.0.0_7070-http"} {
+			for _, name := range []string{model.VirtualInboundListenerName, model.VirtualInboundCatchAllHTTPFilterChainName} {
 				if c := chains[name]; c == nil || c.Filters[0].Name == "set_dst_address" {
-					t.Errorf("address-selected chain %s should exist unchanged", name)
+					t.Errorf("catch-all chain %s should exist and not record a destination", name)
 				}
 			}
 		})

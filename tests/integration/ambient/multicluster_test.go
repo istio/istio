@@ -31,7 +31,6 @@ import (
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube/inject"
@@ -1137,15 +1136,17 @@ func eastWestGatewayUpstreamConnections(t framework.TestContext, c cluster.Clust
 }
 
 // TestMultinetworkCrossMode covers cross-cluster calls where the two ends run different data
-// planes. Sidecar and ambient workloads are reached through different east-west gateways - TLS
-// passthrough on :15443 versus HBONE on :15008 - and neither gateway serves the other mode, so
-// without the bridge these calls have no path at all.
+// planes. An ambient client reaches a remote workload through the ambient east-west gateway as an
+// HBONE tunnel addressed by service hostname, which a sidecar only accepts with the bridge enabled.
+// The same gateway serving sidecar mTLS passthrough on :15443 does not change that: it carries
+// sidecar clients, not ambient ones.
 //
-// Each backend is deployed in the remote cluster only, so a reply can only come from across the
-// network; the explicit cluster assertion then pins down which pod actually answered. That matters
-// because ztunnel load balances per TCP connection rather than per request, so a keep-alive client
-// talking to a service that also has a local backend can stay pinned to it and report success
-// without ever exercising the cross-cluster path.
+// Each backend service is defined in both clusters, as an ambient client only reaches a global
+// service that also exists on its own network, but has pods in the remote cluster only, so a reply
+// can only come from across the network; the explicit cluster assertion then pins down which pod
+// actually answered. That matters because ztunnel load balances per TCP connection rather than per
+// request, so a keep-alive client talking to a service that also has a local backend can stay
+// pinned to it and report success without ever exercising the cross-cluster path.
 func TestMultinetworkCrossMode(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
@@ -1183,61 +1184,39 @@ func TestMultinetworkCrossMode(t *testing.T) {
 		})
 
 		const (
-			ambientBackend = "ambient-backend"
 			sidecarBackend = "sidecar-backend"
 			ambientClient  = "ambient-client"
-			sidecarClient  = "sidecar-client"
 		)
 		globalService := map[string]string{"istio.io/global": "true"}
-
-		echos := deployment.New(t).
-			// Backends live only in the remote cluster, so any successful call crossed the network.
-			WithConfig(echo.Config{
-				Service:       ambientBackend,
-				Namespace:     ambientNS,
-				Cluster:       remote,
-				Ports:         ports.All(),
-				ServiceLabels: globalService,
-				Subsets:       []echo.SubsetConfig{{Version: ambientBackend, Replicas: 1}},
-			}).
-			WithConfig(echo.Config{
-				Service:       sidecarBackend,
-				Namespace:     sidecarNS,
-				Cluster:       remote,
-				Ports:         ports.All(),
-				ServiceLabels: globalService,
-				Subsets: []echo.SubsetConfig{{
-					Version:  sidecarBackend,
-					Replicas: 1,
-					// An ambient client reaches this pod over HBONE, which the sidecar only
-					// accepts when it advertises the tunnel it supports.
-					Labels: map[string]string{model.TunnelLabel: model.TunnelHTTP},
-				}},
-			}).
-			WithConfig(echo.Config{
-				Service:   sidecarClient,
-				Namespace: sidecarNS,
-				Cluster:   local,
-				Ports:     ports.All(),
-				Subsets:   []echo.SubsetConfig{{Version: sidecarClient, Replicas: 1}},
-			}).
-			WithConfig(echo.Config{
-				Service:   ambientClient,
-				Namespace: ambientNS,
-				Cluster:   local,
-				Ports:     ports.All(),
-				Subsets:   []echo.SubsetConfig{{Version: ambientClient, Replicas: 1}},
-			}).
-			BuildOrFail(t)
-
-		instances := func(name string, ns namespace.Instance) echo.Instances {
-			t.Helper()
-			got := match.ServiceName(echo.NamespacedName{Name: name, Namespace: ns}).GetMatches(echos)
-			if len(got) == 0 {
-				t.Fatalf("no instances of %s found in namespace %s", name, ns.Name())
-			}
-			return got
+		sidecarLabels := map[string]string{
+			"sidecar.istio.io/inject":       "true",
+			label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 		}
+
+		workloads := deployWorkloadsOrFail(t, []workload{
+			{
+				serviceName:   sidecarBackend,
+				cluster:       local,
+				namespace:     sidecarNS,
+				replicas:      0,
+				serviceLabels: globalService,
+				subsetLabels:  sidecarLabels,
+			},
+			{
+				serviceName:   sidecarBackend,
+				cluster:       remote,
+				namespace:     sidecarNS,
+				replicas:      1,
+				serviceLabels: globalService,
+				subsetLabels:  sidecarLabels,
+			},
+			{
+				serviceName: ambientClient,
+				cluster:     local,
+				namespace:   ambientNS,
+				replicas:    1,
+			},
+		})
 
 		cases := []struct {
 			name      string
@@ -1245,11 +1224,18 @@ func TestMultinetworkCrossMode(t *testing.T) {
 			toService string
 			toNS      namespace.Instance
 		}{
-			{"ambient-to-remote-sidecar", instances(ambientClient, ambientNS), sidecarBackend, sidecarNS},
+			{
+				"ambient-to-remote-sidecar",
+				match.ServiceName(echo.NamespacedName{Name: ambientClient, Namespace: ambientNS}).GetMatches(workloads),
+				sidecarBackend, sidecarNS,
+			},
 		}
 
 		for _, tc := range cases {
 			t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+				if len(tc.from) == 0 {
+					t.Fatalf("no instances of %s found", tc.name)
+				}
 				for _, src := range tc.from {
 					src.CallOrFail(t, echo.CallOptions{
 						Address: fmt.Sprintf("%s.%s.svc.cluster.local", tc.toService, tc.toNS.Name()),
