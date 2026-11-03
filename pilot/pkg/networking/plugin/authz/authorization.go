@@ -46,14 +46,6 @@ type Builder struct {
 	httpFilters []*hcm.HttpFilter
 	tcpFilters  []*listener.Filter
 	builder     *builder.Builder
-
-	useFilterState bool
-}
-
-// UseFilterState reports whether the builder reads the downstream peer from filter state, which is only valid on
-// Envoy internal listeners.
-func (b *Builder) UseFilterState() bool {
-	return b != nil && b.useFilterState
 }
 
 func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy, useFilterState bool) *Builder {
@@ -92,7 +84,7 @@ func newBuilder(
 	}
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	b := builder.New(tdBundle, push, policies, option)
-	return &Builder{builder: b, useFilterState: useFilterState}
+	return &Builder{builder: b}
 }
 
 func (b *Builder) BuildTCPRulesAsHTTPFilter() []*hcm.HttpFilter {
