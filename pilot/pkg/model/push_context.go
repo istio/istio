@@ -260,6 +260,9 @@ type PushContext struct {
 	// PushVersion describes the push version this push context was computed for
 	PushVersion string
 
+	// seq orders push contexts by creation; see latestPushContext.
+	seq uint64
+
 	// JwtKeyResolver holds a reference to the JWT key resolver instance.
 	JwtKeyResolver *JwksResolver
 
@@ -516,10 +519,8 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	// If either is forced we need a forced push
 	pr.Forced = pr.Forced || other.Forced
 
-	// The other push context is presumed to be later and more up to date
-	if other.Push != nil {
-		pr.Push = other.Push
-	}
+	// Keep the most recent push context
+	pr.Push = latestPushContext(pr.Push, other.Push)
 
 	if pr.ConfigsUpdated == nil {
 		pr.ConfigsUpdated = other.ConfigsUpdated
@@ -566,8 +567,8 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 		// If either is forced we need a forced push
 		Forced: pr.Forced || other.Forced,
 
-		// The other push context is presumed to be later and more up to date
-		Push: other.Push,
+		// Keep the most recent push context
+		Push: latestPushContext(pr.Push, other.Push),
 
 		// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
 		Reason: reason,
@@ -743,9 +744,24 @@ var (
 	}
 )
 
+// pushContextSeq is incremented for every PushContext created by NewPushContext.
+var pushContextSeq atomic.Uint64
+
+// latestPushContext returns the more recently created of a and b, preferring b if neither is newer.
+// Push requests may be merged out of order: an un-debounced EDS push can read the global push context
+// just before a full push replaces it, and be enqueued after it. Taking the later-enqueued context would
+// then regress the proxy to a push context older than the configs the merged request carries.
+func latestPushContext(a, b *PushContext) *PushContext {
+	if a == nil || (b != nil && b.seq >= a.seq) {
+		return b
+	}
+	return a
+}
+
 // NewPushContext creates a new PushContext structure to track push status.
 func NewPushContext() *PushContext {
 	return &PushContext{
+		seq:                     pushContextSeq.Inc(),
 		ServiceIndex:            newServiceIndex(),
 		virtualServiceIndex:     newVirtualServiceIndex(),
 		destinationRuleIndex:    newDestinationRuleIndex(),
