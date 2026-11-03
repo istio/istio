@@ -65,6 +65,10 @@ var (
 	EnableAmbientMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK", false, false,
 		"If true, the multi-network functionality will be enabled.")
 
+	EnableWaypointRDS = registerAmbient("PILOT_ENABLE_WAYPOINT_RDS", false, false,
+		"If true, waypoints serve per-service HTTP route tables over RDS instead of inlining them in the listener, "+
+			"so VirtualService/HTTPRoute changes do not drain existing connections.")
+
 	EnableAmbientBaggage = registerAmbient("AMBIENT_ENABLE_BAGGAGE", false, false,
 		"If true, enables waypoints to use baggage header to discover and propagate peer metadata for metrics.")
 

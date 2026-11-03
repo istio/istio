@@ -72,6 +72,11 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 			networking.EnvoyFilter_HTTP_ROUTE,
 		)
 		for _, routeName := range routeNames {
+			if rc := configgen.buildWaypointRouteResource(node, req.Push, routeName); rc != nil {
+				miss++
+				routeConfigurations = append(routeConfigurations, rc)
+				continue
+			}
 			rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(node, req, routeName, vHostCache, efw, envoyfilterKeys)
 			if cached && !features.EnableUnsafeAssertions {
 				hit++

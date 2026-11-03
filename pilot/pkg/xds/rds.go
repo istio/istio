@@ -82,7 +82,8 @@ func RdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		if config.Kind == kind.AuthorizationPolicy && proxy.Type == model.Router &&
 			features.EnableGatewayAPIHTTPRouteAuth {
 			// An AuthorizationPolicy can target an HTTPRoute, attaching RBAC config to individual
-			// routes, so RDS must be regenerated. Waypoints carry routes inline in LDS.
+			// routes, so RDS must be regenerated. Waypoint route tables do not carry per-route RBAC
+			// (inline, or over RDS with PILOT_ENABLE_WAYPOINT_RDS), so no RDS push is needed for them.
 			//
 			// This cannot be narrowed to "a route-targeted policy exists": deleting the last one
 			// must also regenerate RDS, and by then it is gone from the new PushContext.
