@@ -172,9 +172,9 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 
 	// Only pass service for DYNAMIC_DNS wildcard services that need SNI DFP filtering
 	if service != nil && service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
-		return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, service)
+		return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, service, false)
 	}
-	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil)
+	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil, false)
 }
 
 func (lb *ListenerBuilder) buildCompleteNetworkFilters(
@@ -183,12 +183,13 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	networkFilterStack []*listener.Filter,
 	includeMx bool,
 	policySvc *model.Service,
+	useFilterState bool,
 ) []*listener.Filter {
 	authzCustomBuilder := lb.authzCustomBuilder
 	authzBuilder := lb.authzBuilder
 	if policySvc != nil {
-		// Read the peer the same way as the listener-wide builders, which know whether this is an internal listener.
-		useFilterState := authzBuilder.UseFilterState()
+		// Service-scoped policy must use the address source of this listener, not the proxy type or a cached
+		// listener-wide builder. HBONE internal listeners read their peer from filter state.
 		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, useFilterState, policySvc)
 		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, useFilterState, policySvc)
 	}
@@ -277,7 +278,7 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithWeightedClusters(route
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class, nil)
 	networkFilterStack := buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)
 
-	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil)
+	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil, false)
 }
 
 func maybeSetHashPolicy(destinationRule *networking.DestinationRule, tcpProxy *tcp.TcpProxy, subsetName string) {
