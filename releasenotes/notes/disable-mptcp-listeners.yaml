@@ -3,4 +3,4 @@ kind: feature
 area: traffic-management
 releaseNotes:
 - |
-  **Changed** Istio Go components (istiod, pilot-agent, istioctl, istio-cni) to no longer accept Multipath TCP (MPTCP) connections, which Go 1.24 enabled by default on listeners. Istio does not use MPTCP and clients fall back to TCP. This is not a mitigation for kernel TCP stack vulnerabilities; update the node kernel for those. Set `GODEBUG=multipathtcp=2` to restore the previous behavior.
+  **Removed** Multipath TCP (MPTCP) support from Istio Go component listeners (istiod, pilot-agent, istioctl, istio-cni), which Go 1.24 enabled by default. Istio does not use MPTCP and clients fall back to TCP. This is not a mitigation for kernel TCP stack vulnerabilities; update the node kernel for those. Set `GODEBUG=multipathtcp=2` to restore the previous behavior.
