@@ -26,10 +26,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -284,7 +284,7 @@ func translateBackendTLSPolicy(
 			Name:  gatewayv1.ObjectName(gw.Name),
 		}
 		ancestorStatuses = append(ancestorStatuses, btlsSetAncestorStatus(
-			pr, btls.Generation, conds, gatewayv1.GatewayController(inputs.ControllerName),
+			pr, status, btls.Generation, conds, gatewayv1.GatewayController(inputs.ControllerName),
 		))
 	}
 	status.Ancestors = btlsMergeAncestors(inputs.ControllerName, status.Ancestors, ancestorStatuses)
@@ -408,39 +408,31 @@ func btlsTargetEqual(a, b gatewayv1.LocalPolicyTargetReferenceWithSectionName) b
 }
 
 // btlsSetAncestorStatus builds a PolicyAncestorStatus for a given gateway.
+// Existing conditions are only updated when they change, so LastTransitionTime is stable and we do not
+// produce a new status (and status write) on every recompute.
 func btlsSetAncestorStatus(
 	pr gatewayv1.ParentReference,
+	status *gatewayv1.PolicyStatus,
 	generation int64,
 	conds map[string]*Condition,
 	controller gatewayv1.GatewayController,
 ) gatewayv1.PolicyAncestorStatus {
-	conditions := make([]metav1.Condition, 0, len(conds))
-	for _, k := range slices.Sort(maps.Keys(conds)) {
-		c := conds[k]
-		if c.error != nil {
-			conditions = append(conditions, metav1.Condition{
-				Type:               k,
-				Status:             metav1.ConditionFalse,
-				ObservedGeneration: generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             c.error.Reason,
-				Message:            c.error.Message,
-			})
-		} else {
-			conditions = append(conditions, metav1.Condition{
-				Type:               k,
-				Status:             metav1.ConditionTrue,
-				ObservedGeneration: generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             c.reason,
-				Message:            c.message,
-			})
-		}
+	var currentConds []metav1.Condition
+	if current := slices.FindFunc(status.Ancestors, func(ex gatewayv1.PolicyAncestorStatus) bool {
+		return ex.ControllerName == controller &&
+			ptr.Equal(ex.AncestorRef.Group, pr.Group) &&
+			ptr.Equal(ex.AncestorRef.Kind, pr.Kind) &&
+			ex.AncestorRef.Name == pr.Name &&
+			ptr.Equal(ex.AncestorRef.Namespace, pr.Namespace) &&
+			ptr.Equal(ex.AncestorRef.SectionName, pr.SectionName) &&
+			ptr.Equal(ex.AncestorRef.Port, pr.Port)
+	}); current != nil {
+		currentConds = current.Conditions
 	}
 	return gatewayv1.PolicyAncestorStatus{
 		AncestorRef:    pr,
 		ControllerName: controller,
-		Conditions:     conditions,
+		Conditions:     gatewaycommon.SetResourceConditions(generation, currentConds, toSharedConditions(conds)),
 	}
 }
 

@@ -130,6 +130,10 @@ func NewCredentialsController(kc kube.Client, handlers []func(typ kind.Kind, nam
 }
 
 func (s *CredentialsController) Close() {
+	// A nil controller is stored for remote clusters when the remote credentials controller is disabled.
+	if s == nil {
+		return
+	}
 	s.secrets.ShutdownHandlers()
 	if s.configMaps != nil {
 		s.configMaps.ShutdownHandlers()
@@ -137,6 +141,10 @@ func (s *CredentialsController) Close() {
 }
 
 func (s *CredentialsController) HasSynced() bool {
+	// A disabled (nil) controller has nothing to sync.
+	if s == nil {
+		return true
+	}
 	synced := s.secrets.HasSynced()
 	if s.configMaps != nil {
 		synced = synced && s.configMaps.HasSynced()

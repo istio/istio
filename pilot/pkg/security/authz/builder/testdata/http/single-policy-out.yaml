@@ -25,10 +25,12 @@ typedConfig:
                     name: :method
                     stringMatch:
                       exact: rule[0]-to[0]-method[1]
+                      ignoreCase: true
                 - header:
                     name: :method
                     stringMatch:
                       exact: rule[0]-to[0]-method[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - urlPath:
@@ -69,10 +71,12 @@ typedConfig:
                     name: :method
                     stringMatch:
                       exact: rule[0]-to[1]-method[1]
+                      ignoreCase: true
                 - header:
                     name: :method
                     stringMatch:
                       exact: rule[0]-to[1]-method[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - urlPath:
@@ -311,10 +315,12 @@ typedConfig:
                     name: :method
                     stringMatch:
                       exact: rule[1]-to[0]-method[1]
+                      ignoreCase: true
                 - header:
                     name: :method
                     stringMatch:
                       exact: rule[1]-to[0]-method[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - urlPath:
@@ -347,10 +353,12 @@ typedConfig:
                     name: :method
                     stringMatch:
                       exact: rule[1]-to[1]-method[1]
+                      ignoreCase: true
                 - header:
                     name: :method
                     stringMatch:
                       exact: rule[1]-to[1]-method[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - urlPath:

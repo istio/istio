@@ -110,7 +110,7 @@ func TestPerRouteBuilderBuild(t *testing.T) {
 				httpRoutePolicy(t, "deny", "foo", authpb.AuthorizationPolicy_DENY),
 			},
 			origin:    types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"},
-			wantNames: []string{builder.RBACFilterNameAllow, builder.RBACRouteAnchorNameDeny},
+			wantNames: []string{builder.RBACFilterNameAllow, builder.RBACFilterNameRouteDeny},
 		},
 		{
 			name:    "policy targeting a different route is not applied",
@@ -195,7 +195,7 @@ func workloadPolicy(name, ns string, action authpb.AuthorizationPolicy_Action) m
 	}
 }
 
-func anchorRBAC(t *testing.T, f *hcm.HttpFilter) *rbachttp.RBAC {
+func httpRBAC(t *testing.T, f *hcm.HttpFilter) *rbachttp.RBAC {
 	t.Helper()
 	got := &rbachttp.RBAC{}
 	if err := f.GetTypedConfig().UnmarshalTo(got); err != nil {
@@ -204,84 +204,143 @@ func anchorRBAC(t *testing.T, f *hcm.HttpFilter) *rbachttp.RBAC {
 	return got
 }
 
-// Anchors exist only for gateways with the flag on, and enforce nothing until a route
-// overrides them.
-func TestRouteAnchorFilters(t *testing.T) {
+func TestPartitionRouteOverridableRBACFilters(t *testing.T) {
 	router := &model.Proxy{Type: model.Router}
-	allowFilter := []*hcm.HttpFilter{{Name: builder.RBACFilterNameAllow}}
+	policies := model.AuthorizationPoliciesResult{
+		Audit: []model.AuthorizationPolicy{workloadPolicy("audit", "foo", authpb.AuthorizationPolicy_AUDIT)},
+		Deny:  []model.AuthorizationPolicy{workloadPolicy("deny", "foo", authpb.AuthorizationPolicy_DENY)},
+		Allow: []model.AuthorizationPolicy{workloadPolicy("allow", "foo", authpb.AuthorizationPolicy_ALLOW)},
+	}
+	tdBundle := trustdomain.NewBundle("cluster.local", nil)
+	namedFilters := builder.New(tdBundle, nil, policies, builder.Option{NamedAllowFilter: true}).BuildHTTP()
+	ordinaryFilters := builder.New(tdBundle, nil, policies, builder.Option{}).BuildHTTP()
+	workloadFilters := namedFilters[:2]
+	allowFilter := namedFilters[2]
 	cases := []struct {
-		name    string
-		enabled bool
-		proxy   *model.Proxy
-		class   networking.ListenerClass
-		built   []*hcm.HttpFilter
-		want    []string
+		name                 string
+		enabled              bool
+		proxy                *model.Proxy
+		class                networking.ListenerClass
+		built                []*hcm.HttpFilter
+		wantWorkload         []*hcm.HttpFilter
+		wantRouteOverridable []string
+		wantReusedAllow      bool
 	}{
 		{
-			name:  "flag off emits nothing",
+			name:  "flag off with no workload policies",
 			proxy: router,
 			class: networking.ListenerClassGateway,
-			want:  nil,
 		},
 		{
-			name:    "gateway with no allow policy gets both anchors",
-			enabled: true,
-			proxy:   router,
-			class:   networking.ListenerClassGateway,
-			want:    []string{builder.RBACRouteAnchorNameDeny, builder.RBACFilterNameAllow},
+			name:         "flag off preserves workload filters",
+			proxy:        router,
+			class:        networking.ListenerClassGateway,
+			built:        ordinaryFilters,
+			wantWorkload: ordinaryFilters,
 		},
 		{
-			// The workload's own ALLOW policy already produced the filter that route ALLOW
-			// policies merge into, so a second instance would split them across two filters
-			// and make them intersect rather than union.
-			name:    "gateway with an allow policy gets only the deny anchor",
-			enabled: true,
-			proxy:   router,
-			class:   networking.ListenerClassGateway,
-			built:   allowFilter,
-			want:    []string{builder.RBACRouteAnchorNameDeny},
+			name:                 "gateway with no workload policies gets empty deny then allow",
+			enabled:              true,
+			proxy:                router,
+			class:                networking.ListenerClassGateway,
+			wantRouteOverridable: []string{builder.RBACFilterNameRouteDeny, builder.RBACFilterNameAllow},
 		},
 		{
-			name:    "sidecar gets nothing",
+			name:                 "gateway without allow preserves audit and deny",
+			enabled:              true,
+			proxy:                router,
+			class:                networking.ListenerClassGateway,
+			built:                workloadFilters,
+			wantWorkload:         workloadFilters,
+			wantRouteOverridable: []string{builder.RBACFilterNameRouteDeny, builder.RBACFilterNameAllow},
+		},
+		{
+			name:                 "gateway reuses allow before empty route deny",
+			enabled:              true,
+			proxy:                router,
+			class:                networking.ListenerClassGateway,
+			built:                namedFilters,
+			wantWorkload:         workloadFilters,
+			wantRouteOverridable: []string{builder.RBACFilterNameAllow, builder.RBACFilterNameRouteDeny},
+			wantReusedAllow:      true,
+		},
+		{
+			name:                 "gateway with only allow gets no workload-only filters",
+			enabled:              true,
+			proxy:                router,
+			class:                networking.ListenerClassGateway,
+			built:                []*hcm.HttpFilter{allowFilter},
+			wantRouteOverridable: []string{builder.RBACFilterNameAllow, builder.RBACFilterNameRouteDeny},
+			wantReusedAllow:      true,
+		},
+		{
+			name:         "nil proxy preserves workload filters",
+			enabled:      true,
+			class:        networking.ListenerClassGateway,
+			built:        ordinaryFilters,
+			wantWorkload: ordinaryFilters,
+		},
+		{
+			name:    "sidecar with no workload policies gets no filters",
 			enabled: true,
 			proxy:   &model.Proxy{Type: model.SidecarProxy},
 			class:   networking.ListenerClassSidecarInbound,
-			want:    nil,
 		},
 		{
-			name:    "waypoint gets nothing yet",
-			enabled: true,
-			proxy:   &model.Proxy{Type: model.Waypoint},
-			class:   networking.ListenerClassSidecarInbound,
-			want:    nil,
+			name:         "sidecar preserves workload filters",
+			enabled:      true,
+			proxy:        &model.Proxy{Type: model.SidecarProxy},
+			class:        networking.ListenerClassSidecarInbound,
+			built:        ordinaryFilters,
+			wantWorkload: ordinaryFilters,
 		},
 		{
-			name:    "outbound gets nothing",
+			name:         "waypoint preserves workload filters",
+			enabled:      true,
+			proxy:        &model.Proxy{Type: model.Waypoint},
+			class:        networking.ListenerClassSidecarInbound,
+			built:        ordinaryFilters,
+			wantWorkload: ordinaryFilters,
+		},
+		{
+			name:    "outbound gets no additional filters",
 			enabled: true,
 			proxy:   router,
 			class:   networking.ListenerClassSidecarOutbound,
-			want:    nil,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, tc.enabled)
-			filters := RouteAnchorFilters(tc.proxy, tc.class, tc.built)
+			workload, filters := PartitionRouteOverridableRBACFilters(tc.proxy, tc.class, tc.built)
+			if !slices.Equal(workload, tc.wantWorkload) {
+				t.Fatalf("got workload filters %v, want %v", workload, tc.wantWorkload)
+			}
 			got := make([]string, 0, len(filters))
 			for _, f := range filters {
 				got = append(got, f.Name)
 			}
-			if !slices.Equal(got, tc.want) {
-				t.Fatalf("got anchors %v, want %v", got, tc.want)
+			if !slices.Equal(got, tc.wantRouteOverridable) {
+				t.Fatalf("got route-overridable filters %v, want %v", got, tc.wantRouteOverridable)
+			}
+			if tc.wantReusedAllow && filters[0] != allowFilter {
+				t.Fatal("workload ALLOW filter was replaced instead of reused")
 			}
 			for _, f := range filters {
-				rbac := anchorRBAC(t, f)
+				if f == allowFilter {
+					rules := httpRBAC(t, f).GetRules()
+					if rules.GetAction() != rbacpb.RBAC_ALLOW || len(rules.GetPolicies()) != 1 {
+						t.Fatal("workload ALLOW filter lost its rules")
+					}
+					continue
+				}
+				rbac := httpRBAC(t, f)
 				if rbac.GetRules() != nil {
-					t.Errorf("anchor %q carries rules %v; anchors must not enforce anything", f.Name, rbac.GetRules())
+					t.Errorf("empty filter %q carries rules %v; it must not enforce anything", f.Name, rbac.GetRules())
 				}
 				if rbac.GetShadowRules() != nil {
-					t.Errorf("anchor %q carries shadow rules; anchors must be inert", f.Name)
+					t.Errorf("empty filter %q carries shadow rules; it must be inert", f.Name)
 				}
 			}
 		})
@@ -317,7 +376,7 @@ func TestRouteOverrideRelationshipToWorkloadFilters(t *testing.T) {
 	// name -> the actions the filter instance under that name enforces.
 	byName := map[string]sets.Set[rbacpb.RBAC_Action]{}
 	for _, f := range workloadFilters {
-		action := anchorRBAC(t, f).GetRules().GetAction()
+		action := httpRBAC(t, f).GetRules().GetAction()
 		if byName[f.Name] == nil {
 			byName[f.Name] = sets.New[rbacpb.RBAC_Action]()
 		}
@@ -334,9 +393,9 @@ func TestRouteOverrideRelationshipToWorkloadFilters(t *testing.T) {
 		t.Fatalf("got %d per-route overrides %v, want one per action", len(overrides), keys(overrides))
 	}
 
-	// The DENY override rides its own anchor. If its key named a filter carrying workload DENY or
+	// The DENY override uses its own filter. If its key named a filter carrying workload DENY or
 	// AUDIT, a route could replace that config and drop a mandatory policy.
-	denyKey := builder.RBACRouteAnchorNameDeny
+	denyKey := builder.RBACFilterNameRouteDeny
 	if actions, ok := byName[denyKey]; ok {
 		t.Errorf("deny override key %q also names a workload filter enforcing %v; a route could "+
 			"replace workload or root-namespace DENY", denyKey, actions.UnsortedList())
@@ -368,7 +427,7 @@ func TestRouteOverrideRelationshipToWorkloadFilters(t *testing.T) {
 	// AUDIT and DENY keep the well-known name, which istioctl and the ext_authz metadata
 	// namespacing depend on.
 	for _, f := range workloadFilters {
-		action := anchorRBAC(t, f).GetRules().GetAction()
+		action := httpRBAC(t, f).GetRules().GetAction()
 		if action == rbacpb.RBAC_ALLOW {
 			continue
 		}
@@ -460,7 +519,7 @@ func policyNames(rbac *rbacpb.RBAC) []string {
 // root-namespace and workload-namespace ALLOW policies already combine. Both have to land in a
 // single filter's policy map to union, because separate ALLOW filters intersect.
 //
-// DENY is the opposite: it stays route-only, because it rides a separate anchor filter that
+// DENY is the opposite: it stays route-only, because it uses a separate RBAC filter that
 // chains after the workload DENY filter, and chained DENY filters already union.
 func TestRouteAllowUnionsWithWorkloadAllowButDenyStaysRouteOnly(t *testing.T) {
 	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
@@ -483,7 +542,7 @@ func TestRouteAllowUnionsWithWorkloadAllowButDenyStaysRouteOnly(t *testing.T) {
 		}
 	}
 
-	deny := policyNames(perRouteRBAC(t, got, builder.RBACRouteAnchorNameDeny))
+	deny := policyNames(perRouteRBAC(t, got, builder.RBACFilterNameRouteDeny))
 	if len(deny) != 1 {
 		t.Fatalf("deny override has %d policies %v, want only the route policy", len(deny), deny)
 	}
@@ -518,7 +577,7 @@ func TestRouteDenyOnlyLeavesAllowFilterAlone(t *testing.T) {
 	if _, ok := got[builder.RBACFilterNameAllow]; ok {
 		t.Fatalf("deny-only route overrode the allow filter: %v", keys(got))
 	}
-	if _, ok := got[builder.RBACRouteAnchorNameDeny]; !ok {
+	if _, ok := got[builder.RBACFilterNameRouteDeny]; !ok {
 		t.Fatalf("deny-only route produced no deny override: %v", keys(got))
 	}
 }

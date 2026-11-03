@@ -350,7 +350,7 @@ func BackendResourcePolicyCollection(
 					Source:       self,
 					Target:       self,
 					Host:         string(i.Spec.ExternalHostname.Hostname),
-					Port:         new(uint32(i.Spec.Port.Port)),
+					Port:         new(uint32(i.Spec.Port.Number)),
 					TLS:          tls,
 					CreationTime: i.CreationTimestamp.Time,
 				})
@@ -398,7 +398,7 @@ func backendResourceTLSSettings(
 		return nil
 	}
 
-	validation := i.Spec.TLS.Validation
+	validation := ptr.OrEmpty(i.Spec.TLS.Validation)
 	mode := networking.ClientTLSSettings_SIMPLE
 
 	switch i.Spec.TLS.Mode {
@@ -786,6 +786,7 @@ func BackendTrafficPolicyCollection(
 		var unsupported []string
 		// TODO(https://github.com/istio/istio/issues/55839): implement i.Spec.SessionPersistence.
 		// This will need to map into a StatefulSession filter which Istio doesn't currently support on DestinationRule
+		//nolint:staticcheck // SA1019: deprecated, but users can still set it, so we must report it as unsupported
 		if i.Spec.SessionPersistence != nil {
 			unsupported = append(unsupported, "sessionPersistence")
 		}
@@ -947,6 +948,27 @@ func mergeAncestors(existing []gw.PolicyAncestorStatus, incoming []gw.PolicyAnce
 	existing = append(existing, incoming...)
 	// There is a max of 16
 	return existing[:min(len(existing), 16)]
+}
+
+// mergeLivePolicyStatus is applied when writing status. The desired status was computed from a snapshot of the object,
+// so entries owned by other controllers (such as agentgateway) in it may be stale by the time it is written. Take only
+// our own entries from the desired status and merge them onto the live status, so we never write back another
+// controller's old entries.
+func mergeLivePolicyStatus(live, desired any) any {
+	l, ok := live.(*gw.PolicyStatus)
+	if !ok || l == nil {
+		return desired
+	}
+	d, ok := desired.(*gw.PolicyStatus)
+	if !ok || d == nil {
+		return desired
+	}
+	ours := slices.Filter(d.Ancestors, func(a gw.PolicyAncestorStatus) bool {
+		return outControllers.Contains(a.ControllerName)
+	})
+	out := d.DeepCopy()
+	out.Ancestors = mergeAncestors(slices.Clone(l.Ancestors), ours)
+	return out
 }
 
 // btlsIsConflicted checks if this BackendTLSPolicy is conflicted by a higher-priority policy targeting the same backend.

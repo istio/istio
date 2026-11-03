@@ -34,6 +34,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -42,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -531,10 +533,12 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 			Endpoints:   localityLbEndpoints,
 		}
 	case cluster.Cluster_ORIGINAL_DST:
-		if override, f := service.Attributes.PassthroughTargetPorts[uint32(port.Port)]; f {
+		// Only ServiceEntries with NONE resolution declare an original destination port override.
+		if service.Attributes.ServiceRegistry == provider.External && service.Resolution == model.Passthrough &&
+			port.TargetPort.Type == intstr.Int && port.TargetPort.IntVal > 0 {
 			c.LbConfig = &cluster.Cluster_OriginalDstLbConfig_{
 				OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
-					UpstreamPortOverride: wrappers.UInt32(override),
+					UpstreamPortOverride: wrappers.UInt32(uint32(port.TargetPort.IntVal)),
 				},
 			}
 		}

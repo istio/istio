@@ -143,9 +143,8 @@ type Options struct {
 	// MeshWatcher observes changes to the mesh config
 	MeshWatcher meshwatcher.WatcherCollection
 
-	// ConfigClusterMeshWatcher is the mesh watcher from the config (local) cluster.
-	// Used as a fallback when the per-cluster MeshWatcher cannot read the remote meshconfig.
-	ConfigClusterMeshWatcher meshwatcher.WatcherCollection
+	// MeshConfig is the cluster-owned restricted configuration, including remote fallback.
+	MeshConfig krt.Singleton[meshwatcher.RestrictedMeshConfig]
 
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32
@@ -237,11 +236,12 @@ type Controller struct {
 
 	// initialSyncTimedout is set to true after performing an initial processing timed out.
 	initialSyncTimedout *atomic.Bool
-	meshWatcher         mesh.RestrictedConfigWatcher
+	meshConfig          krt.Singleton[meshwatcher.RestrictedMeshConfig]
 
 	podsClient kclient.Client[*v1.Pod]
 
-	networksHandlerRegistration *mesh.WatcherHandlerRegistration
+	networksHandlerRegistration   *mesh.WatcherHandlerRegistration
+	meshConfigHandlerRegistration krt.HandlerRegistration
 }
 
 // NewController creates a new Kubernetes controller
@@ -265,7 +265,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
 	if c.opts.SystemNamespace != "" {
-		registerHandlers[*v1.Namespace](
+		registerHandlers(
 			c,
 			c.namespaces,
 			"Namespaces",
@@ -281,7 +281,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	// Namespace annotation handler for traffic-distribution inheritance
 	// When namespace annotations change, reprocess all services in that namespace
-	registerHandlers[*v1.Namespace](
+	registerHandlers(
 		c,
 		c.namespaces,
 		"Namespaces-TrafficDistribution",
@@ -306,7 +306,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodes = kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: kubelib.StripNodeUnusedFields})
-	registerHandlers[*v1.Node](c, c.nodes, "Nodes", c.onNodeEvent, nil)
+	registerHandlers(c, c.nodes, "Nodes", c.onNodeEvent, nil)
 
 	c.podsClient = kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
 		ObjectFilter:    kubeClient.ObjectFilter(),
@@ -318,16 +318,27 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			return c.endpoints.podArrived(key.Name, key.Namespace)
 		})
 	})
-	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
+	registerHandlers(c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
-	if options.ConfigClusterMeshWatcher != nil {
-		c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher, options.ConfigClusterMeshWatcher)
-	} else {
-		c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher)
+	c.meshConfig = options.MeshConfig
+	if !options.ConfigCluster && options.XDSUpdater != nil {
+		c.meshConfigHandlerRegistration = c.meshConfig.AsCollection().RegisterBatch(func(events []krt.Event[meshwatcher.RestrictedMeshConfig]) {
+			for _, event := range events {
+				if event.Event != controllers.EventUpdate {
+					continue
+				}
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Reason: model.NewReasonStats(model.GlobalUpdate),
+					Forced: true,
+				})
+				return
+			}
+		}, false)
 	}
+
 	if c.opts.MeshNetworksWatcher != nil {
 		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
 			c.reloadMeshNetworks()
@@ -405,7 +416,10 @@ func (c *Controller) Cleanup(removeShard bool) error {
 		c.opts.XDSUpdater.RemoveShard(model.ShardKeyFromRegistry(c))
 	}
 
-	// Unregister networks handler
+	// Unregister mesh configuration and networks handlers.
+	if c.meshConfigHandlerRegistration != nil {
+		c.meshConfigHandlerRegistration.UnregisterHandler()
+	}
 	if c.networksHandlerRegistration != nil {
 		c.opts.MeshNetworksWatcher.DeleteNetworksHandler(c.networksHandlerRegistration)
 	}
@@ -416,7 +430,7 @@ func (c *Controller) Cleanup(removeShard bool) error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) error {
+func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) error {
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Get namespace annotations for traffic distribution inheritance
@@ -427,13 +441,13 @@ func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) er
 	}
 
 	// Create the standard (cluster.local) service.
-	svcConv := kube.ConvertService(*curr, nsAnnotations, c.opts.DomainSuffix, c.Cluster(), c.meshWatcher.TrustDomain())
+	svcConv := kube.ConvertService(*curr, nsAnnotations, c.opts.DomainSuffix, c.Cluster(), ptr.OrEmpty(c.meshConfig.Get()).TrustDomain)
 
 	switch event {
 	case model.EventDelete:
 		c.deleteService(svcConv)
 	default:
-		c.addOrUpdateService(pre, curr, svcConv, event, false)
+		c.addOrUpdateService(curr, svcConv, event, false)
 	}
 
 	return nil
@@ -509,7 +523,7 @@ func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
 	}
 }
 
-func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
+func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
 	networksChanged := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -550,7 +564,7 @@ func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.S
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
-	if serviceUpdateNeedsPush(pre, curr, prevConv, currConv) {
+	if serviceUpdateNeedsPush(prevConv, currConv) {
 		log.Debugf("Service %s in namespace %s updated and needs push", currConv.Hostname, ns)
 		c.handlers.NotifyServiceHandlers(prevConv, currConv, event)
 	}
@@ -676,7 +690,8 @@ func (c *Controller) shutdownInformerHandlers() {
 }
 
 func (c *Controller) informersSynced() bool {
-	return c.namespaces.HasSynced() &&
+	return c.meshConfig.AsCollection().HasSynced() &&
+		c.namespaces.HasSynced() &&
 		c.services.HasSynced() &&
 		c.endpoints.slices.HasSynced() &&
 		c.pods.pods.HasSynced() &&
@@ -1238,7 +1253,7 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 	return nil
 }
 
-func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Service) bool {
+func serviceUpdateNeedsPush(preConv, currConv *model.Service) bool {
 	// New Service - If it is not exported, no need to push.
 	if preConv == nil {
 		return !currConv.Attributes.ExportTo.Contains(visibility.None)
@@ -1248,18 +1263,5 @@ func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Ser
 		currConv.Attributes.ExportTo.Contains(visibility.None) {
 		return false
 	}
-	// Check if there are any changes we care about by comparing `model.Service`s
-	if !preConv.Equals(currConv) {
-		return true
-	}
-	// Also check if target ports are changed since they are not included in `model.Service`
-	// `preConv.Equals(currConv)` already makes sure the length of ports is not changed
-	if prev != nil && curr != nil {
-		if !slices.EqualFunc(prev.Spec.Ports, curr.Spec.Ports, func(a, b v1.ServicePort) bool {
-			return a.TargetPort == b.TargetPort
-		}) {
-			return true
-		}
-	}
-	return false
+	return !preConv.Equals(currConv)
 }

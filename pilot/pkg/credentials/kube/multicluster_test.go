@@ -94,3 +94,39 @@ func TestAuthorizeWithRemoteCredentialsDisabled(t *testing.T) {
 		t.Fatalf("expected Authorize to fail with %v, actually got %v", ErrNoAuthController, err)
 	}
 }
+
+func TestRemoteCredentialsDisabledSyncAndClose(t *testing.T) {
+	test.SetForTest(t, &features.EnableRemoteCredentialsController, false)
+
+	stop := test.NewStop(t)
+	localClient := kube.NewFakeClient()
+	localClient.RunAndWait(stop)
+	remoteClient := kube.NewFakeClient()
+	remoteClient.RunAndWait(stop)
+
+	mc := multicluster.NewFakeController()
+	sc := NewMulticluster("local", mc)
+	mc.Add("local", localClient, stop)
+	mc.Add("remote", remoteClient, stop)
+
+	// The multicluster component calls HasSynced on every controller it holds, including the nil
+	// one stored for the remote cluster. This must not panic and must not block the cluster sync.
+	sawNil := false
+	for _, c := range sc.component.All() {
+		if c == nil {
+			sawNil = true
+			if !c.HasSynced() {
+				t.Fatal("expected disabled controller to report synced")
+			}
+		}
+	}
+	if !sawNil {
+		t.Fatal("expected a nil controller for the remote cluster")
+	}
+
+	// Removing the remote cluster calls Close on the nil controller. This must not panic.
+	mc.Delete("remote")
+	if _, err := sc.ForCluster("remote"); err == nil {
+		t.Fatal("expected error for deleted cluster")
+	}
+}

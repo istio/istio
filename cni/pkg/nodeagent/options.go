@@ -16,10 +16,12 @@ package nodeagent
 
 import (
 	"net/netip"
+	"strings"
 
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -35,7 +37,30 @@ var (
 		"If true, detect AWS VPC CNI branch ENI pods and add ip rules to route probe traffic via veth").Get()
 	EnableHostProbeLocalRoute = env.RegisterBoolVar("AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE", false,
 		"If true, install local host probe SNAT routes for CNIs that return local destinations to host netfilter").Get()
+
+	// KataRuntimeClassNames is the set of RuntimeClass names for which the CNI
+	// should install the "kata mode" iptables rules (pod IP forwarded into a
+	// guest VM over a tap interface, not locally bound in the pod netns).
+	// Comma-separated list; empty (the default) disables kata-mode detection
+	// entirely, preserving pre-existing behavior for all pods.
+	KataRuntimeClassNames = parseKataRuntimeClassNames(env.RegisterStringVar(
+		"EXPERIMENTAL_KATA_RUNTIMECLASS_NAMES", "",
+		"Comma-separated list of RuntimeClass names that should be treated as "+
+			"kata-containers pods. These pods MUST be running with `l3forwarding` as their internetworking model.").Get())
 )
+
+func parseKataRuntimeClassNames(v string) sets.String {
+	out := sets.New[string]()
+	if v == "" {
+		return out
+	}
+	for _, name := range strings.Split(v, ",") {
+		if trimmed := strings.TrimSpace(name); trimmed != "" {
+			out.Insert(trimmed)
+		}
+	}
+	return out
+}
 
 const (
 	// to reliably identify kubelet healthprobes from inside the pod (versus standard kube-proxy traffic,

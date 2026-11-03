@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -682,9 +684,10 @@ func makeTarget(cfg *config.Config, address string, port int,
 		Service: svc,
 		Port: model.ServiceInstancePort{
 			ServicePort: &model.Port{
-				Name:     svcPort.Name,
-				Port:     int(svcPort.Number),
-				Protocol: protocol.Parse(svcPort.Protocol),
+				Name:       svcPort.Name,
+				Port:       int(svcPort.Number),
+				TargetPort: intstr.FromInt32(int32(svcPort.TargetPort)),
+				Protocol:   protocol.Parse(svcPort.Protocol),
 			},
 			TargetPort: uint32(port),
 		},
@@ -735,9 +738,10 @@ func makeInstance(cfg *config.Config, workloadName string, addresses []string, p
 			WorkloadName:         workloadName,
 		},
 		ServicePort: &model.Port{
-			Name:     svcPort.Name,
-			Port:     int(svcPort.Number),
-			Protocol: protocol.Parse(svcPort.Protocol),
+			Name:       svcPort.Name,
+			Port:       int(svcPort.Number),
+			TargetPort: intstr.FromInt32(int32(svcPort.TargetPort)),
+			Protocol:   protocol.Parse(svcPort.Protocol),
 		},
 	}
 }
@@ -756,6 +760,10 @@ func testConvertServiceBody(t *testing.T, canonicalServiceForMeshExternal bool) 
 		return makeServiceWithCanonical(hostname, configName, configNamespace, addresses, autoV4, autoV6, ports,
 			external, canonicalServiceForMeshExternal, resolution, serviceAccounts...)
 	}
+
+	dnsTargetPortService := makeService("google.com", "dnsTargetPort", "dnsTargetPort", []string{constants.UnspecifiedIP}, "", "",
+		map[string]int{"http-port": 80}, true, model.DNSLB)
+	dnsTargetPortService.Ports[0].TargetPort = intstr.FromInt32(8080)
 
 	serviceTests := []struct {
 		externalSvc *config.Config
@@ -806,10 +814,7 @@ func testConvertServiceBody(t *testing.T, canonicalServiceForMeshExternal bool) 
 		{
 			// service entry dns with target port
 			externalSvc: dnsTargetPort,
-			services: []*model.Service{
-				makeService("google.com", "dnsTargetPort", "dnsTargetPort", []string{constants.UnspecifiedIP}, "", "",
-					map[string]int{"http-port": 80}, true, model.DNSLB),
-			},
+			services:    []*model.Service{dnsTargetPortService},
 		},
 		{
 			// service entry tcp DNS

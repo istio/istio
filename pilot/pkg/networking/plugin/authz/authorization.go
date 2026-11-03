@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/slices"
 )
 
 type ActionType int
@@ -125,47 +124,40 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	return b.httpFilters
 }
 
-// PartitionRouteScopedFilters splits the workload's RBAC filters into those
-// that are evaluated at the workload scope and those that contain per-route
-// configuration. Used to build the filter chain in the correct order when
-// accounting for Envoy's route cache clearing risk.
-func PartitionRouteScopedFilters(built []*hcm.HttpFilter) (workload, routeScoped []*hcm.HttpFilter) {
+// PartitionRouteOverridableRBACFilters separates listener-level RBAC filters according to whether
+// their configuration supports per-route overrides, adding missing empty ALLOW and DENY filters on supported gateways.
+// Filters supporting per-route overrides must be placed after filters that can clear the route cache.
+func PartitionRouteOverridableRBACFilters(
+	proxy *model.Proxy,
+	class networking.ListenerClass,
+	built []*hcm.HttpFilter,
+) (nonRouteOverridableRBACFilters, routeOverridableRBACFilters []*hcm.HttpFilter) {
+	if !features.EnableGatewayAPIHTTPRouteAuth || proxy == nil || proxy.Type != model.Router ||
+		class == networking.ListenerClassSidecarOutbound {
+		return built, nil
+	}
+
 	for _, f := range built {
 		if f.GetName() == builder.RBACFilterNameAllow {
-			routeScoped = append(routeScoped, f)
+			routeOverridableRBACFilters = append(routeOverridableRBACFilters, f)
 			continue
 		}
-		workload = append(workload, f)
+		nonRouteOverridableRBACFilters = append(nonRouteOverridableRBACFilters, f)
 	}
-	return workload, routeScoped
+
+	hasAllowFilter := len(routeOverridableRBACFilters) > 0
+	routeOverridableRBACFilters = append(routeOverridableRBACFilters, emptyRBACFilter(builder.RBACFilterNameRouteDeny))
+	// RBACPerRoute ALLOW configuration overrides the workload's ALLOW RBAC
+	// filter rather than chaining an additional filter after it (as we do for
+	// DENY policy). That workload RBAC filter must exist, even when the workload
+	// had no ALLOW policy to produce the RBAC filter.
+	if !hasAllowFilter {
+		routeOverridableRBACFilters = append(routeOverridableRBACFilters, emptyRBACFilter(builder.RBACFilterNameAllow))
+	}
+	return nonRouteOverridableRBACFilters, routeOverridableRBACFilters
 }
 
-// RouteAnchorFilters returns the RBAC filters a route override needs to attach to, beyond those
-// the workload's own policies already produced in built. They carry no rules and enforce nothing
-// until a route overrides one via typed_per_filter_config.
-//
-// They do not depend on which policies exist, so listener generation never has to resolve which
-// routes this listener serves.
-func RouteAnchorFilters(proxy *model.Proxy, class networking.ListenerClass, built []*hcm.HttpFilter) []*hcm.HttpFilter {
-	if !features.EnableGatewayAPIHTTPRouteAuth {
-		return nil
-	}
-	if proxy == nil || proxy.Type != model.Router {
-		return nil
-	}
-	if class == networking.ListenerClassSidecarOutbound {
-		return nil
-	}
-	out := []*hcm.HttpFilter{routeAnchorFilter(builder.RBACRouteAnchorNameDeny)}
-	// Route ALLOW merges into the workload's ALLOW filter rather than chaining after it, so that
-	// filter must exist even when the workload has no ALLOW policy to produce one.
-	if !slices.ContainsFunc(built, func(f *hcm.HttpFilter) bool { return f.GetName() == builder.RBACFilterNameAllow }) {
-		out = append(out, routeAnchorFilter(builder.RBACFilterNameAllow))
-	}
-	return out
-}
-
-func routeAnchorFilter(name string) *hcm.HttpFilter {
+func emptyRBACFilter(name string) *hcm.HttpFilter {
 	return &hcm.HttpFilter{
 		Name:       name,
 		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&rbachttp.RBAC{})},

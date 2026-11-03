@@ -81,7 +81,7 @@ func TestPodIdempotentEquivalentRerun(t *testing.T) {
 			}
 
 			defer func() {
-				assert.NoError(t, nftConfiguratorPod.DeleteInpodRules(log))
+				assert.NoError(t, nftConfiguratorPod.DeleteInpodRules(log, tt.podOverrides))
 			}()
 
 			firstPassDump := dumpRuleset(t)
