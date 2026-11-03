@@ -144,6 +144,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		}
 	}
 
+	// Compose Gateway identity here, after buildUpstreamTLSSettings has preserved SIMPLE policy settings.
+	// Promoting to MUTUAL before that normalization would allow metadata certificates to replace the selected identity.
 	if cb.proxyType == model.Router && opts.gatewayBackendClientCredential != "" && tls.Mode == networking.ClientTLSSettings_SIMPLE {
 		// The presence of gatewayBackendClientCredential indicates mutual TLS and
 		// a an explicit Secret reference to be used as the client certificate when
