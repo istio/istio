@@ -115,6 +115,12 @@ func (lb *ListenerBuilder) buildEastWestTLSPassthroughListeners() []*listener.Li
 	if !isAmbientEastWestGateway(lb.node) || lb.node.MergedGateway == nil {
 		return nil
 	}
+	// These are real downstream sockets, unlike the waypoint's HBONE internal listeners. Use a listener-local
+	// builder so authorization matches the connection peer without changing the waypoint's cached RBAC filters.
+	gatewayLB := *lb
+	gatewayLB.authzBuilder = authz.NewBuilder(authz.Local, lb.push, lb.node, false)
+	gatewayLB.authzCustomBuilder = authz.NewBuilder(authz.Custom, lb.push, lb.node, false)
+
 	mergedGateway := lb.node.MergedGateway
 	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 	tlsHostsByPort := map[uint32]map[string]string{}
@@ -147,7 +153,7 @@ func (lb *ListenerBuilder) buildEastWestTLSPassthroughListeners() []*listener.Li
 			bindToPort: true,
 		}
 		for _, server := range serversForPort.Servers {
-			chainOpts := lb.createGatewayTCPFilterChainOpts(
+			chainOpts := gatewayLB.createGatewayTCPFilterChainOpts(
 				server, port.Number, mergedGateway.GatewayNameForServer[server], tlsHostsByPort)
 			opts.filterChainOpts = append(opts.filterChainOpts, chainOpts...)
 		}
@@ -169,7 +175,7 @@ func (lb *ListenerBuilder) buildEastWestTLSPassthroughListeners() []*listener.Li
 	listeners := make([]*listener.Listener, 0, len(mutableopts))
 	for _, ml := range mutableopts {
 		ml.mutable.Listener = buildGatewayListener(*ml.opts, ml.transport)
-		if err := ml.mutable.build(lb, *ml.opts); err != nil {
+		if err := ml.mutable.build(&gatewayLB, *ml.opts); err != nil {
 			log.Warnf("east-west gateway: omitting TLS passthrough listener %q: %v", ml.mutable.Listener.Name, err)
 			continue
 		}
@@ -1039,7 +1045,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 		// Add SNI DFP before the TCP proxy so it can use SNI to resolve DNS
 		networkFilterstack = append([]*listener.Filter{sniDFPFilter}, networkFilterstack...)
 	}
-	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService)
+	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService, true)
 }
 
 var meshGateways = sets.New(constants.IstioMeshGateway)
