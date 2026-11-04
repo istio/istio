@@ -145,4 +145,3 @@ func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time,
 	}
 	return canned, nil, nil, nil
 }
-
