@@ -180,9 +180,6 @@ spec:
 func TestWeightedWaypointIngressTrafficShift(t *testing.T) {
 	framework.NewFullTest(t).Run(func(t framework.TestContext) {
 		skipIfGatewayAPIUnsupported(t)
-		if t.Settings().AmbientMultiNetwork {
-			t.Skip("https://github.com/istio/istio/issues/54245")
-		}
 		ns := apps.Namespace.Name()
 		newCanaryWaypoints(t)
 
