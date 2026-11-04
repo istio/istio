@@ -137,10 +137,11 @@ func TestPrintMetrics(t *testing.T) {
 	}
 }
 
-func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (prometheus_model.Value, promv1.Warnings, error) {
+func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time, opts ...promv1.Option,
+) (prometheus_model.Value, promv1.Warnings, promv1.Infos, error) {
 	canned, ok := client.cannedResponse[query]
 	if !ok {
-		return prometheus_model.Vector{}, nil, nil
+		return prometheus_model.Vector{}, nil, nil, nil
 	}
-	return canned, nil, nil
+	return canned, nil, nil, nil
 }
