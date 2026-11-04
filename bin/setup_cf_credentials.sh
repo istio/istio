@@ -40,4 +40,5 @@ function setup_cf_credentials () {
   AWS_ENDPOINT_URL="$(echo "${CF_CREDENTIALS}" | jq -r '.endpoint' | tr -d '\n')"
   export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_REGION AWS_ENDPOINT_URL
   [[ $_xtrace == 1 ]] && set -x
+  return 0
 }
