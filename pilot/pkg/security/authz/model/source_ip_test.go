@@ -28,24 +28,27 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-// Envoy evaluates the filter state address matcher used on internal listeners as follows (see
-// FilterStateMatcher::match and FilterStateIpRangeMatcher::match in Envoy source/common/common): a missing object,
-// or an object that is not an address, never matches, even with invert_match. So the generated principals are:
+// Older Envoy proxies (before 1.38) ignore AddressMatcher.invert_match. Match negative CIDRs using RBAC NOT
+// together with an explicit peer-presence guard that matches both IPv4 and IPv6.
+// A missing or non-address filter state object cannot match any positive CIDR, including the guard.
 //
 //	           ipBlocks X                     notIpBlocks X
 //	ALLOW      peer in X                      peer present and not in X
-//	DENY/AUDIT not (peer present and not in X) not (peer in X)
+//	DENY/LOG   peer in X or peer absent       not (peer in X)
 //
-// so a missing peer never matches in an ALLOW policy, and always matches in a DENY or AUDIT policy.
+// A missing peer therefore never matches an ALLOW policy and always matches a DENY or LOG policy.
 
-func peerIP(invert bool, ranges ...*xdscore.CidrRange) *rbacpb.Principal {
+func peerIP(ranges ...*xdscore.CidrRange) *rbacpb.Principal {
 	return &rbacpb.Principal{Identifier: &rbacpb.Principal_FilterState{FilterState: &matcherv3.FilterStateMatcher{
 		Key: util.PeerDirectRemoteIPFilterStateKey,
 		Matcher: &matcherv3.FilterStateMatcher_AddressMatch{AddressMatch: &matcherv3.AddressMatcher{
-			Ranges:      ranges,
-			InvertMatch: invert,
+			Ranges: ranges,
 		}},
 	}}}
+}
+
+func peerPresent() *rbacpb.Principal {
+	return peerIP(xdsCIDR("0.0.0.0", 0), xdsCIDR("::", 0))
 }
 
 func notPrincipal(p *rbacpb.Principal) *rbacpb.Principal {
@@ -99,33 +102,33 @@ func TestSourceIPOnInternalListener(t *testing.T) {
 			name:   "allow ipBlocks",
 			rule:   `{from: [{source: {ipBlocks: [10.0.0.1, "2001:db8::/32"]}}]}`,
 			action: rbacpb.RBAC_ALLOW,
-			want:   []*rbacpb.Principal{peerIP(false, xdsCIDR("10.0.0.1", 32), xdsCIDR("2001:db8::", 32))},
+			want:   []*rbacpb.Principal{peerIP(xdsCIDR("10.0.0.1", 32), xdsCIDR("2001:db8::", 32))},
 		},
 		{
 			name:   "allow notIpBlocks",
 			rule:   `{from: [{source: {notIpBlocks: [10.0.0.1, "::/0"]}}]}`,
 			action: rbacpb.RBAC_ALLOW,
-			want:   []*rbacpb.Principal{peerIP(true, xdsCIDR("10.0.0.1", 32), xdsCIDR("::", 0))},
+			want:   []*rbacpb.Principal{principalAnd([]*rbacpb.Principal{peerPresent(), notPrincipal(peerIP(xdsCIDR("10.0.0.1", 32), xdsCIDR("::", 0)))})},
 		},
 		{
 			name:   "deny ipBlocks",
 			rule:   `{from: [{source: {ipBlocks: [0.0.0.0/0]}}]}`,
 			action: rbacpb.RBAC_DENY,
-			want:   []*rbacpb.Principal{notPrincipal(peerIP(true, xdsCIDR("0.0.0.0", 0)))},
+			want:   []*rbacpb.Principal{principalOr([]*rbacpb.Principal{peerIP(xdsCIDR("0.0.0.0", 0)), notPrincipal(peerPresent())})},
 		},
 		{
 			name:   "deny notIpBlocks",
 			rule:   `{from: [{source: {notIpBlocks: [10.0.0.1]}}]}`,
 			action: rbacpb.RBAC_DENY,
-			want:   []*rbacpb.Principal{notPrincipal(peerIP(false, xdsCIDR("10.0.0.1", 32)))},
+			want:   []*rbacpb.Principal{notPrincipal(peerIP(xdsCIDR("10.0.0.1", 32)))},
 		},
 		{
 			name:   "audit ipBlocks and notIpBlocks",
 			rule:   `{from: [{source: {ipBlocks: [10.0.0.0/8], notIpBlocks: [10.1.0.0/16]}}]}`,
 			action: rbacpb.RBAC_LOG,
 			want: []*rbacpb.Principal{
-				notPrincipal(peerIP(true, xdsCIDR("10.0.0.0", 8))),
-				notPrincipal(peerIP(false, xdsCIDR("10.1.0.0", 16))),
+				principalOr([]*rbacpb.Principal{peerIP(xdsCIDR("10.0.0.0", 8)), notPrincipal(peerPresent())}),
+				notPrincipal(peerIP(xdsCIDR("10.1.0.0", 16))),
 			},
 		},
 		{
@@ -133,22 +136,22 @@ func TestSourceIPOnInternalListener(t *testing.T) {
 			name:   "unmasked CIDR",
 			rule:   `{from: [{source: {ipBlocks: [10.0.0.1/8]}}]}`,
 			action: rbacpb.RBAC_ALLOW,
-			want:   []*rbacpb.Principal{peerIP(false, xdsCIDR("10.0.0.1", 8))},
+			want:   []*rbacpb.Principal{peerIP(xdsCIDR("10.0.0.1", 8))},
 		},
 		{
 			name:   "allow when source.ip",
 			rule:   `{when: [{key: source.ip, values: [10.0.0.1], notValues: [10.0.0.2]}]}`,
 			action: rbacpb.RBAC_ALLOW,
 			want: []*rbacpb.Principal{
-				peerIP(false, xdsCIDR("10.0.0.1", 32)),
-				peerIP(true, xdsCIDR("10.0.0.2", 32)),
+				peerIP(xdsCIDR("10.0.0.1", 32)),
+				principalAnd([]*rbacpb.Principal{peerPresent(), notPrincipal(peerIP(xdsCIDR("10.0.0.2", 32)))}),
 			},
 		},
 		{
 			name:   "deny when source.ip",
 			rule:   `{when: [{key: source.ip, notValues: [10.0.0.2]}]}`,
 			action: rbacpb.RBAC_DENY,
-			want:   []*rbacpb.Principal{notPrincipal(peerIP(false, xdsCIDR("10.0.0.2", 32)))},
+			want:   []*rbacpb.Principal{notPrincipal(peerIP(xdsCIDR("10.0.0.2", 32)))},
 		},
 		{
 			// Both conditions must hold, and the principal is read from filter state too.
@@ -157,7 +160,7 @@ func TestSourceIPOnInternalListener(t *testing.T) {
 			action: rbacpb.RBAC_ALLOW,
 			want: []*rbacpb.Principal{
 				principalOr([]*rbacpb.Principal{peerPrincipal("cluster.local/ns/default/sa/a")}),
-				peerIP(false, xdsCIDR("10.0.0.1", 32)),
+				peerIP(xdsCIDR("10.0.0.1", 32)),
 			},
 		},
 		{
@@ -175,7 +178,7 @@ func TestSourceIPOnInternalListener(t *testing.T) {
 			name:   "deny skips invalid value",
 			rule:   `{from: [{source: {ipBlocks: [10.0.0.1, "not-an-ip"], notIpBlocks: ["not-an-ip"]}}]}`,
 			action: rbacpb.RBAC_DENY,
-			want:   []*rbacpb.Principal{notPrincipal(peerIP(true, xdsCIDR("10.0.0.1", 32)))},
+			want:   []*rbacpb.Principal{principalOr([]*rbacpb.Principal{peerIP(xdsCIDR("10.0.0.1", 32)), notPrincipal(peerPresent())})},
 		},
 	}
 	for _, forTCP := range []bool{true, false} {
@@ -185,9 +188,30 @@ func TestSourceIPOnInternalListener(t *testing.T) {
 				name = tc.name + "/tcp"
 			}
 			t.Run(name, func(t *testing.T) {
-				assert.Equal(t, generatePrincipals(t, tc.rule, false, forTCP, tc.action), tc.want)
+				got := generatePrincipals(t, tc.rule, false, forTCP, tc.action)
+				assert.Equal(t, got, tc.want)
+				for _, principal := range got {
+					assertNoInvertedAddressMatch(t, principal)
+				}
 			})
 		}
+	}
+}
+
+// assertNoInvertedAddressMatch recursively checks that the older Envoy-compatible representation is used.
+func assertNoInvertedAddressMatch(t *testing.T, principal *rbacpb.Principal) {
+	t.Helper()
+	if principal.GetFilterState().GetAddressMatch().GetInvertMatch() {
+		t.Fatal("source-IP authorization must not use AddressMatcher.invert_match")
+	}
+	for _, p := range principal.GetAndIds().GetIds() {
+		assertNoInvertedAddressMatch(t, p)
+	}
+	for _, p := range principal.GetOrIds().GetIds() {
+		assertNoInvertedAddressMatch(t, p)
+	}
+	if p := principal.GetNotId(); p != nil {
+		assertNoInvertedAddressMatch(t, p)
 	}
 }
 
