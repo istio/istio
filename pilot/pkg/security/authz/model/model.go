@@ -298,9 +298,10 @@ func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Perm
 	return permissions, nil
 }
 
+// principal builds principal matchers for one rule. useAuthenticated selects whether peer identity
+// matchers use the connection's authenticated identity (true) or the terminating listener's filter
+// state (false). Source-IP rules follow that same choice between direct_remote_ip and the preserved peer IP.
 func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
-	// useAuthenticated is false on listeners that read the downstream peer from filter state, where the source IP
-	// must be read from filter state too.
 	if g, ok := r.g.(srcIPGenerator); ok && !useAuthenticated {
 		return g.filterStatePrincipals(r, action)
 	}
