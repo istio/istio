@@ -247,9 +247,6 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	if alias, exists := s.ClusterAliases[proxy.Metadata.ClusterID]; exists {
 		proxy.Metadata.ClusterID = alias
 	}
-	// To ensure push context is monotonically increasing, setup LastPushContext before we addCon. This
-	// way only new push contexts will be registered for this proxy.
-	proxy.LastPushContext = s.globalPushContext()
 	// First request so initialize connection id and start tracking it.
 	con.SetID(connectionID(proxy.ID))
 	con.node = node
@@ -268,7 +265,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	// a better choice, it introduces a race condition; If we complete initialization of a new push
 	// context between initializeProxy and addCon, we would not get any pushes triggered for the new
 	// push context, leading the proxy to have a stale state until the next push.
-	s.addCon(con.ID(), con)
+	s.registerConnection(con)
 	// Register that initialization is complete. This triggers to calls that it is safe to access the
 	// proxy
 	defer con.MarkInitialized()
@@ -279,6 +276,18 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 		return err
 	}
 	return nil
+}
+
+// registerConnection sets LastPushContext and starts tracking the connection. Both run under pushMu so a full
+// push can't publish a new context and snapshot the clients in between. Otherwise the proxy would start on the
+// old context and miss that push, and later endpoint-only pushes (which skip computeProxyState) would build from
+// its old SidecarScope with a fresh Start, poisoning the cache. authorize runs before this, outside the lock.
+func (s *DiscoveryServer) registerConnection(con *Connection) {
+	s.pushMu.Lock()
+	defer s.pushMu.Unlock()
+	// Set before addCon so only newer push contexts are delivered to this proxy.
+	con.proxy.LastPushContext = s.globalPushContext()
+	s.addCon(con.ID(), con)
 }
 
 func (s *DiscoveryServer) closeConnection(con *Connection) {
@@ -548,41 +557,53 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
 		}
 	}
 
+	// Read the context and stamp Start under pushMu so this forced push can't carry a context older than one
+	// already delivered to the proxy; it would otherwise regress the proxy's SidecarScope.
+	s.pushMu.Lock()
 	s.pushQueue.Enqueue(connection, &model.PushRequest{
 		Push:   s.globalPushContext(),
 		Start:  time.Now(),
 		Reason: model.NewReasonStats(model.ProxyUpdate),
 		Forced: true,
 	})
+	s.pushMu.Unlock()
 }
 
 // AdsPushAll will send updates to all nodes.
 // Mainly used in Debug interface.
 func AdsPushAll(s *DiscoveryServer) {
 	s.AdsPushAll(&model.PushRequest{
-		Push:   s.globalPushContext(),
 		Reason: model.NewReasonStats(model.DebugTrigger),
 		Forced: true,
 	})
 }
 
-// AdsPushAll will send updates to all nodes.
+// AdsPushAll will send updates to all nodes using the current global push context. Any req.Push is overwritten:
+// the context is read under pushMu so it is consistent with Start and the queue order.
 func (s *DiscoveryServer) AdsPushAll(req *model.PushRequest) {
+	s.pushMu.Lock()
+	req.Push = s.globalPushContext()
+	s.StartPush(req)
+	s.pushMu.Unlock()
+
+	s.recordPush(req)
+}
+
+// recordPush logs and records metrics for a push. It is kept outside pushMu to keep the critical section short.
+func (s *DiscoveryServer) recordPush(req *model.PushRequest) {
 	totalService := req.Push.GetTotalServiceCount()
 	log.Infof("XDS: Pushing Services:%d ConnectedEndpoints:%d Version:%s",
 		totalService, s.adsClientCount(), req.Push.PushVersion)
 	monServices.Record(float64(totalService))
+}
 
+// StartPush sends a signal to all connections, with a push event.
+// It does not lock: the caller MUST hold pushMu, so that req.Push, the cache clear and req.Start are consistent.
+func (s *DiscoveryServer) StartPush(req *model.PushRequest) {
 	// Make sure the ConfigsUpdated map exists
 	if req.ConfigsUpdated == nil {
 		req.ConfigsUpdated = make(sets.Set[model.ConfigKey])
 	}
-
-	s.StartPush(req)
-}
-
-// Send a signal to all connections, with a push event.
-func (s *DiscoveryServer) StartPush(req *model.PushRequest) {
 	// Push config changes, iterating over connected envoys.
 	if log.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
