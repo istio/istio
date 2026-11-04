@@ -14,8 +14,9 @@ releaseNotes:
       the wildcard host. The sidecar sends the application TLS to the gateway inside Istio mTLS. Like an ambient waypoint, the
       gateway terminates the mTLS, reads the SNI of the application TLS, and applies `AuthorizationPolicy` after that, so
       `source.principals` is the caller identity and `connection.sni` is the real host. Only SNIs under the wildcard host are
-      forwarded. For these servers, `AuthorizationPolicy` is not applied on the mTLS connection itself. As on waypoints, use `remoteIpBlocks` (not `ipBlocks`) to match the client
-      address. Also as on waypoints, the TCP idle timeout is applied once, after the mTLS is terminated, and not on the mTLS
+      forwarded. For these servers, `AuthorizationPolicy` is not applied on the mTLS connection itself. As on waypoints,
+      `ipBlocks` and `notIpBlocks` match the direct peer of the gateway connection, and `remoteIpBlocks` the client address.
+      Also as on waypoints, the TCP idle timeout is applied once, after the mTLS is terminated, and not on the mTLS
       connection itself.
     The route destination can name a `DestinationRule` subset of the wildcard host; the subset's traffic policy applies.
     Weighted routes to the wildcard host are not supported.

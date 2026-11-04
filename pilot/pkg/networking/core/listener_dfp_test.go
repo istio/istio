@@ -34,15 +34,18 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -260,6 +263,14 @@ func TestGatewayDynamicDNSFilters(t *testing.T) {
 				}},
 			},
 		},
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.AuthorizationPolicy, Name: "deny-ip", Namespace: "default"},
+			Spec: &security.AuthorizationPolicy{
+				Selector: &v1beta1.WorkloadSelector{MatchLabels: map[string]string{"istio": "egressgateway"}},
+				Action:   security.AuthorizationPolicy_DENY,
+				Rules:    []*security.Rule{{From: []*security.Rule_From{{Source: &security.Source{IpBlocks: []string{"10.0.0.0/8"}}}}}},
+			},
+		},
 	}
 
 	for _, enabled := range []bool{false, true} {
@@ -297,6 +308,11 @@ func TestGatewayDynamicDNSFilters(t *testing.T) {
 			g.Expect(sniDFPChain.GetFilterChainMatch().GetServerNames()).To(ConsistOf(wildcardHost))
 			g.Expect(sniDFP.GetDnsCacheConfig().Name).To(Equal(wildcardHost + "_dfp_dns_cache"))
 			g.Expect(sniDFP.GetPortValue()).To(Equal(uint32(443)))
+			// The chain terminates the downstream connection, so ipBlocks match its direct remote address.
+			rbacJSON := rbacFilterJSON(t, sniDFPChain)
+			g.Expect(rbacJSON).To(HaveLen(1))
+			g.Expect(rbacJSON[0]).To(ContainSubstring(`"directRemoteIp"`))
+			g.Expect(rbacJSON[0]).NotTo(ContainSubstring(util.PeerDirectRemoteIPFilterStateKey))
 			// Only ISTIO_MUTUAL servers use the internal cluster.
 			g.Expect(xdstest.ExtractCluster(gatewayWildcardTLSInternalName, cg.Clusters(proxy))).To(BeNil())
 		})
@@ -596,16 +612,38 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 				Rules: []*security.Rule{
 					allow("cluster.local/ns/svc1/sa/default", "*.wikipedia.org"),
 					allow("cluster.local/ns/svc2/sa/default", "*.github.com"),
+					{From: []*security.Rule_From{{Source: &security.Source{IpBlocks: []string{"10.0.0.0/8"}, NotIpBlocks: []string{"10.1.0.0/16"}}}}},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.AuthorizationPolicy, Name: "egress-ext-authz", Namespace: "istio-system"},
+			Spec: &security.AuthorizationPolicy{
+				Selector:     &v1beta1.WorkloadSelector{MatchLabels: map[string]string{"istio": "egressgateway"}},
+				Action:       security.AuthorizationPolicy_CUSTOM,
+				ActionDetail: &security.AuthorizationPolicy_Provider{Provider: &security.AuthorizationPolicy_ExtensionProvider{Name: "extauthz"}},
+				Rules: []*security.Rule{
+					{From: []*security.Rule_From{{Source: &security.Source{IpBlocks: []string{"10.2.0.0/16"}}}}},
 				},
 			},
 		},
 	}
+	mc := mesh.DefaultMeshConfig()
+	mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "extauthz",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
+			EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
+				Service: "ext-authz.istio-system.svc.cluster.local",
+				Port:    9000,
+			},
+		},
+	})
 
 	for _, enabled := range []bool{false, true} {
 		t.Run(fmt.Sprintf("flag=%v", enabled), func(t *testing.T) {
 			g := NewWithT(t)
 			test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, enabled)
-			cg := NewConfigGenTest(t, TestOptions{Configs: configs})
+			cg := NewConfigGenTest(t, TestOptions{Configs: configs, MeshConfig: mc})
 			proxy := cg.SetupProxy(&model.Proxy{
 				Type:     model.Router,
 				Labels:   map[string]string{"istio": "egressgateway"},
@@ -648,8 +686,11 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 					"io.istio.peer_principal",
 					"envoy.filters.listener.original_dst.remote_ip",
 					"envoy.filters.listener.original_dst.local_ip",
+					util.PeerDirectRemoteIPFilterStateKey,
 					xdsfilters.GatewayWildcardTLSTargetFilterStateKey,
 				))
+				// ipBlocks match the direct peer of the gateway connection, not an address from the PROXY protocol.
+				g.Expect(handedOffValue(outer, util.PeerDirectRemoteIPFilterStateKey)).To(Equal("%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%"))
 				target := wildcard + ":443"
 				g.Expect(handedOffValue(outer, xdsfilters.GatewayWildcardTLSTargetFilterStateKey)).To(Equal(target))
 				// No application data is read before the peer identity is known.
@@ -686,11 +727,19 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 				g.Expect(innerChain.Filters[dfpIdx].GetTypedConfig().UnmarshalTo(&sniDFP)).To(Succeed())
 				g.Expect(sniDFP.GetPortValue()).To(Equal(uint32(443)))
 
-				// Principals come from filter state; the host is the inner SNI.
+				// Principals and source IPs come from filter state, in the CUSTOM and the ALLOW policies; the host is
+				// the inner SNI.
 				rbacJSON := rbacFilterJSON(t, innerChain)
-				g.Expect(rbacJSON).To(ContainSubstring(`"key":"io.istio.peer_principal"`))
-				g.Expect(rbacJSON).To(ContainSubstring(`"requestedServerName"`))
-				g.Expect(rbacJSON).NotTo(ContainSubstring(`"authenticated"`))
+				g.Expect(rbacJSON).To(HaveLen(2))
+				custom, allowed := rbacJSON[0], rbacJSON[1]
+				g.Expect(strings.Count(custom, `"key":"io.istio.peer_direct_remote_ip"`)).To(Equal(1))
+				g.Expect(strings.Count(allowed, `"key":"io.istio.peer_direct_remote_ip"`)).To(Equal(2))
+				g.Expect(allowed).To(ContainSubstring(`"key":"io.istio.peer_principal"`))
+				g.Expect(allowed).To(ContainSubstring(`"requestedServerName"`))
+				for _, js := range rbacJSON {
+					g.Expect(js).NotTo(ContainSubstring(`"authenticated"`))
+					g.Expect(js).NotTo(ContainSubstring(`"directRemoteIp"`))
+				}
 			}
 			if enabled {
 				g.Expect(inner.FilterChains).To(HaveLen(3))
@@ -1094,7 +1143,9 @@ func internalListenerTarget(clusters []*cluster.Cluster, name string) string {
 	return ""
 }
 
-func rbacFilterJSON(t *testing.T, fc *listener.FilterChain) string {
+// rbacFilterJSON returns the RBAC filters of the chain as JSON, in filter order.
+func rbacFilterJSON(t *testing.T, fc *listener.FilterChain) []string {
+	var out []string
 	for _, f := range fc.Filters {
 		if f.Name != wellknown.RoleBasedAccessControl {
 			continue
@@ -1107,7 +1158,7 @@ func rbacFilterJSON(t *testing.T, fc *listener.FilterChain) string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return js
+		out = append(out, js)
 	}
-	return ""
+	return out
 }

@@ -18,6 +18,7 @@ package wildcardegress
 
 import (
 	"net/netip"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -184,6 +185,13 @@ func TestEgressGatewayWildcardDynamicDNS(t *testing.T) {
 						deny.DeleteOrFail(t)
 						for _, c := range client {
 							c.CallOrFail(t, httpsCall(host, check.OK()))
+						}
+					})
+					t.NewSubTest("denied by ipBlocks at egress gateway").Run(func(t framework.TestContext) {
+						args["Action"], args["Source"] = "DENY", "ipBlocks: "+ipv4CIDRs(t, client)
+						t.ConfigIstio().Eval(settings.EgressGatewayServiceNamespace, args, sourceIPAtEgressGateway).ApplyOrFail(t)
+						for _, c := range client {
+							c.CallOrFail(t, httpsCall(host, check.Error()))
 						}
 					})
 					if ports.subset != "" {
@@ -467,6 +475,110 @@ func TestEgressGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 		})
 }
 
+// sourceIPAtEgressGateway applies one source rule at the egress gateway.
+const sourceIPAtEgressGateway = `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: source-ip
+spec:
+  selector:
+    matchLabels:
+      istio: {{.EgressLabel}}
+  action: {{.Action}}
+  rules:
+  - from:
+    - source:
+        {{.Source}}
+`
+
+// TestEgressGatewayMutualTLSWildcardDynamicDNSSourceIP tests that ipBlocks and notIpBlocks at an ISTIO_MUTUAL
+// egress gateway match the IP of the calling pod, although the policy runs on an internal listener.
+func TestEgressGatewayMutualTLSWildcardDynamicDNSSourceIP(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			selected := match.ServiceName(echo.NamespacedName{Name: "client", Namespace: apps.Namespace}).GetMatches(apps.All.Instances())
+			other := match.ServiceName(echo.NamespacedName{Name: "other-client", Namespace: apps.Namespace}).GetMatches(apps.All.Instances())
+			if len(selected) == 0 || len(other) == 0 {
+				t.Fatal("client echoes not found")
+			}
+			if !hasIPv4(t, selected) {
+				t.Skip("TODO: skipping test as wildcard DNS doesn't support resolving to IPv6 address")
+			}
+			selectedIPs := ipv4CIDRs(t, selected)
+
+			host := apps.External.All.Config().ClusterLocalFQDN()
+			wildcardSuffix := apps.External.Namespace.Name() + ".svc.cluster.local"
+			settings := i.Settings()
+			cases := []struct {
+				name                string
+				action              string
+				source              string
+				selectedOK, otherOK bool
+			}{
+				{"deny ipBlocks", "DENY", "ipBlocks: " + selectedIPs, false, true},
+				{"deny notIpBlocks", "DENY", "notIpBlocks: " + selectedIPs, true, false},
+				{"allow ipBlocks", "ALLOW", "ipBlocks: " + selectedIPs, true, false},
+				{"allow notIpBlocks", "ALLOW", "notIpBlocks: " + selectedIPs, false, true},
+				{"deny all IPs", "DENY", `ipBlocks: ["0.0.0.0/0", "::/0"]`, false, false},
+			}
+			for _, ports := range gatewayPortCases {
+				t.NewSubTest(ports.name).Run(func(t framework.TestContext) {
+					args := map[string]string{
+						"WildcardHost":    "*." + wildcardSuffix,
+						"GatewaySNI":      "egress." + wildcardSuffix,
+						"Host":            host,
+						"EgressLabel":     settings.EgressGatewayIstioLabel,
+						"EgressService":   settings.EgressGatewayServiceName,
+						"EgressNamespace": settings.EgressGatewayServiceNamespace,
+						"ServerPort":      ports.serverPort,
+						"RoutePort":       ports.routePort,
+						"Subset":          ports.subset,
+					}
+					applySubset(t, args)
+					t.ConfigIstio().Eval(apps.Namespace.Name(), args, routeViaEgressGatewayMutualTLS).ApplyOrFail(t)
+
+					// Barrier: calls fail only once they go through the egress gateway.
+					deny := t.ConfigIstio().Eval(settings.EgressGatewayServiceNamespace, args, denySNIAtEgressGateway)
+					deny.ApplyOrFail(t, apply.NoCleanup)
+					for _, c := range append(selected, other...) {
+						c.CallOrFail(t, httpsCall(host, check.Error()))
+					}
+					deny.DeleteOrFail(t)
+
+					for _, tc := range cases {
+						t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+							// Start with no policy in effect, so that a denial below comes from this row's policy and not
+							// from the barrier or the previous row.
+							for _, c := range append(selected, other...) {
+								c.CallOrFail(t, httpsCall(host, check.OK()))
+							}
+							args["Action"], args["Source"] = tc.action, tc.source
+							t.ConfigIstio().Eval(settings.EgressGatewayServiceNamespace, args, sourceIPAtEgressGateway).ApplyOrFail(t)
+							// Denied callers first: a denial shows that the policy is in effect at the gateway.
+							for _, ok := range []bool{false, true} {
+								c := check.Error()
+								if ok {
+									c = check.OK()
+								}
+								var callers echo.Instances
+								if tc.selectedOK == ok {
+									callers = append(callers, selected...)
+								}
+								if tc.otherOK == ok {
+									callers = append(callers, other...)
+								}
+								for _, caller := range callers {
+									caller.CallOrFail(t, httpsCall(host, c))
+								}
+							}
+						})
+					}
+				})
+			}
+		})
+}
+
 // routeOtherHostViaEgressGatewayMutualTLS sends TLS traffic for a host outside the wildcard host to the same
 // ISTIO_MUTUAL gateway server.
 const routeOtherHostViaEgressGatewayMutualTLS = `
@@ -569,6 +681,17 @@ func httpsCall(host string, c echo.Checker) echo.CallOptions {
 		Count: 1,
 		Check: c,
 	}
+}
+
+// ipv4CIDRs returns the IPv4 addresses of the instances as a YAML list of /32 CIDRs.
+func ipv4CIDRs(t framework.TestContext, instances echo.Instances) string {
+	var cidrs []string
+	for _, a := range instances.WorkloadsOrFail(t).Addresses() {
+		if ip, err := netip.ParseAddr(a); err == nil && ip.Is4() {
+			cidrs = append(cidrs, `"`+a+`/32"`)
+		}
+	}
+	return "[" + strings.Join(cidrs, ", ") + "]"
 }
 
 func hasIPv4(t framework.TestContext, instances echo.Instances) bool {

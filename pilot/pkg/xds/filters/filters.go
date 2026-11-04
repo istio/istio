@@ -545,7 +545,8 @@ var (
 
 	// GatewayDownstreamPeerFilter hands the mTLS peer identity and the original addresses of a gateway connection
 	// to an internal listener, with the same keys that ConnectAuthorityFilter uses for waypoints. A gateway has no
-	// HBONE CONNECT request, so the values are set once the downstream TLS handshake completes.
+	// HBONE CONNECT request, so the values are set once the downstream TLS handshake completes. Authorization policy
+	// on the internal listener matches ipBlocks against the direct peer of the gateway connection.
 	GatewayDownstreamPeerFilter = &listener.Filter{
 		Name: "downstream_peer",
 		ConfigType: &listener.Filter_TypedConfig{
@@ -553,6 +554,8 @@ var (
 				OnDownstreamTlsHandshake: []*sfsvalue.FilterStateValue{
 					sharedFilterStateValue(OriginalDstFilterStateKey, "", "%DOWNSTREAM_LOCAL_ADDRESS%"),
 					sharedFilterStateValue("envoy.filters.listener.original_dst.remote_ip", "", "%DOWNSTREAM_REMOTE_ADDRESS%"),
+					sharedFilterStateValue(util.PeerDirectRemoteIPFilterStateKey, util.PeerDirectRemoteAddressFilterStateFactory,
+						"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%"),
 					sharedFilterStateValue("io.istio.peer_principal", "istio.hashable_string", "%DOWNSTREAM_PEER_URI_SAN%"),
 				},
 			}),
