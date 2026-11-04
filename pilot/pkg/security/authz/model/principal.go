@@ -15,10 +15,14 @@
 package model
 
 import (
+	xdscore "github.com/cncf/xds/go/xds/core/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 func principalAny() *rbacpb.Principal {
@@ -83,6 +87,32 @@ func principalDirectRemoteIP(cidr *core.CidrRange) *rbacpb.Principal {
 	return &rbacpb.Principal{
 		Identifier: &rbacpb.Principal_DirectRemoteIp{
 			DirectRemoteIp: cidr,
+		},
+	}
+}
+
+// principalPeerDirectRemoteIP matches the peer direct remote IP that a terminating listener stores in filter state
+// for an internal listener. It never matches if the value is missing. If invert is set, it matches a value that is
+// not in the ranges.
+func principalPeerDirectRemoteIP(cidrs []*core.CidrRange, invert bool) *rbacpb.Principal {
+	ranges := make([]*xdscore.CidrRange, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		ranges = append(ranges, &xdscore.CidrRange{
+			AddressPrefix: cidr.GetAddressPrefix(),
+			PrefixLen:     wrapperspb.UInt32(cidr.GetPrefixLen().GetValue()),
+		})
+	}
+	return &rbacpb.Principal{
+		Identifier: &rbacpb.Principal_FilterState{
+			FilterState: &matcher.FilterStateMatcher{
+				Key: util.PeerDirectRemoteIPFilterStateKey,
+				Matcher: &matcher.FilterStateMatcher_AddressMatch{
+					AddressMatch: &matcher.AddressMatcher{
+						Ranges:      ranges,
+						InvertMatch: invert,
+					},
+				},
+			},
 		},
 	}
 }
