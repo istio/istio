@@ -144,6 +144,9 @@ type ClusterBuilder struct {
 	proxyView          model.ProxyView     // Proxy view of endpoints.
 	proxyIPAddresses   []string            // IP addresses on which proxy is listening on.
 	configNamespace    string              // Proxy config namespace.
+
+	gatewayBackendClientCredential string
+
 	// PushRequest to look for updates.
 	req                       *model.PushRequest
 	cache                     model.XdsCache
@@ -171,6 +174,9 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		configNamespace:    proxy.ConfigNamespace,
 		req:                req,
 		cache:              cache,
+	}
+	if proxy.Type == model.Router && proxy.MergedGateway != nil {
+		cb.gatewayBackendClientCredential = proxy.MergedGateway.BackendClientCredential
 	}
 	if proxy.Metadata != nil {
 		if proxy.Metadata.TLSClientCertChain != "" {
@@ -371,6 +377,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	}
 
 	if clusterMode == DefaultClusterMode {
+		opts.gatewayBackendClientCredential = cb.gatewayBackendClientCredential
 		opts.serviceAccounts = serviceAccounts
 		// For DFP clusters, we use auto_sni instead of static SNI
 		if !mc.isDFPCluster {
