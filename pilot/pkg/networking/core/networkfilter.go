@@ -170,6 +170,7 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class, nil)
 	networkFilterStack := buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)
 
+	// Outbound listeners use the connection peer, not the filter state used by HBONE internal listeners.
 	// Only pass service for DYNAMIC_DNS wildcard services that need SNI DFP filtering
 	if service != nil && service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
 		return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, service, false)
@@ -177,6 +178,9 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil, false)
 }
 
+// buildCompleteNetworkFilters assembles network filters. For service-scoped authorization,
+// useFilterState selects the peer address source: filter state for HBONE internal listeners,
+// or the downstream connection for regular listeners.
 func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	class istionetworking.ListenerClass,
 	port int,
@@ -188,8 +192,8 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	authzCustomBuilder := lb.authzCustomBuilder
 	authzBuilder := lb.authzBuilder
 	if policySvc != nil {
-		// Service-scoped policy must use the address source of this listener, not the proxy type or a cached
-		// listener-wide builder. HBONE internal listeners read their peer from filter state.
+		// Service-scoped policy needs its own builders; the cached listener-wide ones
+		// do not know which address source this listener uses.
 		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, useFilterState, policySvc)
 		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, useFilterState, policySvc)
 	}
@@ -278,6 +282,7 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithWeightedClusters(route
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class, nil)
 	networkFilterStack := buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)
 
+	// This outbound listener uses the connection peer, not HBONE internal-listener filter state.
 	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil, false)
 }
 
