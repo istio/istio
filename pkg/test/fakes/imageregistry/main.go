@@ -15,18 +15,22 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 
 	"istio.io/istio/pkg/log"
 )
@@ -38,6 +42,8 @@ var (
 	regexForManifest = regexp.MustCompile(`(?P<Prefix>/v\d+)?/(?P<ImageName>.+)/manifests/(?P<Tag>[^:]*)$`)
 	regexForLayer    = regexp.MustCompile(`/layer/v1/(?P<ImageName>[^:]+):(?P<Tag>[^:]+)`)
 )
+
+var regexForV2Path = regexp.MustCompile(`/v2/(.+?)/(manifests|blobs)/`)
 
 const (
 	User   = "user"
@@ -114,6 +120,62 @@ func (h *Handler) getFirstLayerURL(imageName string, tag string) (string, error)
 	return fmt.Sprintf("%s://%v/v2/%v/blobs/%v", *scheme, *registry, imageName, manifest.Layers[0].Digest.String()), nil
 }
 
+// proxyRequest fetches content from the upstream registry using anonymous token exchange
+// and returns it directly, instead of redirecting. This handles registries that require
+// Docker token auth (Bearer challenge) even for anonymous/public pulls.
+func (h *Handler) proxyRequest(w http.ResponseWriter, r *http.Request, upstreamURL string) {
+	var nameOpts []name.Option
+	if *scheme == "http" {
+		nameOpts = append(nameOpts, name.Insecure)
+	}
+
+	reg, err := name.NewRegistry(*registry, nameOpts...)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to parse registry: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	baseTransport := remote.DefaultTransport.(*http.Transport).Clone()
+	baseTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // nolint: gosec // test only code
+
+	imageName := ""
+	if m := regexForV2Path.FindStringSubmatch(upstreamURL); m != nil {
+		imageName = m[1]
+	}
+	scope := fmt.Sprintf("repository:%s:pull", imageName)
+	tr, err := transport.NewWithContext(context.Background(), reg, authn.Anonymous, baseTransport, []string{scope})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to create authenticated transport: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	client := &http.Client{Transport: tr}
+	req, err := http.NewRequest(http.MethodGet, upstreamURL, nil)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to create upstream request: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if accept := r.Header.Get("Accept"); accept != "" {
+		req.Header.Set("Accept", accept)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to fetch from upstream: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	for key, values := range resp.Header {
+		for _, v := range values {
+			w.Header().Add(key, v)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		log.Errorf("failed to proxy response body: %v", err)
+	}
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch p := r.URL.Path; {
 	case p == "/ready":
@@ -156,8 +218,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		log.Infof("Get %q, send redirect to %q", r.URL, rurl)
-		http.Redirect(w, r, rurl, http.StatusMovedPermanently)
+		log.Infof("Get %q, proxy to %q", r.URL, rurl)
+		h.proxyRequest(w, r, rurl)
 	case !strings.Contains(p, "/v2/") || !strings.Contains(p, "/blobs/"):
 		// only requires authentication for getting manifests, not blobs
 		encoded := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v:%v", User, Passwd)))
@@ -173,8 +235,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fallthrough
 	default:
 		rurl := fmt.Sprintf("%s://%v%v", *scheme, *registry, h.convertTag(r.URL.Path))
-		log.Infof("Get %q, send redirect to %q", r.URL, rurl)
-		http.Redirect(w, r, rurl, http.StatusMovedPermanently)
+		log.Infof("Get %q, proxy to %q", r.URL, rurl)
+		h.proxyRequest(w, r, rurl)
 	}
 }
 

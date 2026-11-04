@@ -87,7 +87,6 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 	for _, o := range opts {
 		o(d)
 	}
-	var parent string
 	if ctx != nil {
 		h := ctx.(registerDependency)
 		// Important: register before we List(), so we cannot miss any events
@@ -99,7 +98,6 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 			// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
 			return c.RegisterBatch(ff, false)
 		})
-		parent = h.name()
 	} else if !allowMissingContext {
 		panic("Fetch() requires a valid context")
 	}
@@ -132,6 +130,11 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 	}
 	// Removed redundant filtering as it is already handled above.
 	if log.DebugEnabled() {
+		var parent string
+		if ctx != nil {
+			h := ctx.(registerDependency)
+			parent = h.name()
+		}
 		log.WithLabels(
 			"parent", parent,
 			"fetch", c.name(),

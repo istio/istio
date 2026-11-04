@@ -183,30 +183,29 @@ func PerGatewayCollection[T IntoProto[TT], TT proto.Message](
 	return baseCollection(collection, extract, krtopts)
 }
 
-// getGatewayName retrieves the gateway name from the proxy's labels and returns it as a NamespacedName.
-// If getting the label fails, fallback to the reading the role from the xds metadata.
+// getGatewayNameForProxy resolves the Gateway served by this proxy. The namespace is always taken
+// from the proxy's verified identity; the label or role may only supply the name.
 func getGatewayNameForProxy(proxy *model.Proxy) (types.NamespacedName, error) {
-	if name, ok := proxy.Labels[gatewayNameLabel]; ok {
-		return types.NamespacedName{
-			Namespace: proxy.Metadata.Namespace,
-			Name:      name,
-		}, nil
+	id := proxy.VerifiedIdentity
+	if id == nil {
+		return types.NamespacedName{}, fmt.Errorf("proxy %s has no verified identity", proxy.ID)
 	}
-	if role, exists := proxy.Metadata.Raw["role"]; exists {
-		roleStr, ok := role.(string)
+	name, ok := proxy.Labels[gatewayNameLabel]
+	if !ok {
+		role, ok := proxy.Metadata.Raw["role"].(string)
 		if !ok {
-			return types.NamespacedName{}, fmt.Errorf("unable to convert role to string for proxy")
+			return types.NamespacedName{}, fmt.Errorf("gateway name not found for proxy %s", proxy.ID)
 		}
-		parts := strings.SplitN(roleStr, "~", 2)
-		if len(parts) == 2 {
-			return types.NamespacedName{
-				Namespace: parts[0],
-				Name:      parts[1],
-			}, nil
+		ns, n, found := strings.Cut(role, "~")
+		if !found || n == "" {
+			return types.NamespacedName{}, fmt.Errorf("invalid role format %q", role)
 		}
-		return types.NamespacedName{}, fmt.Errorf("invalid role format for proxy")
+		if ns != id.Namespace {
+			return types.NamespacedName{}, fmt.Errorf("role namespace %q does not match verified namespace %q", ns, id.Namespace)
+		}
+		name = n
 	}
-	return types.NamespacedName{}, fmt.Errorf("gateway name not found for proxy")
+	return types.NamespacedName{Namespace: id.Namespace, Name: name}, nil
 }
 
 // GenerateDeltas computes discovery resources. This is des ign to be highly optimized to delta updates,

@@ -29,6 +29,13 @@ var (
 	FilterGatewayClusterConfig = env.Register("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
 		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
 
+	// EnableDeltaRDS controls whether RDS computes a true delta (only route configurations
+	// affected by the current push's ConfigsUpdated) instead of rebuilding every currently
+	// watched route configuration on every relevant push.
+	EnableDeltaRDS = env.Register("PILOT_ENABLE_DELTA_RDS", false,
+		"If enabled, RDS will use delta xDS to push only the route configurations affected by a config change, "+
+			"instead of rebuilding every route configuration currently watched by the proxy.").Get()
+
 	EnableAgentgateway = env.Register("PILOT_ENABLE_AGENTGATEWAY",
 		false,
 		"If enabled, the istio-agentgateway GatewayClass will be enabled.").Get()

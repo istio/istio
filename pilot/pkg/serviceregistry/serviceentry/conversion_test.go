@@ -723,7 +723,17 @@ func makeInstance(cfg *config.Config, workloadName string, addresses []string, p
 		}
 		svcLabels[label.SecurityTlsMode.Name] = model.IstioMutualTLSModeLabel
 	}
+	servicePort := &model.Port{
+		Name:       svcPort.Name,
+		Port:       int(svcPort.Number),
+		TargetPort: intstr.FromInt32(int32(svcPort.TargetPort)),
+		Protocol:   protocol.Parse(svcPort.Protocol),
+	}
 	return &WorkloadServiceInstance{
+		UID: workloadServiceInstanceUID(
+			workloadServiceInstanceUIDPrefix(model.WorkloadEntryKind.String(), cfg.Namespace, workloadName, svc),
+			servicePort,
+		),
 		Namespace: cfg.Namespace,
 		Name:      workloadName,
 		Service:   svc,
@@ -737,12 +747,7 @@ func makeInstance(cfg *config.Config, workloadName string, addresses []string, p
 			Namespace:            cfg.Namespace,
 			WorkloadName:         workloadName,
 		},
-		ServicePort: &model.Port{
-			Name:       svcPort.Name,
-			Port:       int(svcPort.Number),
-			TargetPort: intstr.FromInt32(int32(svcPort.TargetPort)),
-			Protocol:   protocol.Parse(svcPort.Protocol),
-		},
+		ServicePort: servicePort,
 	}
 }
 
@@ -1141,7 +1146,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 			)
 			instances := make([]*WorkloadServiceInstance, 0, len(services))
 			for _, service := range services {
-				instances = append(instances, convertWorkloadInstanceToInstances(wli, service, tt.se.Spec.(*networking.ServiceEntry).Ports)...)
+				instances = append(instances, convertWorkloadInstanceToInstances(wli, service)...)
 			}
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
