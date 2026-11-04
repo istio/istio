@@ -21,12 +21,15 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -65,6 +68,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -1638,4 +1642,97 @@ func TestExtractServicePortsUniqueNames(t *testing.T) {
 	if len(ports) != 5 { // status-port + 4 listeners
 		t.Fatalf("expected 5 ports, got %d", len(ports))
 	}
+}
+
+// When a Gateway moves to another GatewayClass, the generated resources get new names. The resources
+// created under the old names must be removed, since the Gateway itself is not deleted.
+func TestGatewayClassChangeRemovesStaleResources(t *testing.T) {
+	const (
+		ns    = "default"
+		gwUID = types.UID("gw-uid")
+		stale = "gw-istio"
+	)
+	altClass := &k8s.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "istio-alt"},
+		Spec:       k8s.GatewayClassSpec{ControllerName: k8s.GatewayController(features.ManagedGatewayController)},
+	}
+	gw := &k8s.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: ns, UID: gwUID},
+		Spec:       k8s.GatewaySpec{GatewayClassName: k8s.ObjectName(altClass.Name)},
+	}
+	meta := func(name, gatewayName string, managed bool, owner types.UID) metav1.ObjectMeta {
+		m := metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+			Labels:    map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: gatewayName},
+		}
+		if managed {
+			m.Labels[label.GatewayManaged.Name] = "istio.io-gateway-controller"
+		}
+		if owner != "" {
+			m.OwnerReferences = []metav1.OwnerReference{{
+				APIVersion: gvk.KubernetesGateway.GroupVersion(),
+				Kind:       gvk.KubernetesGateway.Kind,
+				Name:       gatewayName,
+				UID:        owner,
+			}}
+		}
+		return m
+	}
+
+	client := kube.NewFakeClient(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}},
+		// Generated for the previous class: must be removed.
+		&appsv1.Deployment{ObjectMeta: meta(stale, "gw", true, gwUID)},
+		&corev1.Service{ObjectMeta: meta(stale, "gw", true, gwUID)},
+		&corev1.ServiceAccount{ObjectMeta: meta(stale, "gw", true, gwUID)},
+		&autoscalingv2.HorizontalPodAutoscaler{ObjectMeta: meta(stale, "gw", true, gwUID)},
+		&policyv1.PodDisruptionBudget{ObjectMeta: meta(stale, "gw", true, gwUID)},
+		// Not managed by Istio: must be kept.
+		&appsv1.Deployment{ObjectMeta: meta("gw-user", "gw", false, gwUID)},
+		// Owned by an older Gateway with the same name: must be kept.
+		&corev1.Service{ObjectMeta: meta("gw-previous", "gw", true, "other-uid")},
+		// Belongs to another Gateway: must be kept.
+		&appsv1.Deployment{ObjectMeta: meta("other-istio", "other", true, "other-uid")},
+	)
+	client.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: "28"}
+	kclient.NewWriteClient[*k8s.GatewayClass](client).Create(altClass)
+	kclient.NewWriteClient[*k8s.Gateway](client).Create(gw)
+
+	stop := test.NewStop(t)
+	env := newTestEnv()
+	env.PushContext().InitDone.Store(true)
+	tw := revisions.NewTagWatcher(client, "", "istio-system")
+	go tw.Run(stop)
+	d := NewDeploymentController(client, cluster.ID(features.ClusterName), env, testInjectionConfig(t, ""), func(fn func()) {}, tw, "", "")
+	applied := sets.New[string]()
+	var mu sync.Mutex
+	d.patcher = func(g schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		applied.Insert(g.Resource + "/" + name)
+		return nil
+	}
+	client.RunAndWait(stop)
+	go d.Run(stop)
+	kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
+
+	gone := func(get func() bool) {
+		t.Helper()
+		assert.EventuallyEqual(t, get, true, retry.Timeout(5*time.Second))
+	}
+	gone(func() bool { return d.deployments.Get(stale, ns) == nil })
+	gone(func() bool { return d.services.Get(stale, ns) == nil })
+	gone(func() bool { return d.serviceAccounts.Get(stale, ns) == nil })
+	gone(func() bool { return d.hpas.Get(stale, ns) == nil })
+	gone(func() bool { return d.pdbs.Get(stale, ns) == nil })
+
+	assert.Equal(t, d.deployments.Get("gw-user", ns) != nil, true)
+	assert.Equal(t, d.services.Get("gw-previous", ns) != nil, true)
+	assert.Equal(t, d.deployments.Get("other-istio", ns) != nil, true)
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, applied.Contains("deployments/gw-istio-alt"), true)
+	assert.Equal(t, applied.Contains("services/gw-istio-alt"), true)
 }
