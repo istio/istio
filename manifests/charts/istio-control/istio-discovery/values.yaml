@@ -440,6 +440,11 @@ _internal_defaults_do_not_set:
     # If not set explicitly, default to the Istio discovery address.
     caAddress: ""
 
+    # Select a custom name for istiod's CA root cert. When set, this is used as the
+    # ConfigMap name, and as the suffix of the ClusterTrustBundle name
+    # (istio.io:istiod-ca:<trustBundleName>).
+    trustBundleName: ""
+
     # Enable control of remote clusters.
     externalIstiod: false
 

@@ -22,6 +22,10 @@ _internal_defaults_do_not_set:
     networkPolicy:
       enabled: false
 
+  # The name of the root certificate ConfigMap, and the suffix of the ClusterTrustBundle name.
+  # Defaults to `global.trustBundleName` when that is set.
+  trustBundleName: ""
+
   # resourceName, if set, will override the naming of resources. If not set, will default to 'ztunnel'.
   # If you set this, you MUST also set `trustedZtunnelName` in the `istiod` chart.
   resourceName: ""
