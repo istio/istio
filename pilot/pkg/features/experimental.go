@@ -226,6 +226,10 @@ var (
 	EnableGatewayAPIInferenceExtension = env.Register("ENABLE_GATEWAY_API_INFERENCE_EXTENSION", false,
 		"If true, support gateway inference extension routing apis").Get()
 
+	EnableInferencePoolHBONEOverrideHost = env.Register("PILOT_INFERENCE_POOL_HBONE_OVERRIDE_HOST", true,
+		"If true, a gateway that reaches InferencePool endpoints over HBONE lets the Endpoint Picker's chosen "+
+			"ip:port match those endpoints, so picker routing keeps working when the model server pods are in ambient.").Get()
+
 	EnableGatewayAPIHTTPRouteAuth = env.Register("ENABLE_GATEWAY_API_HTTPROUTE_AUTH", false,
 		"If true, support targeting Gateway API HTTPRoute resources with AuthorizationPolicy").Get()
 

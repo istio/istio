@@ -213,6 +213,19 @@ func newDFPClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
 	}
 }
 
+// inferencePoolInternalListenerNames returns the internal listeners this gateway reaches HBONE endpoints through,
+// so override_host can match the Endpoint Picker's ip:port against endpoints named envoy://connect_originate/ip:port.
+// It returns nil when the gateway doesn't send HBONE, the feature is off, or the proxy predates the field.
+func (cb *ClusterBuilder) inferencePoolInternalListenerNames() []string {
+	if !cb.sendHbone || !features.EnableInferencePoolHBONEOverrideHost {
+		return nil
+	}
+	if cb.proxyVersion == nil || cb.proxyVersion.Compare(&model.IstioVersion{Major: 1, Minor: 33, Patch: -1}) < 0 {
+		return nil
+	}
+	return []string{ConnectOriginate}
+}
+
 func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {
 	// `locality_weighted_lb_config` is not compatible with
 	// `load_balancing_policy`.
@@ -235,6 +248,9 @@ func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {
 			TypedExtensionConfig: &core.TypedExtensionConfig{
 				Name: wellknown.EnvoyOverrideHostLbPolicy,
 				TypedConfig: protoconv.MessageToAny(&overridehost.OverrideHost{
+					// With HBONE the endpoints are internal addresses (envoy://connect_originate/ip:port), while the
+					// Endpoint Picker answers with ip:port. These names let override_host match one to the other.
+					InternalListenerNames: cb.inferencePoolInternalListenerNames(),
 					// A list of sources to get host addresses from. The host sources are searched in the order
 					// specified. The request is forwarded to the first address and subsequent addresses are used
 					// for request retries or hedging.
