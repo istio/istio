@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 const (
@@ -439,6 +440,21 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 			},
 			checkEffectiveRules:  true,
 			expectEffectiveRules: false,
+		},
+		{
+			name: "no status - rule with empty source and operation",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Action: v1beta1.AuthorizationPolicy_ALLOW,
+					Rules: []*v1beta1.Rule{
+						{
+							From: []*v1beta1.Rule_From{{Source: nil}},
+							To:   []*v1beta1.Rule_To{{Operation: nil}},
+						},
+					},
+				},
+			},
+			expectStatusMessage: nil,
 		},
 	}
 
@@ -1456,4 +1472,17 @@ type TestWaypointPolicyStatusCollectionTestCase struct {
 
 func getStatus[T any](col krt.Collection[T], name, namespace string) *T {
 	return col.GetKey(namespace + "/" + name)
+}
+
+func TestHandleRuleEmptySourceOrOperationMatchesAll(t *testing.T) {
+	// A from/to entry without a source/operation matches everything, as in the
+	// sidecar builder, so it must not narrow the list or panic.
+	rule := &v1beta1.Rule{
+		From: []*v1beta1.Rule_From{{}, {Source: &v1beta1.Source{Namespaces: []string{"foo"}}}},
+		To:   []*v1beta1.Rule_To{{}, {Operation: &v1beta1.Operation{Ports: []string{"8080"}}}},
+	}
+	for _, action := range []security.Action{security.Action_ALLOW, security.Action_DENY} {
+		rules, _ := handleRule(action, rule, "ns")
+		assert.Equal(t, len(rules), 0)
+	}
 }
