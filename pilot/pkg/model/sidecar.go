@@ -176,9 +176,8 @@ type SidecarScope struct {
 	// import, for use by CDS calculation. servicesByHostname holds the merged service per hostname of this union.
 	services           []*Service
 	servicesByHostname map[host.Name]*Service
-	// Egress listener services per hostname, in listener order, stored only when they differ from
-	// servicesByHostname[h]. A nil value marks a hostname that only comes from a VirtualService. Nil if egress
-	// listener services were never collected.
+	// Services selected by egress listeners, per hostname, in listener order. Only set when they differ from
+	// servicesByHostname[h]. A nil value marks a hostname that only comes from a VirtualService. Nil if not collected.
 	unmergedEgressServices map[host.Name][]*Service
 
 	// Destination rules imported across all egress listeners. This
@@ -426,8 +425,8 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 		sc.servicesByHostname = make(map[host.Name]*Service, imported)
 	}
 	sc.unmergedEgressServices = make(map[host.Name][]*Service)
-	// appendDestination appends a VirtualService destination, recording the hostname's egress listener services
-	// if the destination adds or changes its merged service.
+	// appendDestination adds a VirtualService destination, recording the hostname's listener services if it
+	// adds or changes the merged service.
 	appendDestination := func(s *Service) {
 		prev, found := servicesAdded[s.Hostname]
 		sc.appendSidecarServices(servicesAdded, s)
@@ -446,8 +445,8 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 			prev, found := servicesAdded[s.Hostname]
 			sc.appendSidecarServices(servicesAdded, s)
 			if services, f := sc.unmergedEgressServices[s.Hostname]; f {
-				sc.unmergedEgressServices[s.Hostname] = append(services, s)
-			} else if found {
+				sc.unmergedEgressServices[s.Hostname] = appendEgressService(services, s)
+			} else if found && !sameEgressService(prev.svc, s) {
 				sc.unmergedEgressServices[s.Hostname] = []*Service{prev.svc, s}
 			}
 		}
@@ -492,6 +491,24 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 			}
 		}
 	}
+}
+
+// appendEgressService appends s unless it is already present.
+func appendEgressService(services []*Service, s *Service) []*Service {
+	for _, existing := range services {
+		if sameEgressService(existing, s) {
+			return services
+		}
+	}
+	return append(services, s)
+}
+
+// sameEgressService reports whether a and b are the same service, ignoring ports: listeners can select it directly
+// or as copies trimmed to different ports. ServiceEntries sharing a hostname differ by name or address.
+func sameEgressService(a, b *Service) bool {
+	return a == b || (a.Attributes.Namespace == b.Attributes.Namespace &&
+		a.Attributes.K8sAttributes.ObjectName == b.Attributes.K8sAttributes.ObjectName &&
+		a.DefaultAddress == b.DefaultAddress)
 }
 
 func (sc *SidecarScope) selectAuthnPolicies(ps *PushContext, configNamespace string) {

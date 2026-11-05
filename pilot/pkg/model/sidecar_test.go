@@ -2904,15 +2904,20 @@ func TestCreateSidecarScope(t *testing.T) {
 				})
 			}
 			assert.Equal(t, tt.expectedServices, sidecarScope.services)
-			// Each hostname's egress listener services are kept unmerged; VirtualService-only destinations have none.
-			egressServices := map[host.Name][]*Service{}
+			// Each hostname keeps its egress listener services without repeats; VirtualService-only destinations have none.
+			egressServices := map[host.Name][]string{}
 			for _, el := range sidecarScope.EgressListeners {
 				for _, s := range el.services {
-					egressServices[s.Hostname] = append(egressServices[s.Hostname], s)
+					if !slices.Contains(egressServices[s.Hostname], s.ResourceName()) {
+						egressServices[s.Hostname] = append(egressServices[s.Hostname], s.ResourceName())
+					}
 				}
 			}
 			for _, s := range sidecarScope.services {
-				assert.Equal(t, sidecarScope.ServicesForEgressHostname(s.Hostname), egressServices[s.Hostname])
+				got := slices.Map(sidecarScope.ServicesForEgressHostname(s.Hostname), (*Service).ResourceName)
+				if !slices.Equal(got, egressServices[s.Hostname]) {
+					t.Errorf("%s: egress services got %v, want %v", s.Hostname, got, egressServices[s.Hostname])
+				}
 			}
 			if tt.sidecarConfig != nil {
 				dr := sidecarScope.DestinationRule(TrafficDirectionOutbound,
@@ -2928,12 +2933,15 @@ func TestCreateSidecarScope(t *testing.T) {
 }
 
 func TestServicesForEgressHostname(t *testing.T) {
-	newService := func(hostname string, registry provider.ID, ports PortList) *Service {
+	newServiceInNamespace := func(hostname, namespace string, registry provider.ID, ports PortList) *Service {
 		return &Service{
 			Hostname:   host.Name(hostname),
 			Ports:      ports,
-			Attributes: ServiceAttributes{Name: hostname, Namespace: "ns", ServiceRegistry: registry},
+			Attributes: ServiceAttributes{Name: hostname, Namespace: namespace, ServiceRegistry: registry},
 		}
+	}
+	newService := func(hostname string, registry provider.ID, ports PortList) *Service {
+		return newServiceInNamespace(hostname, "ns", registry, ports)
 	}
 	routeTo := func(s *Service, port uint32) *config.Config {
 		return &config.Config{
@@ -2953,6 +2961,10 @@ func TestServicesForEgressHostname(t *testing.T) {
 	routeOnly := newService("route-only.ns.svc.cluster.local", provider.Kubernetes, port7443)
 	repeated1 := newService("repeated.example.com", provider.External, port7443)
 	repeated2 := newService("repeated.example.com", provider.External, port803x)
+	repeatedOther := newServiceInNamespace("repeated.example.com", "other", provider.External, port7443)
+	// Selected by several listeners, as the same pointer and as a copy.
+	duplicate := newService("duplicate.example.com", provider.External, port7443)
+	duplicateCopy := duplicate.ShallowCopy()
 
 	ps := NewPushContext()
 	ps.exportToDefaults.service = sets.New(visibility.Public)
@@ -2966,10 +2978,11 @@ func TestServicesForEgressHostname(t *testing.T) {
 		Namespace: "ns",
 		EgressListeners: []*IstioEgressListenerWrapper{
 			{
-				services:        []*Service{single, multiPort, entry, repeated1},
+				services:        []*Service{single, multiPort, entry, repeated1, duplicate},
 				virtualServices: []*config.Config{routeTo(multiPort, 8000), routeTo(kube, 7443), routeTo(routeOnly, 7443)},
 			},
-			{services: []*Service{repeated2}},
+			{services: []*Service{repeated2, duplicate}},
+			{services: []*Service{repeatedOther, duplicateCopy}},
 		},
 	}
 	sc.collectImportedServices(ps, "ns")
@@ -2979,16 +2992,20 @@ func TestServicesForEgressHostname(t *testing.T) {
 		// Merged with the VirtualService destination port.
 		multiPort.Hostname: {multiPort},
 		// Replaced by the Kubernetes VirtualService destination.
-		entry.Hostname:     {entry},
-		repeated1.Hostname: {repeated1, repeated2},
+		entry.Hostname: {entry},
+		// Same name and address in one namespace is one service: repeated2 only differs by ports.
+		repeated1.Hostname: {sc.GetService(repeated1.Hostname), repeatedOther},
+		duplicate.Hostname: {duplicate},
 		routeOnly.Hostname: nil,
 	} {
 		if got := sc.ServicesForEgressHostname(hostname); !slices.Equal(got, want) {
 			t.Errorf("%s: got %v, want %v", hostname, got, want)
 		}
 	}
-	if _, f := sc.unmergedEgressServices[single.Hostname]; f {
-		t.Errorf("%s has a single unmerged service and must not be stored separately", single.Hostname)
+	for _, hostname := range []host.Name{single.Hostname, duplicate.Hostname} {
+		if _, f := sc.unmergedEgressServices[hostname]; f {
+			t.Errorf("%s has a single unmerged service and must not be stored separately", hostname)
+		}
 	}
 	// Gateway scopes have no egress listener services.
 	if got := DefaultSidecarScopeForGateway(ps, "ns").ServicesForEgressHostname(single.Hostname); got != nil {
