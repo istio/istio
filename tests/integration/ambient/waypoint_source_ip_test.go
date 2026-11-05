@@ -141,7 +141,6 @@ func connectTerminateStats(t framework.TestContext, waypoint string) (streams, c
 // https://github.com/istio/istio/issues/62522.
 func TestAuthorizationWaypointSourceIP(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		skipIfGatewayAPIUnsupported(t)
 		if t.Clusters().IsMulticluster() {
 			// Cross-network traffic reaches the waypoint from the east-west gateway, which is then the peer.
 			t.Skip("requires a single cluster")
