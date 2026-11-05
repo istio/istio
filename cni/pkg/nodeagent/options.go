@@ -69,7 +69,7 @@ const (
 	//
 	// It doesn't matter what this IP is, so long as it's not routable and doesn't collide with anything else.
 	//
-	// The IPv6 marker is a unique-local address, not an IPv6 link-local address.
+	// IPv6 probes use a unique-local address as their SNAT marker.
 	DefaultHostProbeSNATIP   = "169.254.7.127"
 	DefaultHostProbeSNATIPV6 = "fd16:9254:7127:1337:ffff:ffff:ffff:ffff"
 )
