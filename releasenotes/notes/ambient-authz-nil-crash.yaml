@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue: []
+releaseNotes:
+  - |
+    **Fixed** a crash in istiod in ambient mode when an `AuthorizationPolicy` had an empty `to` or `from` entry. Such entries are now treated as an empty `operation` or `source`, matching the sidecar behavior.
+securityNotes:
+  - |
+    __[GHSA-8jw7-82jp-wr2c](https://github.com/istio/istio/security/advisories/GHSA-8jw7-82jp-wr2c)__: In ambient mode, an `AuthorizationPolicy` with an empty `to` or `from` entry that was not rejected by the validating webhook caused istiod to crash and crash-loop until the policy was removed, stopping config distribution for the whole mesh.
+    - CVSS Score: 6.3 [AV:N/AC:H/PR:L/UI:N/S:C/C:N/I:N/A:H](https://www.first.org/cvss/calculator/3.1#CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:C/C:N/I:N/A:H)
+
+    **Credit**: This vulnerability was discovered and reported by Sergey Kanibor (https://github.com/r0binak).
