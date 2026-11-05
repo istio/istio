@@ -34,6 +34,7 @@ import (
 
 // mockPromAPI lets us mock calls to Prometheus API
 type mockPromAPI struct {
+	promv1.API
 	cannedResponse map[string]prometheus_model.Value
 }
 
@@ -136,34 +137,6 @@ func TestPrintMetrics(t *testing.T) {
 	}
 }
 
-func (client mockPromAPI) Alerts(ctx context.Context) (promv1.AlertsResult, error) {
-	return promv1.AlertsResult{}, fmt.Errorf("TODO mockPromAPI doesn't mock Alerts")
-}
-
-func (client mockPromAPI) AlertManagers(ctx context.Context) (promv1.AlertManagersResult, error) {
-	return promv1.AlertManagersResult{}, fmt.Errorf("TODO mockPromAPI doesn't mock AlertManagers")
-}
-
-func (client mockPromAPI) CleanTombstones(ctx context.Context) error {
-	return nil
-}
-
-func (client mockPromAPI) Config(ctx context.Context) (promv1.ConfigResult, error) {
-	return promv1.ConfigResult{}, nil
-}
-
-func (client mockPromAPI) DeleteSeries(ctx context.Context, matches []string, startTime time.Time, endTime time.Time) error {
-	return nil
-}
-
-func (client mockPromAPI) Flags(ctx context.Context) (promv1.FlagsResult, error) {
-	return nil, nil
-}
-
-func (client mockPromAPI) FormatQuery(ctx context.Context, query string) (string, error) {
-	return "", nil
-}
-
 func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time, opts ...promv1.Option,
 ) (prometheus_model.Value, promv1.Warnings, promv1.Infos, error) {
 	canned, ok := client.cannedResponse[query]
@@ -171,79 +144,4 @@ func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time,
 		return prometheus_model.Vector{}, nil, nil, nil
 	}
 	return canned, nil, nil, nil
-}
-
-func (client mockPromAPI) TSDB(ctx context.Context, opts ...promv1.Option) (promv1.TSDBResult, error) {
-	return promv1.TSDBResult{}, nil
-}
-
-func (client mockPromAPI) QueryRange(
-	ctx context.Context,
-	query string,
-	r promv1.Range,
-	opts ...promv1.Option,
-) (prometheus_model.Value, promv1.Warnings, promv1.Infos, error) {
-	canned, ok := client.cannedResponse[query]
-	if !ok {
-		return prometheus_model.Vector{}, nil, nil, nil
-	}
-	return canned, nil, nil, nil
-}
-
-func (client mockPromAPI) WalReplay(ctx context.Context) (promv1.WalReplayStatus, error) {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (client mockPromAPI) Series(ctx context.Context, matches []string,
-	startTime time.Time, endTime time.Time, opts ...promv1.Option,
-) ([]prometheus_model.LabelSet, promv1.Warnings, promv1.Infos, error) {
-	return nil, nil, nil, nil
-}
-
-func (client mockPromAPI) Snapshot(ctx context.Context, skipHead bool) (promv1.SnapshotResult, error) {
-	return promv1.SnapshotResult{}, nil
-}
-
-func (client mockPromAPI) Rules(ctx context.Context, matches []string) (promv1.RulesResult, error) {
-	return promv1.RulesResult{}, nil
-}
-
-func (client mockPromAPI) TSDBBlocks(ctx context.Context) (promv1.TSDBBlocksResult, error) {
-	return promv1.TSDBBlocksResult{}, nil
-}
-
-func (client mockPromAPI) Targets(ctx context.Context) (promv1.TargetsResult, error) {
-	return promv1.TargetsResult{}, nil
-}
-
-func (client mockPromAPI) TargetsMetadata(ctx context.Context, matchTarget string, metric string, limit string) ([]promv1.MetricMetadata, error) {
-	return nil, nil
-}
-
-func (client mockPromAPI) Runtimeinfo(ctx context.Context) (promv1.RuntimeinfoResult, error) {
-	return promv1.RuntimeinfoResult{}, nil
-}
-
-func (client mockPromAPI) Metadata(ctx context.Context, metric string, limit string) (map[string][]promv1.Metadata, error) {
-	return nil, nil
-}
-
-func (client mockPromAPI) LabelNames(
-	ctx context.Context, matches []string, startTime time.Time, endTime time.Time, options ...promv1.Option,
-) (prometheus_model.LabelNames, promv1.Warnings, promv1.Infos, error) {
-	return nil, nil, nil, nil
-}
-
-func (client mockPromAPI) LabelValues(context.Context, string, []string, time.Time, time.Time, ...promv1.Option,
-) (prometheus_model.LabelValues, promv1.Warnings, promv1.Infos, error) {
-	return nil, nil, nil, nil
-}
-
-func (client mockPromAPI) Buildinfo(ctx context.Context) (promv1.BuildinfoResult, error) {
-	return promv1.BuildinfoResult{}, nil
-}
-
-func (client mockPromAPI) QueryExemplars(ctx context.Context, query string, startTime time.Time, endTime time.Time) ([]promv1.ExemplarQueryResult, error) {
-	return nil, nil
 }
