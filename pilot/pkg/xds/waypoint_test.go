@@ -1253,6 +1253,7 @@ func TestWaypointScopedAddressPush(t *testing.T) {
 	})
 	ads.ExpectResponse(t)
 }
+
 const (
 	httpRBACTypeURL    = "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC"
 	networkRBACTypeURL = "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC"
