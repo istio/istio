@@ -1,0 +1,87 @@
+# Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: proxy-service-instance
+spec:
+  hosts:
+  - example.com
+  ports:
+  - number: 443
+    name: tls
+    protocol: TLS
+  resolution: STATIC
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      istio.io/benchmark: "true"
+---
+# Updated by the delta push. Not referenced by any gateway route.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: unrelated
+spec:
+  hosts:
+  - unrelated.example
+  ports:
+  - number: 443
+    name: tls
+    protocol: TLS
+  resolution: DNS
+---
+{{- range $i := until .Services }}
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard-{{$i}}
+spec:
+  hosts:
+  - "*.w{{$i}}.example"
+  ports:
+  - number: 443
+    name: tls
+    protocol: TLS
+  location: MESH_EXTERNAL
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: gateway-{{$i}}
+  namespace: gateway
+spec:
+  selector:
+    istio.io/benchmark: "true"
+  servers:
+  - port:
+      number: 443
+      name: tls
+      protocol: TLS
+    hosts:
+    - "*/*.w{{$i}}.example"
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: vs-{{$i}}
+  namespace: gateway
+spec:
+  hosts:
+  - "*.w{{$i}}.example"
+  gateways:
+  - gateway/gateway-{{$i}}
+  tcp:
+  - match:
+    - port: 443
+      gateways:
+      - gateway/gateway-{{$i}}
+    route:
+    - destination:
+        host: "*.w{{$i}}.example"
+        port:
+          number: 443
+---
+{{- end }}

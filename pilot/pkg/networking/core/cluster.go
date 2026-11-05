@@ -385,6 +385,12 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		if proxy.Type == model.Router && proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher)...)
 		}
+		// Does not depend on the routes. Gateway changes rebuild all clusters, so they add or remove it. A gateway
+		// Service port change can leave an unused one until the next full push.
+		if features.EnableWildcardHostServiceEntriesForTLS && proxy.Type == model.Router && proxy.MergedGateway != nil &&
+			proxy.MergedGateway.ContainsIstioMutualTLSGatewayServer {
+			clusters = append(clusters, buildGatewayWildcardTLSInternalCluster())
+		}
 		clusters = append(clusters, patcher.insertedClusters()...)
 		// Ingress gateway needs the clusters necessary for Double HBONE communications
 		// that happen cross cluster. A request arrives at the ingress and the LB
@@ -516,10 +522,15 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 				// Apply DestinationRule settings
 				destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
-				cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil)
+				subsetClusters := cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil)
 
 				if patched := cp.patch([]host.Name{service.Hostname}, dfpCluster.build()); patched != nil {
 					resources = append(resources, patched)
+				}
+				for _, ss := range subsetClusters {
+					if patched := cp.patch([]host.Name{service.Hostname}, ss); patched != nil {
+						resources = append(resources, patched)
+					}
 				}
 			}
 			continue
