@@ -1812,6 +1812,65 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 				BypassCorsPreflight: true,
 			},
 		},
+		{
+			name: "Single JWT policy with output payload to metadata",
+			in: []*v1beta1.JWTRule{
+				{
+					Issuer:                  "https://secret.foo.com",
+					JwksUri:                 jwksURI,
+					OutputPayloadToMetadata: "idp",
+				},
+			},
+			expected: &envoy_jwt.JwtAuthentication{
+				Rules: []*envoy_jwt.RequirementRule{
+					{
+						Match: &route.RouteMatch{
+							PathSpecifier: &route.RouteMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+						RequirementType: &envoy_jwt.RequirementRule_Requires{
+							Requires: &envoy_jwt.JwtRequirement{
+								RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+									RequiresAny: &envoy_jwt.JwtRequirementOrList{
+										Requirements: []*envoy_jwt.JwtRequirement{
+											{
+												RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+													ProviderName: "origins-0",
+												},
+											},
+											{
+												RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+													AllowMissing: &emptypb.Empty{},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Providers: map[string]*envoy_jwt.JwtProvider{
+					"origins-0": {
+						Issuer: "https://secret.foo.com",
+						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+							LocalJwks: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: test.JwtPubKey1,
+								},
+							},
+						},
+						Forward:           false,
+						PayloadInMetadata: "idp",
+						NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+							SpaceDelimitedClaims: buildSpaceDelimitedClaims(nil),
+						},
+					},
+				},
+				BypassCorsPreflight: true,
+			},
+		},
 	}
 
 	push := &model.PushContext{}
