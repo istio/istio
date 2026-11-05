@@ -105,7 +105,7 @@ func (cc inboundChainConfig) StatPrefix() string {
 		// A bit arbitrary, but for backwards compatibility just use the cluster name
 		statPrefix = cc.clusterName
 	} else {
-		statPrefix = "inbound_" + cc.Name(istionetworking.ListenerProtocolHTTP)
+		statPrefix = "inbound_" + cc.Name(istionetworking.ListenerProtocolTCP)
 	}
 
 	statPrefix = util.DelimitedStatsPrefix(statPrefix)
@@ -123,23 +123,13 @@ func (cc inboundChainConfig) Name(protocol istionetworking.ListenerProtocol) str
 		return model.VirtualInboundListenerName
 	}
 	// Everything else derived from bind/port
-	return getListenerName(cc.bind, int(cc.port.TargetPort), istionetworking.TransportProtocolTCP)
-}
-
-// chainName names the chain for protocol. With the sidecar-ambient bridge enabled, main_internal
-// selects chains by name, so a sniffed port's HTTP chain cannot share the plain chain's name.
-func (cc inboundChainConfig) chainName(protocol istionetworking.ListenerProtocol) string {
-	name := cc.Name(protocol)
-	if cc.bridged() && protocol == istionetworking.ListenerProtocolHTTP {
+	name := getListenerName(cc.bind, int(cc.port.TargetPort), istionetworking.TransportProtocolTCP)
+	if cc.hbone && protocol == istionetworking.ListenerProtocolHTTP {
+		// main_internal can select chains by name (see useHBONEFilterChainMatcher), so a sniffed
+		// port's HTTP chain cannot share the plain chain's name.
 		name += "-http"
 	}
 	return name
-}
-
-// bridged reports whether this is a main_internal chain for one of the sidecar's ports and the
-// sidecar-ambient bridge is enabled, so the chain may receive tunnels addressed by service hostname.
-func (cc inboundChainConfig) bridged() bool {
-	return cc.hbone && !cc.passthrough && sidecarAmbientBridgeEnabled()
 }
 
 // ToFilterChainMatch builds the FilterChainMatch for the config
@@ -360,7 +350,7 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 				FilterChainMatch: cc.ToFilterChainMatch(opt),
 				Filters:          lb.buildInboundNetworkFiltersForHTTP(cc),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
-				Name:             cc.chainName(opt.Protocol),
+				Name:             cc.Name(opt.Protocol),
 			}
 
 		case istionetworking.ListenerProtocolTCP:
@@ -368,11 +358,11 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 				FilterChainMatch: cc.ToFilterChainMatch(opt),
 				Filters:          lb.buildInboundNetworkFilters(cc),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
-				Name:             cc.chainName(opt.Protocol),
+				Name:             cc.Name(opt.Protocol),
 			}
 
 		}
-		if cc.bridged() && len(lb.node.IPAddresses) > 0 {
+		if cc.hbone && !cc.passthrough && len(lb.node.IPAddresses) > 0 {
 			// A tunnel addressed by service hostname restores no destination address, so the chain
 			// supplies the workload's own address for its port instead.
 			dst := net.JoinHostPort(lb.node.IPAddresses[0], strconv.Itoa(int(cc.port.TargetPort)))

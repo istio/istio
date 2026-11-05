@@ -29,9 +29,10 @@ import (
 
 // A cross-network inner tunnel forwarded by the ambient east-west gateway carries the service
 // hostname as its CONNECT authority. With the bridge enabled, the sidecar's main_internal must use
-// a matcher that routes <hostname>:<port> to that port's chain, which records the workload address
-// as the destination, while keeping address-based selection for everything else. With the bridge
-// disabled main_internal keeps filter_chain_match and its chains are unchanged.
+// a matcher that routes <hostname>:<port> to that port's chain, while keeping address-based
+// selection for everything else. With the bridge disabled main_internal keeps filter_chain_match.
+// Either way the port chains have unique names and first record the workload address as the
+// destination, which is a no-op for tunnels that already restore one.
 func TestSidecarHBONEServiceAddressedConnect(t *testing.T) {
 	test.SetForTest(t, &features.EnableSidecarHBONEListening, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
@@ -72,36 +73,29 @@ func TestSidecarHBONEServiceAddressedConnect(t *testing.T) {
 				if internal.FilterChainMatcher != nil {
 					t.Fatalf("main_internal should keep filter_chain_match when the bridge is disabled")
 				}
-				for _, c := range internal.FilterChains {
-					renamed := c.Name != model.VirtualInboundCatchAllHTTPFilterChainName && strings.HasSuffix(c.Name, "-http")
-					if renamed || c.Filters[0].Name == "set_dst_address" {
-						t.Errorf("chain %s should be unchanged when the bridge is disabled", c.Name)
-					}
+			} else {
+				if internal.FilterChainMatcher == nil {
+					t.Fatalf("main_internal should use a filter chain matcher when the bridge is enabled")
 				}
-				return
-			}
-
-			if internal.FilterChainMatcher == nil {
-				t.Fatalf("main_internal should use a filter chain matcher when the bridge is enabled")
-			}
-			tree := internal.FilterChainMatcher.String()
-			for _, want := range []string{
-				"echo.default.svc.cluster.local:80", // authority branch
-				"auto.default.svc.cluster.local:70",
-				"1.1.1.1",          // destination IP branch
-				`"8080"`, `"7070"`, // destination ports
-				"'http/1.1'", // sniffing on 7070
-			} {
-				if !strings.Contains(tree, want) {
-					t.Errorf("matcher should contain %s", want)
+				tree := internal.FilterChainMatcher.String()
+				for _, want := range []string{
+					"echo.default.svc.cluster.local:80", // authority branch
+					"auto.default.svc.cluster.local:70",
+					"1.1.1.1",          // destination IP branch
+					`"8080"`, `"7070"`, // destination ports
+					"'http/1.1'", // sniffing on 7070
+				} {
+					if !strings.Contains(tree, want) {
+						t.Errorf("matcher should contain %s", want)
+					}
 				}
 			}
 
 			names := sets.New[string]()
 			chains := map[string]*listener.FilterChain{}
 			for _, c := range internal.FilterChains {
-				if c.FilterChainMatch != nil {
-					t.Errorf("chain %s still has filter_chain_match", c.Name)
+				if enabled == (c.FilterChainMatch != nil) {
+					t.Errorf("chain %s: filter_chain_match set=%v with the bridge enabled=%v", c.Name, c.FilterChainMatch != nil, enabled)
 				}
 				if names.InsertContains(c.Name) {
 					t.Errorf("duplicate chain name %s", c.Name)
