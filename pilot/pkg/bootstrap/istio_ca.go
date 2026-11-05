@@ -234,7 +234,11 @@ func detectAuthEnv(jwt string) (*authenticate.JwtPayload, error) {
 // kubernetes tls secrets mount files as tls.crt,tls.key,ca.crt
 // istiod secret is ca-cert.pem ca-key.pem cert-chain.pem root-cert.pem
 // it also checks for optional crl file and adds its file path if it exists
-func detectSigningCABundleAndCRL() (ca.SigningCAFileBundle, error) {
+func detectSigningCABundleAndCRL(caCRLEnabled ...bool) (ca.SigningCAFileBundle, error) {
+	crlEnabled := features.EnableCACRL
+	if len(caCRLEnabled) > 0 {
+		crlEnabled = caCRLEnabled[0]
+	}
 	tlsSigningFile := path.Join(LocalCertDir.Get(), ca.TLSSecretCACertFile)
 
 	// looking for tls file format (tls.crt)
@@ -262,7 +266,7 @@ func detectSigningCABundleAndCRL() (ca.SigningCAFileBundle, error) {
 		SigningKeyFile:  path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile),
 	}
 
-	if features.EnableCACRL {
+	if crlEnabled {
 		crlFilePath := path.Join(LocalCertDir.Get(), ca.CACRLFile)
 		signingCAFileBundle.CRLFile = crlFilePath
 		if _, err := os.Stat(crlFilePath); err == nil {
@@ -342,9 +346,9 @@ func handleEvent(s *Server) {
 
 	var newCABundle []byte
 	var err error
-	var updateCRL bool
 
-	fileBundle, err := detectSigningCABundleAndCRL()
+	crlEnabled := s.caCRLEnabled || features.EnableCACRL
+	fileBundle, err := detectSigningCABundleAndCRL(crlEnabled)
 	if err != nil {
 		log.Errorf("unable to determine signing file format %v", err)
 		return
@@ -376,40 +380,42 @@ func handleEvent(s *Server) {
 		}
 	}
 
-	if features.EnableCACRL {
-		currentCRLData := s.CA.GetCAKeyCertBundle().GetCRLPem()
-		crlData, crlReadErr := pkiutil.ReadCRLBytesFromFile(fileBundle.CRLFile)
-		if crlReadErr != nil && !os.IsNotExist(crlReadErr) {
-			// handleEvent can be triggered either for key-cert bundle update or
-			// for crl file update. So, even if there is an error in reading crl file,
-			// we should log error and continue with key-cert bundle update.
-			log.Errorf("failed reading crl file: %v", crlReadErr)
-		} else if !bytes.Equal(currentCRLData, crlData) {
-			log.Infof("Updating CRL data")
-			updateCRL = true
-		}
-	}
-
-	// process updated root cert or crl file
-	err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
+	// Update the key material independently of the CRL. An invalid CRL must not
+	// prevent certificate rotation.
+	bundle := s.CA.GetCAKeyCertBundle()
+	keyCertErr := bundle.UpdateVerifiedKeyCertBundleFromFile(
 		fileBundle.SigningCertFile,
 		fileBundle.SigningKeyFile,
 		fileBundle.CertChainFiles,
 		fileBundle.RootCertFile,
-		fileBundle.CRLFile,
 	)
-	if err != nil {
-		log.Errorf("Failed to update new Plug-in CA certs: %v", err)
-		return
-	}
-	if len(s.CA.GetCAKeyCertBundle().GetRootCertPem()) != 0 {
-		caserver.RecordCertsExpiry(s.CA.GetCAKeyCertBundle())
+	if keyCertErr != nil {
+		log.Errorf("Failed to update new Plug-in CA certs: %v", keyCertErr)
+	} else if len(bundle.GetRootCertPem()) != 0 {
+		caserver.RecordCertsExpiry(bundle)
 	}
 
-	// notify watcher to replicate new or updated crl data
-	if updateCRL {
-		s.istiodCertBundleWatcher.SetAndNotifyCACRL(s.CA.GetCAKeyCertBundle().GetCRLPem())
-		log.Infof("Istiod has detected the newly added CRL file and updated its CRL accordingly")
+	if crlEnabled && len(fileBundle.CRLFile) > 0 {
+		// handleEvent can be triggered either for key-cert bundle update or for
+		// crl file update. So, even if there is an error in reading the crl file,
+		// we should log the error and continue with the key-cert bundle update.
+		crlData, crlReadErr := pkiutil.ReadCRLBytesFromFile(fileBundle.CRLFile)
+		if crlReadErr != nil && !os.IsNotExist(crlReadErr) {
+			log.Errorf("failed reading crl file: %v", crlReadErr)
+		} else if !bytes.Equal(bundle.GetCRLPem(), crlData) {
+			log.Infof("Updating CRL data")
+			if crlErr := bundle.VerifyAndSetCRL(crlData); crlErr != nil {
+				log.Errorf("Failed to update CRL: %v", crlErr)
+			} else {
+				// notify watcher to replicate new or updated crl data
+				s.istiodCertBundleWatcher.SetAndNotifyCACRL(bundle.GetCRLPem())
+				log.Infof("Istiod has detected the newly added CRL file and updated its CRL accordingly")
+			}
+		}
+	}
+
+	if keyCertErr != nil {
+		return
 	}
 
 	err = s.updateRootCertAndGenKeyCert()

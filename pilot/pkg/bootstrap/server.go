@@ -158,6 +158,8 @@ type Server struct {
 	RA       ra.RegistrationAuthority
 	caServer *caserver.Server
 
+	caCRLEnabled bool
+
 	// TrustAnchors for workload to workload mTLS and proxy to istiod TLS
 	// Only initiated when `ISTIO_MULTIROOT_MESH` = true
 	workloadTrustBundle *tb.TrustBundle
@@ -259,6 +261,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 		webhookInfo:             &webhookInfo{},
 		metricsExporter:         exporter,
+		caCRLEnabled:            features.EnableCACRL,
 		krtDebugger:             args.KrtDebugger,
 	}
 
