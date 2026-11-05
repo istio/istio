@@ -36,16 +36,22 @@ import (
 
 func initMeshDataplane(client kube.Client, args AmbientArgs) (_ *meshDataplane, retErr error) {
 	var probeRoutes routing.HostProbeRoutes
-	if err := util.RunAsHost(func() error {
-		var err error
-		probeRoutes, err = routing.ConfigureHostProbeRoutes(args.CNIAgentRunDir, HostProbeSNATIP, HostProbeSNATIPV6,
-			EnableHostProbeLocalRoute, args.EnableIPv6)
-		return err
-	}); err != nil {
+	probeRoutesRequired, err := routing.HostProbeRoutesRequired(args.CNIAgentRunDir, EnableHostProbeLocalRoute)
+	if err != nil {
 		return nil, fmt.Errorf("error initializing host probe local routing: %w", err)
 	}
+	if probeRoutesRequired {
+		if err := util.RunAsHost(func() error {
+			var err error
+			probeRoutes, err = routing.ConfigureHostProbeRoutes(args.CNIAgentRunDir, HostProbeSNATIP, HostProbeSNATIPV6,
+				EnableHostProbeLocalRoute, args.EnableIPv6)
+			return err
+		}); err != nil {
+			return nil, fmt.Errorf("error initializing host probe local routing: %w", err)
+		}
+	}
 	defer func() {
-		if retErr != nil {
+		if retErr != nil && len(probeRoutes) != 0 {
 			retErr = errors.Join(retErr, util.RunAsHost(func() error {
 				return probeRoutes.Rollback()
 			}))

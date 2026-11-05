@@ -34,6 +34,11 @@ import (
 
 var log = scopes.CNIAgent
 
+const (
+	hostProbeRouteStateFile   = "host-probe-route.json"
+	hostProbeRouteV6StateFile = "host-probe-route-v6.json"
+)
+
 // hostProbeRoute holds the host-local lock until shutdown, preventing an old agent
 // from deleting a replacement agent's route during an overlapping restart.
 type hostProbeRoute struct {
@@ -51,6 +56,25 @@ type hostProbeRouteState struct {
 
 // HostProbeRoutes holds the ownership locks for the configured probe routes.
 type HostProbeRoutes []*hostProbeRoute
+
+// HostProbeRoutesRequired checks whether routes need configuration or cleanup.
+// It may be called outside the host network namespace.
+func HostProbeRoutesRequired(runDir string, enabled bool) (bool, error) {
+	if enabled {
+		return true, nil
+	}
+	if runDir == "" {
+		return false, nil
+	}
+	for _, name := range []string{hostProbeRouteStateFile, hostProbeRouteV6StateFile} {
+		if _, err := os.Stat(filepath.Join(runDir, name)); err == nil {
+			return true, nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return false, fmt.Errorf("check host probe route ownership: %w", err)
+		}
+	}
+	return false, nil
+}
 
 // ConfigureHostProbeRoutes configures probe routes in the current network namespace.
 // The caller must enter the host network namespace before calling it.
@@ -142,11 +166,11 @@ func (s hostProbeRouteState) route() (*netlink.Route, error) {
 
 // configureHostProbeRoute must run in the host network namespace.
 func configureHostProbeRoute(runDir string, address netip.Addr, enabled bool, family int) (_ *hostProbeRoute, retErr error) {
-	stateFile := "host-probe-route.json"
+	stateFile := hostProbeRouteStateFile
 	switch family {
 	case unix.AF_INET:
 	case unix.AF_INET6:
-		stateFile = "host-probe-route-v6.json"
+		stateFile = hostProbeRouteV6StateFile
 	default:
 		return nil, fmt.Errorf("unsupported host probe route family: %d", family)
 	}

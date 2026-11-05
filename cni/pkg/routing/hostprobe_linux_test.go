@@ -80,6 +80,48 @@ func requireProbeRoutes(t *testing.T, route *netlink.Route, count int) {
 	assert.Equal(t, len(routes), count)
 }
 
+func TestHostProbeRoutesRequired(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		enabled   bool
+		stateFile string
+		want      bool
+	}{
+		{name: "disabled"},
+		{name: "enabled", enabled: true, want: true},
+		{name: "ipv4 cleanup", stateFile: hostProbeRouteStateFile, want: true},
+		{name: "ipv6 cleanup", stateFile: hostProbeRouteV6StateFile, want: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if tt.stateFile != "" {
+				assert.NoError(t, os.WriteFile(filepath.Join(dir, tt.stateFile), []byte("{"), 0o600))
+			}
+			required, err := HostProbeRoutesRequired(dir, tt.enabled)
+			assert.NoError(t, err)
+			assert.Equal(t, required, tt.want)
+			files, err := os.ReadDir(dir)
+			assert.NoError(t, err)
+			wantFiles := 0
+			if tt.stateFile != "" {
+				wantFiles = 1
+			}
+			assert.Equal(t, len(files), wantFiles)
+		})
+	}
+	for _, dir := range []string{"", filepath.Join(t.TempDir(), "absent")} {
+		required, err := HostProbeRoutesRequired(dir, false)
+		assert.NoError(t, err)
+		assert.Equal(t, required, false)
+	}
+	t.Run("ownership check error", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "not-a-directory")
+		assert.NoError(t, os.WriteFile(path, nil, 0o600))
+		_, err := HostProbeRoutesRequired(path, false)
+		assert.Error(t, err)
+	})
+}
+
 func TestHostProbeRouteLifecycle(t *testing.T) {
 	testProbeRouteFamilies(t, func(t *testing.T, family probeRouteFamily) {
 		setup(t)

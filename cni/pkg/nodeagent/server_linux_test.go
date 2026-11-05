@@ -19,6 +19,8 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -32,12 +34,47 @@ import (
 
 	"istio.io/api/annotation"
 	set "istio.io/istio/cni/pkg/addressset"
+	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/routing"
 	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+func TestInitMeshDataplaneHostProbeRouteGating(t *testing.T) {
+	test.SetForTest(t, &pconstants.HostNetNSPath, filepath.Join(t.TempDir(), "missing-netns"))
+	_, hostErr := createHostNetworkAddrSetManager(false, false)
+	assert.Error(t, hostErr)
+
+	for _, tt := range []struct {
+		name      string
+		enabled   bool
+		stateFile string
+	}{
+		{name: "disabled"},
+		{name: "enabled", enabled: true},
+		{name: "ipv4 cleanup", stateFile: "host-probe-route.json"},
+		{name: "ipv6 cleanup", stateFile: "host-probe-route-v6.json"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &EnableHostProbeLocalRoute, tt.enabled)
+			dir := t.TempDir()
+			if tt.stateFile != "" {
+				assert.NoError(t, os.WriteFile(filepath.Join(dir, tt.stateFile), []byte("{"), 0o600))
+			}
+			_, err := initMeshDataplane(nil, AmbientArgs{CNIAgentRunDir: dir})
+			assert.Error(t, err)
+			prefix := "error initializing host probe local routing: "
+			if !tt.enabled && tt.stateFile == "" {
+				// Neither probe configuration nor empty rollback may enter host netns.
+				prefix = "error initializing host addressSet manager: "
+			}
+			assert.Equal(t, err.Error(), prefix+hostErr.Error())
+		})
+	}
+}
 
 func TestMeshDataplaneStopHostProbeRoutes(t *testing.T) {
 	for _, skipCleanup := range []bool{false, true} {
