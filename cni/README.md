@@ -83,7 +83,9 @@ probe replies; evaluate pod-to-host access, wildcard host listeners, host-firewa
 policy, and NetworkPolicy before enabling it.
 
 The agent records route ownership in its host-mounted run directory and preserves
-the routes during safe upgrades. IPv4 retains `host-probe-route.json`; IPv6 uses
+the routes during safe upgrades. When the option is disabled and neither ownership
+file exists, probe-route setup and rollback do not enter the host network namespace.
+IPv4 retains `host-probe-route.json`; IPv6 uses
 `host-probe-route-v6.json` with an independent ownership lock. Equivalent
 pre-existing routes are never owned or deleted; conflicting routes fail startup.
 An overlapping agent fails startup until
