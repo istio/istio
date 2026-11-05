@@ -1134,3 +1134,122 @@ func eastWestGatewayUpstreamConnections(t framework.TestContext, c cluster.Clust
 	}
 	return total, nil
 }
+
+// TestMultinetworkCrossMode covers cross-cluster calls where the two ends run different data
+// planes. An ambient client reaches a remote workload through the ambient east-west gateway as an
+// HBONE tunnel addressed by service hostname, which a sidecar only accepts with the bridge enabled.
+// The same gateway serving sidecar mTLS passthrough on :15443 does not change that: it carries
+// sidecar clients, not ambient ones.
+//
+// Each backend service is defined in both clusters, as an ambient client only reaches a global
+// service that also exists on its own network, but has pods in the remote cluster only, so a reply
+// can only come from across the network; the explicit cluster assertion then pins down which pod
+// actually answered. That matters because ztunnel load balances per TCP connection rather than per
+// request, so a keep-alive client talking to a service that also has a local backend can stay
+// pinned to it and report success without ever exercising the cross-cluster path.
+func TestMultinetworkCrossMode(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
+			t.Skip("this test is ambient multi-network specific")
+		}
+		if len(t.Clusters()) < 2 {
+			t.Fatal("cross-mode multi-network test requires at least 2 clusters")
+		}
+
+		allClusters := t.Clusters()
+		local := allClusters[0]
+		remote := allClusters[1]
+		// Prefer a cluster on a different network, so that traffic is forced through an E/W
+		// gateway rather than going pod-to-pod.
+		for _, c := range allClusters {
+			if local.NetworkName() != c.NetworkName() {
+				remote = c
+				break
+			}
+		}
+		if local.NetworkName() == remote.NetworkName() {
+			t.Skip("cross-mode bridging only applies when the clusters are on different networks")
+		}
+
+		ambientNS := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "cross-mode-ambient",
+			Inject: false,
+			Labels: map[string]string{
+				label.IoIstioDataplaneMode.Name: "ambient",
+			},
+		})
+		sidecarNS := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "cross-mode-sidecar",
+			Inject: true,
+		})
+
+		const (
+			sidecarBackend = "sidecar-backend"
+			ambientClient  = "ambient-client"
+		)
+		globalService := map[string]string{"istio.io/global": "true"}
+		sidecarLabels := map[string]string{
+			"sidecar.istio.io/inject":       "true",
+			label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
+		}
+
+		workloads := deployWorkloadsOrFail(t, []workload{
+			{
+				serviceName:   sidecarBackend,
+				cluster:       local,
+				namespace:     sidecarNS,
+				replicas:      0,
+				serviceLabels: globalService,
+				subsetLabels:  sidecarLabels,
+			},
+			{
+				serviceName:   sidecarBackend,
+				cluster:       remote,
+				namespace:     sidecarNS,
+				replicas:      1,
+				serviceLabels: globalService,
+				subsetLabels:  sidecarLabels,
+			},
+			{
+				serviceName: ambientClient,
+				cluster:     local,
+				namespace:   ambientNS,
+				replicas:    1,
+			},
+		})
+
+		cases := []struct {
+			name      string
+			from      echo.Instances
+			toService string
+			toNS      namespace.Instance
+		}{
+			{
+				"ambient-to-remote-sidecar",
+				match.ServiceName(echo.NamespacedName{Name: ambientClient, Namespace: ambientNS}).GetMatches(workloads),
+				sidecarBackend, sidecarNS,
+			},
+		}
+
+		for _, tc := range cases {
+			t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+				if len(tc.from) == 0 {
+					t.Fatalf("no instances of %s found", tc.name)
+				}
+				for _, src := range tc.from {
+					src.CallOrFail(t, echo.CallOptions{
+						Address: fmt.Sprintf("%s.%s.svc.cluster.local", tc.toService, tc.toNS.Name()),
+						Port:    ports.HTTP,
+						Scheme:  scheme.HTTP,
+						Count:   10,
+						Check: check.And(
+							check.OK(),
+							// Judge success by which pod answered, not by the status code.
+							check.ReachedClusters(allClusters, cluster.Clusters{remote}),
+						),
+					})
+				}
+			})
+		}
+	})
+}

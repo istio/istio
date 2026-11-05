@@ -15,6 +15,8 @@
 package filters
 
 import (
+	"fmt"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	mutation_rulesv3 "github.com/envoyproxy/go-control-plane/envoy/config/common/mutation_rules/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -39,6 +41,7 @@ import (
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
+	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
 	resourcedetectors "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/resource_detectors/v3"
 	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
@@ -894,6 +897,42 @@ func buildDynamicForwardProxyFilter(dnsCacheConfigName string, lookupFamily clus
 						DnsLookupFamily: lookupFamily,
 					},
 				},
+			}),
+		},
+	}
+}
+
+// BuildSetDstAddressFilter builds a network filter that records the destination an ORIGINAL_DST
+// cluster should connect to: the destination address restored into filter state when there is
+// one, and fallback otherwise. It is used where a CONNECT may be addressed by hostname rather than
+// by address, which restores nothing.
+func BuildSetDstAddressFilter(fallback string) *listener.Filter {
+	celTemplate := `%%CEL('%s' in filter_state ? filter_state['%s']: r'%s')%%`
+	celEval := fmt.Sprintf(celTemplate, OriginalDstFilterStateKey, OriginalDstFilterStateKey, fallback)
+	return &listener.Filter{
+		Name: "set_dst_address",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&sfsnetwork.Config{
+				OnNewConnection: []*sfsvalue.FilterStateValue{{
+					Key: &sfsvalue.FilterStateValue_ObjectKey{
+						ObjectKey: "envoy.network.transport_socket.original_dst_address",
+					},
+					Value: &sfsvalue.FilterStateValue_FormatString{
+						FormatString: &core.SubstitutionFormatString{
+							Formatters: []*core.TypedExtensionConfig{{
+								Name:        "envoy.formatter.cel",
+								TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
+							}},
+							Format: &core.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &core.DataSource{
+									// If we have a valid original destination in filter state, use it. Else,
+									// fall back to the given address.
+									Specifier: &core.DataSource_InlineString{InlineString: celEval},
+								},
+							},
+						},
+					},
+				}},
 			}),
 		},
 	}
