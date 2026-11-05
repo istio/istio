@@ -86,6 +86,10 @@ type Connection struct {
 
 	s   *DiscoveryServer
 	ids []string
+
+	// deferredClusterRemovals and clusterRemovalTimer are only accessed from the connection's stream goroutine.
+	deferredClusterRemovals []*deferredClusterRemoval
+	clusterRemovalTimer     *time.Timer
 }
 
 func (conn *Connection) XdsConnection() *xds.Connection {

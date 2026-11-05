@@ -74,4 +74,9 @@ var (
 
 	EnableXDSCacheMetrics = env.Register("PILOT_XDS_CACHE_STATS", false,
 		"If true, Pilot will collect metrics for XDS cache efficiency.").Get()
+
+	DeferClusterRemoval = env.Register("PILOT_DEFER_CLUSTER_REMOVAL", true,
+		"If true, clusters removed from a proxy's configuration over delta XDS are only removed once the proxy has "+
+			"ACKed the listeners and routes sent to it and the listeners they replaced have drained (the proxy's drain "+
+			"duration), so a cluster is never removed while configuration the proxy is still using refers to it.").Get()
 )
