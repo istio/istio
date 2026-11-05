@@ -399,6 +399,61 @@ func TestNewVerifiedKeyCertBundleFromFileWithCrl(t *testing.T) {
 	}
 }
 
+// Invalid CRLs should be reported without rolling back an otherwise valid CA
+// certificate update. The last verified CRL must not be replaced by bad data.
+func TestInvalidCRLDoesNotBlockCertificateRotation(t *testing.T) {
+	newBundle, err := NewVerifiedKeyCertBundleFromFile(
+		intCertFile, intKeyFile, []string{intCertChainFile}, rootCertFile, "")
+	if err != nil {
+		t.Fatalf("load replacement key material: %v", err)
+	}
+	newCert, newKey, newChain, newRoot := newBundle.GetAllPem()
+
+	tests := []struct {
+		name   string
+		update func(*KeyCertBundle) error
+	}{
+		{
+			name: "in-memory verification",
+			update: func(bundle *KeyCertBundle) error {
+				return bundle.VerifyAndSetAll(newCert, newKey, newChain, newRoot, []byte("invalid CRL"))
+			},
+		},
+		{
+			name: "file-based rotation",
+			update: func(bundle *KeyCertBundle) error {
+				return bundle.UpdateVerifiedKeyCertBundleFromFile(
+					intCertFile, intKeyFile, []string{intCertChainFile}, rootCertFile, badCrlFile)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bundle, err := NewVerifiedKeyCertBundleFromFile(
+				crlCertFile, crlKeyFile, []string{crlCertChainFile}, crlRootCertFile, crlFile)
+			if err != nil {
+				t.Fatalf("load original bundle: %v", err)
+			}
+			originalCRL := bundle.GetCRLPem()
+			if len(originalCRL) == 0 {
+				t.Fatal("original CRL is unexpectedly empty")
+			}
+
+			if err := tt.update(bundle); err == nil {
+				t.Fatal("invalid CRL must still report a validation error")
+			}
+			cert, key, chain, root := bundle.GetAllPem()
+			if string(cert) != string(newCert) || string(key) != string(newKey) ||
+				string(chain) != string(newChain) || string(root) != string(newRoot) {
+				t.Fatal("invalid CRL prevented valid certificate/key rotation")
+			}
+			if string(bundle.GetCRLPem()) != string(originalCRL) {
+				t.Fatal("invalid CRL replaced the previously verified revocation list")
+			}
+		})
+	}
+}
+
 func TestVerifyAndSetAll(t *testing.T) {
 	b, err := NewVerifiedKeyCertBundleFromFile(crlCertFile, crlKeyFile, []string{crlCertChainFile}, crlRootCertFile, crlFile)
 	if err != nil {
