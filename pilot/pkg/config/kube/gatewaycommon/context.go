@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -161,6 +162,22 @@ func (gc GatewayContext) ResolveGatewayInstances(
 
 func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {
 	return gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(hostname)][namespace]
+}
+
+// GetVisibleService returns the service for hostname as seen from namespace. A service defined in
+// namespace is returned first; otherwise, a service defined in another namespace is returned if its
+// exportTo makes it visible to namespace.
+func (gc GatewayContext) GetVisibleService(hostname, namespace string) *model.Service {
+	byNamespace := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(hostname)]
+	if svc, f := byNamespace[namespace]; f {
+		return svc
+	}
+	for _, svc := range maps.SeqStable(byNamespace) {
+		if gc.ps.IsServiceVisible(svc, namespace) {
+			return svc
+		}
+	}
+	return nil
 }
 
 // InstancesEmpty returns true if there are no instances in any port.
