@@ -106,6 +106,10 @@ type MergedGateway struct {
 	// for Gateway API gateways). Secrets in the same namespace that are not referenced by any gateway config are
 	// explicitly excluded to prevent unintended access (e.g., the citadel root key/cert).
 	VerifiedCertificateReferences sets.String
+
+	// BackendClientCredential is the proxy-wide backend client identity for a dedicated
+	// Kubernetes Gateway, or invalid:// when a configured identity cannot be safely selected.
+	BackendClientCredential string
 }
 
 func (g *MergedGateway) HasAutoPassthroughGateways() bool {
@@ -220,6 +224,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
 		log.Debugf("mergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
 		snames := sets.String{}
+
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
 				if snames.InsertContains(s.Name) {
@@ -502,7 +507,37 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		AutoPassthroughSNIHosts:         autoPassthroughSNIHosts,
 		PortMap:                         getTargetPortMap(serversByRouteName),
 		VerifiedCertificateReferences:   verifiedCertificateReferences,
+		BackendClientCredential:         selectGatewayBackendClientCredential(gateways, proxy),
 	}
+}
+
+func selectGatewayBackendClientCredential(gateways []gatewayWithInstances, proxy *Proxy) string {
+	if proxy.Type != Router {
+		return ""
+	}
+	var credential string
+	for _, gw := range gateways {
+		if gw.clientCertificateRef != "" {
+			credential = gw.clientCertificateRef
+			break
+		}
+	}
+	if credential == "" {
+		return ""
+	}
+
+	parent, hasParent := kubernetesGatewayParent(gateways[0].gateway)
+	// Check every selected config, including Gateways with no client credential.
+	// ListenerSet and listener-derived configs may share the same Kubernetes parent.
+	for _, gw := range gateways {
+		otherParent, ok := kubernetesGatewayParent(gw.gateway)
+		if !hasParent || !ok || otherParent != parent || gw.clientCertificateRef != credential {
+			log.Warnf("proxy %s: Gateway backend client certificates require a dedicated Kubernetes Gateway; "+
+				"use separate proxy deployments for different Gateways. Blocking SIMPLE TLS backend connections", proxy.ID)
+			return credentials.InvalidSecretTypeURI
+		}
+	}
+	return credential
 }
 
 func (g *MergedGateway) GetAutoPassthroughGatewaySNIHosts() sets.Set[string] {
