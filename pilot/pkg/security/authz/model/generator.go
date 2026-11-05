@@ -415,6 +415,9 @@ func (requestHeaderGenerator) principal(key, value string, forTCP bool, _ bool) 
 	headerMatcher := matcher.HeaderMatcher
 	if strings.EqualFold(header, methodHeader) {
 		headerMatcher = matcher.MethodMatcher
+	} else if strings.EqualFold(header, hostHeader) || strings.EqualFold(header, "host") {
+		// envoy maps the host header to :authority, both need the same case handling as hosts
+		headerMatcher = matcher.HostMatcher
 	}
 	m := headerMatcher(header, value)
 	return principalHeader(m), nil
