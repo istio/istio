@@ -156,6 +156,57 @@ func (srcIPGenerator) principal(_, value string, _ bool, _ bool) (*rbacpb.Princi
 	return principalDirectRemoteIP(cidr), nil
 }
 
+// filterStatePrincipals generates the principals of a source IP rule for listeners that read the downstream peer from
+// filter state instead of the connection, which are Envoy internal listeners behind an Istio terminating listener.
+// On these listeners the direct remote address is an internal Envoy address, so direct_remote_ip never matches.
+// The terminating listener stores the direct remote IP of its own downstream connection in filter state, and the
+// rule matches that IP instead.
+//
+// Like direct_remote_ip, the IP is not affected by the PROXY protocol or X-Forwarded-For. If the filter state value
+// is missing, the principals fail closed: they never match in an ALLOW policy, and always match otherwise.
+func (srcIPGenerator) filterStatePrincipals(r rule, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
+	ranges, err := r.cidrRanges(r.values, action)
+	if err != nil {
+		return nil, err
+	}
+	notRanges, err := r.cidrRanges(r.notValues, action)
+	if err != nil {
+		return nil, err
+	}
+
+	// Positive address matches fail when filter state is absent or not an address. Use a match-all IP guard
+	// before negating a CIDR match, preserving fail-closed ALLOW and DENY/LOG behavior without Envoy 1.38's
+	// AddressMatcher.invert_match (which older proxies ignore during a mixed-version upgrade).
+	matchMissing := action != rbacpb.RBAC_ALLOW
+	var principals []*rbacpb.Principal
+	if len(ranges) > 0 {
+		inRange := principalPeerDirectRemoteIP(ranges)
+		if matchMissing {
+			// DENY/LOG ipBlocks: peer is in range, or the peer address is unavailable.
+			principals = append(principals, principalOr([]*rbacpb.Principal{
+				inRange,
+				principalNot(principalPeerDirectRemoteIPPresent()),
+			}))
+		} else {
+			principals = append(principals, inRange)
+		}
+	}
+	if len(notRanges) > 0 {
+		inRange := principalPeerDirectRemoteIP(notRanges)
+		if matchMissing {
+			// DENY/LOG notIpBlocks: out of range, including an unavailable peer address.
+			principals = append(principals, principalNot(inRange))
+		} else {
+			// ALLOW notIpBlocks: a peer must be present and outside the ranges.
+			principals = append(principals, principalAnd([]*rbacpb.Principal{
+				principalPeerDirectRemoteIPPresent(),
+				principalNot(inRange),
+			}))
+		}
+	}
+	return principals, nil
+}
+
 type remoteIPGenerator struct{}
 
 func (remoteIPGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {

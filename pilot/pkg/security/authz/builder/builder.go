@@ -48,7 +48,10 @@ var rbacPolicyMatchNever = &rbacpb.Policy{
 // General setting to control behavior
 type Option struct {
 	IsCustomBuilder bool
-	UseFilterState  bool
+	// UseFilterState reads the downstream peer principal and source IP from the filter state set by an Istio
+	// terminating listener, instead of the connection. Set it only for Envoy internal listeners behind such a
+	// listener, where the connection peer is an internal Envoy address.
+	UseFilterState bool
 }
 
 // Builder builds Istio authorization policy to Envoy filters.
