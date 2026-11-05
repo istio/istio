@@ -2905,16 +2905,17 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 			assert.Equal(t, tt.expectedServices, sidecarScope.services)
 			// Each hostname keeps its egress listener services without repeats; VirtualService-only destinations have none.
+			key := func(s *Service) string { return s.ResourceName() + "/" + string(s.Attributes.ServiceRegistry) }
 			egressServices := map[host.Name][]string{}
 			for _, el := range sidecarScope.EgressListeners {
 				for _, s := range el.services {
-					if !slices.Contains(egressServices[s.Hostname], s.ResourceName()) {
-						egressServices[s.Hostname] = append(egressServices[s.Hostname], s.ResourceName())
+					if !slices.Contains(egressServices[s.Hostname], key(s)) {
+						egressServices[s.Hostname] = append(egressServices[s.Hostname], key(s))
 					}
 				}
 			}
 			for _, s := range sidecarScope.services {
-				got := slices.Map(sidecarScope.ServicesForEgressHostname(s.Hostname), (*Service).ResourceName)
+				got := slices.Map(sidecarScope.ServicesForEgressHostname(s.Hostname), key)
 				if !slices.Equal(got, egressServices[s.Hostname]) {
 					t.Errorf("%s: egress services got %v, want %v", s.Hostname, got, egressServices[s.Hostname])
 				}
@@ -2989,8 +2990,8 @@ func TestServicesForEgressHostname(t *testing.T) {
 
 	for hostname, want := range map[host.Name][]*Service{
 		single.Hostname: {single},
-		// Merged with the VirtualService destination port.
-		multiPort.Hostname: {multiPort},
+		// The VirtualService destination only adds a port, so the merged service stands in for it.
+		multiPort.Hostname: {sc.GetService(multiPort.Hostname)},
 		// Replaced by the Kubernetes VirtualService destination.
 		entry.Hostname: {entry},
 		// Same name and address in one namespace is one service: repeated2 only differs by ports.
@@ -3002,7 +3003,7 @@ func TestServicesForEgressHostname(t *testing.T) {
 			t.Errorf("%s: got %v, want %v", hostname, got, want)
 		}
 	}
-	for _, hostname := range []host.Name{single.Hostname, duplicate.Hostname} {
+	for _, hostname := range []host.Name{single.Hostname, multiPort.Hostname, duplicate.Hostname} {
 		if _, f := sc.unmergedEgressServices[hostname]; f {
 			t.Errorf("%s has a single unmerged service and must not be stored separately", hostname)
 		}

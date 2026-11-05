@@ -426,7 +426,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 	}
 	sc.unmergedEgressServices = make(map[host.Name][]*Service)
 	// appendDestination adds a VirtualService destination, recording the hostname's listener services if it
-	// adds or changes the merged service.
+	// adds the hostname or replaces its merged service with a different one (not just more ports).
 	appendDestination := func(s *Service) {
 		prev, found := servicesAdded[s.Hostname]
 		sc.appendSidecarServices(servicesAdded, s)
@@ -435,7 +435,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 		}
 		if !found {
 			sc.unmergedEgressServices[s.Hostname] = nil
-		} else if servicesAdded[s.Hostname].svc != prev.svc {
+		} else if !sameEgressService(servicesAdded[s.Hostname].svc, prev.svc) {
 			sc.unmergedEgressServices[s.Hostname] = []*Service{prev.svc}
 		}
 	}
@@ -504,10 +504,11 @@ func appendEgressService(services []*Service, s *Service) []*Service {
 }
 
 // sameEgressService reports whether a and b are the same service, ignoring ports: listeners can select it directly
-// or as copies trimmed to different ports. ServiceEntries sharing a hostname differ by name or address.
+// or as copies trimmed to different ports. Services sharing a hostname differ by name, registry or address.
 func sameEgressService(a, b *Service) bool {
 	return a == b || (a.Attributes.Namespace == b.Attributes.Namespace &&
 		a.Attributes.K8sAttributes.ObjectName == b.Attributes.K8sAttributes.ObjectName &&
+		a.Attributes.ServiceRegistry == b.Attributes.ServiceRegistry &&
 		a.DefaultAddress == b.DefaultAddress)
 }
 
