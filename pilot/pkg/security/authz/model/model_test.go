@@ -436,3 +436,42 @@ func yamlRule(t *testing.T, yaml string) *authzpb.Rule {
 	}
 	return p
 }
+
+func TestNewNilCondition(t *testing.T) {
+	rule := &authzpb.Rule{
+		When: []*authzpb.Condition{nil, {Key: "request.headers[foo]", Values: []string{"bar"}}},
+	}
+	got, err := New(types.NamespacedName{Name: "p", Namespace: "ns"}, rule)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	want, err := New(types.NamespacedName{Name: "p", Namespace: "ns"}, &authzpb.Rule{
+		When: []*authzpb.Condition{{Key: "request.headers[foo]", Values: []string{"bar"}}},
+	})
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", spew.Sdump(got), spew.Sdump(want))
+	}
+}
+
+func TestNewNilToFrom(t *testing.T) {
+	got, err := New(types.NamespacedName{Name: "p", Namespace: "ns"}, &authzpb.Rule{
+		From: []*authzpb.Rule_From{nil},
+		To:   []*authzpb.Rule_To{nil},
+	})
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	want, err := New(types.NamespacedName{Name: "p", Namespace: "ns"}, &authzpb.Rule{
+		From: []*authzpb.Rule_From{{}},
+		To:   []*authzpb.Rule_To{{}},
+	})
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", spew.Sdump(got), spew.Sdump(want))
+	}
+}
