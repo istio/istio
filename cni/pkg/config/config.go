@@ -96,6 +96,9 @@ type InstallConfig struct {
 	CNIAgentRunDir string
 	// Name of the CNI config file
 	CNIConfName string
+	// Whether CNIConfName was detected rather than configured. With an istio-owned config,
+	// a detected primary is re-detected when another CNI writes a higher priority config.
+	CNIConfNameDetected bool
 	// Whether to install CNI plugin as a chained or standalone
 	ChainedCNIPlugin bool
 	// Name of the Istio owned CNI config file
