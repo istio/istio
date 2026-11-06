@@ -217,6 +217,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	gatewayNameForServer := make(map[*networking.Server]string)
 	gatewayNames := sets.New[string]()
 	verifiedCertificateReferences := sets.New[string]()
+	backendClientCredential := selectGatewayBackendClientCredential(gateways, proxy)
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
 	autoPassthrough := false
@@ -229,6 +230,24 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
 		log.Debugf("mergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
 		snames := sets.String{}
+
+		expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
+		expectedNS := ptr.NonEmptyOrDefault(gatewayConfig.Annotations[constants.InternalParentNamespace], gatewayConfig.Namespace)
+		identityVerified := proxy.VerifiedIdentity != nil &&
+			proxy.VerifiedIdentity.Namespace == expectedNS &&
+			(proxy.VerifiedIdentity.ServiceAccount == expectedSA || expectedSA == "")
+
+		if identityVerified && backendClientCredential != "" {
+			// Backend client identity belongs to the parent Gateway, not a ListenerSet.
+			parent, hasParent := kubernetesGatewayParent(gatewayConfig)
+			if hasParent && parent.Namespace == proxy.VerifiedIdentity.Namespace {
+				ref, err := credentials.ParseResourceName(backendClientCredential, parent.Namespace, "", "")
+				if err == nil && ref.ResourceType == credentials.KubernetesGatewaySecretType &&
+					(ref.Namespace == parent.Namespace || ps.SecretAllowed(gvk.KubernetesGateway, backendClientCredential, parent.Namespace)) {
+					verifiedCertificateReferences.Insert(backendClientCredential)
+				}
+			}
+		}
 
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
@@ -247,12 +266,6 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			gatewayNameForServer[s] = gatewayName
 			gatewayNames.Insert(gatewayName)
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
-
-			expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
-			expectedNS := ptr.NonEmptyOrDefault(gatewayConfig.Annotations[constants.InternalParentNamespace], gatewayConfig.Namespace)
-			identityVerified := proxy.VerifiedIdentity != nil &&
-				proxy.VerifiedIdentity.Namespace == expectedNS &&
-				(proxy.VerifiedIdentity.ServiceAccount == expectedSA || expectedSA == "")
 
 			cns := s.GetTls().GetCredentialNames()
 			if len(cns) == 0 {
@@ -516,7 +529,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		AutoPassthroughSNIHosts:             autoPassthroughSNIHosts,
 		PortMap:                             getTargetPortMap(serversByRouteName),
 		VerifiedCertificateReferences:       verifiedCertificateReferences,
-		BackendClientCredential:             selectGatewayBackendClientCredential(gateways, proxy),
+		BackendClientCredential:             backendClientCredential,
 	}
 }
 

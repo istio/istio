@@ -153,7 +153,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		tls = tls.DeepCopy()
 		if tls.CaCertCredentialName == "" {
 			// TODO(ericdbishop): Should we change how the backend CA is stored for
-			// BackendTLSPolicy?
+			// BackendTLSPolicy now that ClientTLSSettings has a CaCertCredentialName field?
 			// The original tls.CredentialName holds backend CA trust.
 			// Preserve backend CA trust in this copy without changing shared policy.
 			tls.CaCertCredentialName = tls.CredentialName
