@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+- |
+  **Added** support for OpenMetrics 2.0 in pilot-agent's metrics merger. The merger now negotiates and merges
+  [OpenMetrics 2.0](https://prometheus.io/docs/specs/om/open_metrics_spec_2_0/) format when upstream targets
+  (Envoy or application) respond with `application/openmetrics-text; version=2.0.0`. This enables support for
+  OpenMetrics 2.0 features including inline start timestamps (`st@` notation), composite values for histograms
+  and summaries, and native histograms with exponential bucket schemas.

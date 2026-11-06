@@ -29,6 +29,7 @@ import (
 	"github.com/prometheus/prometheus/model/textparse"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"istio.io/istio/pkg/log"
 )
 
 // decodeOpenMetricsToFamilies parses an OpenMetrics text body into a slice of
@@ -170,10 +171,15 @@ func (a *omAssembler) handle(parser textparse.Parser, entry textparse.Entry) err
 		}
 	case textparse.EntrySeries:
 		return a.ingestSeries(parser)
-	case textparse.EntryComment, textparse.EntryHistogram, textparse.EntryInvalid:
-		// Comments are not preserved by the dto model. Native histograms are
-		// proto-only and never appear in an OM text body. EntryInvalid is reached
-		// only with a non-nil error (handled by Next), but keep the case for clarity.
+	case textparse.EntryHistogram:
+		// OM 2.0 supports native histograms in text format via CompositeValue syntax.
+		// However, textparse currently doesn't parse them from OM text (Histogram() returns nil).
+		// This is a defensive placeholder for future OM 2.0 support.
+		// TODO(istio): Implement when textparse adds OM 2.0 CompositeValue support.
+		log.Debugf("Skipping native histogram entry (OM 2.0 text format not yet supported by textparse)")
+		return nil
+	case textparse.EntryComment, textparse.EntryInvalid:
+		// Comments are not preserved by the dto model.
 	}
 	return nil
 }
