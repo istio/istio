@@ -128,6 +128,8 @@ type Server struct {
 	grpcAddress       string
 	secureGrpcServer  *grpc.Server
 	secureGrpcAddress string
+	// secureGrpcReady reports whether the secure gRPC discovery service is accepting connections.
+	secureGrpcReady atomic.Bool
 
 	// monitoringMux listens on monitoringAddr(:15014).
 	// Currently runs prometheus monitoring and debug (if enabled).
@@ -273,7 +275,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	grpcprom.EnableHandlingTimeHistogram()
 
 	// make sure we have a readiness probe before serving HTTP to avoid marking ready too soon
-	s.initReadinessProbes()
+	s.initReadinessProbes(args)
 
 	s.initServers(args)
 	if err := s.initIstiodAdminServer(args, s.webhookInfo.GetTemplates); err != nil {
@@ -492,6 +494,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		if err != nil {
 			return err
 		}
+		s.secureGrpcReady.Store(true)
 		go func() {
 			log.Infof("starting secure gRPC discovery service at %s", grpcListener.Addr())
 			if err := s.secureGrpcServer.Serve(grpcListener); err != nil {
@@ -780,23 +783,18 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	reflection.Register(s.grpcServer)
 }
 
-// initialize secureGRPCServer.
-func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string) error {
-	if args.ServerOptions.SecureGRPCAddr == "" {
-		log.Info("The secure discovery port is disabled, multiplexing on httpAddr ")
-		return nil
-	}
-
+// newSecureGrpcServer builds the gRPC server used for the secure discovery service (port
+// 15012), with XDS and reflection registered. Returns a nil server (no error) if no TLS
+// certs/CA are configured, meaning the secure discovery service should stay disabled.
+func (s *Server) newSecureGrpcServer(args *PilotArgs, trustDomain string) (*grpc.Server, error) {
 	peerCertVerifier, err := s.createPeerCertVerifier(args.ServerOptions.TLSOptions, trustDomain)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if peerCertVerifier == nil {
 		// Running locally without configured certs - no TLS mode
-		log.Warnf("The secure discovery service is disabled")
-		return nil
+		return nil, nil
 	}
-	log.Info("initializing secure discovery service")
 
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
@@ -820,8 +818,6 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 
 	tlsCreds := credentials.NewTLS(cfg)
 
-	s.secureGrpcAddress = args.ServerOptions.SecureGRPCAddr
-
 	interceptors := []grpc.UnaryServerInterceptor{
 		// setup server prometheus monitoring (as final interceptor in chain)
 		grpcprom.UnaryServerInterceptor,
@@ -829,9 +825,32 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 	opts := istiogrpc.ServerOptions(args.KeepaliveOptions, xdspkg.RecordRecvSize, interceptors...)
 	opts = append(opts, grpc.Creds(tlsCreds))
 
-	s.secureGrpcServer = grpc.NewServer(opts...)
-	s.XDSServer.Register(s.secureGrpcServer)
-	reflection.Register(s.secureGrpcServer)
+	secureGrpcServer := grpc.NewServer(opts...)
+	s.XDSServer.Register(secureGrpcServer)
+	reflection.Register(secureGrpcServer)
+	return secureGrpcServer, nil
+}
+
+// initSecureDiscoveryService builds the secure discovery service (port 15012) using
+// whatever certificate is available at startup.
+func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string) error {
+	if args.ServerOptions.SecureGRPCAddr == "" {
+		log.Info("The secure discovery port is disabled, multiplexing on httpAddr ")
+		return nil
+	}
+
+	secureGrpcServer, err := s.newSecureGrpcServer(args, trustDomain)
+	if err != nil {
+		return err
+	}
+	if secureGrpcServer == nil {
+		log.Warnf("The secure discovery service is disabled")
+		return nil
+	}
+	log.Info("initializing secure discovery service")
+
+	s.secureGrpcAddress = args.ServerOptions.SecureGRPCAddr
+	s.secureGrpcServer = secureGrpcServer
 
 	s.addStartFunc("secure gRPC", func(stop <-chan struct{}) error {
 		go func() {
@@ -1040,7 +1059,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 		// set to "none" because it is not clear what the user intends.
 
 		// no cert yet - watch in case one shows up later (e.g. cert-manager istio-csr)
-		s.watchForLateCustomTLSCerts()
+		s.watchForCustomTLSCerts(args)
 		return nil
 	}
 
@@ -1449,7 +1468,7 @@ func (s *Server) serveHTTP() error {
 	return nil
 }
 
-func (s *Server) initReadinessProbes() {
+func (s *Server) initReadinessProbes(args *PilotArgs) {
 	probes := map[string]readinessProbe{
 		"discovery": func() bool {
 			return s.XDSServer.IsServerReady()
@@ -1459,6 +1478,9 @@ func (s *Server) initReadinessProbes() {
 		},
 		"config validation": func() bool {
 			return s.readinessFlags.configValidationReady.Load()
+		},
+		"secure discovery service": func() bool {
+			return args.ServerOptions.SecureGRPCAddr == "" || s.secureGrpcReady.Load()
 		},
 	}
 	for name, probe := range probes {
