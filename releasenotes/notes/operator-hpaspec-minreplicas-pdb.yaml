@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 12602
+releaseNotes:
+  - |
+    **Fixed** an issue where setting `k8s.hpaSpec.minReplicas` or `k8s.replicaCount` on an `IstioOperator` component did not
+    generate that component's `PodDisruptionBudget`. The chart only creates the `PodDisruptionBudget` based on the `autoscaleMin`
+    and `replicaCount` Helm values, but `k8s.hpaSpec` and `k8s.replicaCount` were only applied as overlays to the rendered
+    resources. `k8s.hpaSpec.minReplicas`, `k8s.hpaSpec.maxReplicas` and `k8s.replicaCount` are now also translated to the
+    corresponding Helm values for Deployment-based components, so the `istiod` and gateway `PodDisruptionBudget` resources are
+    generated when more than one replica is configured. Installations that set these fields will now get the `PodDisruptionBudget`.
