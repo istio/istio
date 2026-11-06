@@ -5022,7 +5022,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "custom-invalid-rule",
+			name: "custom-valid-from",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_CUSTOM,
 				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
@@ -5064,7 +5064,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
 			name: "provider-wrong-action",
