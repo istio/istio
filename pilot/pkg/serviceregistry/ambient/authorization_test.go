@@ -1202,3 +1202,59 @@ type TestWaypointPolicyStatusCollectionTestCase struct {
 func getStatus[T any](col krt.Collection[T], name, namespace string) *T {
 	return col.GetKey(namespace + "/" + name)
 }
+
+func TestConvertAuthorizationPolicyNilEntries(t *testing.T) {
+	policy := func(rules ...*v1beta1.Rule) *securityclient.AuthorizationPolicy {
+		return &securityclient.AuthorizationPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"},
+			Spec: v1beta1.AuthorizationPolicy{
+				Action: v1beta1.AuthorizationPolicy_DENY,
+				Rules:  rules,
+			},
+		}
+	}
+	testCases := []struct {
+		name  string
+		rules []*v1beta1.Rule
+		want  []*v1beta1.Rule
+	}{
+		{
+			name:  "nil operation",
+			rules: []*v1beta1.Rule{{To: []*v1beta1.Rule_To{{}}}},
+			want:  []*v1beta1.Rule{{To: []*v1beta1.Rule_To{{Operation: &v1beta1.Operation{}}}}},
+		},
+		{
+			name:  "nil source",
+			rules: []*v1beta1.Rule{{From: []*v1beta1.Rule_From{{}}}},
+			want:  []*v1beta1.Rule{{From: []*v1beta1.Rule_From{{Source: &v1beta1.Source{}}}}},
+		},
+		{
+			name:  "nil to",
+			rules: []*v1beta1.Rule{{To: []*v1beta1.Rule_To{nil}}},
+			want:  []*v1beta1.Rule{{To: []*v1beta1.Rule_To{{Operation: &v1beta1.Operation{}}}}},
+		},
+		{
+			name:  "nil from",
+			rules: []*v1beta1.Rule{{From: []*v1beta1.Rule_From{nil}}},
+			want:  []*v1beta1.Rule{{From: []*v1beta1.Rule_From{{Source: &v1beta1.Source{}}}}},
+		},
+		{
+			name:  "nil condition",
+			rules: []*v1beta1.Rule{{When: []*v1beta1.Condition{nil, {Key: "source.ip", Values: []string{"1.2.3.4"}}}}},
+			want:  []*v1beta1.Rule{{When: []*v1beta1.Condition{{Key: "source.ip", Values: []string{"1.2.3.4"}}}}},
+		},
+		{
+			name:  "nil rule",
+			rules: []*v1beta1.Rule{nil, {From: []*v1beta1.Rule_From{{Source: &v1beta1.Source{Namespaces: []string{"foo"}}}}}},
+			want:  []*v1beta1.Rule{{From: []*v1beta1.Rule_From{{Source: &v1beta1.Source{Namespaces: []string{"foo"}}}}}},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotStatus := convertAuthorizationPolicy(rootns, policy(tc.rules...))
+			want, wantStatus := convertAuthorizationPolicy(rootns, policy(tc.want...))
+			assert.Equal(t, got, want)
+			assert.Equal(t, gotStatus, wantStatus)
+		})
+	}
+}
