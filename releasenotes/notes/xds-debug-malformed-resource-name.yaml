@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** a crash in istiod where an `istio.io/debug` XDS request with a malformed resource name caused a nil
+    pointer dereference. The request is now rejected with `InvalidArgument`.
+securityNotes:
+  - |
+    __[GHSA-635j-qv98-9275](https://github.com/istio/istio/security/advisories/GHSA-635j-qv98-9275)__:
+    Any workload with a mesh identity could crash istiod by sending an `istio.io/debug` XDS request whose resource
+    name fails URL parsing, leaving the control plane in a crash loop for the whole mesh.
+      - CVSS Score: 7.7 [AV:N/AC:L/PR:L/UI:N/S:C/C:N/I:N/A:H](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:L/PR:L/UI:N/S:C/C:N/I:N/A:H&version=3.1)
+
+    **Credit**: This vulnerability was discovered and reported by Alon Lerner of Checkmarx Research.
