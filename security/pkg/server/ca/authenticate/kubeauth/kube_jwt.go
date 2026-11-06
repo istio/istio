@@ -117,7 +117,7 @@ func (a *KubeJWTAuthenticator) authenticateGrpc(ctx context.Context) (*security.
 }
 
 func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.ID) (*security.Caller, error) {
-	kubeClient := a.getKubeClient(clusterID)
+	kubeClient, resolvedCluster := a.getKubeClient(clusterID)
 	if kubeClient == nil {
 		var clusterList []cluster.ID
 		if a.remoteKubeClientGetter != nil {
@@ -141,29 +141,30 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 		AuthSource:     security.AuthSourceIDToken,
 		Identities:     []string{spiffe.MustGenSpiffeURI(a.meshHolder.Mesh(), id.PodNamespace, id.PodServiceAccount)},
 		KubernetesInfo: id,
+		ClusterID:      resolvedCluster,
 	}, nil
 }
 
-func (a *KubeJWTAuthenticator) getKubeClient(clusterID cluster.ID) kubernetes.Interface {
+func (a *KubeJWTAuthenticator) getKubeClient(clusterID cluster.ID) (kubernetes.Interface, cluster.ID) {
 	// first match local/primary cluster or it's aliases
 	// or if clusterID is not sent (we assume that its a single cluster)
 	if a.clusterID == clusterID || a.clusterID == a.clusterAliases[clusterID] || clusterID == "" {
-		return a.kubeClient
+		return a.kubeClient, a.clusterID
 	}
 
 	// secondly try other remote clusters
 	if a.remoteKubeClientGetter != nil {
 		if res := a.remoteKubeClientGetter.GetRemoteKubeClient(clusterID); res != nil {
-			return res
+			return res, clusterID
 		}
 		if res := a.remoteKubeClientGetter.GetRemoteKubeClient(a.clusterAliases[clusterID]); res != nil {
-			return res
+			return res, a.clusterAliases[clusterID]
 		}
 	}
 
 	// we did not find the kube client for this cluster.
 	// return nil so that logs will show that this cluster is not available in istiod
-	return nil
+	return nil, ""
 }
 
 func ExtractClusterID(ctx context.Context) cluster.ID {
