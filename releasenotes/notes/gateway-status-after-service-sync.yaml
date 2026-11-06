@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62050
+releaseNotes:
+- |
+  **Fixed** a newly started istiod writing Gateway API status computed while its service registries were still loading,
+  which made routes with a `Hostname` backendRef report `BackendNotFound` for a few seconds after an istiod restart.
