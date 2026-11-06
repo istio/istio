@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: documentation
-issue:
-  - 62426
-releaseNotes:
-  - |
-    **Updated** outdated abstract service model documentation link in the README.
