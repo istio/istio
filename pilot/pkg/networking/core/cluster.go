@@ -359,6 +359,23 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	case model.Waypoint:
 		_, wps := findWaypointResources(proxy, req.Push)
+		backendServices := wps.services
+		if features.EnableSidecarWaypointRouting && !isAmbientEastWestGateway(proxy) {
+			// Clients may still send requests through a waypoint after unenrollment using outdated
+			// routing configuration or existing connections. Keep backend clusters for visible
+			// services to avoid transient cluster_not_found errors during unenrollment, but keep
+			// listener filter chains and routes scoped to current attachments.
+			backendServices = make(map[host.Name]*model.Service)
+			for _, svc := range proxy.SidecarScope.Services() {
+				if svc.Resolution == model.DynamicDNS && !svc.MeshExternal {
+					continue
+				}
+				backendServices[svc.Hostname] = svc
+			}
+			for hostname, svc := range wps.services {
+				backendServices[hostname] = svc
+			}
+		}
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		outboundServices := waypointOutboundServices(proxy, req.Push, envoyFilterPatches, wps, services)
@@ -373,7 +390,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		}
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, wps.services)...)
+		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, backendServices)...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
