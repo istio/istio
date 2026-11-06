@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** the `gateway` Helm chart NetworkPolicy blocking cross-network traffic when `networkGateway` is set.
+    The policy allowed the `service.ports` target ports, which the Service ignores in that mode, instead of the
+    `networkGatewayPorts` target ports (15443, 15012 and 15017 by default).

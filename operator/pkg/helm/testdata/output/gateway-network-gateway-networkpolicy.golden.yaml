@@ -1,0 +1,48 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: istio-eastwest
+  namespace: "istio-system"
+  labels:
+    app: istio-eastwest
+    istio.io/rev: "default"
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Gateway"
+    istio: eastwest
+    release: istio-eastwest
+    app.kubernetes.io/name: istio-eastwest
+    app: istio-eastwest
+    istio: eastwest
+    "istio.io/dataplane-mode": "none"
+spec:
+  podSelector:
+    matchLabels:
+      app: istio-eastwest
+      istio: eastwest
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Status/health check port
+  - ports:
+    - protocol: TCP
+      port: 15021
+  # Metrics endpoints for monitoring/prometheus
+  - ports:
+    - protocol: TCP
+      port: 15020
+    - protocol: TCP
+      port: 15090
+  # Main gateway traffic ports
+  - ports:
+    - protocol: TCP
+      port: 15443
+  - ports:
+    - protocol: TCP
+      port: 15012
+  - ports:
+    - protocol: TCP
+      port: 15017
+  egress:
+  # Allow all egress (gateways need to reach external services, istiod, and other cluster services)
+  - {}
