@@ -55,8 +55,14 @@ const (
 // that may need to be taken into account when injecting pod rules
 type PodLevelOverrides struct {
 	VirtualInterfaces []string
-	IngressMode       bool
-	DNSProxy          PodDNSOverride
+	// SecondaryAddresses are addresses configured inside the pod's network namespace
+	// that are not part of the pod's declared status IPs (for example addresses
+	// created by an in-pod forwarder such as tailscaled after the sandbox is set up).
+	// Traffic to these addresses must be left to the pod's own rules (typically
+	// DNAT) instead of being captured by ambient inbound redirection.
+	SecondaryAddresses []netip.Addr
+	IngressMode        bool
+	DNSProxy           PodDNSOverride
 	// Kata is true when the pod runs under a configured kata-containers RuntimeClass.
 	Kata bool
 }

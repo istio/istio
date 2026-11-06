@@ -18,12 +18,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/trafficmanager"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -34,7 +38,8 @@ type NetServer struct {
 	trafficManager     trafficmanager.TrafficRuleManager
 	podNs              PodNetnsFinder
 	// allow overriding for tests
-	netnsRunner func(fdable NetnsFd, toRun func() error) error
+	netnsRunner       func(fdable NetnsFd, toRun func() error) error
+	podInterfaceAddrs func() ([]net.Addr, error)
 }
 
 var _ MeshDataplane = &NetServer{}
@@ -126,6 +131,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
+		s.addSecondaryAddressOverrides(&podCfg, podIPs)
 		return s.trafficManager.CreateInpodRules(log, podCfg)
 	}); err != nil {
 		// We currently treat any failure to create inpod rules as non-retryable/catastrophic,
@@ -199,7 +205,71 @@ func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, trafficM
 		podNs:              podNs,
 		trafficManager:     trafficManager,
 		netnsRunner:        NetnsDo,
+		podInterfaceAddrs:  net.InterfaceAddrs,
 	}
+}
+
+// addSecondaryAddressOverrides records addresses that live inside the pod's
+// network namespace but are not part of the pod's declared status IPs. These
+// are typically created after the sandbox is configured (for example by an
+// in-pod forwarder such as tailscaled). Ambient inbound capture cannot proxy
+// them because the proxy sees only the local secondary address, so the pod's
+// own rules (usually a DNAT in PREROUTING) must be allowed to handle them.
+//
+// This must be called from within the pod's network namespace.
+func (s *NetServer) addSecondaryAddressOverrides(podCfg *config.PodLevelOverrides, podIPs []netip.Addr) {
+	if len(podIPs) == 0 {
+		// Without the primary IPs we cannot tell which local addresses are
+		// secondary, so leave redirection untouched.
+		return
+	}
+	addrs, err := s.podInterfaceAddrs()
+	if err != nil {
+		log.Warnf("failed to list pod interface addresses: %v", err)
+		return
+	}
+	podCfg.SecondaryAddresses = filterSecondaryAddresses(podIPs, addrs)
+}
+
+// filterSecondaryAddresses returns the non-loopback, non-link-local interface
+// addresses in addrs that are not one of podIPs. The result is sorted so the
+// generated rules are deterministic.
+func filterSecondaryAddresses(podIPs []netip.Addr, addrs []net.Addr) []netip.Addr {
+	if len(podIPs) == 0 {
+		return nil
+	}
+	primary := make(map[netip.Addr]struct{}, len(podIPs))
+	for _, ip := range podIPs {
+		primary[ip.Unmap()] = struct{}{}
+	}
+
+	found := make(map[netip.Addr]struct{})
+	for _, addr := range addrs {
+		ipNet, ok := addr.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		ip, ok := netip.AddrFromSlice(ipNet.IP)
+		if !ok {
+			continue
+		}
+		ip = ip.Unmap()
+		if !ip.IsValid() || ip.IsLoopback() || ip.IsUnspecified() || ip.IsMulticast() ||
+			ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+			continue
+		}
+		if _, ok := primary[ip]; ok {
+			continue
+		}
+		found[ip] = struct{}{}
+	}
+
+	out := make([]netip.Addr, 0, len(found))
+	for ip := range found {
+		out = append(out, ip)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Less(out[j]) })
+	return out
 }
 
 // reconcileExistingPod is intended to run on node agent startup, for each pod that was already enrolled prior to startup.
@@ -216,6 +286,7 @@ func (s *NetServer) reconcileExistingPod(pod *corev1.Pod) error {
 	podCfg := getPodLevelTrafficOverrides(pod)
 
 	if err := s.netnsRunner(openNetns, func() error {
+		s.addSecondaryAddressOverrides(&podCfg, util.GetPodIPsIfPresent(pod))
 		return s.trafficManager.CreateInpodRules(log, podCfg)
 	}); err != nil {
 		return err
