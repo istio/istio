@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue: []
+releaseNotes:
+  - |
+    **Fixed** `AuthorizationPolicy` conditions on `request.headers[:authority]` and `request.headers[host]` being bypassed by changing the case of the host. These conditions are now matched case-insensitively, the same as `hosts`.
+securityNotes:
+  - |
+    __[GHSA-7m6f-j3gp-2r53](https://github.com/istio/istio/security/advisories/GHSA-7m6f-j3gp-2r53)__: An `AuthorizationPolicy` `when` condition on `request.headers[:authority]` or `request.headers[host]` was matched case-sensitively, so a request with a differently-cased host could bypass it.
+    - CVSS Score: 6.5 [AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N](https://www.first.org/cvss/calculator/3.1#CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N)
+
+    **Credit**: This vulnerability was discovered and reported by Akhil Koul (https://github.com/akoul).
