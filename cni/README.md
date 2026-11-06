@@ -37,14 +37,72 @@ and setting up iptables rules to funnel traffic thru that socket "tube" to ztunn
 
 This effectively behaves like ztunnel is an in-pod sidecar, without actually requiring the injection of ztunnel as a sidecar into the pod manifest, or mutating the application pod in any way.
 
-Additionally, it does not require any network rules/routing/config in the host network namespace, which greatly increases ambient mode compatibility with 3rd-party CNIs. In virtually all cases, this "in-pod" ambient CNI is exactly as compatible with 3rd-party CNIs as sidecars are/were.
+Workload interception lives in the pod network namespace. Host health probes additionally require host SNAT rules, and some primary CNIs require host routing adjustments so replies traverse kernel conntrack for reverse NAT.
 
 ### Notable Env Vars
 
 | Env Var            | Default         | Purpose                                                                                                                                                                |
 |--------------------|-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | HOST_PROBE_SNAT_IP | "169.254.7.127" | Applied to SNAT host probe packets, so they can be identified/skipped podside. To override the default SNAT IP, use any address from the 169.254.0.0/16 block. |
-| HOST_PROBE_SNAT_IPV6 | "fd16:9254:7127:1337:ffff:ffff:ffff:ffff" | IPv6 link local ranges are designed to be collision-resistant by default, and so this probably never needs to be overridden.                                           |
+| HOST_PROBE_SNAT_IPV6 | "fd16:9254:7127:1337:ffff:ffff:ffff:ffff" | IPv6 unique-local (ULA) probe SNAT address, not an IPv6 link-local address. The local-route option requires a dedicated, unused address from `fc00::/7`. |
+| AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE | `false` | Experimental: install an exact local `/32` route for `HOST_PROBE_SNAT_IP` and, when ambient IPv6 is enabled, a `/128` route for `HOST_PROBE_SNAT_IPV6`. Sidecar mode is unchanged. |
+
+### Local host probe routes
+
+This experimental option helps ambient health probes work with Cilium BPF host
+routing when probe replies bypass host netfilter. It is off by default and does
+not affect sidecar mode.
+
+Istio uses SNAT to give probes special source addresses. Replies must reach host
+kernel conntrack to undo that SNAT. Local routes make these addresses local to the
+node, so compatible Cilium paths return replies to the host stack.
+
+Cilium must perform a FIB lookup and pass traffic for local destinations to the
+host stack. Paths using `ENABLE_SKIP_FIB` cannot be fixed by these routes alone.
+This option does not change Cilium settings or repair missing host SNAT rules.
+
+Enable it through the CNI chart:
+
+```yaml
+profile: ambient
+ambient:
+  ipv6: true # Set false for IPv4-only ambient networking.
+env:
+  AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE: "true"
+```
+
+#### Address selection and ownership
+
+Use dedicated, unused IPv4 link-local and IPv6 unique-local probe addresses. Each
+route makes its address local for all traffic, not just probe replies. Before
+enabling this option, check pod-to-host access, wildcard host listeners, host
+firewall rules, and NetworkPolicy.
+
+Istio owns exact `/32` and `/128` routes in the local table on loopback with
+protocol `196`, regardless of their metric. This protocol ID is locally assigned,
+not globally reserved. Do not use it for other routes of this kind. An existing
+exact route for a probe address with another protocol causes startup to fail,
+even if otherwise equivalent. Remove conflicting or manually installed probe
+routes before enabling this option.
+
+#### Startup and cleanup
+
+Both address families use one `host-probe-routes.lock` file in the host-mounted
+run directory. Startup fails if another agent holds the lock. Before changing
+routes, the agent writes a `host-probe-routes` marker so a later agent knows cleanup
+may be needed. When the option is off and the marker is absent, probe-route code
+does not enter the host network namespace.
+
+- Safe upgrades keep the routes and cleanup marker.
+- Disabling the option removes managed routes for both families on agent restart,
+  including routes for previous probe addresses.
+- Disabling ambient IPv6 removes only its managed routes on agent restart.
+- Normal cleanup removes managed routes and the marker.
+- Failed startup removes newly added routes but keeps inherited routes and any
+  marker still needed for cleanup.
+
+Keep the run directory unchanged across upgrades. Restart the agent after changing
+its environment settings. Routes are checked only at startup, not continuously.
 
 ## Sidecar Mode Implementation Details
 

@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Added** the experimental, default-disabled
+    `AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE` CNI option for compatibility between
+    ambient health probes and Cilium BPF host-routing configurations that bypass
+    host netfilter on the probe-reply path. Probe replies must reach host kernel
+    conntrack to reverse Istio's probe SNAT. The option installs exact local routes
+    for the IPv4 and enabled IPv6 probe SNAT addresses, causing compatible Cilium
+    datapaths to pass replies to the host stack. This requires FIB lookup and
+    local-destination fallback. Cilium configurations using `ENABLE_SKIP_FIB`
+    are not fixed by these routes alone. Sidecar probe handling is unchanged.

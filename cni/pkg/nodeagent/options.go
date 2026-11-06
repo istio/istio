@@ -35,6 +35,8 @@ var (
 	UseScopedIptablesLegacyLocking = env.RegisterBoolVar("AMBIENT_USE_SCOPED_XTABLES_LOCKING", true, "").Get()
 	EnableAWSBranchENIProbe        = env.RegisterBoolVar("AMBIENT_ENABLE_AWS_BRANCH_ENI_PROBE", true,
 		"If true, detect AWS VPC CNI branch ENI pods and add ip rules to route probe traffic via veth").Get()
+	EnableHostProbeLocalRoute = env.RegisterBoolVar("AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE", false,
+		"If true, install local host probe SNAT routes for CNIs that return local destinations to host netfilter").Get()
 
 	// KataRuntimeClassNames is the set of RuntimeClass names for which the CNI
 	// should install the "kata mode" iptables rules (pod IP forwarded into a
@@ -67,12 +69,13 @@ const (
 	//
 	// It doesn't matter what this IP is, so long as it's not routable and doesn't collide with anything else.
 	//
-	// IPv6 link local ranges are designed to be collision-resistant by default, and so probably never need to be overridden
+	// IPv6 probes use a unique-local address as their SNAT marker.
 	DefaultHostProbeSNATIP   = "169.254.7.127"
 	DefaultHostProbeSNATIPV6 = "fd16:9254:7127:1337:ffff:ffff:ffff:ffff"
 )
 
 type AmbientArgs struct {
+	CNIAgentRunDir             string
 	SystemNamespace            string
 	Revision                   string
 	KubeConfig                 string
