@@ -55,8 +55,7 @@ func TestInitMeshDataplaneHostProbeRouteGating(t *testing.T) {
 	}{
 		{name: "disabled"},
 		{name: "enabled", enabled: true},
-		{name: "ipv4 cleanup", stateFile: "host-probe-route.json"},
-		{name: "ipv6 cleanup", stateFile: "host-probe-route-v6.json"},
+		{name: "cleanup", stateFile: "host-probe-routes"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetForTest(t, &EnableHostProbeLocalRoute, tt.enabled)

@@ -15,7 +15,7 @@
 package routing
 
 import (
-	"encoding/json"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -41,61 +41,65 @@ func setup(t *testing.T) {
 }
 
 type probeRouteFamily struct {
-	name, ip, otherIP, stateFile string
-	family                       int
+	name, ip, otherIP string
+	family            int
 }
 
 func testProbeRouteFamilies(t *testing.T, test func(*testing.T, probeRouteFamily)) {
 	t.Helper()
 	for _, family := range []probeRouteFamily{
-		{"ipv4", "169.254.240.1", "169.254.240.2", "host-probe-route.json", unix.AF_INET},
-		{"ipv6", "fd16::1", "fd16::2", "host-probe-route-v6.json", unix.AF_INET6},
+		{"ipv4", "169.254.240.1", "169.254.240.2", unix.AF_INET},
+		{"ipv6", "fd16::1", "fd16::2", unix.AF_INET6},
 	} {
 		t.Run(family.name, func(t *testing.T) { test(t, family) })
 	}
 }
 
-func startProbeRoute(t *testing.T, dir, ip string) *hostProbeRoute {
-	t.Helper()
+func configureProbeRoute(dir, ip string) (*HostProbeRoutes, error) {
 	address := netip.MustParseAddr(ip)
-	family := unix.AF_INET
 	if address.Is6() {
-		family = unix.AF_INET6
+		return ConfigureHostProbeRoutes(dir, netip.MustParseAddr("169.254.240.254"), address, true, true)
 	}
-	p, err := configureHostProbeRoute(dir, address, true, family)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { assert.NoError(t, p.close(true)) })
-	if p.route != nil {
-		assert.Equal(t, p.route.Priority > 0 && p.route.Priority <= 1<<30, true)
-	}
-	return p
+	return ConfigureHostProbeRoutes(dir, address, netip.Addr{}, true, false)
 }
 
-func requireProbeRoutes(t *testing.T, route *netlink.Route, count int) {
+func startProbeRoute(t *testing.T, dir, ip string) (*HostProbeRoutes, netlink.Route) {
 	t.Helper()
-	routes, err := probeRoutes(route)
+	p, err := configureProbeRoute(dir, ip)
+	assert.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, p.Close(true)) })
+	return p, newHostProbeRoute(netip.MustParseAddr(ip), p.linkIndex)
+}
+
+func requireProbeRoutes(t *testing.T, route netlink.Route, count int) {
+	t.Helper()
+	routes, err := probeRoutes(&route)
 	assert.NoError(t, err)
 	assert.Equal(t, len(routes), count)
 }
 
+func requireCleanupMarker(t *testing.T, dir string, want bool) {
+	t.Helper()
+	required, err := HostProbeRoutesRequired(dir, false)
+	assert.NoError(t, err)
+	assert.Equal(t, required, want)
+}
+
 func TestHostProbeRoutesRequired(t *testing.T) {
 	for _, tt := range []struct {
-		name      string
-		enabled   bool
-		stateFile string
-		want      bool
+		name    string
+		enabled bool
+		marker  bool
+		want    bool
 	}{
 		{name: "disabled"},
 		{name: "enabled", enabled: true, want: true},
-		{name: "ipv4 cleanup", stateFile: hostProbeRouteStateFile, want: true},
-		{name: "ipv6 cleanup", stateFile: hostProbeRouteV6StateFile, want: true},
+		{name: "cleanup", marker: true, want: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			if tt.stateFile != "" {
-				assert.NoError(t, os.WriteFile(filepath.Join(dir, tt.stateFile), []byte("{"), 0o600))
+			if tt.marker {
+				assert.NoError(t, os.WriteFile(filepath.Join(dir, hostProbeRoutesStateFile), nil, 0o600))
 			}
 			required, err := HostProbeRoutesRequired(dir, tt.enabled)
 			assert.NoError(t, err)
@@ -103,7 +107,7 @@ func TestHostProbeRoutesRequired(t *testing.T) {
 			files, err := os.ReadDir(dir)
 			assert.NoError(t, err)
 			wantFiles := 0
-			if tt.stateFile != "" {
+			if tt.marker {
 				wantFiles = 1
 			}
 			assert.Equal(t, len(files), wantFiles)
@@ -114,11 +118,22 @@ func TestHostProbeRoutesRequired(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, required, false)
 	}
-	t.Run("ownership check error", func(t *testing.T) {
+	t.Run("marker check error", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "not-a-directory")
 		assert.NoError(t, os.WriteFile(path, nil, 0o600))
 		_, err := HostProbeRoutesRequired(path, false)
 		assert.Error(t, err)
+	})
+	t.Run("invalid marker", func(t *testing.T) {
+		dir := t.TempDir()
+		assert.NoError(t, os.Mkdir(filepath.Join(dir, hostProbeRoutesStateFile), 0o700))
+		_, err := HostProbeRoutesRequired(dir, false)
+		assert.Error(t, err)
+		_, err = configureProbeRoute(dir, "169.254.240.1")
+		assert.Error(t, err)
+		info, err := os.Stat(filepath.Join(dir, hostProbeRoutesStateFile))
+		assert.NoError(t, err)
+		assert.Equal(t, info.IsDir(), true)
 	})
 }
 
@@ -126,35 +141,34 @@ func TestHostProbeRouteLifecycle(t *testing.T) {
 	testProbeRouteFamilies(t, func(t *testing.T, family probeRouteFamily) {
 		setup(t)
 		dir := t.TempDir()
-		p := startProbeRoute(t, dir, family.ip)
-		assert.Equal(t, p.added, true)
-		requireProbeRoutes(t, p.route, 1)
-		actual, err := probeRoutes(p.route)
+		p, route := startProbeRoute(t, dir, family.ip)
+		requireProbeRoutes(t, route, 1)
+		actual, err := probeRoutes(&route)
 		assert.NoError(t, err)
-		assert.Equal(t, actual[0].Equal(*p.route), true)
-		routes, err := netlink.RouteGet(p.route.Dst.IP)
+		assert.Equal(t, actual[0].Equal(route), true)
+		routes, err := netlink.RouteGet(route.Dst.IP)
 		assert.NoError(t, err)
 		assert.Equal(t, routes[0].Type, unix.RTN_LOCAL)
+		requireCleanupMarker(t, dir, true)
 
-		// A second agent must not take ownership while the first can still clean up.
-		_, err = configureHostProbeRoute(dir, netip.MustParseAddr(family.ip), true, family.family)
+		_, err = configureProbeRoute(dir, family.ip)
 		assert.Error(t, err)
-		requireProbeRoutes(t, p.route, 1)
+		requireProbeRoutes(t, route, 1)
+		requireCleanupMarker(t, dir, true)
 
-		assert.NoError(t, p.close(false))
-		requireProbeRoutes(t, p.route, 1)
-		next := startProbeRoute(t, dir, family.ip)
-		assert.Equal(t, next.added, false)
-		assert.Equal(t, next.route.Priority, p.route.Priority)
-
-		// A failed replacement startup must preserve an inherited route.
-		assert.NoError(t, next.close(next.added))
-		requireProbeRoutes(t, p.route, 1)
-		last := startProbeRoute(t, dir, family.ip)
-		assert.NoError(t, last.close(true))
-		requireProbeRoutes(t, p.route, 0)
-		_, err = os.Stat(last.statePath)
-		assert.Equal(t, os.IsNotExist(err), true)
+		assert.NoError(t, p.Close(false))
+		next, _ := startProbeRoute(t, dir, family.ip)
+		assert.Equal(t, len(next.added), 0)
+		// An old, already-closed handle cannot remove a replacement's routes.
+		assert.NoError(t, p.Close(true))
+		requireProbeRoutes(t, route, 1)
+		assert.NoError(t, next.Rollback())
+		requireProbeRoutes(t, route, 1)
+		requireCleanupMarker(t, dir, true)
+		last, _ := startProbeRoute(t, dir, family.ip)
+		assert.NoError(t, last.Close(true))
+		requireProbeRoutes(t, route, 0)
+		requireCleanupMarker(t, dir, false)
 	})
 }
 
@@ -162,18 +176,19 @@ func TestHostProbeRouteDisableAndAddressChange(t *testing.T) {
 	testProbeRouteFamilies(t, func(t *testing.T, family probeRouteFamily) {
 		setup(t)
 		dir := t.TempDir()
-		p := startProbeRoute(t, dir, family.ip)
-		assert.NoError(t, p.close(false))
+		p, route := startProbeRoute(t, dir, family.ip)
+		assert.NoError(t, p.Close(false))
 
-		next := startProbeRoute(t, dir, family.otherIP)
-		requireProbeRoutes(t, p.route, 0)
-		requireProbeRoutes(t, next.route, 1)
-		assert.NoError(t, next.close(false))
+		next, changed := startProbeRoute(t, dir, family.otherIP)
+		requireProbeRoutes(t, route, 0)
+		requireProbeRoutes(t, changed, 1)
+		assert.NoError(t, next.Close(false))
 
-		disabled, err := configureHostProbeRoute(dir, netip.Addr{}, false, family.family)
+		disabled, err := ConfigureHostProbeRoutes(dir, netip.Addr{}, netip.Addr{}, false, false)
 		assert.NoError(t, err)
 		assert.Equal(t, disabled == nil, true)
-		requireProbeRoutes(t, next.route, 0)
+		requireProbeRoutes(t, changed, 0)
+		requireCleanupMarker(t, dir, false)
 	})
 }
 
@@ -182,51 +197,72 @@ func TestHostProbeRouteForeignRoutes(t *testing.T) {
 		setup(t)
 		lo, err := netlink.LinkByName("lo")
 		assert.NoError(t, err)
-		for _, tt := range []struct {
-			name     string
-			ip       string
-			conflict bool
-		}{
-			{name: "equivalent", ip: family.ip},
-			{name: "conflicting", ip: family.otherIP, conflict: true},
-		} {
-			t.Run(tt.name, func(t *testing.T) {
-				route, err := (hostProbeRouteState{
-					Address: netip.MustParseAddr(tt.ip), LinkIndex: lo.Attrs().Index, Priority: 123,
-				}).route()
-				assert.NoError(t, err)
-				if tt.conflict {
+		for _, conflicting := range []bool{false, true} {
+			name := "equivalent"
+			if conflicting {
+				name = "conflicting"
+			}
+			t.Run(name, func(t *testing.T) {
+				route := newHostProbeRoute(netip.MustParseAddr(family.ip), lo.Attrs().Index)
+				route.Protocol = unix.RTPROT_STATIC
+				if conflicting {
 					route.Type = unix.RTN_UNICAST
 					route.Scope = netlink.SCOPE_LINK
 				}
-				assert.NoError(t, netlink.RouteAdd(route))
-				t.Cleanup(func() { assert.NoError(t, netlink.RouteDel(route)) })
-				p, err := configureHostProbeRoute(t.TempDir(), netip.MustParseAddr(tt.ip), true, family.family)
-				if tt.conflict {
-					assert.Error(t, err)
-				} else {
-					assert.NoError(t, err)
-					assert.Equal(t, p.route == nil, true)
-					assert.NoError(t, p.close(true))
-				}
+				assert.NoError(t, netlink.RouteAdd(&route))
+				t.Cleanup(func() { assert.NoError(t, netlink.RouteDel(&route)) })
+				dir := t.TempDir()
+				_, err := configureProbeRoute(dir, family.ip)
+				assert.Error(t, err)
 				requireProbeRoutes(t, route, 1)
+				requireCleanupMarker(t, dir, false)
 			})
 		}
+	})
+}
+
+func TestHostProbeRouteProtocolOwnership(t *testing.T) {
+	testProbeRouteFamilies(t, func(t *testing.T, family probeRouteFamily) {
+		setup(t)
+		lo, err := netlink.LinkByName("lo")
+		assert.NoError(t, err)
+		route := newHostProbeRoute(netip.MustParseAddr(family.ip), lo.Attrs().Index)
+		route.Priority = 123
+		assert.NoError(t, netlink.RouteAdd(&route))
+		p, _ := startProbeRoute(t, t.TempDir(), family.ip)
+		actual, err := probeRoutes(&route)
+		assert.NoError(t, err)
+		assert.Equal(t, actual[0].Priority, 123)
+		assert.NoError(t, p.Rollback())
+		requireProbeRoutes(t, route, 1)
+		next, _ := startProbeRoute(t, filepath.Dir(p.statePath), family.ip)
+		assert.NoError(t, next.Close(true))
+		requireProbeRoutes(t, route, 0)
 	})
 }
 
 func TestHostProbeRouteChangedByOperator(t *testing.T) {
 	testProbeRouteFamilies(t, func(t *testing.T, family probeRouteFamily) {
 		setup(t)
-		dir := t.TempDir()
-		p := startProbeRoute(t, dir, family.ip)
-		assert.NoError(t, netlink.RouteDel(p.route))
-		foreign := *p.route
-		foreign.Priority++
-		assert.NoError(t, netlink.RouteAdd(&foreign))
-		t.Cleanup(func() { assert.NoError(t, netlink.RouteDel(&foreign)) })
-		assert.NoError(t, p.close(true))
-		requireProbeRoutes(t, &foreign, 1)
+		p, route := startProbeRoute(t, t.TempDir(), family.ip)
+		assert.NoError(t, netlink.RouteDel(&route))
+		route.Protocol = unix.RTPROT_STATIC
+		assert.NoError(t, netlink.RouteAdd(&route))
+		t.Cleanup(func() { assert.NoError(t, netlink.RouteDel(&route)) })
+		assert.NoError(t, p.Close(true))
+		requireProbeRoutes(t, route, 1)
+	})
+}
+
+func TestHostProbeRouteMetricNotOwnership(t *testing.T) {
+	testProbeRouteFamilies(t, func(t *testing.T, family probeRouteFamily) {
+		setup(t)
+		p, route := startProbeRoute(t, t.TempDir(), family.ip)
+		assert.NoError(t, netlink.RouteDel(&route))
+		route.Priority++
+		assert.NoError(t, netlink.RouteAdd(&route))
+		assert.NoError(t, p.Close(true))
+		requireProbeRoutes(t, route, 0)
 	})
 }
 
@@ -234,20 +270,14 @@ func TestHostProbeRouteInterruptedCreation(t *testing.T) {
 	testProbeRouteFamilies(t, func(t *testing.T, family probeRouteFamily) {
 		setup(t)
 		dir := t.TempDir()
-		lo, err := netlink.LinkByName("lo")
-		assert.NoError(t, err)
-		state := hostProbeRouteState{
-			Address: netip.MustParseAddr(family.ip), LinkIndex: lo.Attrs().Index, Priority: 123,
-		}
-		data, err := json.Marshal(state)
-		assert.NoError(t, err)
-		// Simulate termination after writing intent, before RouteAdd.
-		assert.NoError(t, os.WriteFile(filepath.Join(dir, family.stateFile), data, 0o600))
-		p := startProbeRoute(t, dir, state.Address.String())
-		assert.Equal(t, p.added, true)
-		requireProbeRoutes(t, p.route, 1)
-		assert.NoError(t, p.close(p.added))
-		requireProbeRoutes(t, p.route, 0)
+		// Simulate termination after writing cleanup intent, before RouteAdd.
+		assert.NoError(t, os.WriteFile(filepath.Join(dir, hostProbeRoutesStateFile), nil, 0o600))
+		p, route := startProbeRoute(t, dir, family.ip)
+		assert.Equal(t, len(p.added) > 0, true)
+		requireProbeRoutes(t, route, 1)
+		assert.NoError(t, p.Rollback())
+		requireProbeRoutes(t, route, 0)
+		requireCleanupMarker(t, dir, false)
 	})
 }
 
@@ -255,31 +285,12 @@ func TestHostProbeRouteRestartAfterDeletion(t *testing.T) {
 	testProbeRouteFamilies(t, func(t *testing.T, family probeRouteFamily) {
 		setup(t)
 		dir := t.TempDir()
-		p := startProbeRoute(t, dir, family.ip)
-		assert.NoError(t, p.close(false))
-		// Routes can disappear on node reboot while the ownership record survives.
-		assert.NoError(t, netlink.RouteDel(p.route))
-		next := startProbeRoute(t, dir, family.ip)
-		assert.Equal(t, next.added, true)
-		requireProbeRoutes(t, next.route, 1)
-	})
-}
-
-func TestHostProbeRoutePendingStateDoesNotAdoptForeignRoute(t *testing.T) {
-	testProbeRouteFamilies(t, func(t *testing.T, family probeRouteFamily) {
-		setup(t)
-		dir := t.TempDir()
-		p := startProbeRoute(t, dir, family.ip)
-		assert.NoError(t, p.close(false))
-		assert.NoError(t, netlink.RouteDel(p.route))
-		foreign := *p.route
-		foreign.Priority++
-		assert.NoError(t, netlink.RouteAdd(&foreign))
-		t.Cleanup(func() { assert.NoError(t, netlink.RouteDel(&foreign)) })
-		next := startProbeRoute(t, dir, family.ip)
-		assert.Equal(t, next.route == nil, true)
-		assert.NoError(t, next.close(true))
-		requireProbeRoutes(t, &foreign, 1)
+		p, route := startProbeRoute(t, dir, family.ip)
+		assert.NoError(t, p.Close(false))
+		assert.NoError(t, netlink.RouteDel(&route))
+		next, _ := startProbeRoute(t, dir, family.ip)
+		assert.Equal(t, len(next.added), 1)
+		requireProbeRoutes(t, route, 1)
 	})
 }
 
@@ -292,28 +303,26 @@ func TestHostProbeRouteInvalidInputs(t *testing.T) {
 		for _, ip := range invalid {
 			t.Run(ip, func(t *testing.T) {
 				dir := t.TempDir()
-				_, err := configureHostProbeRoute(dir, netip.MustParseAddr(ip), true, family.family)
+				ipv4, ipv6 := netip.MustParseAddr(ip), netip.Addr{}
+				if family.family == unix.AF_INET6 {
+					ipv4, ipv6 = netip.MustParseAddr("169.254.240.1"), netip.MustParseAddr(ip)
+				}
+				_, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, family.family == unix.AF_INET6)
 				assert.Error(t, err)
 				files, err := os.ReadDir(dir)
 				assert.NoError(t, err)
 				assert.Equal(t, len(files), 0)
 			})
 		}
-		t.Run("disabled", func(t *testing.T) {
-			dir := t.TempDir()
-			p, err := configureHostProbeRoute(dir, netip.Addr{}, false, family.family)
-			assert.NoError(t, err)
-			assert.Equal(t, p == nil, true)
-			files, err := os.ReadDir(dir)
-			assert.NoError(t, err)
-			assert.Equal(t, len(files), 0)
-		})
-		t.Run("corrupt ownership", func(t *testing.T) {
-			dir := t.TempDir()
-			assert.NoError(t, os.WriteFile(filepath.Join(dir, family.stateFile), []byte("{"), 0o600))
-			_, err := configureHostProbeRoute(dir, netip.MustParseAddr(family.ip), true, family.family)
-			assert.Error(t, err)
-		})
+	})
+	t.Run("disabled", func(t *testing.T) {
+		dir := t.TempDir()
+		p, err := ConfigureHostProbeRoutes(dir, netip.Addr{}, netip.Addr{}, false, false)
+		assert.NoError(t, err)
+		assert.Equal(t, p == nil, true)
+		files, err := os.ReadDir(dir)
+		assert.NoError(t, err)
+		assert.Equal(t, len(files), 0)
 	})
 }
 
@@ -324,42 +333,60 @@ func TestHostProbeRoutesDualStackLifecycle(t *testing.T) {
 	routes, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
 	assert.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, routes.Close(true)) })
-	assert.Equal(t, len(routes), 2)
-	for _, route := range routes {
-		requireProbeRoutes(t, route.route, 1)
-	}
+	assert.Equal(t, len(routes.added), 2)
+	v4, v6 := newHostProbeRoute(ipv4, routes.linkIndex), newHostProbeRoute(ipv6, routes.linkIndex)
 	assert.NoError(t, routes.Close(false))
 
 	v4Only, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, false)
 	assert.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, v4Only.Close(true)) })
-	assert.Equal(t, len(v4Only), 1)
-	assert.Equal(t, v4Only[0].route.Equal(*routes[0].route), true)
-	requireProbeRoutes(t, routes[1].route, 0)
-	_, err = os.Stat(filepath.Join(dir, "host-probe-route-v6.json"))
-	assert.Equal(t, os.IsNotExist(err), true)
+	assert.Equal(t, len(v4Only.added), 0)
+	requireProbeRoutes(t, v4, 1)
+	requireProbeRoutes(t, v6, 0)
 	assert.NoError(t, v4Only.Close(false))
 
 	both, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
 	assert.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, both.Close(true)) })
-	assert.Equal(t, both[0].added, false)
-	assert.Equal(t, both[1].added, true)
-	// A later startup failure preserves inherited IPv4 but removes newly added IPv6.
+	assert.Equal(t, len(both.added), 1)
+	assert.Equal(t, both.added[0].Family, unix.AF_INET6)
 	assert.NoError(t, both.Rollback())
-	requireProbeRoutes(t, routes[0].route, 1)
-	requireProbeRoutes(t, routes[1].route, 0)
+	requireProbeRoutes(t, v4, 1)
+	requireProbeRoutes(t, v6, 0)
+	requireCleanupMarker(t, dir, true)
 
 	last, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
 	assert.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, last.Close(true)) })
 	assert.NoError(t, last.Close(false))
-	disabled, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, false, true)
+	disabled, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, false, false)
 	assert.NoError(t, err)
-	assert.Equal(t, len(disabled), 0)
-	for _, route := range last {
-		requireProbeRoutes(t, route.route, 0)
-	}
+	assert.Equal(t, disabled == nil, true)
+	requireProbeRoutes(t, v4, 0)
+	requireProbeRoutes(t, v6, 0)
+	requireCleanupMarker(t, dir, false)
+}
+
+func TestHostProbeRoutesSharedLock(t *testing.T) {
+	setup(t)
+	dir := t.TempDir()
+	p, v4 := startProbeRoute(t, dir, "169.254.240.1")
+	_, err := ConfigureHostProbeRoutes(dir, netip.MustParseAddr("169.254.240.2"), netip.MustParseAddr("fd16::1"), true, true)
+	assert.Error(t, err)
+	_, err = ConfigureHostProbeRoutes(dir, netip.Addr{}, netip.Addr{}, false, false)
+	assert.Error(t, err)
+	requireProbeRoutes(t, v4, 1)
+	requireCleanupMarker(t, dir, true)
+	files, err := os.ReadDir(dir)
+	assert.NoError(t, err)
+	assert.Equal(t, len(files), 2)
+	assert.NoError(t, p.Close(true))
+	files, err = os.ReadDir(dir)
+	assert.NoError(t, err)
+	assert.Equal(t, len(files), 1)
+	assert.Equal(t, files[0].Name(), hostProbeRoutesStateFile+".lock")
+	next, _ := startProbeRoute(t, dir, "169.254.240.2")
+	assert.NoError(t, next.Close(true))
 }
 
 func TestHostProbeRoutesPartialFailure(t *testing.T) {
@@ -374,40 +401,64 @@ func TestHostProbeRoutesPartialFailure(t *testing.T) {
 			ipv4, ipv6 := netip.MustParseAddr("169.254.240.1"), netip.MustParseAddr("fd16::1")
 			lo, err := netlink.LinkByName("lo")
 			assert.NoError(t, err)
-			v4, err := (hostProbeRouteState{Address: ipv4, LinkIndex: lo.Attrs().Index, Priority: 1}).route()
-			assert.NoError(t, err)
+			v4 := newHostProbeRoute(ipv4, lo.Attrs().Index)
 			if inherited {
-				old := startProbeRoute(t, dir, ipv4.String())
-				assert.NoError(t, old.close(false))
-				v4 = old.route
+				old, _ := startProbeRoute(t, dir, ipv4.String())
+				assert.NoError(t, old.Close(false))
 			}
-			held := startProbeRoute(t, dir, ipv6.String())
+			foreign := newHostProbeRoute(ipv6, lo.Attrs().Index)
+			foreign.Protocol = unix.RTPROT_STATIC
+			assert.NoError(t, netlink.RouteAdd(&foreign))
 			_, err = ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
 			assert.Error(t, err)
+			want := 0
 			if inherited {
-				requireProbeRoutes(t, v4, 1)
-			} else {
-				requireProbeRoutes(t, v4, 0)
+				want = 1
 			}
-			requireProbeRoutes(t, held.route, 1)
-			assert.NoError(t, held.close(true))
-			// The failed attempt must also release the IPv4 lock.
+			requireProbeRoutes(t, v4, want)
+			requireProbeRoutes(t, foreign, 1)
+			requireCleanupMarker(t, dir, inherited)
+			assert.NoError(t, netlink.RouteDel(&foreign))
 			retry, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
 			assert.NoError(t, err)
 			t.Cleanup(func() { assert.NoError(t, retry.Close(true)) })
-			assert.Equal(t, len(retry), 2)
 		})
 	}
 }
 
-func TestHostProbeRouteRejectsWrongFamilyOwnership(t *testing.T) {
+func TestHostProbeRoutesCleanupScope(t *testing.T) {
 	setup(t)
-	dir := t.TempDir()
-	v4 := startProbeRoute(t, dir, "169.254.240.1")
-	data, err := os.ReadFile(v4.statePath)
+	lo, err := netlink.LinkByName("lo")
 	assert.NoError(t, err)
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "host-probe-route-v6.json"), data, 0o600))
-	_, err = configureHostProbeRoute(dir, netip.Addr{}, false, unix.AF_INET6)
-	assert.Error(t, err)
-	requireProbeRoutes(t, v4.route, 1)
+	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "probe-other"}}
+	assert.NoError(t, netlink.LinkAdd(dummy))
+	t.Cleanup(func() { assert.NoError(t, netlink.LinkDel(dummy)) })
+	for _, tt := range []struct {
+		name   string
+		change func(*netlink.Route)
+	}{
+		{"foreign protocol", func(r *netlink.Route) { r.Protocol = unix.RTPROT_STATIC }},
+		{"other table", func(r *netlink.Route) { r.Table = 100 }},
+		{"other interface", func(r *netlink.Route) { r.LinkIndex = dummy.Attrs().Index }},
+		{"non-probe address", func(r *netlink.Route) { r.Dst.IP = net.ParseIP("10.244.240.1").To4() }},
+		{"non-exact prefix", func(r *netlink.Route) { r.Dst.Mask = net.CIDRMask(24, 32) }},
+		{"non-local route", func(r *netlink.Route) { r.Type, r.Scope = unix.RTN_UNICAST, netlink.SCOPE_LINK }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			other := newHostProbeRoute(netip.MustParseAddr("169.254.250.0"), lo.Attrs().Index)
+			tt.change(&other)
+			assert.NoError(t, netlink.RouteAdd(&other))
+			t.Cleanup(func() { assert.NoError(t, netlink.RouteDel(&other)) })
+			dir := t.TempDir()
+			p, route := startProbeRoute(t, dir, "169.254.240.1")
+			assert.NoError(t, p.Close(false))
+			_, err := ConfigureHostProbeRoutes(dir, netip.Addr{}, netip.Addr{}, false, false)
+			assert.NoError(t, err)
+			requireProbeRoutes(t, route, 0)
+			actual, err := netlink.RouteListFiltered(other.Family, &other, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_DST)
+			assert.NoError(t, err)
+			assert.Equal(t, len(actual), 1)
+			requireCleanupMarker(t, dir, false)
+		})
+	}
 }

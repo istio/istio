@@ -35,7 +35,7 @@ import (
 )
 
 func initMeshDataplane(client kube.Client, args AmbientArgs) (_ *meshDataplane, retErr error) {
-	var probeRoutes routing.HostProbeRoutes
+	var probeRoutes *routing.HostProbeRoutes
 	probeRoutesRequired, err := routing.HostProbeRoutesRequired(args.CNIAgentRunDir, EnableHostProbeLocalRoute)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing host probe local routing: %w", err)
@@ -51,7 +51,7 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (_ *meshDataplane, 
 		}
 	}
 	defer func() {
-		if retErr != nil && len(probeRoutes) != 0 {
+		if retErr != nil && probeRoutes != nil {
 			retErr = errors.Join(retErr, util.RunAsHost(func() error {
 				return probeRoutes.Rollback()
 			}))

@@ -49,17 +49,19 @@ Workload interception lives in the pod network namespace. Host health probes add
 
 ### Local host probe routes
 
-The experimental, default-disabled local-route option provides compatibility
-between ambient health probes and Cilium BPF host-routing configurations that
-bypass host netfilter on the probe-reply path. Istio's probe replies must return
-to the host stack so kernel conntrack can reverse the probe SNAT.
+This experimental option helps ambient health probes work with Cilium BPF host
+routing when probe replies bypass host netfilter. It is off by default and does
+not affect sidecar mode.
 
-The routes make the probe SNAT markers local destinations, causing compatible
-Cilium datapaths to pass replies to the host stack rather than forward them out
-of the node. This requires a datapath that performs a FIB lookup and falls back
-to the host stack for local destinations; the routes do not reverse SNAT themselves.
-This option does not repair missing host SNAT rules or change the primary CNI's settings.
-Configure it through the CNI chart's `env` map:
+Istio uses SNAT to give probes special source addresses. Replies must reach host
+kernel conntrack to undo that SNAT. Local routes make these addresses local to the
+node, so compatible Cilium paths return replies to the host stack.
+
+Cilium must perform a FIB lookup and pass traffic for local destinations to the
+host stack. Paths using `ENABLE_SKIP_FIB` cannot be fixed by these routes alone.
+This option does not change Cilium settings or repair missing host SNAT rules.
+
+Enable it through the CNI chart:
 
 ```yaml
 profile: ambient
@@ -69,33 +71,38 @@ env:
   AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE: "true"
 ```
 
-**Cilium compatibility:** This option requires the pod datapath to perform a FIB
-lookup and fall back to the host stack for local destinations. Paths that bypass
-FIB lookup, such as those using `ENABLE_SKIP_FIB`, cannot be fixed by the local
-route alone. Verify compatibility with your deployed Cilium configuration; Istio
-does not modify Cilium settings.
-
 #### Address selection and ownership
 
 Use dedicated, unused IPv4 link-local and IPv6 unique-local probe addresses. Each
-route makes its marker a local destination for all traffic, not only established
-probe replies; evaluate pod-to-host access, wildcard host listeners, host-firewall
-policy, and NetworkPolicy before enabling it.
+route makes its address local for all traffic, not just probe replies. Before
+enabling this option, check pod-to-host access, wildcard host listeners, host
+firewall rules, and NetworkPolicy.
 
-The agent records route ownership in its host-mounted run directory and preserves
-the routes during safe upgrades. When the option is disabled and neither ownership
-file exists, probe-route setup and rollback do not enter the host network namespace.
-IPv4 retains `host-probe-route.json`; IPv6 uses
-`host-probe-route-v6.json` with an independent ownership lock. Equivalent
-pre-existing routes are never owned or deleted; conflicting routes fail startup.
-An overlapping agent fails startup until
-the previous agent releases the ownership lock. Disabling the option on an ambient
-agent removes both recorded routes, as does normal uninstall. Disabling ambient
-IPv6 removes only the recorded IPv6 route on the next agent startup. Restart the
-agent after changing settings supplied through ConfigMap environment variables.
-Failed startup removes newly added routes but preserves inherited routes.
-Keep the run directory unchanged across
-upgrades. Routes are checked at startup, not continuously reconciled.
+Istio owns exact `/32` and `/128` routes in the local table on loopback with
+protocol `196`, regardless of their metric. This protocol ID is locally assigned,
+not globally reserved. Do not use it for other routes of this kind. An existing
+exact route for a probe address with another protocol causes startup to fail,
+even if otherwise equivalent. Remove conflicting or manually installed probe
+routes before enabling this option.
+
+#### Startup and cleanup
+
+Both address families use one `host-probe-routes.lock` file in the host-mounted
+run directory. Startup fails if another agent holds the lock. Before changing
+routes, the agent writes a `host-probe-routes` marker so a later agent knows cleanup
+may be needed. When the option is off and the marker is absent, probe-route code
+does not enter the host network namespace.
+
+- Safe upgrades keep the routes and cleanup marker.
+- Disabling the option removes managed routes for both families on agent restart,
+  including routes for previous probe addresses.
+- Disabling ambient IPv6 removes only its managed routes on agent restart.
+- Normal cleanup removes managed routes and the marker.
+- Failed startup removes newly added routes but keeps inherited routes and any
+  marker still needed for cleanup.
+
+Keep the run directory unchanged across upgrades. Restart the agent after changing
+its environment settings. Routes are checked only at startup, not continuously.
 
 ## Sidecar Mode Implementation Details
 
