@@ -85,6 +85,8 @@ type Connection struct {
 
 	s   *DiscoveryServer
 	ids []string
+	// authClusterID is the cluster the connection's credential was validated against, if known.
+	authClusterID cluster.ID
 }
 
 func (conn *Connection) XdsConnection() *xds.Connection {
@@ -217,7 +219,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
 	}
 
-	ids, err := s.authenticate(ctx)
+	ids, authCluster, err := s.authenticate(ctx)
 	if err != nil {
 		return status.Error(codes.Unauthenticated, err.Error())
 	}
@@ -231,6 +233,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	s.globalPushContext().InitContext(s.Env, nil, nil)
 	con := newConnection(peerAddr, stream)
 	con.ids = ids
+	con.authClusterID = authCluster
 	con.s = s
 	return xds.Stream(con)
 }
