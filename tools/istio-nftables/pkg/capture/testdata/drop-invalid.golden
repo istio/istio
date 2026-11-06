@@ -21,5 +21,5 @@ add table inet istio-proxy-mangle
 flush table inet istio-proxy-mangle
 add chain inet istio-proxy-mangle prerouting { type filter hook prerouting priority -150 ; }
 add chain inet istio-proxy-mangle istio-drop
-add rule inet istio-proxy-mangle prerouting meta l4proto tcp ct state invalid counter jump istio-drop
+add rule inet istio-proxy-mangle prerouting ct state invalid counter jump istio-drop
 add rule inet istio-proxy-mangle istio-drop counter drop
