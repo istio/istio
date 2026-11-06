@@ -26,7 +26,7 @@ require (
 	github.com/fatih/color v1.19.0
 	github.com/felixge/fgprof v0.9.5
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/go-jose/go-jose/v4 v4.1.6
+	github.com/go-jose/go-jose/v4 v4.1.7
 	github.com/go-logr/logr v1.4.4
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.4
@@ -82,7 +82,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.1
 	go.uber.org/atomic v1.12.0
 	go.uber.org/zap v1.28.0
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/sync v0.24.0
 	golang.org/x/sys v0.49.0
