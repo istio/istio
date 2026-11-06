@@ -454,6 +454,9 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 	rulesWithL7 := sets.New[string]()
 
 	for _, rule := range pol.Rules {
+		if rule == nil {
+			continue
+		}
 		rules, foundL7 := handleRule(action, rule, obj.Namespace)
 		if rules != nil {
 			rg := &security.Group{
@@ -502,22 +505,22 @@ const (
 
 func httpOperations(op *v1beta1.Operation) []string {
 	foundUnsupportedOperations := []string{}
-	if len(op.Hosts) > 0 {
+	if len(op.GetHosts()) > 0 {
 		foundUnsupportedOperations = append(foundUnsupportedOperations, "hosts")
 	}
-	if len(op.NotHosts) > 0 {
+	if len(op.GetNotHosts()) > 0 {
 		foundUnsupportedOperations = append(foundUnsupportedOperations, "notHosts")
 	}
-	if len(op.Methods) > 0 {
+	if len(op.GetMethods()) > 0 {
 		foundUnsupportedOperations = append(foundUnsupportedOperations, "methods")
 	}
-	if len(op.NotMethods) > 0 {
+	if len(op.GetNotMethods()) > 0 {
 		foundUnsupportedOperations = append(foundUnsupportedOperations, "notMethods")
 	}
-	if len(op.Paths) > 0 {
+	if len(op.GetPaths()) > 0 {
 		foundUnsupportedOperations = append(foundUnsupportedOperations, "paths")
 	}
-	if len(op.NotPaths) > 0 {
+	if len(op.GetNotPaths()) > 0 {
 		foundUnsupportedOperations = append(foundUnsupportedOperations, "notPaths")
 	}
 	return foundUnsupportedOperations
@@ -526,16 +529,16 @@ func httpOperations(op *v1beta1.Operation) []string {
 func httpSources(s *v1beta1.Source) []string {
 	foundUnsupportedSources := []string{}
 
-	if len(s.RemoteIpBlocks) > 0 {
+	if len(s.GetRemoteIpBlocks()) > 0 {
 		foundUnsupportedSources = append(foundUnsupportedSources, "remoteIpBlocks")
 	}
-	if len(s.NotRemoteIpBlocks) > 0 {
+	if len(s.GetNotRemoteIpBlocks()) > 0 {
 		foundUnsupportedSources = append(foundUnsupportedSources, "notRemoteIpBlocks")
 	}
-	if len(s.RequestPrincipals) > 0 {
+	if len(s.GetRequestPrincipals()) > 0 {
 		foundUnsupportedSources = append(foundUnsupportedSources, "requestPrincipals")
 	}
-	if len(s.NotRequestPrincipals) > 0 {
+	if len(s.GetNotRequestPrincipals()) > 0 {
 		foundUnsupportedSources = append(foundUnsupportedSources, "notRequestPrincipals")
 	}
 
@@ -586,35 +589,35 @@ func handleRule(action security.Action, rule *v1beta1.Rule, ruleNamespace string
 	httpMatch := sets.New[string]()
 	toMatches := []*security.Match{}
 	for _, to := range rule.To {
-		op := to.Operation
+		op := to.GetOperation()
 		problems := httpOperations(op)
 		if len(problems) > 0 {
 			l7RuleFound = true
 			httpMatch.InsertAll(problems...)
 		}
 		match := &security.Match{
-			DestinationPorts:    stringToPort(op.Ports),
-			NotDestinationPorts: stringToPort(op.NotPorts),
+			DestinationPorts:    stringToPort(op.GetPorts()),
+			NotDestinationPorts: stringToPort(op.GetNotPorts()),
 		}
 		toMatches = append(toMatches, match)
 	}
 	fromMatches := []*security.Match{}
 	for _, from := range rule.From {
-		op := from.Source
+		op := from.GetSource()
 		problems := httpSources(op)
 		if len(problems) > 0 {
 			l7RuleFound = true
 			httpMatch.InsertAll(problems...)
 		}
 		match := &security.Match{
-			SourceIps:          stringToIP(op.IpBlocks),
-			NotSourceIps:       stringToIP(op.NotIpBlocks),
-			Namespaces:         stringToMatch(op.Namespaces),
-			NotNamespaces:      stringToMatch(op.NotNamespaces),
-			ServiceAccounts:    stringToServiceAccountMatch(op.ServiceAccounts, ruleNamespace),
-			NotServiceAccounts: stringToServiceAccountMatch(op.NotServiceAccounts, ruleNamespace),
-			Principals:         stringToMatch(op.Principals),
-			NotPrincipals:      stringToMatch(op.NotPrincipals),
+			SourceIps:          stringToIP(op.GetIpBlocks()),
+			NotSourceIps:       stringToIP(op.GetNotIpBlocks()),
+			Namespaces:         stringToMatch(op.GetNamespaces()),
+			NotNamespaces:      stringToMatch(op.GetNotNamespaces()),
+			ServiceAccounts:    stringToServiceAccountMatch(op.GetServiceAccounts(), ruleNamespace),
+			NotServiceAccounts: stringToServiceAccountMatch(op.GetNotServiceAccounts(), ruleNamespace),
+			Principals:         stringToMatch(op.GetPrincipals()),
+			NotPrincipals:      stringToMatch(op.GetNotPrincipals()),
 		}
 		fromMatches = append(fromMatches, match)
 	}
@@ -627,6 +630,9 @@ func handleRule(action security.Action, rule *v1beta1.Rule, ruleNamespace string
 		rules = append(rules, &security.Rules{Matches: fromMatches})
 	}
 	for _, when := range rule.When {
+		if when == nil {
+			continue
+		}
 		l4 := l4WhenAttributes.Contains(when.Key)
 		if !l4 {
 			l7RuleFound = true
