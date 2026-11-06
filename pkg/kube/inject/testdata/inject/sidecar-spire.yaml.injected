@@ -36,7 +36,12 @@ spec:
         - containerPort: 80
           name: http
         resources: {}
-      - name: istio-proxy
+      - env:
+        - name: ISTIO_ENVOY_ADMIN_TRANSPORT
+          value: TCP
+        - name: ISTIO_NATIVE_SIDECAR
+          value: "true"
+        name: istio-proxy
         resources: {}
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds

@@ -133,6 +133,10 @@ spec:
       value: cluster.local
     - name: TRUST_DOMAIN
       value: cluster.local
+    - name: ISTIO_ENVOY_ADMIN_TRANSPORT
+      value: TCP
+    - name: ISTIO_NATIVE_SIDECAR
+      value: "true"
     - name: ISTIO_PROMETHEUS_ANNOTATIONS
       value: '{"scrape":"true","path":"/metrics","port":"8080","targets":[{"port":"8080","path":"/metrics"},{"port":"9100","path":"/custom-metrics"}]}'
     image: registry.istio.io/testing/proxyv2:latest

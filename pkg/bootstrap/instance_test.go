@@ -100,6 +100,7 @@ func TestGolden(t *testing.T) {
 		secureMergedMetricsPort    int
 		proxyCfgBase               string
 	}{
+		{base: "uds", proxyCfgBase: "default", envVars: map[string]string{"ISTIO_ENVOY_ADMIN_TRANSPORT": "UDS"}},
 		{
 			base: "xdsproxy",
 		},
@@ -315,6 +316,9 @@ func TestGolden(t *testing.T) {
 
 			_, localEnv := createEnv(t, map[string]string{}, c.annotations)
 			for k, v := range c.envVars {
+				if k == "ISTIO_ENVOY_ADMIN_TRANSPORT" {
+					t.Setenv(k, v)
+				}
 				localEnv = append(localEnv, k+"="+v)
 			}
 

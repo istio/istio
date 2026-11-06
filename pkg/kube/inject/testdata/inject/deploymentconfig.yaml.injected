@@ -144,6 +144,10 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
+        - name: ISTIO_ENVOY_ADMIN_TRANSPORT
+          value: TCP
+        - name: ISTIO_NATIVE_SIDECAR
+          value: "true"
         image: registry.istio.io/testing/proxyv2:latest
         lifecycle:
           preStop:

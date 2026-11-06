@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation/agent"
+	"istio.io/istio/pkg/envoy/admin"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -38,6 +39,7 @@ type annotationValidationFunc func(value string) error
 // per-sidecar policy and status
 var (
 	AnnotationValidation = map[string]annotationValidationFunc{
+		annotation.SidecarAdminTransport.Name:                     func(value string) error { _, err := admin.Parse(value); return err },
 		annotation.SidecarInterceptionMode.Name:                   validateInterceptionMode,
 		annotation.SidecarStatusPort.Name:                         validateStatusPort,
 		annotation.SidecarStatusReadinessInitialDelaySeconds.Name: validateUInt32,

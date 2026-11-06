@@ -18,8 +18,10 @@ import (
 	"context"
 	"net"
 	"testing"
+	"time"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
+	"istio.io/istio/pkg/envoy/admin"
 )
 
 var invalidStats = ""
@@ -177,5 +179,29 @@ func TestActiveConnections(t *testing.T) {
 				t.Errorf("unexpected active proxy connections. expected: %d got: %d", tt.expected, ac)
 			}
 		})
+	}
+}
+
+// The proxy must terminate even when Kubernetes skipped or failed preStop.
+func TestRestrictedNativeTermination(t *testing.T) {
+	t.Setenv(admin.Env, "UDS")
+	t.Setenv(admin.NativeEnv, "true")
+	started := make(chan struct{})
+	done := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	proxy := TestProxy{run: func(stop <-chan error) error { close(started); return <-stop }}
+	agent := NewAgent(proxy, time.Hour, time.Hour, "localhost", 15000, 15020, 15090, 0, 0, false)
+	go func() { agent.Run(ctx); close(done) }()
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("proxy did not start")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("native sidecar waited for a second drain")
 	}
 }

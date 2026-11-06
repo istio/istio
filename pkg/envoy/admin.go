@@ -16,11 +16,14 @@ package envoy
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
+	"istio.io/istio/pkg/envoy/admin"
 	"istio.io/istio/pkg/log"
 )
 
@@ -46,7 +49,7 @@ func DrainListeners(adminPort uint32, inboundonly bool, skipExit bool) error {
 
 func doEnvoyPost(path, contentType, body string, adminPort uint32) (*bytes.Buffer, error) {
 	requestURL := fmt.Sprintf("http://localhost:%d/%s", adminPort, path)
-	buffer, err := doHTTPPost(requestURL, contentType, body)
+	buffer, err := admin.Do(context.Background(), "POST", requestURL, body, 60*time.Second)
 	if err != nil {
 		return nil, err
 	}

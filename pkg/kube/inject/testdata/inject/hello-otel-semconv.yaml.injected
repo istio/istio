@@ -146,6 +146,10 @@ spec:
           value: cluster.local
         - name: OTEL_RESOURCE_ATTRIBUTES
           value: service.namespace=default,service.version=v1.2.3,service.instance.id=default.$(POD_NAME).hello
+        - name: ISTIO_ENVOY_ADMIN_TRANSPORT
+          value: TCP
+        - name: ISTIO_NATIVE_SIDECAR
+          value: "true"
         image: registry.istio.io/testing/proxyv2:latest
         lifecycle:
           preStop:

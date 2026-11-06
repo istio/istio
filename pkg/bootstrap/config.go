@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/envoy/admin"
 	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
@@ -223,7 +224,18 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info
 	// is not available (in particular in some multi-cluster cases)
-	return option.NewTemplateParams(opts...)
+	params, err := option.NewTemplateParams(opts...)
+	if err != nil {
+		return nil, err
+	}
+	transport, err := admin.FromEnvironment()
+	if err != nil {
+		return nil, err
+	}
+	if transport == admin.UDS {
+		params["adminSocket"] = admin.SocketPath
+	}
+	return params, nil
 }
 
 // substituteValues substitutes variables known to the bootstrap like pod_ip.

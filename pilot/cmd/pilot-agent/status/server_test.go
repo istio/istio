@@ -45,6 +45,7 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
+	"istio.io/istio/pkg/envoy/admin"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/lazy"
 	"istio.io/istio/pkg/log"
@@ -2465,5 +2466,39 @@ func TestNewServerPrometheusNormalization(t *testing.T) {
 				t.Errorf("Targets = %v, want %v", s.prometheus.Targets, tt.wantTargets)
 			}
 		})
+	}
+}
+
+func TestRestrictedLifecycleRoutes(t *testing.T) {
+	t.Setenv(admin.Env, "UDS")
+	called := make(chan struct{}, 4)
+	server := NewTestServer(t, Options{Shutdown: func(error) { called <- struct{}{} }, TriggerDrain: func() { called <- struct{}{} }, DisableDrain: func() { called <- struct{}{} }})
+	for _, method := range []string{"GET", "POST"} {
+		for _, path := range []string{quitPath, drainPath} {
+			req, _ := http.NewRequest(method, fmt.Sprintf("http://localhost:%d%s", server.statusPort, path), nil)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusNotFound {
+				t.Fatalf("%s %s: %d", method, path, resp.StatusCode)
+			}
+		}
+	}
+	select {
+	case <-called:
+		t.Fatal("restricted lifecycle callback invoked")
+	default:
+	}
+	for _, path := range []string{readyPath, "/metrics", "/stats/prometheus"} {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d%s", server.statusPort, path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusNotFound {
+			t.Fatalf("missing public route %s", path)
+		}
 	}
 }

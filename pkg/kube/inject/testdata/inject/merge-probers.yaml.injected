@@ -191,6 +191,10 @@ spec:
           value: cluster.local
         - name: ISTIO_KUBE_APP_PROBERS
           value: '{"/app-health/hello/livez":{"httpGet":{"port":80}},"/app-health/hello/readyz":{"httpGet":{"port":3333}},"/app-health/new/livez":{"httpGet":{"path":"/testLive","port":8008}},"/app-health/world/livez":{"httpGet":{"port":90}}}'
+        - name: ISTIO_ENVOY_ADMIN_TRANSPORT
+          value: TCP
+        - name: ISTIO_NATIVE_SIDECAR
+          value: "true"
         image: registry.istio.io/testing/proxyv2:latest
         lifecycle:
           postStart:
