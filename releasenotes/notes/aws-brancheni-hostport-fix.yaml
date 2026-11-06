@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** `hostPort` traffic being dropped for ambient mesh pods on AWS EKS with Security Groups
+    for Pods when `AMBIENT_ENABLE_AWS_BRANCH_ENI_PROBE` is enabled. The ip rule istio-cni adds for
+    branch ENI pods now only matches host-originated traffic, and rules left by older versions are
+    replaced.
