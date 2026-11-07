@@ -68,6 +68,7 @@ func ZtunnelConfig(ctx cli.Context) *cobra.Command {
 	configCmd.AddCommand(policiesCmd(ctx))
 	configCmd.AddCommand(allCmd(ctx))
 	configCmd.AddCommand(connectionsCmd(ctx))
+	configCmd.AddCommand(versionConfigCmd(ctx))
 
 	return configCmd
 }
@@ -96,6 +97,35 @@ func certificatesConfigCmd(ctx cli.Context) *cobra.Command {
 				return cw.PrintSecretSummary()
 			case jsonOutput, yamlOutput:
 				return cw.PrintSecretDump(common.outputFormat)
+			default:
+				return fmt.Errorf("output format %q not supported", common.outputFormat)
+			}
+		}),
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
+	}
+
+	common.attach(cmd)
+
+	return cmd
+}
+
+func versionConfigCmd(ctx cli.Context) *cobra.Command {
+	common := new(commonFlags)
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "Retrieves version for the specified Ztunnel pod.",
+		Long:  `Retrieve information about version configuration for the Ztunnel instance.`,
+		Example: `
+  # Retrieve full version dump of workloads for a given Ztunnel instance.
+  istioctl ztunnel-config version <ztunnel-name[.namespace]> -o json
+`,
+		Args: common.validateArgs,
+		RunE: runConfigDump(ctx, common, true, func(cw *ztunnelDump.ConfigWriter) error {
+			switch common.outputFormat {
+			case summaryOutput:
+				return cw.PrintVersionSummary()
+			case jsonOutput, yamlOutput:
+				return cw.PrintVersionDump(common.outputFormat)
 			default:
 				return fmt.Errorf("output format %q not supported", common.outputFormat)
 			}
