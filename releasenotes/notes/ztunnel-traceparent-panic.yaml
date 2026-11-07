@@ -8,7 +8,7 @@ releaseNotes:
     ignored and a new trace ID is generated.
 securityNotes:
   - |
-    __[GHSA-77vw-rg85-wx5x](https://github.com/istio/ztunnel/security/advisories/GHSA-77vw-rg85-wx5x)__:
+    __[GHSA-77vw-rg85-wx5x](https://github.com/istio/istio/security/advisories/GHSA-77vw-rg85-wx5x)__:
     Ztunnel panicked when parsing a 55-byte `traceparent` header that did not contain four dash-separated fields,
     terminating the inbound HBONE connection task and dropping every stream multiplexed on that connection.
     Headers with the correct length but an invalid field layout were also accepted instead of rejected.
