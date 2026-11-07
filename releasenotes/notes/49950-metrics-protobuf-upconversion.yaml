@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 49950
+
+releaseNotes:
+  - |
+    **Added** the `PILOT_AGENT_METRICS_PROTOBUF_UPCONVERSION` environment variable to pilot-agent. When enabled, a scrape that prefers the Prometheus protobuf format is answered in protobuf even if the application serves text or OpenMetrics, so native histograms from Envoy and the application are no longer reduced to `_sum` and `_count` by a downgrade to text. Disabled by default.
