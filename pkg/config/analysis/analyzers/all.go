@@ -75,7 +75,7 @@ func All() []analysis.Analyzer {
 		&virtualservice.JWTClaimRouteAnalyzer{},
 		&serviceentry.ProtocolAddressesAnalyzer{},
 		&serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
-		&webhook.Analyzer{},
+		&webhook.Analyzer{CheckDefaultRevision: true},
 		&telemetry.ProviderAnalyzer{},
 		&telemetry.SelectorAnalyzer{},
 		&telemetry.DefaultSelectorAnalyzer{},

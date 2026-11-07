@@ -21,9 +21,11 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -31,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/test"
@@ -164,6 +167,38 @@ func TestAddRunningKubeSource(t *testing.T) {
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
 	// We have a store for Istio configs and one for service discovery K8S resources.
 	g.Expect(sa.stores).To(HaveLen(2))
+}
+
+func TestAddRunningKubeSourceWithRevisionReadsAllWebhooks(t *testing.T) {
+	g := NewWithT(t)
+
+	mk := kube.NewFakeClient()
+	wh := &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-revision-tag-default",
+			Labels: map[string]string{label.IoIstioRev.Name: "1-24"},
+		},
+	}
+	if _, err := mk.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.TODO(), wh, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("Error creating webhook: %v", err)
+	}
+
+	var names []string
+	a := &testAnalyzer{
+		fn: func(ctx analysis.Context) {
+			ctx.ForEach(gvk.MutatingWebhookConfiguration, func(r *resource.Instance) bool {
+				names = append(names, r.Metadata.FullName.Name.String())
+				return true
+			})
+		},
+		inputs: []config.GroupVersionKind{gvk.MutatingWebhookConfiguration},
+	}
+	sa := NewSourceAnalyzer(analysis.Combine("a", a), "", "", nil)
+	sa.AddRunningKubeSourceWithRevision(mk, "default", false)
+
+	_, err := sa.Analyze(test.NewStop(t))
+	g.Expect(err).To(BeNil())
+	g.Expect(names).To(ConsistOf("istio-revision-tag-default"))
 }
 
 func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {

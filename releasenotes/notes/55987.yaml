@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 55987
+
+releaseNotes:
+- |
+  **Added** `istioctl analyze` now warns (IST0179) when no sidecar injector serves the default revision, meaning there is no default revision or default revision tag. `istioctl analyze` now reads injector webhooks for every revision, not only the one passed to `--revision`.
