@@ -444,6 +444,99 @@ func TestGenerator(t *testing.T) {
             ignoreCase: true`),
 		},
 		{
+			name:  "requestHeaderGenerator-authority",
+			g:     requestHeaderGenerator{},
+			key:   "request.headers[:authority]",
+			value: "admin.example.com",
+			want: yamlPrincipal(t, `
+        header:
+          name: :authority
+          stringMatch:
+            exact: admin.example.com
+            ignoreCase: true`),
+		},
+		{
+			name:  "requestHeaderGenerator-authority-uppercase-key",
+			g:     requestHeaderGenerator{},
+			key:   "request.headers[:AUTHORITY]",
+			value: "admin.example.com",
+			want: yamlPrincipal(t, `
+        header:
+          name: :AUTHORITY
+          stringMatch:
+            exact: admin.example.com
+            ignoreCase: true`),
+		},
+		{
+			name:  "requestHeaderGenerator-authority-prefix",
+			g:     requestHeaderGenerator{},
+			key:   "request.headers[:authority]",
+			value: "admin.*",
+			want: yamlPrincipal(t, `
+        header:
+          name: :authority
+          stringMatch:
+            prefix: admin.
+            ignoreCase: true`),
+		},
+		{
+			name:  "requestHeaderGenerator-authority-suffix",
+			g:     requestHeaderGenerator{},
+			key:   "request.headers[:authority]",
+			value: "*.example.com",
+			want: yamlPrincipal(t, `
+        header:
+          name: :authority
+          stringMatch:
+            suffix: .example.com
+            ignoreCase: true`),
+		},
+		{
+			name:  "requestHeaderGenerator-authority-present",
+			g:     requestHeaderGenerator{},
+			key:   "request.headers[:authority]",
+			value: "*",
+			want: yamlPrincipal(t, `
+        header:
+          name: :authority
+          presentMatch: true`),
+		},
+		{
+			name:  "requestHeaderGenerator-host",
+			g:     requestHeaderGenerator{},
+			key:   "request.headers[host]",
+			value: "admin.example.com",
+			want: yamlPrincipal(t, `
+        header:
+          name: host
+          stringMatch:
+            exact: admin.example.com
+            ignoreCase: true`),
+		},
+		{
+			name:  "requestHeaderGenerator-host-mixed-case-key",
+			g:     requestHeaderGenerator{},
+			key:   "request.headers[Host]",
+			value: "admin.example.com",
+			want: yamlPrincipal(t, `
+        header:
+          name: Host
+          stringMatch:
+            exact: admin.example.com
+            ignoreCase: true`),
+		},
+		{
+			name:  "requestHeaderGenerator-other-header-case-sensitive",
+			g:     requestHeaderGenerator{},
+			key:   "request.headers[x-tenant]",
+			value: "Admin",
+			want: yamlPrincipal(t, `
+        header:
+          name: x-tenant
+          stringMatch:
+            exact: Admin`),
+		},
+		{
 			name:  "hostGenerator",
 			g:     hostGenerator{},
 			value: "foo",
