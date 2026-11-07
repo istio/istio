@@ -17,8 +17,11 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,8 +35,10 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	istiotest "istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -99,6 +104,105 @@ func TestServiceUnexported(t *testing.T) {
 			// Check that the endpoint is cluster-local
 			ec.checkServiceInstancesOrFail(t, false, endpoints)
 		})
+	}
+}
+
+func TestServiceExportDiscoverabilityEventOrder(t *testing.T) {
+	orders := [][]string{
+		{"export", "endpoints", "service"},
+		{"endpoints", "export", "service"},
+		{"service", "export", "endpoints"},
+		{"service", "endpoints", "export"},
+		{"endpoints", "service", "export"},
+		{"export", "service", "endpoints"},
+	}
+	for _, clusterLocalMode := range ClusterLocalModes {
+		for _, exported := range []bool{true, false} {
+			for _, order := range orders {
+				t.Run(fmt.Sprintf("%s/exported=%t/%s", clusterLocalMode, exported, strings.Join(order, "-")), func(t *testing.T) {
+					istiotest.SetForTest(t, &features.EnableMCSServiceDiscovery, true)
+					istiotest.SetForTest(t, &features.EnableMCSClusterLocal, clusterLocalMode == alwaysClusterLocal)
+					istiotest.SetForTest(t, &features.EnableMCSHost, false)
+					c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
+						ClusterID: testCluster,
+						CRDs:      []schema.GroupVersionResource{mcs.ServiceExportGVR},
+						SkipRun:   true,
+					})
+					ec := c.exports.(*serviceExportCacheImpl)
+					svc := &corev1.Service{
+						ObjectMeta: metav1.ObjectMeta{Name: serviceExportName, Namespace: serviceExportNamespace},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.0.0.1",
+							Ports:     []corev1.ServicePort{{Name: "tcp-port", Port: 8080}},
+						},
+					}
+					pod := generatePod([]string{serviceExportPodIP}, "pod", serviceExportNamespace, "sa", "node", nil, nil)
+					epSlice := &discoveryv1.EndpointSlice{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-slice",
+							Namespace: serviceExportNamespace,
+							Labels:    map[string]string{discoveryv1.LabelServiceName: serviceExportName},
+						},
+						AddressType: discoveryv1.AddressTypeIPv4,
+						Ports: []discoveryv1.EndpointPort{{
+							Name: ptr.Of("tcp-port"), Port: ptr.Of(int32(8080)),
+						}},
+						Endpoints: []discoveryv1.Endpoint{{
+							Addresses:  []string{serviceExportPodIP},
+							Conditions: discoveryv1.EndpointConditions{Ready: ptr.Of(true)},
+							TargetRef:  &corev1.ObjectReference{Kind: "Pod", Name: pod.Name, Namespace: pod.Namespace},
+						}},
+					}
+					ctx := context.Background()
+					_, err := c.client.Kube().CoreV1().Namespaces().Create(ctx,
+						&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: serviceExportNamespace}}, metav1.CreateOptions{})
+					assert.NoError(t, err)
+					_, err = c.client.Kube().CoreV1().Services(serviceExportNamespace).Create(ctx, svc, metav1.CreateOptions{})
+					assert.NoError(t, err)
+					_, err = c.client.Kube().CoreV1().Pods(serviceExportNamespace).Create(ctx, pod, metav1.CreateOptions{})
+					assert.NoError(t, err)
+					_, err = c.client.Kube().DiscoveryV1().EndpointSlices(serviceExportNamespace).Create(ctx, epSlice, metav1.CreateOptions{})
+					assert.NoError(t, err)
+					export := newServiceExport()
+					if exported {
+						_, err = c.client.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(serviceExportNamespace).Create(ctx, export, metav1.CreateOptions{})
+						assert.NoError(t, err)
+					}
+
+					// Informers have all objects, but the controller queue has not processed them yet.
+					retry.UntilOrFail(t, func() bool {
+						return c.services.Get(svc.Name, svc.Namespace) != nil &&
+							c.pods.pods.Get(pod.Name, pod.Namespace) != nil &&
+							c.endpoints.slices.Get(epSlice.Name, epSlice.Namespace) != nil &&
+							ec.isExported(serviceExportNamespacedName) == exported
+					})
+					assert.NoError(t, c.pods.onEvent(nil, pod, model.EventAdd))
+					for _, event := range order {
+						switch event {
+						case "export":
+							if exported {
+								assert.NoError(t, ec.onServiceExportEvent(nil, export, model.EventAdd))
+							}
+						case "endpoints":
+							c.endpoints.onEventInternal(nil, epSlice, model.EventAdd)
+						case "service":
+							assert.NoError(t, c.onServiceEvent(nil, svc, model.EventAdd))
+						}
+					}
+
+					// Both the slice cache and the shard used for EDS must have the final policy.
+					for name, endpoints := range map[string][]*model.IstioEndpoint{
+						"EndpointSlice cache": c.endpoints.endpointCache.Get(ec.serviceHostname()),
+						"EDS shard":           GetEndpoints(c.GetService(ec.serviceHostname()), c.Endpoints),
+					} {
+						assert.Equal(t, len(endpoints), 1, name)
+						if err := ec.checkEndpoint(exported, endpoints[0]); err != nil {
+							t.Errorf("%s: %v", name, err)
+						}
+					}
+				})
+			}
+		}
 	}
 }
 
