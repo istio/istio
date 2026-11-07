@@ -380,6 +380,45 @@ func TestDefaultTrafficPolicy(t *testing.T) {
 	}
 }
 
+func TestInferencePoolHBONEInternalListenerNames(t *testing.T) {
+	cases := []struct {
+		name         string
+		sendHBONE    bool
+		featureOn    bool
+		proxyVersion string
+		want         []string
+	}{
+		{name: "HBONE gateway matches connect_originate endpoints", sendHBONE: true, featureOn: true, want: []string{ConnectOriginate}},
+		{name: "no HBONE, nothing to match", sendHBONE: false, featureOn: true, want: nil},
+		{name: "feature turned off", sendHBONE: true, featureOn: false, want: nil},
+		{name: "proxy too old for the field", sendHBONE: true, featureOn: true, proxyVersion: "1.32.0", want: nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			test.SetForTest(t, &features.EnableHBONESend, tc.sendHBONE)
+			test.SetForTest(t, &features.EnableInferencePoolHBONEOverrideHost, tc.featureOn)
+			clusters := buildTestClusters(clusterTest{
+				t:                    t,
+				serviceHostname:      "*.example.org",
+				nodeType:             model.Router,
+				mesh:                 testMesh(),
+				meta:                 &model.NodeMetadata{IstioVersion: tc.proxyVersion},
+				inferencePoolCluster: true,
+			})
+			c := xdstest.ExtractCluster("outbound|8080||*.example.org", clusters)
+			g.Expect(c.GetLoadBalancingPolicy().GetPolicies()).NotTo(BeEmpty())
+			overrideHostPolicy := new(overridehost.OverrideHost)
+			g.Expect(c.GetLoadBalancingPolicy().GetPolicies()[0].GetTypedExtensionConfig().GetTypedConfig().UnmarshalTo(overrideHostPolicy)).To(Succeed())
+			if tc.want == nil {
+				g.Expect(overrideHostPolicy.GetInternalListenerNames()).To(BeEmpty())
+			} else {
+				g.Expect(overrideHostPolicy.GetInternalListenerNames()).To(Equal(tc.want))
+			}
+		})
+	}
+}
+
 func TestBuildClustersForInferencePoolServices(t *testing.T) {
 	cases := []struct {
 		testName             string
