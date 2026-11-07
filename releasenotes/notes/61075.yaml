@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - https://github.com/istio/istio/issues/61075
+releaseNotes:
+- |
+  **Fixed** an issue where an invalid Certificate Revocation List (CRL) prevented Istiod from rotating its plugged-in CA certificates.
