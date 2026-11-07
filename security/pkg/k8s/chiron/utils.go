@@ -259,8 +259,14 @@ func readSignedCsr(ctx context.Context, client clientset.Interface, csr string, 
 
 	for {
 		select {
-		case r := <-watcher.ResultChan():
-			reqSigned := r.Object.(*cert.CertificateSigningRequest)
+		case r, ok := <-watcher.ResultChan():
+			if !ok {
+				return nil, fmt.Errorf("watch closed while waiting for CSR %v to be signed", csr)
+			}
+			reqSigned, ok := r.Object.(*cert.CertificateSigningRequest)
+			if !ok {
+				return nil, fmt.Errorf("unexpected object %T when watching CSR %v", r.Object, csr)
+			}
 			if reqSigned.Status.Certificate != nil {
 				return reqSigned.Status.Certificate, nil
 			}
