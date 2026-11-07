@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+  template:
+    metadata:
+      labels:
+        app: istiod
+    spec:
+      containers:
+        - name: discovery
+          image: registry.istio.io/testing/pilot:1.33.0
+          env:
+            - name: ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS
+              valueFrom:
+                configMapKeyRef: {name: istiod-flags, key: wildcard-tls}

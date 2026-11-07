@@ -745,3 +745,37 @@ messages:
     level: Warning
     description: "Using EnvoyFilters with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run."
     template: "Using an EnvoyFilter with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run. This can cause a request to be routed differently than it was when the route-dependent filter was evaluated. See https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_filters.html#security-considerations."
+
+  - name: "GatewayWildcardSNIHostsNotUnderHost"
+    code: IST0179
+    level: Warning
+    description: "A gateway TLS route to a wildcard DYNAMIC_DNS ServiceEntry has SNI hosts outside the ServiceEntry host, so the gateway ignores the route."
+    template: "Gateway %s ignores TLS rule %d match %d of this route: its SNI hosts %s are not all under the wildcard DYNAMIC_DNS host %s."
+    args:
+      - name: gateway
+        type: string
+      - name: rule
+        type: int
+      - name: match
+        type: int
+      - name: sniHosts
+        type: string
+      - name: host
+        type: string
+
+  - name: "WaypointWildcardSNIMatchIgnored"
+    code: IST0180
+    level: Warning
+    description: "A waypoint ignores a TLS route for a wildcard DYNAMIC_DNS ServiceEntry unless its SNI hosts are exactly the ServiceEntry host."
+    template: "The waypoint for ServiceEntry %s ignores TLS rule %d match %d of this route: its SNI hosts %s are not exactly [%s], and no other match of the rule is."
+    args:
+      - name: serviceEntry
+        type: string
+      - name: rule
+        type: int
+      - name: match
+        type: int
+      - name: sniHosts
+        type: string
+      - name: host
+        type: string

@@ -1,0 +1,330 @@
+# Gateway PASSTHROUGH tls routes to a wildcard DYNAMIC_DNS ServiceEntry.
+# The gateway pod runs in istio-system; istiod resolves services and routes from the pod namespace.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: istio-egressgateway-1
+  namespace: istio-system
+  labels:
+    istio: egressgateway
+spec:
+  containers: [{name: istio-proxy, image: proxyv2}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wikipedia
+  namespace: istio-system
+spec:
+  hosts: ["*.wikipedia.org"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: github
+  namespace: istio-system
+spec:
+  hosts: ["*.github.com"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: NONE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: wikipedia
+  namespace: istio-system
+spec:
+  host: "*.wikipedia.org"
+  subsets: [{name: v1}]
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: egressgateway
+  namespace: istio-system
+spec:
+  selector: {istio: egressgateway}
+  servers:
+  - port: {number: 443, name: tls-passthrough, protocol: TLS}
+    hosts: ["*"]
+    tls: {mode: PASSTHROUGH}
+  - port: {number: 15443, name: tls-mutual, protocol: TLS}
+    hosts: ["*"]
+    tls: {mode: ISTIO_MUTUAL}
+  - port: {number: 8443, name: tls-simple, protocol: TLS}
+    hosts: ["*"]
+    tls: {mode: SIMPLE, credentialName: egress-cert}
+---
+# sniHosts outside the wildcard host: warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: outside
+  namespace: istio-system
+spec:
+  hosts: ["*.wikipedia.org", "www.google.com"]
+  gateways: [egressgateway]
+  tls:
+  - match: [{port: 443, sniHosts: ["en.wikipedia.org", "www.google.com"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# sniHosts ["*"]: warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: all-sni
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [istio-system/egressgateway]
+  tls:
+  - match: [{sniHosts: ["*"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# All sniHosts under the wildcard host: no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: under
+  namespace: istio-system
+spec:
+  hosts: ["*.wikipedia.org"]
+  gateways: [mesh, egressgateway]
+  tls:
+  - match: [{gateways: [mesh], port: 443, sniHosts: ["*.wikipedia.org"]}]
+    route: [{destination: {host: istio-egressgateway.istio-system.svc.cluster.local, port: {number: 443}}}]
+  - match: [{gateways: [egressgateway], port: 443, sniHosts: ["*.wikipedia.org", "en.wikipedia.org"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# Subset destination, sniHosts outside: warning (second route).
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: subset
+  namespace: istio-system
+spec:
+  hosts: ["*.org"]
+  gateways: [egressgateway]
+  tls:
+  - match: [{port: 443, sniHosts: ["en.wikipedia.org"]}]
+    route: [{destination: {host: "*.wikipedia.org", subset: v1, port: {number: 443}}}]
+  - match: [{port: 443, sniHosts: ["*.org"]}]
+    route: [{destination: {host: "*.wikipedia.org", subset: v1, port: {number: 443}}}]
+---
+# Two destinations: istiod does not apply the rule, no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: weighted
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [egressgateway]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route:
+    - {destination: {host: "*.wikipedia.org", port: {number: 443}}, weight: 50}
+    - {destination: {host: "*.wikipedia.org", subset: v1, port: {number: 443}}, weight: 50}
+---
+# Destination is not a DYNAMIC_DNS ServiceEntry: no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: not-dynamic
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [egressgateway]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.github.com", port: {number: 443}}}]
+---
+# Match on the SIMPLE server or another gateway does not bind to the PASSTHROUGH server: no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: other-port
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [mesh, egressgateway]
+  tls:
+  - match: [{port: 8443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+  - match: [{gateways: [mesh], sniHosts: ["*"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# ISTIO_MUTUAL server with a tcp route: check 1 does not apply.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: mutual
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [egressgateway]
+  tcp:
+  - match: [{port: 15443}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# Gateway name forms "./name" and the legacy FQDN resolve to the same Gateway: warning for each.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: dot-gateway
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [./egressgateway]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: fqdn-gateway
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [egressgateway.istio-system.svc.cluster.local]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# Gateway CR in another namespace, selecting the istio-system pod. The ServiceEntry is exported only to its own
+# namespace, so the gateway pod (istio-system) does not see it: no warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: local-only
+  namespace: egress
+spec:
+  hosts: ["*.example.org"]
+  exportTo: ["."]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: egress-cr
+  namespace: egress
+spec:
+  selector: {istio: egressgateway}
+  servers:
+  - port: {number: 443, name: tls-passthrough, protocol: TLS}
+    hosts: ["*"]
+    tls: {mode: PASSTHROUGH}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: local-only
+  namespace: egress
+spec:
+  hosts: ["*"]
+  gateways: [egress-cr]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.example.org", port: {number: 443}}}]
+---
+# VirtualService exported only to its own namespace: the gateway pod does not see it, no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: private
+  namespace: app
+spec:
+  hosts: ["*"]
+  exportTo: ["."]
+  gateways: [istio-system/egressgateway]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# Gateway that selects no pod: no warning.
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: no-pods
+  namespace: istio-system
+spec:
+  selector: {istio: other-gateway}
+  servers:
+  - port: {number: 443, name: tls-passthrough, protocol: TLS}
+    hosts: ["*"]
+    tls: {mode: PASSTHROUGH}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: no-pods
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [no-pods]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# Two ServiceEntries with the same host: istiod picks one by age, so the analyzer cannot know. No warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: z-shared-dynamic
+  namespace: istio-system
+spec:
+  hosts: ["*.example.net"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: a-shared-none
+  namespace: istio-system
+spec:
+  hosts: ["*.example.net"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: NONE
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: shared-host
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [egressgateway]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.example.net", port: {number: 443}}}]
+---
+# Gateway CR in another namespace than its pod. It applies to the istio-system pod unless
+# PILOT_SCOPE_GATEWAY_TO_NAMESPACE is set: warning only without the scope flag.
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: scoped-cr
+  namespace: egress-cfg
+spec:
+  selector: {istio: egressgateway}
+  servers:
+  - port: {number: 443, name: tls-passthrough, protocol: TLS}
+    hosts: ["*"]
+    tls: {mode: PASSTHROUGH}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: scoped-cr
+  namespace: egress-cfg
+spec:
+  hosts: ["*"]
+  gateways: [scoped-cr]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]

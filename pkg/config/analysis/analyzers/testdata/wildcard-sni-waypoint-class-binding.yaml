@@ -1,0 +1,50 @@
+# The inbound binding annotation on the GatewayClass applies to waypoints without their own annotation: the PROXY
+# listener on 15088 allows all namespaces, so the cross-namespace ServiceEntry binds and the ignored match warns.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio-waypoint
+  annotations:
+    ambient.istio.io/waypoint-inbound-binding: PROXY/15088
+spec:
+  controllerName: istio.io/mesh-controller
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-class
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: class-bound
+  namespace: egress-wp
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - {name: mesh, port: 15008, protocol: HBONE}
+  - {name: proxy, port: 15088, protocol: istio.io/PROXY, allowedRoutes: {namespaces: {from: All}}}
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: class-bound
+  namespace: app-class
+  labels:
+    istio.io/use-waypoint: class-bound
+    istio.io/use-waypoint-namespace: egress-wp
+spec:
+  hosts: ["*.classbound.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: class-bound
+  namespace: app-class
+spec:
+  hosts: ["*.classbound.example"]
+  tls:
+  - match: [{sniHosts: ["www.classbound.example"]}]
+    route: [{destination: {host: "*.classbound.example", port: {number: 443}}}]

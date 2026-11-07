@@ -283,6 +283,14 @@ var (
 	// EnvoyFilterMayClearRouteCache defines a diag.MessageType for message "EnvoyFilterMayClearRouteCache".
 	// Description: Using EnvoyFilters with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run.
 	EnvoyFilterMayClearRouteCache = diag.NewMessageType(diag.Warning, "IST0178", "Using an EnvoyFilter with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run. This can cause a request to be routed differently than it was when the route-dependent filter was evaluated. See https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_filters.html#security-considerations.")
+
+	// GatewayWildcardSNIHostsNotUnderHost defines a diag.MessageType for message "GatewayWildcardSNIHostsNotUnderHost".
+	// Description: A gateway TLS route to a wildcard DYNAMIC_DNS ServiceEntry has SNI hosts outside the ServiceEntry host, so the gateway ignores the route.
+	GatewayWildcardSNIHostsNotUnderHost = diag.NewMessageType(diag.Warning, "IST0179", "Gateway %s ignores TLS rule %d match %d of this route: its SNI hosts %s are not all under the wildcard DYNAMIC_DNS host %s.")
+
+	// WaypointWildcardSNIMatchIgnored defines a diag.MessageType for message "WaypointWildcardSNIMatchIgnored".
+	// Description: A waypoint ignores a TLS route for a wildcard DYNAMIC_DNS ServiceEntry unless its SNI hosts are exactly the ServiceEntry host.
+	WaypointWildcardSNIMatchIgnored = diag.NewMessageType(diag.Warning, "IST0180", "The waypoint for ServiceEntry %s ignores TLS rule %d match %d of this route: its SNI hosts %s are not exactly [%s], and no other match of the rule is.")
 )
 
 // All returns a list of all known message types.
@@ -357,6 +365,8 @@ func All() []*diag.MessageType {
 		GatewayAPICRDVersionBelowMinimum,
 		ConflictingServiceEntryProtocol,
 		EnvoyFilterMayClearRouteCache,
+		GatewayWildcardSNIHostsNotUnderHost,
+		WaypointWildcardSNIMatchIgnored,
 	}
 }
 
@@ -1037,5 +1047,31 @@ func NewEnvoyFilterMayClearRouteCache(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		EnvoyFilterMayClearRouteCache,
 		r,
+	)
+}
+
+// NewGatewayWildcardSNIHostsNotUnderHost returns a new diag.Message based on GatewayWildcardSNIHostsNotUnderHost.
+func NewGatewayWildcardSNIHostsNotUnderHost(r *resource.Instance, gateway string, rule int, match int, sniHosts string, host string) diag.Message {
+	return diag.NewMessage(
+		GatewayWildcardSNIHostsNotUnderHost,
+		r,
+		gateway,
+		rule,
+		match,
+		sniHosts,
+		host,
+	)
+}
+
+// NewWaypointWildcardSNIMatchIgnored returns a new diag.Message based on WaypointWildcardSNIMatchIgnored.
+func NewWaypointWildcardSNIMatchIgnored(r *resource.Instance, serviceEntry string, rule int, match int, sniHosts string, host string) diag.Message {
+	return diag.NewMessage(
+		WaypointWildcardSNIMatchIgnored,
+		r,
+		serviceEntry,
+		rule,
+		match,
+		sniHosts,
+		host,
 	)
 }

@@ -1,0 +1,663 @@
+# Waypoint: a tls match on a waypoint-bound wildcard DYNAMIC_DNS ServiceEntry is used only when sniHosts is exactly the ServiceEntry host.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: egress-waypoint
+  namespace: amb
+spec:
+  gatewayClassName: istio-waypoint
+  listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: egress-waypoint
+  namespace: amb-ns
+spec:
+  gatewayClassName: istio-waypoint
+  listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: amb
+  labels:
+    istio.io/dataplane-mode: ambient
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: amb-ns
+  labels:
+    istio.io/dataplane-mode: ambient
+    istio.io/use-waypoint: egress-waypoint
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wikipedia
+  namespace: amb
+  labels:
+    istio.io/use-waypoint: egress-waypoint
+spec:
+  hosts: ["*.wikipedia.org"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  location: MESH_EXTERNAL
+  resolution: DYNAMIC_DNS
+---
+# Exact SE host: used, no warning. Second route has no match: used, no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: exact
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match: [{port: 443, sniHosts: ["*.wikipedia.org"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+  - route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# Narrower SNI, then two SNIs: both matches ignored, two warnings.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: narrow
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match:
+    - {port: 443, sniHosts: ["en.wikipedia.org"]}
+    - {sniHosts: ["*.wikipedia.org", "en.wikipedia.org"]}
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# Bound only to a Gateway, or matching another port: not used by the waypoint, no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: not-mesh
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  gateways: [some-gateway]
+  tls:
+  - match: [{port: 443, sniHosts: ["en.wikipedia.org"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: other-port
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match: [{port: 8443, sniHosts: ["en.wikipedia.org"]}, {gateways: [some-gateway], sniHosts: ["en.wikipedia.org"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# SE opts out with use-waypoint: none, in a namespace that uses a waypoint: no warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: optout
+  namespace: amb-ns
+  labels:
+    istio.io/use-waypoint: none
+spec:
+  hosts: ["*.example.org"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: optout
+  namespace: amb-ns
+spec:
+  hosts: ["*.example.org"]
+  tls:
+  - match: [{sniHosts: ["www.example.org"]}]
+    route: [{destination: {host: "*.example.org", port: {number: 443}}}]
+---
+# SE without a label in a namespace that uses a waypoint: warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: by-namespace
+  namespace: amb-ns
+spec:
+  hosts: ["*.example.com"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: by-namespace
+  namespace: amb-ns
+spec:
+  hosts: ["*.example.com"]
+  tls:
+  - match: [{sniHosts: ["www.example.com"]}]
+    route: [{destination: {host: "*.example.com", port: {number: 443}}}]
+---
+# No waypoint: the sidecar case, out of scope here, no warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: no-waypoint
+  namespace: default
+spec:
+  hosts: ["*.example.net"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: no-waypoint
+  namespace: default
+spec:
+  hosts: ["*.example.net"]
+  tls:
+  - match: [{sniHosts: ["www.example.net"]}]
+    route: [{destination: {host: "*.example.net", port: {number: 443}}}]
+---
+# A rule in the same VirtualService for another host: not for the wildcard ServiceEntry, no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: other-host
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org", "api.example.com"]
+  tls:
+  - match: [{sniHosts: ["api.example.com"]}]
+    route: [{destination: {host: api.example.com, port: {number: 443}}}]
+---
+# Namespace labeled with a waypoint that does not exist: no waypoint, no warning.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: amb-missing
+  labels:
+    istio.io/use-waypoint: missing-waypoint
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: missing
+  namespace: amb-missing
+spec:
+  hosts: ["*.example.io"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: missing
+  namespace: amb-missing
+spec:
+  hosts: ["*.example.io"]
+  tls:
+  - match: [{sniHosts: ["www.example.io"]}]
+    route: [{destination: {host: "*.example.io", port: {number: 443}}}]
+---
+# Waypoint for workload traffic only: it does not serve the ServiceEntry, no warning.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: amb-workload
+  labels:
+    istio.io/use-waypoint: workload-waypoint
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: workload-waypoint
+  namespace: amb-workload
+  labels:
+    istio.io/waypoint-for: workload
+spec:
+  gatewayClassName: istio-waypoint
+  listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: workload
+  namespace: amb-workload
+spec:
+  hosts: ["*.example.dev"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: workload
+  namespace: amb-workload
+spec:
+  hosts: ["*.example.dev"]
+  tls:
+  - match: [{sniHosts: ["www.example.dev"]}]
+    route: [{destination: {host: "*.example.dev", port: {number: 443}}}]
+---
+# Waypoint in another namespace: attachment rules decide, the analyzer stays silent.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: cross-namespace
+  namespace: amb
+  labels:
+    istio.io/use-waypoint: egress-waypoint
+    istio.io/use-waypoint-namespace: amb-ns
+spec:
+  hosts: ["*.example.app"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: cross-namespace
+  namespace: amb
+spec:
+  hosts: ["*.example.app"]
+  tls:
+  - match: [{sniHosts: ["www.example.app"]}]
+    route: [{destination: {host: "*.example.app", port: {number: 443}}}]
+---
+# No TLS port: the waypoint builds no TLS chain for it, no warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: plain-http
+  namespace: amb
+  labels:
+    istio.io/use-waypoint: egress-waypoint
+spec:
+  hosts: ["*.example.biz"]
+  ports: [{number: 80, name: http, protocol: HTTP}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: plain-http
+  namespace: amb
+spec:
+  hosts: ["*.example.biz"]
+  tls:
+  - match: [{sniHosts: ["www.example.biz"]}]
+    route: [{destination: {host: "*.example.biz", port: {number: 443}}}]
+---
+# Shared waypoint in another namespace that allows all namespaces. The ServiceEntry in app-x points to it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: egress-wp
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-x
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: shared-waypoint
+  namespace: egress-wp
+spec:
+  gatewayClassName: istio-waypoint
+  listeners: [{name: mesh, port: 15008, protocol: HBONE, allowedRoutes: {namespaces: {from: All}}}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: cross
+  namespace: app-x
+  labels:
+    istio.io/use-waypoint: shared-waypoint
+    istio.io/use-waypoint-namespace: egress-wp
+spec:
+  hosts: ["*.cross.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+# VirtualService in the ServiceEntry namespace: the waypoint uses it, so the ignored match warns.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: cross-se-ns
+  namespace: app-x
+spec:
+  hosts: ["*.cross.example"]
+  tls:
+  - match: [{sniHosts: ["www.cross.example"]}]
+    route: [{destination: {host: "*.cross.example", port: {number: 443}}}]
+---
+# VirtualService in the waypoint namespace: the waypoint uses it too.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: cross-wp-ns
+  namespace: egress-wp
+spec:
+  hosts: ["*.cross.example"]
+  tls:
+  - match: [{sniHosts: ["www.cross.example"]}]
+    route: [{destination: {host: "*.cross.example", port: {number: 443}}}]
+---
+# VirtualService in a third namespace: not used by the waypoint, no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: cross-other-ns
+  namespace: default
+spec:
+  hosts: ["*.cross.example"]
+  tls:
+  - match: [{sniHosts: ["www.cross.example"]}]
+    route: [{destination: {host: "*.cross.example", port: {number: 443}}}]
+---
+# Waypoint that allows namespaces by label; app-sel matches.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-sel
+  labels:
+    team: a
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: selector-waypoint
+  namespace: egress-wp
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+    allowedRoutes: {namespaces: {from: Selector, selector: {matchLabels: {team: a}}}}
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: selected
+  namespace: app-sel
+  labels:
+    istio.io/use-waypoint: selector-waypoint
+    istio.io/use-waypoint-namespace: egress-wp
+spec:
+  hosts: ["*.selected.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: selected
+  namespace: app-sel
+spec:
+  hosts: ["*.selected.example"]
+  tls:
+  - match: [{sniHosts: ["www.selected.example"]}]
+    route: [{destination: {host: "*.selected.example", port: {number: 443}}}]
+---
+# Same selector waypoint, namespace without the label: attachment denied, no warning.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-nosel
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: not-selected
+  namespace: app-nosel
+  labels:
+    istio.io/use-waypoint: selector-waypoint
+    istio.io/use-waypoint-namespace: egress-wp
+spec:
+  hosts: ["*.notselected.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: not-selected
+  namespace: app-nosel
+spec:
+  hosts: ["*.notselected.example"]
+  tls:
+  - match: [{sniHosts: ["www.notselected.example"]}]
+    route: [{destination: {host: "*.notselected.example", port: {number: 443}}}]
+---
+# VirtualService exported only to app-x: the waypoint in egress-wp does not see it, no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: cross-private
+  namespace: app-x
+spec:
+  hosts: ["*.cross.example"]
+  exportTo: ["."]
+  tls:
+  - match: [{sniHosts: ["api.cross.example"]}]
+    route: [{destination: {host: "*.cross.example", port: {number: 443}}}]
+---
+# Inbound binding annotation: the PROXY listener on 15088 decides attachment, not the HBONE listener on 15008.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-bind
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: bound-all
+  namespace: egress-wp
+  annotations:
+    ambient.istio.io/waypoint-inbound-binding: PROXY/15088
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - {name: mesh, port: 15008, protocol: HBONE}
+  - {name: proxy, port: 15088, protocol: istio.io/PROXY, allowedRoutes: {namespaces: {from: All}}}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: bound-same
+  namespace: egress-wp
+  annotations:
+    ambient.istio.io/waypoint-inbound-binding: PROXY
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - {name: mesh, port: 15008, protocol: HBONE, allowedRoutes: {namespaces: {from: All}}}
+  - {name: proxy, port: 15088, protocol: istio.io/PROXY}
+---
+# Bound listener allows all namespaces: warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: bind-all
+  namespace: app-bind
+  labels:
+    istio.io/use-waypoint: bound-all
+    istio.io/use-waypoint-namespace: egress-wp
+spec:
+  hosts: ["*.bindall.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: bind-all
+  namespace: app-bind
+spec:
+  hosts: ["*.bindall.example"]
+  tls:
+  - match: [{sniHosts: ["www.bindall.example"]}]
+    route: [{destination: {host: "*.bindall.example", port: {number: 443}}}]
+---
+# Bound PROXY listener allows only its own namespace (the HBONE listener would allow all): no warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: bind-same
+  namespace: app-bind
+  labels:
+    istio.io/use-waypoint: bound-same
+    istio.io/use-waypoint-namespace: egress-wp
+spec:
+  hosts: ["*.bindsame.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: bind-same
+  namespace: app-bind
+spec:
+  hosts: ["*.bindsame.example"]
+  tls:
+  - match: [{sniHosts: ["www.bindsame.example"]}]
+    route: [{destination: {host: "*.bindsame.example", port: {number: 443}}}]
+---
+# One match of the rule is exactly the host, so the waypoint uses the whole rule: no warning for the sibling match.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: sibling-exact
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match: [{sniHosts: ["en.wikipedia.org"]}, {sniHosts: ["*.wikipedia.org"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# Same-namespace waypoint whose HBONE listener only accepts namespaces labeled team=z: the ServiceEntry namespace is
+# not labeled, so istiod binds no waypoint. No warning.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: amb-sel-same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: wp-sel
+  namespace: amb-sel-same
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+    allowedRoutes: {namespaces: {from: Selector, selector: {matchLabels: {team: z}}}}
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: sel-same
+  namespace: amb-sel-same
+  labels:
+    istio.io/use-waypoint: wp-sel
+spec:
+  hosts: ["*.selsame.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: sel-same
+  namespace: amb-sel-same
+spec:
+  hosts: ["*.selsame.example"]
+  tls:
+  - match: [{sniHosts: ["www.selsame.example"]}]
+    route: [{destination: {host: "*.selsame.example", port: {number: 443}}}]
+---
+# Waypoint of another revision (canary): served by an istiod that was not analyzed. No warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: wp-canary
+  namespace: amb
+  labels:
+    istio.io/rev: canary
+spec:
+  gatewayClassName: istio-waypoint
+  listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: canary
+  namespace: amb
+  labels:
+    istio.io/use-waypoint: wp-canary
+spec:
+  hosts: ["*.canary.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: canary
+  namespace: amb
+spec:
+  hosts: ["*.canary.example"]
+  tls:
+  - match: [{sniHosts: ["www.canary.example"]}]
+    route: [{destination: {host: "*.canary.example", port: {number: 443}}}]
+---
+# Binding annotation with an invalid port: istiod keeps the PROXY binding with port 0, so the PROXY listener
+# (all namespaces) decides. Warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: bound-badport
+  namespace: egress-wp
+  annotations:
+    ambient.istio.io/waypoint-inbound-binding: PROXY/abc
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - {name: mesh, port: 15008, protocol: HBONE}
+  - {name: proxy, port: 15088, protocol: istio.io/PROXY, allowedRoutes: {namespaces: {from: All}}}
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: bind-badport
+  namespace: app-bind
+  labels:
+    istio.io/use-waypoint: bound-badport
+    istio.io/use-waypoint-namespace: egress-wp
+spec:
+  hosts: ["*.badport.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: bind-badport
+  namespace: app-bind
+spec:
+  hosts: ["*.badport.example"]
+  tls:
+  - match: [{sniHosts: ["www.badport.example"]}]
+    route: [{destination: {host: "*.badport.example", port: {number: 443}}}]
