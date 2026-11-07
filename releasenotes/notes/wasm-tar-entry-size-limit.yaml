@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: extensibility
+issue: []
+releaseNotes:
+  - |
+    **Fixed** the size declared by a tar entry in a fetched WASM module being used as an allocation
+    size without being bounded, which let a module server crash or exhaust the memory of `istio-agent`.
