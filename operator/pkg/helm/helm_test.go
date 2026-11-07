@@ -257,6 +257,27 @@ func TestRender(t *testing.T) {
 			diffSelect:  "DaemonSet:*:ztunnel",
 		},
 		{
+			desc:        "ztunnel-cluster-domain",
+			releaseName: "ztunnel",
+			namespace:   "istio-system",
+			chartName:   "ztunnel",
+			diffSelect:  "DaemonSet:*:ztunnel",
+		},
+		{
+			desc:        "ztunnel-cluster-domain-env-override",
+			releaseName: "ztunnel",
+			namespace:   "istio-system",
+			chartName:   "ztunnel",
+			diffSelect:  "DaemonSet:*:ztunnel",
+		},
+		{
+			desc:        "ztunnel-cluster-domain-proxy-metadata-override",
+			releaseName: "ztunnel",
+			namespace:   "istio-system",
+			chartName:   "ztunnel",
+			diffSelect:  "DaemonSet:*:ztunnel",
+		},
+		{
 			desc:        "istiod-webhook-install",
 			releaseName: "istiod",
 			namespace:   "istio-system",

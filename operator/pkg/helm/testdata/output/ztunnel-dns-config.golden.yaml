@@ -105,6 +105,8 @@ spec:
           value: istiod.istio-system.svc:15012
         - name: XDS_ADDRESS
           value: istiod.istio-system.svc:15012
+        - name: CLUSTER_DOMAIN
+          value: "cluster.local"
         - name: RUST_LOG
           value: "info"
         - name: RUST_BACKTRACE
