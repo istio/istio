@@ -260,11 +260,11 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) error {
 	wh.mu.Lock()
 	defer wh.mu.Unlock()
-	wh.Config = sidecarConfig
 	vc, err := NewValuesConfig(valuesConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create new values config: %v", err)
 	}
+	wh.Config = sidecarConfig
 	wh.valuesConfig = vc
 	return nil
 }
@@ -380,6 +380,9 @@ func NewValuesConfig(v string) (ValuesConfig, error) {
 	valuesStruct := &opconfig.Values{}
 	if err := protomarshal.ApplyYAML(v, valuesStruct); err != nil {
 		return c, fmt.Errorf("could not parse configuration values: %v", err)
+	}
+	if err := ValidateIncludeOutboundPorts(valuesStruct.GetGlobal().GetProxy().GetIncludeOutboundPorts()); err != nil {
+		return c, fmt.Errorf("invalid global.proxy.includeOutboundPorts: %v", err)
 	}
 	c.asStruct = valuesStruct
 

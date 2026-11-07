@@ -175,6 +175,7 @@ func validateValues(raw *apis.IstioOperator) (Warnings, util.Errors) {
 	run(values.GetGlobal().GetProxy().GetExcludeIPRanges(), validateIPRangesOrStar, "global.proxy.excludeIPRanges")
 	run(values.GetGlobal().GetProxy().GetIncludeInboundPorts(), validateStringList(validatePortNumberString), "global.proxy.includeInboundPorts")
 	run(values.GetGlobal().GetProxy().GetExcludeInboundPorts(), validateStringList(validatePortNumberString), "global.proxy.excludeInboundPorts")
+	run(values.GetGlobal().GetProxy().GetIncludeOutboundPorts(), validateIncludeOutboundPorts, "global.proxy.includeOutboundPorts")
 	runKube := func(a *structpb.Struct, b any, hint string) {
 		if a == nil {
 			return
@@ -469,6 +470,23 @@ func validateStringList(vf validatorFunc) validatorFunc {
 		}
 		return errs
 	}
+}
+
+func validateIncludeOutboundPorts(path util.Path, val any) util.Errors {
+	if !util.IsString(val) {
+		return util.NewErrs(fmt.Errorf("validateIncludeOutboundPorts %s got %T, want string", path, val))
+	}
+	ports := val.(string)
+	if ports == "*" || strings.TrimSpace(ports) == "" {
+		return nil
+	}
+	var errs util.Errors
+	for _, port := range strings.Split(ports, ",") {
+		if _, err := strconv.ParseUint(strings.TrimSpace(port), 10, 16); err != nil {
+			errs = util.AppendErr(errs, fmt.Errorf("%s : %s", path, err))
+		}
+	}
+	return errs
 }
 
 // validatePortNumberString checks if val is a string with a valid port number.
