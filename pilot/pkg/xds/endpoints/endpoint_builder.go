@@ -72,6 +72,7 @@ type EndpointBuilder struct {
 	destinationRule        *model.ConsolidatedDestRule
 	service                *model.Service
 	clusterLocal           bool
+	hboneConnectWait       bool
 	nodeType               model.NodeType
 	failoverPriorityLabels []byte
 
@@ -139,6 +140,7 @@ func NewCDSEndpointBuilder(
 
 	b.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(service, b.DestinationRule(), port, subsetName)
 	b.populateSubsetInfo()
+	b.populateHBONEConnectWait()
 	b.populateFailoverPriorityLabels()
 	if features.EnableAmbientMultiNetwork {
 		b.populateAmbientServiceInfo()
@@ -166,10 +168,21 @@ func (b *EndpointBuilder) WithSubset(subset string) *EndpointBuilder {
 	subsetBuilder := *b
 	subsetBuilder.subsetName = subset
 	subsetBuilder.populateSubsetInfo()
+	subsetBuilder.populateHBONEConnectWait()
 	subsetBuilder.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(
 		subsetBuilder.service, subsetBuilder.DestinationRule(), subsetBuilder.port, subsetBuilder.subsetName,
 	)
 	return &subsetBuilder
+}
+
+func (b *EndpointBuilder) populateHBONEConnectWait() {
+	var policy *v1alpha3.TrafficPolicy
+	if dr := b.DestinationRule(); dr != nil {
+		policy = getSubsetTrafficPolicy(dr, &model.Port{Port: b.port}, b.subsetName)
+	}
+	b.hboneConnectWait = !model.IsDNSSrvSubsetKey(b.clusterName) &&
+		(b.dir == model.TrafficDirectionOutbound || b.dir == model.TrafficDirectionInboundVIP) &&
+		util.UseHBONEConnectWait(util.HBONEConnectWaitEnabled(b.proxy), b.service, policy)
 }
 
 func (b *EndpointBuilder) populateSubsetInfo() {
@@ -270,6 +283,8 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	if b == nil {
 		return
 	}
+	h.WriteString(strconv.FormatBool(b.hboneConnectWait))
+	h.Write(Separator)
 	h.WriteString(b.clusterName)
 	h.Write(Separator)
 	h.WriteString(string(b.network))
@@ -856,6 +871,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		// Setup tunnel metadata so requests will go through the tunnel
 		target := ptr.NonEmptyOrDefault(waypoint, net.JoinHostPort(address, strconv.Itoa(port)))
 		innerAddressName := connectOriginate
+		if b.hboneConnectWait {
+			innerAddressName = util.HBONEOriginationAdapterListener
+		}
 		if isEastWestGateway(b.proxy) {
 			innerAddressName = forwardInnerConnect
 		}
@@ -863,9 +881,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			Address: util.BuildInternalAddressWithIdentifier(innerAddressName, target),
 		}}
 		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
-		if b.dir != model.TrafficDirectionInboundVIP {
-			// Add TLS metadata matcher to indicate we can use HBONE for this endpoint.
-			// We skip this for service waypoint, which doesn't need to dynamically match mTLS vs HBONE.
+		if b.dir != model.TrafficDirectionInboundVIP || b.hboneConnectWait {
+			// Select HBONE for this endpoint. Waypoints need this match when CONNECT
+			// wait is enabled to keep ordinary socket endpoints on their native transport.
 			ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
