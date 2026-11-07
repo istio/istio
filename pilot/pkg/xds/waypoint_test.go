@@ -301,6 +301,136 @@ func TestWaypointEndpoints(t *testing.T) {
 	})
 }
 
+func TestWaypointBackendClusterRetention(t *testing.T) {
+	testCases := []struct {
+		enabled  bool
+		enrolled bool
+	}{
+		{enabled: true, enrolled: true},
+		{enabled: true, enrolled: false},
+		{enabled: false, enrolled: true},
+		{enabled: false, enrolled: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("enabled=%t/enrolled=%t", tc.enabled, tc.enrolled), func(t *testing.T) {
+			test.SetForTest(t, &features.EnableSidecarWaypointRouting, tc.enabled)
+
+			serviceEntry := appServiceEntry
+			if !tc.enrolled {
+				serviceEntry = strings.Replace(
+					serviceEntry,
+					"    istio.io/use-waypoint: waypoint",
+					"",
+					1,
+				)
+			}
+
+			d, proxy := setupWaypointTest(t, waypointGateway, waypointSvc,
+				waypointInstance, serviceEntry, appWorkloadEntry)
+
+			const clusterName = "inbound-vip|80|http|app.com"
+			clusters := xdstest.ExtractClusters(d.Clusters(proxy))
+			assert.Equal(t, clusters[clusterName] != nil, tc.enabled || tc.enrolled)
+
+			internal := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+			if internal == nil {
+				t.Fatal("main_internal listener missing")
+			}
+			chain := xdstest.ExtractFilterChain(clusterName, internal)
+			assert.Equal(t, chain != nil, tc.enrolled)
+		})
+	}
+}
+
+func TestWaypointRetainedClusterEndpointUpdates(t *testing.T) {
+	test.SetForTest(t, &features.EnableSidecarWaypointRouting, true)
+
+	d, proxy := setupWaypointTest(t, waypointGateway, waypointSvc, waypointInstance,
+		appServiceEntry, appWorkloadEntry)
+	ads := d.Connect(proxy, nil, []string{v3.EndpointType})
+	const clusterName = "inbound-vip|80|http|app.com"
+
+	assertEndpoints := func(want string) {
+		t.Helper()
+		retry.UntilSuccessOrFail(t, func() error {
+			if ads.GetEdsClusters()[clusterName] == nil {
+				return fmt.Errorf("backend cluster %s missing", clusterName)
+			}
+			got := xdstest.ExtractEndpoints(ads.GetEndpoints()[clusterName])
+			if len(got) != 1 || got[0] != want {
+				return fmt.Errorf("endpoints: got %v, want [%s]", got, want)
+			}
+
+			return nil
+		})
+	}
+
+	assertEndpoints("connect_originate;1.1.1.1:80")
+
+	// Remove enrollment from the Istio config store and fake k8s API, keeping service discovery
+	// and the ambient index consistent.
+	storedSvc := d.Store().Get(gvk.ServiceEntry, "app", "default")
+	if storedSvc == nil {
+		t.Fatalf("app ServiceEntry missing")
+	}
+	updatedSvc := storedSvc.DeepCopy()
+	delete(updatedSvc.Labels, label.IoIstioUseWaypoint.Name)
+	if _, err := d.Store().Update(updatedSvc); err != nil {
+		t.Fatalf("unenroll app ServiceEntry: %v", err)
+	}
+
+	services := clienttest.NewDirectClient[
+		*networkingclient.ServiceEntry,
+		*networkingclient.ServiceEntry,
+		*networkingclient.ServiceEntryList,
+	](t, d.KubeClient())
+
+	svc := services.Get("app", "default")
+	if svc == nil {
+		t.Fatal("app ServiceEntry missing from k8s API")
+	}
+	delete(svc.Labels, label.IoIstioUseWaypoint.Name)
+	services.Update(svc)
+
+	retry.UntilSuccessOrFail(t, func() error {
+		if len(d.AmbientIndex.ServicesWithWaypoint("default/app.com")) != 0 {
+			return fmt.Errorf("app.com is still attached to a waypoint")
+		}
+
+		return nil
+	})
+
+	assertEndpoints("connect_originate;1.1.1.1:80")
+
+	// Change the backend in the Istio config store and fake k8s API to prove retained clusters
+	// receive fresh endpoints after detachment, rather than only keeping cached endpoints.
+	storedWorkload := d.Store().Get(gvk.WorkloadEntry, "app-a", "default")
+	if storedWorkload == nil {
+		t.Fatal("app-a WorkloadEntry missing")
+	}
+	updatedWorkload := storedWorkload.DeepCopy()
+	updatedWorkload.Spec.(*networking.WorkloadEntry).Address = "1.1.1.2"
+	if _, err := d.Store().Update(updatedWorkload); err != nil {
+		t.Fatalf("update app-a workload address: %v", err)
+	}
+
+	workloads := clienttest.NewDirectClient[
+		*networkingclient.WorkloadEntry,
+		*networkingclient.WorkloadEntry,
+		*networkingclient.WorkloadEntryList,
+	](t, d.KubeClient())
+
+	workload := workloads.Get("app-a", "default")
+	if workload == nil {
+		t.Fatalf("app-a WorkloadEntry missing from k8s API")
+	}
+	workload.Spec.Address = "1.1.1.2"
+	workloads.Update(workload)
+
+	assertEndpoints("connect_originate;1.1.1.2:80")
+}
+
 func TestWaypointTelemetry(t *testing.T) {
 	telemetry := `apiVersion: telemetry.istio.io/v1
 kind: Telemetry

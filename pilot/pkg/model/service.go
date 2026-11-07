@@ -319,6 +319,8 @@ const (
 	TrafficDirectionOutboundWildcardTLS TrafficDirection = "outbound-wildcard-tls"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
+	// TrafficDirectionOutboundWaypoint indicates outbound traffic delegated to a service waypoint
+	TrafficDirectionOutboundWaypoint TrafficDirection = "outbound-waypoint"
 
 	// trafficDirectionOutboundSrvPrefix the prefix for a DNS SRV type subset key
 	trafficDirectionOutboundSrvPrefix = string(TrafficDirectionOutbound) + "_"

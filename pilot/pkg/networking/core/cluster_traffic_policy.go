@@ -47,12 +47,21 @@ import (
 // which can be called for both outbound and inbound cluster, but only connection pool will be applied to inbound cluster.
 func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol, retryBudget := selectTrafficPolicyComponents(opts.policy)
+	// Waypoint-routed clusters delegate all destination rule policies to the waypoint.
+	if opts.waypointRouted {
+		connectionPool = nil
+		outlierDetection = nil
+		loadBalancer = nil
+		tls = nil
+		proxyProtocol = nil
+		retryBudget = nil
+	}
 	// Connection pool settings are applicable for both inbound and outbound clusters.
 	if connectionPool == nil {
 		connectionPool = &networking.ConnectionPoolSettings{}
 	}
 	// Apply h2 upgrade s.t. h2 connection pool settings can be applied to the cluster.
-	if opts.direction != model.TrafficDirectionInbound {
+	if opts.direction != model.TrafficDirectionInbound && !opts.waypointRouted {
 		cb.applyH2Upgrade(opts.mutable, opts.port, opts.mesh, connectionPool)
 	}
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool, retryBudget)
@@ -68,11 +77,18 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 			cb.proxyType, cb.proxyID, enableSelfDiscovery,
 		)
 		if opts.clusterMode != SniDnatClusterMode {
-			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
-			tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
-				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
-			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
-			cb.applyUpstreamProxyProtocol(&opts, proxyProtocol)
+			if opts.waypointRouted {
+				// Do not pass nil TLS settings to buildUpstreamTLSSettings because it may still
+				// create auto-mTLS. Calling applyUpstreamTLSSettings with nil suppresses backend
+				// TLS while still installing HBONE socket matches.
+				cb.applyUpstreamTLSSettings(&opts, nil, userSupplied)
+			} else {
+				autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
+				tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
+					autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
+				cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
+				cb.applyUpstreamProxyProtocol(&opts, proxyProtocol)
+			}
 		}
 	}
 

@@ -359,6 +359,23 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	case model.Waypoint:
 		_, wps := findWaypointResources(proxy, req.Push)
+		backendServices := wps.services
+		if features.EnableSidecarWaypointRouting && !isAmbientEastWestGateway(proxy) {
+			// Clients may still send requests through a waypoint after unenrollment using outdated
+			// routing configuration or existing connections. Keep backend clusters for visible
+			// services to avoid transient cluster_not_found errors during unenrollment, but keep
+			// listener filter chains and routes scoped to current attachments.
+			backendServices = make(map[host.Name]*model.Service)
+			for _, svc := range proxy.SidecarScope.Services() {
+				if svc.Resolution == model.DynamicDNS && !svc.MeshExternal {
+					continue
+				}
+				backendServices[svc.Hostname] = svc
+			}
+			for hostname, svc := range wps.services {
+				backendServices[hostname] = svc
+			}
+		}
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		outboundServices := waypointOutboundServices(proxy, req.Push, envoyFilterPatches, wps, services)
@@ -373,7 +390,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		}
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, wps.services)...)
+		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, backendServices)...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
@@ -505,6 +522,33 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			continue
 		}
 
+		if len(cb.req.Push.SidecarServiceWaypoints(proxy, service)) > 0 {
+			for _, port := range service.Ports {
+				if port.Protocol == protocol.UDP {
+					continue
+				}
+
+				waypointPort := *port
+				waypointPort.Protocol = protocol.TCP
+
+				clusterName := model.BuildSubsetKey(
+					model.TrafficDirectionOutboundWaypoint, "", service.Hostname, port.Port,
+				)
+				waypointCluster := cb.buildCluster(
+					clusterName, cluster.Cluster_EDS, nil, model.TrafficDirectionOutbound,
+					&waypointPort, service, nil, "",
+				)
+				cb.applyDestinationRule(
+					waypointCluster, DefaultClusterMode, service, &waypointPort,
+					nil, nil, nil, true,
+				)
+
+				if patched := cp.patch(nil, waypointCluster.build()); patched != nil {
+					resources = append(resources, patched)
+				}
+			}
+		}
+
 		// DYNAMIC_DNS: Use Dynamic Forward Proxy for wildcard hostnames
 		if service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
 			for _, port := range service.Ports {
@@ -522,7 +566,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 				// Apply DestinationRule settings
 				destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
-				subsetClusters := cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil)
+				subsetClusters := cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil, false)
 
 				if patched := cp.patch([]host.Name{service.Hostname}, dfpCluster.build()); patched != nil {
 					resources = append(resources, patched)
@@ -601,7 +645,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
-				clusterKey.endpointBuilder, clusterKey.destinationRule.GetRule(), clusterKey.serviceAccounts)
+				clusterKey.endpointBuilder, clusterKey.destinationRule.GetRule(), clusterKey.serviceAccounts, false)
 
 			if service.UseInferenceSemantics() && proxy.Type == model.Router {
 				cb.applyOverrideHostPolicy(defaultCluster)
@@ -705,7 +749,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if defaultCluster == nil {
 				continue
 			}
-			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, endpointBuilder, destRule.GetRule(), nil)
+			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, endpointBuilder, destRule.GetRule(), nil, false)
 			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
@@ -995,6 +1039,8 @@ type buildClusterOpts struct {
 	isDrWithSelector          bool
 	credentialSocketExist     bool
 	fileCredentialSocketExist bool
+	// Indicates the cluster represents a service which should be routed via a waypoint
+	waypointRouted bool
 }
 
 func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {
