@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- https://github.com/istio/istio/issues/62417
+releaseNotes:
+- |
+  **Fixed** an issue where a route attached to a mesh `Service` parent ignored `parentRefs[].sectionName`.
+  A `sectionName` names a Service port, so the route is now scoped to that port instead of every port the
+  Service exposes, and a `sectionName` or `port` that matches no Service port is now reported
+  `Accepted=False, Reason=NoMatchingParent` instead of `Accepted=True` with no routing effect.
