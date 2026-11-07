@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - https://github.com/istio/istio/issues/54921
+
+releaseNotes:
+  - |
+    **Added** `PILOT_ENABLE_HEADLESS_HBONE_SEND` (off by default) so sidecars can send HBONE to the pods of a headless
+    Kubernetes service on TCP ports. It applies when every pod supports HBONE and at least one pod cannot accept Istio
+    mTLS, such as ambient pods during a sidecar to ambient migration of a StatefulSet.
