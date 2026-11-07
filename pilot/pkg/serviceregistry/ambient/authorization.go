@@ -585,8 +585,15 @@ func handleRule(action security.Action, rule *v1beta1.Rule, ruleNamespace string
 	l7RuleFound := false
 	httpMatch := sets.New[string]()
 	toMatches := []*security.Match{}
+	// An entry with no operation/source matches everything, like in the sidecar
+	// builder, so the whole list then adds no constraint.
+	toMatchAll := false
 	for _, to := range rule.To {
-		op := to.Operation
+		op := to.GetOperation()
+		if op == nil {
+			toMatchAll = true
+			continue
+		}
 		problems := httpOperations(op)
 		if len(problems) > 0 {
 			l7RuleFound = true
@@ -599,8 +606,13 @@ func handleRule(action security.Action, rule *v1beta1.Rule, ruleNamespace string
 		toMatches = append(toMatches, match)
 	}
 	fromMatches := []*security.Match{}
+	fromMatchAll := false
 	for _, from := range rule.From {
-		op := from.Source
+		op := from.GetSource()
+		if op == nil {
+			fromMatchAll = true
+			continue
+		}
 		problems := httpSources(op)
 		if len(problems) > 0 {
 			l7RuleFound = true
@@ -620,10 +632,10 @@ func handleRule(action security.Action, rule *v1beta1.Rule, ruleNamespace string
 	}
 
 	rules := []*security.Rules{}
-	if len(toMatches) > 0 {
+	if len(toMatches) > 0 && !toMatchAll {
 		rules = append(rules, &security.Rules{Matches: toMatches})
 	}
-	if len(fromMatches) > 0 {
+	if len(fromMatches) > 0 && !fromMatchAll {
 		rules = append(rules, &security.Rules{Matches: fromMatches})
 	}
 	for _, when := range rule.When {
