@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61933
+releaseNotes:
+  - |
+    **Fixed** an issue where proxies with different credential SDS socket configurations could receive clusters that referenced the wrong SDS cluster.
