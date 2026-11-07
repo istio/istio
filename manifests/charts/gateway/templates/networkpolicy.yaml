@@ -32,7 +32,14 @@ spec:
     - protocol: TCP
       port: 15090
   # Main gateway traffic ports
-{{- if .Values.service.ports }}
+{{- if .Values.networkGateway }}
+{{- range $name, $defaultTargetPort := dict "tls" 15443 "tls-istiod" 15012 "tls-webhook" 15017 }}
+{{- $cfg := index $.Values.networkGatewayPorts $name | default dict }}
+  - ports:
+    - protocol: {{ $cfg.protocol | default "TCP" }}
+      port: {{ $cfg.targetPort | default $defaultTargetPort }}
+{{- end }}
+{{- else if .Values.service.ports }}
 {{- range .Values.service.ports }}
   - ports:
     - protocol: {{ .protocol | default "TCP" }}

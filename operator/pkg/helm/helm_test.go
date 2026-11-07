@@ -243,6 +243,13 @@ func TestRender(t *testing.T) {
 			diffSelect:  "Service:*:istio-eastwest",
 		},
 		{
+			desc:        "gateway-network-gateway-networkpolicy",
+			releaseName: "istio-eastwest",
+			namespace:   "istio-system",
+			chartName:   "gateway",
+			diffSelect:  "NetworkPolicy:*:istio-eastwest",
+		},
+		{
 			desc:        "gateway-dns-config",
 			releaseName: "istio-ingress",
 			namespace:   "istio-ingress",
