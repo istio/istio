@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 56355
+
+releaseNotes:
+  - |
+    **Fixed** unbalanced endpoint weights in multi-network deployments when a
+    remote cluster has workloads in multiple localities. The East-West gateway
+    endpoint is now emitted once per cluster load assignment with the weight
+    aggregated across all remote localities, instead of once per locality.
+    Envoy deduplicates endpoints by address, so the per-locality copies were
+    collapsed into the first (alphabetically lowest) locality's copy, and the
+    other localities' traffic share was silently dropped.
