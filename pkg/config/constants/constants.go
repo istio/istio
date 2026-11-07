@@ -95,6 +95,10 @@ const (
 	// CACRLNamespaceConfigMapDataName in the ConfigMap of each namespace storing the CRL of plugged in CA certificates.
 	CACRLNamespaceConfigMapDataName = "ca-crl.pem"
 
+	// TrustDomainsNamespaceConfigMapDataName in the ConfigMap of each namespace storing the trust domains
+	// peers are accepted from, one per line.
+	TrustDomainsNamespaceConfigMapDataName = "trust-domains"
+
 	// PodInfoLabelsPath is the filepath that pod labels will be stored
 	// This is typically set by the downward API
 	PodInfoLabelsPath = "./etc/istio/pod/labels"
