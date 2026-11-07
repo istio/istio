@@ -429,6 +429,29 @@ func (rcg requestClaimGenerator) extendedPrincipal(key string, values []string, 
 	return principalMetadata(m), nil
 }
 
+type requestPayloadGenerator struct{}
+
+func (requestPayloadGenerator) extendedPermission(_ string, _ []string, _ bool) (*rbacpb.Permission, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (requestPayloadGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {
+	if forTCP {
+		return nil, fmt.Errorf("%q is HTTP only", key)
+	}
+
+	// The first segment is the metadata key of the payload, the rest are the claim names.
+	path, err := extractNameInNestedBrackets(strings.TrimPrefix(key, attrRequestPayload))
+	if err != nil {
+		return nil, err
+	}
+	if len(path) < 2 {
+		return nil, fmt.Errorf("bad key (%s): should have format request.auth.payload[key][claim]", key)
+	}
+	m := MetadataListValueMatcherForJWTPayload(path, matcher.StringOrMatcher(values))
+	return principalMetadata(m), nil
+}
+
 type hostGenerator struct{}
 
 func (hg hostGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {

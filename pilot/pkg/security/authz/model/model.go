@@ -46,6 +46,7 @@ const (
 	attrRequestAudiences  = "request.auth.audiences"      // intended audience(s) for this authentication information.
 	attrRequestPresenter  = "request.auth.presenter"      // authorized presenter of the credential.
 	attrRequestClaims     = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+	attrRequestPayload    = "request.auth.payload"        // metadata key and claim names are surrounded by brackets, e.g. "request.auth.payload[idp][iss]".
 	attrDestIP            = "destination.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
 	attrDestPort          = "destination.port"            // must be in the range [0, 65535].
 	attrConnSNI           = "connection.sni"              // server name indication, e.g. "www.example.com".
@@ -118,6 +119,8 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestClaims):
 			basePrincipal.appendLastExtended(requestClaimGenerator{}, k, when.Values, when.NotValues)
+		case strings.HasPrefix(k, attrRequestPayload):
+			basePrincipal.appendLastExtended(requestPayloadGenerator{}, k, when.Values, when.NotValues)
 		default:
 			return nil, fmt.Errorf("unknown attribute %s", when.Key)
 		}
