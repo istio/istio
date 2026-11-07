@@ -15,6 +15,7 @@
 package xds_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -31,15 +32,19 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/model"
+	pilotxds "istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	xdsserver "istio.io/istio/pkg/xds"
 )
@@ -547,5 +552,233 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {
 			t.Fatal("expect no private key provider in secret")
 		}
+	}
+}
+
+func TestScopedSecretPushNoStaleConfig(t *testing.T) {
+	const ns = "istio-system"
+	oldCert := readFile(filepath.Join(certDir, "dns/root-cert.pem"))
+	newCert := readFile(filepath.Join(certDir, "mountedcerts-client/root-cert.pem"))
+
+	type Case struct {
+		name         string
+		configKind   kind.Kind
+		makeObject   func(name, cert string) runtime.Object
+		resourceName func(name string) string
+		update       func(cc *fake.Clientset, obj runtime.Object) error
+	}
+
+	cases := []Case{
+		{
+			name:       "secret",
+			configKind: kind.Secret,
+			makeObject: func(name, cert string) runtime.Object {
+				return makeSecret(name, map[string]string{credentials.GenericScrtCaCert: cert})
+			},
+			resourceName: func(name string) string { return "kubernetes://" + name + "-cacert" },
+			update: func(cc *fake.Clientset, obj runtime.Object) error {
+				_, err := cc.CoreV1().Secrets(ns).Update(context.Background(), obj.(*corev1.Secret), metav1.UpdateOptions{})
+				return err
+			},
+		},
+		{
+			name:       "configmap",
+			configKind: kind.ConfigMap,
+			makeObject: func(name, cert string) runtime.Object {
+				return &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+					Data:       map[string]string{credentials.GenericScrtCaCert: cert},
+				}
+			},
+			resourceName: func(name string) string { return "configmap://" + ns + "/" + name },
+			update: func(cc *fake.Clientset, obj runtime.Object) error {
+				_, err := cc.CoreV1().ConfigMaps(ns).Update(context.Background(), obj.(*corev1.ConfigMap), metav1.UpdateOptions{})
+				return err
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			const (
+				rotatedName = "rotated"
+				otherName   = "other"
+			)
+			rotatedObj := tt.makeObject(rotatedName, oldCert)
+			otherObj := tt.makeObject(otherName, oldCert)
+
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				KubernetesObjects:          []runtime.Object{rotatedObj, otherObj},
+				DisableSecretAuthorization: true,
+			})
+
+			makeProxy := func(sdsResource string, watchECDS bool) *model.Proxy {
+				p := &model.Proxy{
+					Type:             model.SidecarProxy,
+					ConfigNamespace:  ns,
+					VerifiedIdentity: &spiffe.Identity{Namespace: ns},
+					Metadata:         &model.NodeMetadata{ClusterID: constants.DefaultClusterName, Namespace: ns},
+					WatchedResources: map[string]*model.WatchedResource{},
+				}
+				p.NewWatchedResource(v3.SecretType, []string{sdsResource})
+				if watchECDS {
+					p.NewWatchedResource(v3.ExtensionConfigurationType, nil)
+				}
+				return p
+			}
+			proxyRotated := makeProxy(tt.resourceName(rotatedName), false)
+			proxyOther := makeProxy(tt.resourceName(otherName), false)
+			proxyWasm := makeProxy(tt.resourceName(otherName), true)
+
+			gen := s.Discovery.Generators[v3.SecretType]
+			getCaCert := func(p *model.Proxy, name string) string {
+				t.Helper()
+				wr := p.GetWatchedResource(v3.SecretType)
+				res, _, err := gen.Generate(p, wr, &model.PushRequest{Forced: true, Start: time.Now(), Push: s.PushContext()})
+				assert.NoError(t, err)
+				raw := xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(res))
+				scrt, ok := raw[tt.resourceName(name)]
+				if !ok {
+					t.Fatalf("expected resource %v in response, got %v", tt.resourceName(name), raw)
+				}
+				return string(scrt.GetValidationContext().GetTrustedCa().GetInlineBytes())
+			}
+
+			assert.Equal(t, getCaCert(proxyRotated, rotatedName), oldCert)
+
+			cc := s.KubeClient().Kube().(*fake.Clientset)
+			before := s.Discovery.CommittedUpdates.Load()
+			assert.NoError(t, tt.update(cc, tt.makeObject(rotatedName, newCert)))
+			retry.UntilOrFail(t, func() bool {
+				return s.Discovery.CommittedUpdates.Load() > before
+			}, retry.Timeout(10*time.Second), retry.Delay(time.Millisecond*10))
+
+			changeKey := model.ConfigKey{Kind: tt.configKind, Name: rotatedName, Namespace: ns}
+			req := &model.PushRequest{ConfigsUpdated: sets.New(changeKey), Push: s.PushContext()}
+			_, needsPush := pilotxds.DefaultProxyNeedsPush(proxyRotated, req)
+			assert.Equal(t, needsPush, true)
+			_, needsPush = pilotxds.DefaultProxyNeedsPush(proxyOther, req)
+			assert.Equal(t, needsPush, false)
+			if tt.configKind == kind.Secret {
+				_, needsPush = pilotxds.DefaultProxyNeedsPush(proxyWasm, req)
+				assert.Equal(t, needsPush, true)
+			}
+
+			assert.Equal(t, getCaCert(proxyRotated, rotatedName), newCert)
+			assert.Equal(t, getCaCert(proxyOther, otherName), oldCert)
+		})
+	}
+}
+
+// TestScopedSecretPushMatchesSDS verifies that scoping Secret/ConfigMap pushes never skips a push the SDS
+// generator would have produced. For every combination of SDS subscription format and credential update, if
+// SDS generates a resource for the (unfiltered) update, ProxyNeedsPush must select the proxy, and the
+// filtered request must still produce the same resources.
+func TestScopedSecretPushMatchesSDS(t *testing.T) {
+	const (
+		proxyNS = "istio-system"
+		otherNS = "other"
+	)
+	cert := readFile(filepath.Join(certDir, "dns/cert-chain.pem"))
+	key := readFile(filepath.Join(certDir, "dns/key.pem"))
+	ca := readFile(filepath.Join(certDir, "dns/root-cert.pem"))
+
+	var objects []runtime.Object
+	for _, ns := range []string{proxyNS, otherNS} {
+		secret := func(name string, data map[string]string) *corev1.Secret {
+			s := makeSecret(name, data)
+			s.Namespace = ns
+			return s
+		}
+		objects = append(objects,
+			// Compound secret: serves both "compound" and "compound-cacert"
+			secret("compound", map[string]string{credentials.GenericScrtCert: cert, credentials.GenericScrtKey: key, credentials.GenericScrtCaCert: ca}),
+			// Split secrets: "split" serves the key pair, "split-cacert" the CA
+			secret("split", map[string]string{credentials.GenericScrtCert: cert, credentials.GenericScrtKey: key}),
+			secret("split-cacert", map[string]string{credentials.GenericScrtCaCert: ca}),
+			&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "cm", Namespace: ns},
+				Data:       map[string]string{credentials.GenericScrtCaCert: ca},
+			},
+		)
+	}
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		KubernetesObjects:          objects,
+		DisableSecretAuthorization: true,
+	})
+	gen := s.Discovery.Generators[v3.SecretType]
+
+	// All SDS resource name formats produced by istiod or accepted from users.
+	names := []string{"compound", "compound-cacert", "split", "split-cacert", "cm", "cm-cacert"}
+	var subscriptions []string
+	for _, n := range names {
+		subscriptions = append(subscriptions, "kubernetes://"+n)
+		for _, ns := range []string{proxyNS, otherNS} {
+			subscriptions = append(subscriptions,
+				"kubernetes://"+ns+"/"+n,
+				"kubernetes-gateway://"+ns+"/"+n,
+				"configmap://"+ns+"/"+n,
+			)
+		}
+	}
+	// Non-Kubernetes resources must never be affected by credential updates.
+	subscriptions = append(subscriptions, "default", "ROOTCA", "file-cert:/a.pem~/b.pem", "builtin://", "invalid://")
+
+	var updates []model.ConfigKey
+	for _, k := range []kind.Kind{kind.Secret, kind.ConfigMap} {
+		for _, ns := range []string{proxyNS, otherNS} {
+			for _, n := range append(names, "unrelated") {
+				updates = append(updates, model.ConfigKey{Kind: k, Name: n, Namespace: ns})
+			}
+		}
+	}
+
+	makeProxy := func(proxyType model.NodeType, sub string) *model.Proxy {
+		p := &model.Proxy{
+			Type:             proxyType,
+			ConfigNamespace:  proxyNS,
+			VerifiedIdentity: &spiffe.Identity{Namespace: proxyNS, ServiceAccount: "sa"},
+			Metadata:         &model.NodeMetadata{ClusterID: constants.DefaultClusterName, Namespace: proxyNS},
+			WatchedResources: map[string]*model.WatchedResource{},
+		}
+		if proxyType == model.Router {
+			p.MergedGateway = &model.MergedGateway{VerifiedCertificateReferences: sets.New(sub)}
+		}
+		p.NewWatchedResource(v3.SecretType, []string{sub})
+		return p
+	}
+	generate := func(p *model.Proxy, req *model.PushRequest) []string {
+		t.Helper()
+		res, _, err := gen.Generate(p, p.GetWatchedResource(v3.SecretType), req)
+		assert.NoError(t, err)
+		return slices.Sort(maps.Keys(xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(res))))
+	}
+
+	generated := 0
+	for _, proxyType := range []model.NodeType{model.SidecarProxy, model.Router} {
+		for _, sub := range subscriptions {
+			proxy := makeProxy(proxyType, sub)
+			for _, update := range updates {
+				req := &model.PushRequest{ConfigsUpdated: sets.New(update), Push: s.PushContext(), Start: time.Now()}
+				want := generate(proxy, req)
+				filtered, needsPush := s.Discovery.ProxyNeedsPush(proxy, req)
+				if update.Name == "unrelated" && needsPush {
+					t.Errorf("%v %q: unexpected push for unrelated update %v", proxyType, sub, update)
+				}
+				if len(want) == 0 {
+					continue
+				}
+				generated++
+				if !needsPush {
+					t.Errorf("%v %q: push skipped for %v, but SDS would generate %v", proxyType, sub, update, want)
+					continue
+				}
+				assert.Equal(t, generate(proxy, filtered), want)
+			}
+		}
+	}
+	// Guard against the test passing vacuously.
+	if generated == 0 {
+		t.Fatal("SDS never generated any resource; test setup is broken")
 	}
 }

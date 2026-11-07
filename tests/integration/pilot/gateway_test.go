@@ -26,6 +26,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
@@ -61,6 +63,7 @@ func TestGateway(t *testing.T) {
 			t.NewSubTest("status").Run(StatusGatewayTest)
 			t.NewSubTest("managed-short-name").Run(ManagedGatewayShortNameTest)
 			t.NewSubTest("insecure-frontend-validation-mode").Run(InsecureFrontendValidationModeTest)
+			t.NewSubTest("frontend-ca-rotation").Run(FrontendCARotationTest)
 		})
 }
 
@@ -1141,4 +1144,117 @@ func TestGatewayMetricsEndpoints(t *testing.T) {
 				})
 			}
 		})
+}
+
+// FrontendCARotationTest verifies that rotating the CA referenced by a Gateway's frontend TLS validation
+// (caCertificateRefs) is propagated to the gateway, for both ConfigMap and Secret references. After rotating
+// to a CA that only trusts client B, client A must be rejected and client B accepted; a skipped push would
+// leave the old trust bundle in place.
+func FrontendCARotationTest(t framework.TestContext) {
+	ns := apps.Namespace.Name()
+	gatewayClass := istio.DefaultConfigOrFail(t, t).GatewayClassName
+	for _, caKind := range []string{"ConfigMap", "Secret"} {
+		t.NewSubTest(strings.ToLower(caKind)).Run(func(t framework.TestContext) {
+			gatewayName := "frontend-ca-rotation-" + strings.ToLower(caKind)
+			caName := gatewayName + "-ca"
+			serverCredName := gatewayName + "-server"
+			host := gatewayName + ".example.com"
+
+			caTemplate := `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.name}}
+data:
+  ca.crt: |
+{{.ca | indent 4}}`
+			if caKind == "Secret" {
+				caTemplate = `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{.name}}
+stringData:
+  ca.crt: |
+{{.ca | indent 4}}`
+			}
+			setCA := func(ca string, opts ...apply.Option) {
+				t.ConfigIstio().Eval(ns, map[string]string{"name": caName, "ca": ca}, caTemplate).ApplyOrFail(t, opts...)
+			}
+
+			ingressutil.CreateIngressKubeSecretInNamespace(t, serverCredName, ingressutil.TLS,
+				ingressutil.IngressCredentialServerKeyCertA, false, ns)
+			setCA(ingressutil.CaCertA)
+			t.ConfigIstio().Eval(ns, map[string]string{
+				"gatewayName":    gatewayName,
+				"gatewayClass":   gatewayClass,
+				"host":           host,
+				"caKind":         caKind,
+				"caName":         caName,
+				"serverCredName": serverCredName,
+			}, `apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{.gatewayName}}
+spec:
+  gatewayClassName: {{.gatewayClass}}
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+          - group: ""
+            kind: {{.caKind}}
+            name: {{.caName}}
+  listeners:
+  - name: https
+    hostname: "{{.host}}"
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: {{.serverCredName}}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{.gatewayName}}
+spec:
+  parentRefs:
+  - name: {{.gatewayName}}
+  hostnames: ["{{.host}}"]
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+`).ApplyOrFail(t)
+
+			ing := i.CustomIngressFor(t.Clusters().Default(),
+				types.NamespacedName{Name: gatewayName + "-" + gatewayClass, Namespace: ns},
+				"gateway.networking.k8s.io/gateway-name="+gatewayName)
+			call := func(t framework.TestContext, clientCert, clientKey string, timeout time.Duration, chk echo.Checker) {
+				ing.CallOrFail(t, echo.CallOptions{
+					Port:    echo.Port{Protocol: protocol.HTTPS},
+					HTTP:    echo.HTTP{Headers: headers.New().WithHost(host).Build()},
+					TLS:     echo.TLS{CaCert: ingressutil.CaCertA, Cert: clientCert, Key: clientKey},
+					Timeout: time.Second,
+					Retry:   echo.Retry{Options: []retry.Option{retry.Timeout(timeout)}},
+					Check:   chk,
+				})
+			}
+
+			// Allow extra time for the gateway deployment to become ready.
+			call(t, ingressutil.TLSClientCertA, ingressutil.TLSClientKeyA, 3*time.Minute, check.OK())
+
+			t.NewSubTest("rotate to CA B").Run(func(t framework.TestContext) {
+				// The CA object is already registered for cleanup above.
+				setCA(ingressutil.CaCertB, apply.NoCleanup)
+				call(t, ingressutil.TLSClientCertA, ingressutil.TLSClientKeyA, 2*time.Minute, check.Error())
+				call(t, ingressutil.TLSClientCertB, ingressutil.TLSClientKeyB, 2*time.Minute, check.OK())
+			})
+		})
+	}
 }
