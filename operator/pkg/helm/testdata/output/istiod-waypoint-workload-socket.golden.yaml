@@ -80,6 +80,7 @@ data:
           "readinessFailureThreshold": 4,
           "readinessInitialDelaySeconds": 0,
           "readinessPeriodSeconds": 15,
+          "readinessTimeoutSeconds": 3,
           "resources": {
             "limits": {
               "cpu": "2000m",
@@ -198,6 +199,7 @@ data:
         {{ $tproxy := (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) }}
         {{ $capNetBindService := (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) }}
         {{ $nativeSidecar := ne (index .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar` | default (printf "%t" .NativeSidecars)) "false" }}
+        {{- $readinessTimeout := annotation .ObjectMeta `readiness.status.sidecar.istio.io/timeoutSeconds` .Values.global.proxy.readinessTimeoutSeconds }}
         {{- $containers := list }}
         {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
         metadata:
@@ -461,6 +463,10 @@ data:
                 ]
             - name: ISTIO_META_APP_CONTAINERS
               value: "{{ $containers | join "," }}"
+            {{- if ne (toString $readinessTimeout) "3" }}
+            - name: PROXY_READINESS_PROBE_TIMEOUT
+              value: "{{ $readinessTimeout }}s"
+            {{- end }}
             - name: GOMEMLIMIT
               valueFrom:
                 resourceFieldRef:
@@ -533,7 +539,7 @@ data:
                 port: 15021
               initialDelaySeconds: 0
               periodSeconds: 1
-              timeoutSeconds: 3
+              timeoutSeconds: {{ $readinessTimeout }}
               failureThreshold: {{ .Values.global.proxy.startupProbe.failureThreshold }}
           {{ end }}
             readinessProbe:
@@ -542,7 +548,7 @@ data:
                 port: 15021
               initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
               periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
-              timeoutSeconds: 3
+              timeoutSeconds: {{ $readinessTimeout }}
               failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
             {{ end -}}
             securityContext:
@@ -848,6 +854,10 @@ data:
             {{- end }}
             - name: ISTIO_META_APP_CONTAINERS
               value: "{{ $containers | join "," }}"
+            {{- if ne (toString .Values.global.proxy.readinessTimeoutSeconds) "3" }}
+            - name: PROXY_READINESS_PROBE_TIMEOUT
+              value: "{{ .Values.global.proxy.readinessTimeoutSeconds }}s"
+            {{- end }}
             - name: ISTIO_META_CLUSTER_ID
               value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
             - name: ISTIO_META_NODE_NAME
@@ -894,7 +904,7 @@ data:
                 port: 15021
               initialDelaySeconds: {{.Values.global.proxy.readinessInitialDelaySeconds }}
               periodSeconds: {{ .Values.global.proxy.readinessPeriodSeconds }}
-              timeoutSeconds: 3
+              timeoutSeconds: {{ .Values.global.proxy.readinessTimeoutSeconds }}
               failureThreshold: {{ .Values.global.proxy.readinessFailureThreshold }}
             volumeMounts:
             - name: workload-socket
@@ -1248,7 +1258,7 @@ data:
                 port: 15020
               initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
               periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
-              timeoutSeconds: 3
+              timeoutSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/timeoutSeconds` .Values.global.proxy.readinessTimeoutSeconds }}
               failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
             resources:
           {{ template "resources" . }}

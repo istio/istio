@@ -206,6 +206,7 @@ func TestInjection(t *testing.T) {
 				`values.global.proxy.readinessInitialDelaySeconds=100`,
 				`values.global.proxy.readinessPeriodSeconds=200`,
 				`values.global.proxy.readinessFailureThreshold=300`,
+				`values.global.proxy.readinessTimeoutSeconds=5`,
 			},
 		},
 		{

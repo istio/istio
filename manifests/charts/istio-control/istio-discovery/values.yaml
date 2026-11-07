@@ -391,6 +391,10 @@ _internal_defaults_do_not_set:
       # The period between readiness probes.
       readinessPeriodSeconds: 15
 
+      # The timeout for readiness probes in seconds. It is also passed to the proxy as
+      # PROXY_READINESS_PROBE_TIMEOUT to bound the readiness checks against Envoy.
+      readinessTimeoutSeconds: 3
+
       # Enables or disables a startup probe.
       # For optimal startup times, changing this should be tied to the readiness probe values.
       #

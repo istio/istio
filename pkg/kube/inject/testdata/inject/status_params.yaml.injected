@@ -121,6 +121,8 @@ spec:
             ]
         - name: ISTIO_META_APP_CONTAINERS
           value: status
+        - name: PROXY_READINESS_PROBE_TIMEOUT
+          value: 5s
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
@@ -164,7 +166,7 @@ spec:
             port: 15021
           initialDelaySeconds: 100
           periodSeconds: 200
-          timeoutSeconds: 3
+          timeoutSeconds: 5
         resources:
           limits:
             cpu: "2"
@@ -189,7 +191,7 @@ spec:
             path: /healthz/ready
             port: 15021
           periodSeconds: 1
-          timeoutSeconds: 3
+          timeoutSeconds: 5
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket
