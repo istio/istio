@@ -102,7 +102,9 @@ type VirtualHostWrapper struct {
 // BuildSidecarVirtualHostWrapper creates virtual hosts from the given set of virtual Services
 // and a list of Services from the service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
-func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
+// Only the services in vhostServices get virtual hosts; serviceRegistry resolves route destinations.
+func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext,
+	serviceRegistry, vhostServices map[host.Name]*model.Service,
 	virtualServices []*config.Config, listenPort int, mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
@@ -111,7 +113,7 @@ func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, 
 	for _, virtualService := range virtualServices {
 		hashByDestination := hashForVirtualService(push, node, *virtualService)
 		wrappers := buildSidecarVirtualHostsForVirtualService(
-			node, virtualService, serviceRegistry, hashByDestination, listenPort, push, mostSpecificWildcardVsIndex,
+			node, virtualService, serviceRegistry, vhostServices, hashByDestination, listenPort, push, mostSpecificWildcardVsIndex,
 		)
 		out = append(out, wrappers...)
 	}
@@ -119,11 +121,11 @@ func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, 
 	// Now exclude the services that have virtual services.
 	for _, wrapper := range out {
 		for _, service := range wrapper.Services {
-			delete(serviceRegistry, service.Hostname)
+			delete(vhostServices, service.Hostname)
 		}
 	}
 
-	for _, svc := range serviceRegistry {
+	for _, svc := range vhostServices {
 		// Filter any aliases out. While we want to be able to use them as the backend to a route, we don't want
 		// to have them build standalone route matches; this is already handled.
 		// Each alias will get a mapping of 'Alias -> Concrete' service when the concrete service is built
@@ -146,7 +148,7 @@ func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, 
 // separateVSHostsAndServices splits the virtual service hosts into Services (if they are found in the registry) and
 // plain non-registry hostnames
 func separateVSHostsAndServices(virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service,
+	serviceRegistry, vhostServices map[host.Name]*model.Service,
 	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) ([]string, []*model.Service) {
 	// TODO: A further optimization would be to completely rely on the index and not do the loop below
@@ -171,7 +173,9 @@ func separateVSHostsAndServices(virtualService config.Config,
 			continue
 		}
 		if svc, exists := serviceRegistry[vshost]; exists {
-			matchingRegistryServices = append(matchingRegistryServices, svc)
+			if vhostServices[vshost] != nil {
+				matchingRegistryServices = append(matchingRegistryServices, svc)
+			}
 		} else {
 			nonServiceRegistryHosts = append(nonServiceRegistryHosts, hostname)
 		}
@@ -212,7 +216,9 @@ func separateVSHostsAndServices(virtualService config.Config,
 				// to avoid duplicates
 				continue
 			}
-			matchingRegistryServices = append(matchingRegistryServices, svc)
+			if vhostServices[svcHost] != nil {
+				matchingRegistryServices = append(matchingRegistryServices, svc)
+			}
 		}
 
 		// If we never found a match for this hostname in the service registry, add it to the list of non-service hosts
@@ -230,7 +236,7 @@ func separateVSHostsAndServices(virtualService config.Config,
 func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	virtualService *config.Config,
-	serviceRegistry map[host.Name]*model.Service,
+	serviceRegistry, vhostServices map[host.Name]*model.Service,
 	hashByDestination DestinationHashMap,
 	listenPort int,
 	push *model.PushContext,
@@ -263,7 +269,7 @@ func buildSidecarVirtualHostsForVirtualService(
 		return nil
 	}
 
-	hosts, matchingRegistryServices := separateVSHostsAndServices(*virtualService, serviceRegistry, mostSpecificWildcardVsIndex)
+	hosts, matchingRegistryServices := separateVSHostsAndServices(*virtualService, serviceRegistry, vhostServices, mostSpecificWildcardVsIndex)
 
 	// Gateway allows only routes from the namespace of the proxy, or namespace of the destination.
 	if model.UseGatewaySemantics(*virtualService) {
