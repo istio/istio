@@ -729,59 +729,12 @@ func repeatedCounterBody(t *testing.T, n int) []byte {
 	return encodeProtoFamilies(t, mfs...)
 }
 
-// TestProtoPathBodyCap_EnvoyUnderCap verifies the proto path's body cap admits
-// a body just below s.maxAppBodyBytes. The Envoy body is sized so that the
-// LimitReader fully consumes it without firing the overflow check; all
-// MetricFamilies must appear in the merged output.
-func TestProtoPathBodyCap_EnvoyUnderCap(t *testing.T) {
-	body := repeatedCounterBody(t, 10) // small body, well under any tractable cap
-	envoySrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", string(FmtProtoDelim))
-		_, _ = w.Write(body)
-	}))
-	defer envoySrv.Close()
-
-	envoyPort, err := strconv.Atoi(strings.Split(envoySrv.URL, ":")[2])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Cap larger than the body. The merger should decode all 10 families.
-	server := &Server{
-		registry:        TestingRegistry(t),
-		envoyStatsPort:  envoyPort,
-		http:            &http.Client{},
-		maxAppBodyBytes: len(body) + 1024,
-	}
-
-	req := &http.Request{Header: make(http.Header)}
-	req.Header.Set("Accept",
-		`application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited`)
-	rec := httptest.NewRecorder()
-	server.handleStats(rec, req)
-
-	if rec.Code != 200 {
-		t.Fatalf("status = %d; want 200", rec.Code)
-	}
-	mfs := decodeProtoFamilies(t, rec.Body.Bytes())
-	for i := 0; i < 10; i++ {
-		name := "cap_counter_" + strconv.Itoa(i)
-		if findFamily(mfs, name) == nil {
-			t.Errorf("expected family %q in under-cap merged output; got names: %v", name, familyNames(mfs))
-		}
-	}
-}
-
-// TestProtoPathBodyCap_EnvoyOverCap verifies the proto path's body cap drops an
-// Envoy body that exceeds s.maxAppBodyBytes. The merger must:
-//   - log + increment metrics.EnvoyScrapeErrors (we don't assert the counter
-//     directly here because the registry is shared across parallel tests; the
-//     load-bearing assertion is that the over-cap families do not appear),
-//   - still return a well-formed proto response containing the agent metrics.
-//
-// This guarantees a misbehaving Envoy cannot OOM the agent through the proto
-// path — the same guarantee the multi-target text path already provides.
-func TestProtoPathBodyCap_EnvoyOverCap(t *testing.T) {
+// TestProtoPath_EnvoyNotCapped is the regression guard for gateway-sized Envoy
+// stats: an Envoy body larger than s.maxAppBodyBytes must reach a protobuf scraper
+// in full, exactly as the text fast path copies it. The app cap must not apply to
+// Envoy, otherwise protobuf scrapes of large gateways silently lose the tail of
+// the Envoy stream.
+func TestProtoPath_EnvoyNotCapped(t *testing.T) {
 	// Body large enough that the LimitReader saturates at cap+1.
 	body := repeatedCounterBody(t, 200)
 	envoySrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -795,11 +748,8 @@ func TestProtoPathBodyCap_EnvoyOverCap(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Cap well below the body so the LimitReader saturates.
+	// App cap well below the Envoy body.
 	bodyCap := len(body) / 4
-	if bodyCap < 64 {
-		bodyCap = 64
-	}
 	server := &Server{
 		registry:        TestingRegistry(t),
 		envoyStatsPort:  envoyPort,
@@ -816,26 +766,22 @@ func TestProtoPathBodyCap_EnvoyOverCap(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("status = %d; want 200", rec.Code)
 	}
-	// Response must still be well-formed proto — the cap drop must not corrupt
-	// the wire format.
 	mfs, err := decodeAll(bytes.NewReader(rec.Body.Bytes()), FmtProtoDelim)
 	if err != nil {
-		t.Fatalf("over-cap response is malformed proto: %v", err)
+		t.Fatalf("merged response is malformed proto: %v", err)
 	}
-	// Whatever families were partially decoded before the cap fired may appear
-	// (matching the existing partial-success behavior), but the highest-index
-	// counter from the back of the body must NOT appear — the cap dropped the
-	// tail of the stream.
-	tail := "cap_counter_199"
-	if findFamily(mfs, tail) != nil {
-		t.Errorf("over-cap test admitted tail family %q; cap was not enforced (cap=%d, body=%d)",
-			tail, bodyCap, len(body))
+	for i := 0; i < 200; i++ {
+		name := "cap_counter_" + strconv.Itoa(i)
+		if findFamily(mfs, name) == nil {
+			t.Fatalf("Envoy family %q missing from merged output; Envoy was truncated (app cap=%d, envoy body=%d)",
+				name, bodyCap, len(body))
+		}
 	}
 }
 
 // TestProtoPathBodyCap_SingleAppOverCap verifies the body cap on the
-// single-target application path. Symmetric to the Envoy case: an over-cap app
-// body must be dropped without corrupting the response.
+// single-target application path: an over-cap app body must be cut off
+// without corrupting the response.
 func TestProtoPathBodyCap_SingleAppOverCap(t *testing.T) {
 	envoyBody := encodeProtoFamilies(t, classicCounterFamily("envoy_small_counter"))
 	appBody := repeatedCounterBody(t, 200) // large
