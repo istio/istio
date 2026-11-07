@@ -667,6 +667,12 @@ func TestFilterStrictGatewayMerging(t *testing.T) {
 	managedGwapiNsB := makeInternalConfig("gwapi-gw3", "ns-b", "quux.example.com",
 		"http", "HTTP", 80, "ingressgateway", "", tlsSimple, noCreds, "sa")
 
+	// Listener from a ListenerSet in ns-b attached to the managed GatewayAPI gateway in ns-a
+	listenerSetNsB := makeConfig("ls-gw", "ns-b", "corge.example.com",
+		"http", "HTTP", 80, "ingressgateway", "", tlsSimple, noCreds, "sa")
+	listenerSetNsB.Meta.Annotations[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
+	listenerSetNsB.Meta.Annotations[constants.InternalParentNamespace] = "ns-a"
+
 	toInstances := func(configs ...config.Config) []gatewayWithInstances {
 		var out []gatewayWithInstances
 		for _, c := range configs {
@@ -717,6 +723,11 @@ func TestFilterStrictGatewayMerging(t *testing.T) {
 			name:     "only managed gwapi - keep all",
 			input:    toInstances(managedGwapiNsA, managedGwapiNsB),
 			expected: []string{"ns-a/gwapi-gw1", "ns-b/gwapi-gw3"},
+		},
+		{
+			name:     "listenerset in ns-b counts as its parent's namespace - drop istio in ns-b",
+			input:    toInstances(managedGwapiNsA, listenerSetNsB, istioGwNsA, istioGwNsB),
+			expected: []string{"ns-a/gwapi-gw1", "ns-b/ls-gw", "ns-a/istio-gw1"},
 		},
 		{
 			name:     "order does not matter",
