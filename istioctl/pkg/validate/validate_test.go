@@ -665,6 +665,24 @@ func TestValidateResource(t *testing.T) {
 	}
 }
 
+func TestValidateExternalNameServiceWithNullPorts(t *testing.T) {
+	const service = `apiVersion: v1
+kind: Service
+metadata:
+  name: external
+spec:
+  type: ExternalName
+  externalName: example.com
+  ports: null
+`
+	var output bytes.Buffer
+	istioNamespace := "istio-system"
+	_, err := (&validator{}).validateFile("external.yaml", &istioNamespace, "default", strings.NewReader(service), &output)
+	if err != nil {
+		t.Fatalf("valid ExternalName Service failed validation: %v", err)
+	}
+}
+
 func buildMultiDocConfig(docs []string) string {
 	var b strings.Builder
 	for _, r := range docs {
