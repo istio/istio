@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -101,6 +102,7 @@ type DeploymentController struct {
 	clients         map[schema.GroupVersionResource]Getter
 	injectConfig    func() inject.WebhookConfig
 	deployments     kclient.Client[*appsv1.Deployment]
+	daemonSets      kclient.Client[*appsv1.DaemonSet]
 	services        kclient.Client[*corev1.Service]
 	hpas            kclient.Client[*autoscalingv2.HorizontalPodAutoscaler]
 	pdbs            kclient.Client[*policyv1.PodDisruptionBudget]
@@ -200,6 +202,10 @@ func NewDeploymentController(
 	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, filter)
 	dc.deployments.AddEventHandler(parentHandler)
 	dc.clients[gvr.Deployment] = NewUntypedWrapper(dc.deployments)
+
+	dc.daemonSets = kclient.NewFiltered[*appsv1.DaemonSet](client, filter)
+	dc.daemonSets.AddEventHandler(parentHandler)
+	dc.clients[gvr.DaemonSet] = NewUntypedWrapper(dc.daemonSets)
 
 	dc.serviceAccounts = kclient.NewFiltered[*corev1.ServiceAccount](client, filter)
 	dc.serviceAccounts.AddEventHandler(parentHandler)
@@ -458,13 +464,56 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		log.Errorf("error rendering templates: %v", err)
 		return nil
 	}
+	workloadKind := gvk.Deployment.Kind
 	for _, t := range rendered {
 		if err := d.apply(gi.Controller, t, input); err != nil {
 			return fmt.Errorf("apply failed: %v", err)
 		}
+		if renderedKind(t) == gvk.DaemonSet.Kind {
+			workloadKind = gvk.DaemonSet.Kind
+		}
+	}
+	if err := d.removeReplacedWorkload(workloadKind, input.DeploymentName, gw.Namespace); err != nil {
+		return fmt.Errorf("remove replaced workload: %v", err)
 	}
 
 	log.Info("gateway updated")
+	return nil
+}
+
+// renderedKind returns the kind of a rendered object, or an empty string if it can't be parsed.
+func renderedKind(object string) string {
+	var ik crd.IstioKind
+	if err := yaml.Unmarshal([]byte(object), &ik); err != nil {
+		return ""
+	}
+	return ik.TypeMeta.Kind
+}
+
+// removeReplacedWorkload deletes the gateway workload of the other kind when a Gateway switches between a
+// Deployment and a DaemonSet, so the Service does not select the pods of both. Only a workload we manage is deleted.
+func (d *DeploymentController) removeReplacedWorkload(workloadKind, name, namespace string) error {
+	var obj controllers.Object
+	var del func(name, namespace string) error
+	if workloadKind == gvk.DaemonSet.Kind {
+		if dep := d.deployments.Get(name, namespace); dep != nil {
+			obj, del = dep, d.deployments.Delete
+		}
+	} else if d.daemonSets != nil {
+		if ds := d.daemonSets.Get(name, namespace); ds != nil {
+			obj, del = ds, d.daemonSets.Delete
+		}
+	}
+	if obj == nil {
+		return nil
+	}
+	if _, managed := obj.GetLabels()[label.GatewayManaged.Name]; !managed {
+		return nil
+	}
+	log.Infof("deleting %v/%v, replaced by a %v", namespace, name, workloadKind)
+	if err := del(name, namespace); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
 	return nil
 }
 
@@ -646,6 +695,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 
 	rawOutput := yml.SplitString(results)
 	transformedOutput := make([]string, 0, len(rawOutput))
+	kinds := sets.New[string]()
 	for _, output := range rawOutput {
 		to, err := applyOverlay(output, templateOverlays)
 		if err != nil {
@@ -653,7 +703,11 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		}
 		if to != "" {
 			transformedOutput = append(transformedOutput, to)
+			kinds.Insert(renderedKind(to))
 		}
+	}
+	if kinds.Contains(gvk.DaemonSet.Kind) && kinds.Contains(gvk.HorizontalPodAutoscaler.Kind) {
+		return nil, fmt.Errorf("a horizontalPodAutoscaler can not be used when the deployment overlay sets kind %v", gvk.DaemonSet.Kind)
 	}
 	return transformedOutput, nil
 }
@@ -723,6 +777,14 @@ func applyOverlay(object string, overlaysList []map[string]string) (string, erro
 	}
 	if !applied && requiredOverlays.Contains(key) {
 		return "", nil
+	}
+
+	if key == "deployment" {
+		converted, err := convertToDaemonSet(object)
+		if err != nil {
+			return "", err
+		}
+		object = converted
 	}
 
 	var finalIK crd.IstioKind
@@ -1035,4 +1097,50 @@ func patchHandleUnmarshal(j []byte) (map[string]any, error) {
 		return nil, mergepatch.ErrBadJSONDoc
 	}
 	return m, nil
+}
+
+// convertToDaemonSet turns a rendered Deployment whose overlay set kind: DaemonSet into a valid DaemonSet.
+// The overlay is applied with the Deployment schema, so the Deployment-only fields are removed here and a
+// RollingUpdate strategy is carried over to the DaemonSet updateStrategy. Any other object is returned unchanged.
+func convertToDaemonSet(object string) (string, error) {
+	obj := map[string]any{}
+	if err := yaml.Unmarshal([]byte(object), &obj); err != nil {
+		return "", err
+	}
+	if obj["kind"] != gvk.DaemonSet.Kind {
+		return object, nil
+	}
+	spec, _ := obj["spec"].(map[string]any)
+	if spec == nil {
+		return object, nil
+	}
+	strategy, _ := spec["strategy"].(map[string]any)
+	if rollingUpdate, _ := strategy["rollingUpdate"].(map[string]any); rollingUpdate != nil {
+		spec["updateStrategy"] = map[string]any{
+			"type":          string(appsv1.RollingUpdateDaemonSetStrategyType),
+			"rollingUpdate": rollingUpdate,
+		}
+	}
+	for _, field := range []string{"replicas", "strategy", "progressDeadlineSeconds", "paused"} {
+		delete(spec, field)
+	}
+	// The proxy reports its owner for telemetry, and the templates point it at the Deployment.
+	template, _ := spec["template"].(map[string]any)
+	podSpec, _ := template["spec"].(map[string]any)
+	containers, _ := podSpec["containers"].([]any)
+	for _, c := range containers {
+		container, _ := c.(map[string]any)
+		env, _ := container["env"].([]any)
+		for _, e := range env {
+			envVar, _ := e.(map[string]any)
+			if value, ok := envVar["value"].(string); ok && envVar["name"] == "ISTIO_META_OWNER" {
+				envVar["value"] = strings.Replace(value, "/deployments/", "/daemonsets/", 1)
+			}
+		}
+	}
+	out, err := yaml.Marshal(obj)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
