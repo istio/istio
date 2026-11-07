@@ -349,6 +349,9 @@
         "dnsPolicy": {
           "type": "string"
         },
+        "hostNetwork": {
+          "type": "boolean"
+        },
         "dnsConfig": {
           "type": "object"
         },
