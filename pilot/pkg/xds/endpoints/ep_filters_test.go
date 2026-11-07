@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
@@ -1667,6 +1668,124 @@ func TestEndpointsByNetworkFilter_GatewayIPFamily(t *testing.T) {
 			filtered2 := b2.BuildClusterLoadAssignment(shards).Endpoints
 			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
+			}
+		})
+	}
+}
+
+func TestEndpointsByNetworkFilter_GatewayLocalityPriority(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+
+	const (
+		hostname = "example.ns.svc.cluster.local"
+		zoneA    = "region1/zone-a"
+		zoneB    = "region1/zone-b"
+	)
+
+	endpoint := func(nw network.ID, c cluster.ID, addr, locality string) *model.IstioEndpoint {
+		return &model.IstioEndpoint{
+			Network: nw, Addresses: []string{addr},
+			ServicePortName: "http", Namespace: "ns",
+			HostName: hostname, EndpointPort: 8080,
+			TLSMode:  "istio",
+			Labels:   labelutil.AugmentLabels(map[string]string{"app": "example"}, c, locality, "", nw),
+			Locality: model.Locality{Label: locality, ClusterID: c},
+		}
+	}
+
+	type locPriority struct {
+		Zone     string
+		Priority uint32
+		Addrs    []string
+	}
+
+	cases := []struct {
+		name  string
+		zone  string
+		local []*model.IstioEndpoint
+		want  []locPriority
+	}{
+		{
+			name: "remote_endpoints_keep_zone_priorities",
+			zone: "zone-a",
+			want: []locPriority{
+				{Zone: "zone-a", Priority: 0, Addrs: []string{"2.2.2.2"}},
+				{Zone: "zone-b", Priority: 1, Addrs: []string{"2.2.2.2"}},
+			},
+		},
+		{
+			name: "remote_priorities_follow_client_zone",
+			zone: "zone-b",
+			want: []locPriority{
+				{Zone: "zone-b", Priority: 0, Addrs: []string{"2.2.2.2"}},
+				{Zone: "zone-a", Priority: 1, Addrs: []string{"2.2.2.2"}},
+			},
+		},
+		{
+			name:  "remote_endpoints_rank_below_local_endpoints",
+			zone:  "zone-a",
+			local: []*model.IstioEndpoint{endpoint("network1", "cluster1", "10.0.0.1", zoneB)},
+			want: []locPriority{
+				{Zone: "zone-b", Priority: 0, Addrs: []string{"10.0.0.1"}},
+				{Zone: "zone-a", Priority: 1, Addrs: []string{"2.2.2.2"}},
+				{Zone: "zone-b", Priority: 2, Addrs: []string{"2.2.2.2"}},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				Services: []*model.Service{{
+					Hostname: hostname,
+					Attributes: model.ServiceAttributes{
+						Name: "example", Namespace: "ns",
+						TrafficDistribution: model.TrafficDistributionPreferSameZone,
+					},
+					Ports: model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+				}},
+				Gateways: []model.NetworkGateway{
+					{Network: "network1", Cluster: "cluster1", Addr: "1.1.1.1", Port: 80},
+					{Network: "network2", Cluster: "cluster2", Addr: "2.2.2.2", Port: 80},
+				},
+			})
+			ds.Env().InitNetworksManager(ds.Discovery)
+
+			shards := model.NewEndpointIndex(model.NewXdsCache())
+			svc, _ := shards.GetOrCreateEndpointShard(hostname, "ns")
+			svc.Lock()
+			svc.Shards[model.ShardKey{Cluster: "cluster2"}] = []*model.IstioEndpoint{
+				endpoint("network2", "cluster2", "20.0.0.1", zoneA),
+				endpoint("network2", "cluster2", "20.0.0.2", zoneB),
+			}
+			if len(tt.local) > 0 {
+				svc.Shards[model.ShardKey{Cluster: "cluster1"}] = tt.local
+			}
+			svc.Unlock()
+
+			p := makeProxy("network1", "cluster1")
+			p.Locality = util.ConvertLocality("region1/" + tt.zone)
+			p.Labels = map[string]string{
+				label.TopologyNetwork.Name:      "network1",
+				"topology.kubernetes.io/region": "region1",
+				"topology.kubernetes.io/zone":   tt.zone,
+			}
+			proxy := ds.SetupProxy(p)
+
+			cn := "outbound|80||" + hostname
+			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			cla := b.BuildClusterLoadAssignment(shards)
+
+			got := make([]locPriority, 0, len(cla.Endpoints))
+			for _, llb := range cla.Endpoints {
+				addrs := make([]string, 0, len(llb.LbEndpoints))
+				for _, lb := range llb.LbEndpoints {
+					addrs = append(addrs, util.GetEndpointHost(lb))
+				}
+				got = append(got, locPriority{Zone: llb.Locality.GetZone(), Priority: llb.Priority, Addrs: addrs})
+			}
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Fatalf("unexpected locality priorities (-want +got):\n%s", diff)
 			}
 		})
 	}
