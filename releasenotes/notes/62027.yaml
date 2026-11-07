@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62027
+releaseNotes:
+  - |
+    **Fixed** Gateway API routes with a `Hostname` backendRef reporting `ResolvedRefs=False` with reason
+    `BackendNotFound` when the referenced `ServiceEntry` is defined in another namespace and exported to
+    the route's namespace through `exportTo`.
