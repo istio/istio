@@ -59,6 +59,38 @@ istioctl waypoint status -n server --waypoint-timeout=10s
 
 <!-- Each issue has its own reproduction steps. Follow the notes for your chosen issue. -->
 
+### Issue [#55987](https://github.com/istio/istio/issues/55987): `istioctl analyze` should warn when no default revision or tag exists
+
+**Background.** A revision is selected by the `istio.io/rev=<rev>` label on a namespace/pod/gateway. Workloads with *no* rev label are injected by the **default** revision or tag, which is represented by a `MutatingWebhookConfiguration` labelled `istio.io/rev=default` (default revision) or `istio.io/tag=default` (default tag, created with `istioctl tag set default --revision <rev>`). If none exists, unlabelled gateways/namespaces are injected by nothing, and on upgrade two revisions can fight over them. `analyze` should warn about this.
+
+**Reproduce.** The ambient install above also creates a default injector webhook (`istio.io/rev=default`), so it would hide the bug. Remove it and install only a named revision (no default), then analyze:
+
+```shell
+istioctl uninstall --purge -y
+istioctl install --set revision=canary --set tag=$TAG --set hub=$HUB --skip-confirmation
+kubectl get mutatingwebhookconfigurations -l istio.io/rev --show-labels   # no istio.io/rev=default / istio.io/tag=default
+istioctl analyze -A      # BUG: no warning about missing default
+istioctl tag set default --revision canary --yes   # fixes the situation; the warning should disappear
+```
+
+**Where to look.**
+
+- `pkg/config/analysis/analyzers/webhook/webhook.go`: the existing webhook analyzer; `isIstioWebhook` and `isDefaultRevisionedWebhook` are useful helpers.
+- `pkg/config/analysis/msg/messages.yaml`: message definitions (last code is `IST0178`). Add a new one (`IST0179`), then regenerate `messages.gen.go` with `go generate ./pkg/config/analysis/msg/` (needs `goimports` on your PATH; or run `gofmt -w` on the generated file).
+- `pkg/config/analysis/analyzers/all.go`: register any new analyzer here (`TestAnalyzersInAll` enforces it).
+- `pkg/config/analysis/analyzers/analyzers_test.go` plus `testdata/*.yaml`: table-driven analyzer tests.
+
+**Design hints / gotchas.**
+
+- Existing `webhook.Analyzer` is also used by the operator (`operator/pkg/webhook/webhook.go`, with `SkipDefaultRevisionedWebhook`), so a separate analyzer avoids changing that behavior.
+- Only consider webhooks where `isIstioWebhook` is true, and only warn if at least one exists (don't warn on clusters with no Istio injection webhooks at all). Note that a default install, including ambient, creates an `istio.io/rev=default` webhook, so it must not trigger the warning.
+- A default *tag* webhook (from `istioctl tag set default`) carries `istio.io/tag=default` and `istio.io/rev=<target revision>`, so check both labels.
+- Known limitation (see closed [PR #57179](https://github.com/istio/istio/pull/57179) discussion): `istioctl analyze --revision X` only feeds that revision's webhooks to analyzers, so the default-tag webhook can be missed. Discuss options with maintainers: default `--revision` to empty, add `--all-revisions`, or soften the message. Our patch ignores this and checks every webhook the analyzer sees.
+- Name the analyzer after what it checks (e.g. `DefaultRevisionAnalyzer`), following other analyzers such as `telemetry.DefaultSelectorAnalyzer`.
+- Test three cases with fixtures in `testdata/`: no default (expect `IST0179`), default revision, and default tag (expect no messages). Run them with `go test ./pkg/config/analysis/analyzers/ -run 'TestAnalyzers/webhook'`.
+- Stretch goal: a stale default tag whose `istio.io/rev` target has no webhook still suppresses the warning. Can you detect it?
+- Add a release note (`releasenotes/notes/55987.yaml`, `kind: feature`, `area: istioctl`).
+
 ## A reasonable development loop
 
 ```shell
@@ -88,7 +120,7 @@ go test -p 1 -race ./path/to/affected/package/...
 
 ## If you are stuck
 
-If you're feeling stuck, you can ask one of the maintainers or contributors involved in the session for help. We've also included patches to help get you unstuck. `fix.patch` contains a proposed fix, you can look at it for a hint, or apply it directly with `git apply fix.patch` if you'd rather move on. Additionally, `tests.patch` contains suggested test cases that you can apply with `git apply tests.patch`.
+If you're feeling stuck, you can ask one of the maintainers or contributors involved in the session for help. We've also included patches to help get you unstuck. `fix.patch` contains a proposed fix, you can look at it for a hint, or apply it directly with `git apply fix.patch` if you'd rather move on. Additionally, `tests.patch` contains suggested test cases that you can apply with `git apply tests.patch`. For issue #55987, `fix.patch` adds a `webhook.DefaultRevisionAnalyzer` (message `IST0179`, registration, release note) and `tests.patch` adds three cases to `analyzers_test.go` (no default, default revision, default tag) plus the `testdata/webhook_*.yaml` fixtures. Run just those with `go test ./pkg/config/analysis/analyzers/ -run 'TestAnalyzers/webhook'`.
 
 ## Release notes
 
