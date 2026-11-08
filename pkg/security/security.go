@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/env"
 	istiolog "istio.io/istio/pkg/log"
 )
@@ -370,6 +371,8 @@ type Caller struct {
 	Identities []string
 
 	KubernetesInfo KubernetesInfo
+	// ClusterID is the cluster the caller's credential was validated against, if known.
+	ClusterID cluster.ID
 }
 
 // KubernetesInfo defines Kubernetes specific information extracted from the caller.

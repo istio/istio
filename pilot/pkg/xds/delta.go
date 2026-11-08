@@ -72,7 +72,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
 	}
 
-	ids, err := s.authenticate(ctx)
+	ids, authCluster, err := s.authenticate(ctx)
 	if err != nil {
 		return status.Error(codes.Unauthenticated, err.Error())
 	}
@@ -85,6 +85,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	// InitContext returns immediately if the context was already initialized.
 	s.globalPushContext().InitContext(s.Env, nil, nil)
 	con := newDeltaConnection(peerAddr, stream)
+	con.authClusterID = authCluster
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
 	// when the connection is no longer used. Closing the channel can cause subtle race conditions
