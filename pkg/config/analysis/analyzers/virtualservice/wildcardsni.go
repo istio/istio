@@ -225,13 +225,17 @@ func (a *WildcardSNIWaypointAnalyzer) Analyze(c analysis.Context) {
 						used = true
 						break
 					}
+					// SNI hosts with their own ServiceEntry go to that service, not through the wildcard one.
+					if len(match.SniHosts) > 0 && !slices.ContainsFunc(match.SniHosts, func(h string) bool { return len(serviceEntries.byHost[h]) == 0 }) {
+						continue
+					}
 					ignored = append(ignored, j)
 				}
 				if used {
 					continue
 				}
 				for _, j := range ignored {
-					m := msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, fmt.Sprint(tls.Match[j].SniHosts), s.host)
+					m := msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, s.host, fmt.Sprint(tls.Match[j].SniHosts))
 					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSTLSMatchSNIHost, i, j)); ok {
 						m.Line = line
 					}
@@ -841,7 +845,7 @@ func analyzeWaypointTLSRoutes(c analysis.Context, bound map[string][]waypointSer
 					if !slices.ContainsFunc(rule.BackendRefs, func(b gatewayv1.BackendRef) bool { return b.Weight == nil || *b.Weight != 0 }) {
 						continue
 					}
-					c.Report(gvk.TLSRoute, msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, fmt.Sprint(sniHosts), s.host))
+					c.Report(gvk.TLSRoute, msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, s.host, fmt.Sprint(sniHosts)))
 				}
 			}
 		}

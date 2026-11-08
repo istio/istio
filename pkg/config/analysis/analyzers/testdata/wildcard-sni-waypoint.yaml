@@ -686,3 +686,29 @@ spec:
   tls:
   - match: [{sniHosts: ["*.wikipedia.org"]}]
     route: [{destination: {host: www.google.com, port: {number: 443}}}]
+---
+# fr.wikipedia.org has its own ServiceEntry, so its traffic does not go through the wildcard one. A rule for it is
+# the fix that IST0180 suggests: no warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wikipedia-fr
+  namespace: amb
+  labels:
+    istio.io/use-waypoint: egress-waypoint
+spec:
+  hosts: ["fr.wikipedia.org"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: own-service-entry
+  namespace: amb
+spec:
+  hosts: ["fr.wikipedia.org"]
+  tls:
+  - match: [{sniHosts: ["fr.wikipedia.org"]}]
+    route: [{destination: {host: www.google.com, port: {number: 443}}}]
