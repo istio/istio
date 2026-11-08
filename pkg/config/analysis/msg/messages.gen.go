@@ -286,11 +286,11 @@ var (
 
 	// GatewayWildcardSNIHostsNotUnderHost defines a diag.MessageType for message "GatewayWildcardSNIHostsNotUnderHost".
 	// Description: A gateway TLS route to a wildcard DYNAMIC_DNS ServiceEntry has SNI hosts outside the ServiceEntry host, so the gateway ignores the route.
-	GatewayWildcardSNIHostsNotUnderHost = diag.NewMessageType(diag.Warning, "IST0179", "Gateway %s ignores TLS rule %d match %d of this route: its SNI hosts %s are not all under the wildcard DYNAMIC_DNS host %s.")
+	GatewayWildcardSNIHostsNotUnderHost = diag.NewMessageType(diag.Warning, "IST0179", "Gateway %s ignores TLS rule %d: SNI hosts %s must all be under %s. Connections that only this rule matches fail.")
 
 	// WaypointWildcardSNIMatchIgnored defines a diag.MessageType for message "WaypointWildcardSNIMatchIgnored".
 	// Description: A waypoint ignores a TLS route for a wildcard DYNAMIC_DNS ServiceEntry unless its SNI hosts are exactly the ServiceEntry host.
-	WaypointWildcardSNIMatchIgnored = diag.NewMessageType(diag.Warning, "IST0180", "The waypoint for ServiceEntry %s ignores TLS rule %d match %d of this route: its SNI hosts %s are not exactly [%s], and no other match of the rule is.")
+	WaypointWildcardSNIMatchIgnored = diag.NewMessageType(diag.Warning, "IST0180", "The waypoint for ServiceEntry %s ignores TLS rule %d: waypoints do not match on SNI, so SNI hosts %s have no effect. Its traffic goes to %s.")
 )
 
 // All returns a list of all known message types.
@@ -1051,26 +1051,24 @@ func NewEnvoyFilterMayClearRouteCache(r *resource.Instance) diag.Message {
 }
 
 // NewGatewayWildcardSNIHostsNotUnderHost returns a new diag.Message based on GatewayWildcardSNIHostsNotUnderHost.
-func NewGatewayWildcardSNIHostsNotUnderHost(r *resource.Instance, gateway string, rule int, match int, sniHosts string, host string) diag.Message {
+func NewGatewayWildcardSNIHostsNotUnderHost(r *resource.Instance, gateway string, rule int, sniHosts string, host string) diag.Message {
 	return diag.NewMessage(
 		GatewayWildcardSNIHostsNotUnderHost,
 		r,
 		gateway,
 		rule,
-		match,
 		sniHosts,
 		host,
 	)
 }
 
 // NewWaypointWildcardSNIMatchIgnored returns a new diag.Message based on WaypointWildcardSNIMatchIgnored.
-func NewWaypointWildcardSNIMatchIgnored(r *resource.Instance, serviceEntry string, rule int, match int, sniHosts string, host string) diag.Message {
+func NewWaypointWildcardSNIMatchIgnored(r *resource.Instance, serviceEntry string, rule int, sniHosts string, host string) diag.Message {
 	return diag.NewMessage(
 		WaypointWildcardSNIMatchIgnored,
 		r,
 		serviceEntry,
 		rule,
-		match,
 		sniHosts,
 		host,
 	)

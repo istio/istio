@@ -750,13 +750,11 @@ messages:
     code: IST0179
     level: Warning
     description: "A gateway TLS route to a wildcard DYNAMIC_DNS ServiceEntry has SNI hosts outside the ServiceEntry host, so the gateway ignores the route."
-    template: "Gateway %s ignores TLS rule %d match %d of this route: its SNI hosts %s are not all under the wildcard DYNAMIC_DNS host %s."
+    template: "Gateway %s ignores TLS rule %d: SNI hosts %s must all be under %s. Connections that only this rule matches fail."
     args:
       - name: gateway
         type: string
       - name: rule
-        type: int
-      - name: match
         type: int
       - name: sniHosts
         type: string
@@ -767,13 +765,11 @@ messages:
     code: IST0180
     level: Warning
     description: "A waypoint ignores a TLS route for a wildcard DYNAMIC_DNS ServiceEntry unless its SNI hosts are exactly the ServiceEntry host."
-    template: "The waypoint for ServiceEntry %s ignores TLS rule %d match %d of this route: its SNI hosts %s are not exactly [%s], and no other match of the rule is."
+    template: "The waypoint for ServiceEntry %s ignores TLS rule %d: waypoints do not match on SNI, so SNI hosts %s have no effect. Its traffic goes to %s."
     args:
       - name: serviceEntry
         type: string
       - name: rule
-        type: int
-      - name: match
         type: int
       - name: sniHosts
         type: string

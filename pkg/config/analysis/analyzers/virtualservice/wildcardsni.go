@@ -157,7 +157,7 @@ func (a *WildcardSNIGatewayAnalyzer) Analyze(c analysis.Context) {
 							if reported.InsertContains(fmt.Sprintf("%s/%d/%d", gwFullName, i, j)) {
 								continue
 							}
-							m := msg.NewGatewayWildcardSNIHostsNotUnderHost(r, gwFullName, i, j, fmt.Sprint(match.SniHosts), seHost)
+							m := msg.NewGatewayWildcardSNIHostsNotUnderHost(r, gwFullName, i, fmt.Sprint(match.SniHosts), seHost)
 							if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSTLSMatchSNIHost, i, j)); ok {
 								m.Line = line
 							}
@@ -231,7 +231,7 @@ func (a *WildcardSNIWaypointAnalyzer) Analyze(c analysis.Context) {
 					continue
 				}
 				for _, j := range ignored {
-					m := msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, j, fmt.Sprint(tls.Match[j].SniHosts), s.host)
+					m := msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, fmt.Sprint(tls.Match[j].SniHosts), s.host)
 					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSTLSMatchSNIHost, i, j)); ok {
 						m.Line = line
 					}
@@ -795,7 +795,7 @@ func analyzeGatewayTLSRoutes(c analysis.Context, serviceEntries serviceEntryInde
 						continue
 					}
 					// A TLSRoute rule has one match (buildTLSMatch).
-					c.Report(gvk.TLSRoute, msg.NewGatewayWildcardSNIHostsNotUnderHost(r, gwFullName, i, 0, fmt.Sprint(sniHosts), seHost))
+					c.Report(gvk.TLSRoute, msg.NewGatewayWildcardSNIHostsNotUnderHost(r, gwFullName, i, fmt.Sprint(sniHosts), seHost))
 				}
 			}
 		}
@@ -841,7 +841,7 @@ func analyzeWaypointTLSRoutes(c analysis.Context, bound map[string][]waypointSer
 					if !slices.ContainsFunc(rule.BackendRefs, func(b gatewayv1.BackendRef) bool { return b.Weight == nil || *b.Weight != 0 }) {
 						continue
 					}
-					c.Report(gvk.TLSRoute, msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, 0, fmt.Sprint(sniHosts), s.host))
+					c.Report(gvk.TLSRoute, msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, fmt.Sprint(sniHosts), s.host))
 				}
 			}
 		}
