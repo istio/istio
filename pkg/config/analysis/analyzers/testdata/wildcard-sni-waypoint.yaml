@@ -661,3 +661,28 @@ spec:
   tls:
   - match: [{sniHosts: ["www.badport.example"]}]
     route: [{destination: {host: "*.badport.example", port: {number: 443}}}]
+---
+# A rule for traffic to the ServiceEntry that sends it to another host. The waypoint ignores the narrow match all the
+# same: warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: other-backend
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match: [{sniHosts: ["en.wikipedia.org"]}]
+    route: [{destination: {host: www.google.com, port: {number: 443}}}]
+---
+# The same with sniHosts exactly the ServiceEntry host: used, no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: other-backend-exact
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match: [{sniHosts: ["*.wikipedia.org"]}]
+    route: [{destination: {host: www.google.com, port: {number: 443}}}]

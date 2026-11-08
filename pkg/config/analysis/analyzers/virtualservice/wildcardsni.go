@@ -204,8 +204,12 @@ func (a *WildcardSNIWaypointAnalyzer) Analyze(c analysis.Context) {
 				continue
 			}
 			for i, tls := range vs.Tls {
-				// Only rules that send to this ServiceEntry; rules for other hosts of the VirtualService are not meant for it.
-				if !slices.ContainsFunc(tls.Route, func(d *v1alpha3.RouteDestination) bool { return d.GetDestination().GetHost() == s.host }) {
+				// Only rules for traffic to this ServiceEntry: they send to it, or a match names SNI hosts that overlap it.
+				// The destination can be another host. Rules only for other hosts of the VirtualService are not meant for it.
+				if !slices.ContainsFunc(tls.Route, func(d *v1alpha3.RouteDestination) bool { return d.GetDestination().GetHost() == s.host }) &&
+					!slices.ContainsFunc(tls.Match, func(m *v1alpha3.TLSMatchAttributes) bool {
+						return slices.ContainsFunc(m.SniHosts, func(h string) bool { return host.Name(h).Matches(host.Name(s.host)) })
+					}) {
 					continue
 				}
 				// listener_waypoint.go, getTLSRouteMatch: the waypoint uses the whole rule when one match that applies has

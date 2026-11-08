@@ -723,6 +723,7 @@ var testGrid = []testCase{
 			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-sel/selected"},
 			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-bind/bind-all"},
 			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-bind/bind-badport"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/other-backend"},
 		},
 	},
 	{
@@ -781,6 +782,7 @@ var testGrid = []testCase{
 			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-sel/selected"},
 			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-bind/bind-all"},
 			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-bind/bind-badport"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/other-backend"},
 		},
 	},
 	{
@@ -796,6 +798,7 @@ var testGrid = []testCase{
 			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/narrow"},
 			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/narrow"},
 			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb-ns/by-namespace"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/other-backend"},
 		},
 	},
 	{
