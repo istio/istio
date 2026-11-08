@@ -109,11 +109,11 @@ istioctl tag set default --revision canary --yes   # fixes the situation; the wa
 
    Sanity check: temporarily break your analyzer (for example, never report) and confirm the no-default test fails.
 
-1. *Try it without a cluster.* `istioctl analyze` can read local files, so you can test a fixture directly:
+1. *Try it without a cluster.* `istioctl analyze --use-kube=false` reads only the local files, so you can test a fixture directly (after you create it, or apply `tests.patch`; rebuild istioctl first):
 
    ```shell
-   istioctl analyze pkg/config/analysis/analyzers/testdata/webhook_no_default.yaml   # expect IST0179
-   istioctl analyze pkg/config/analysis/analyzers/testdata/webhook_default.yaml      # expect no IST0179
+   istioctl analyze --use-kube=false pkg/config/analysis/analyzers/testdata/webhook_no_default.yaml   # expect IST0179
+   istioctl analyze --use-kube=false pkg/config/analysis/analyzers/testdata/webhook_default.yaml      # expect no IST0179
    ```
 
 1. *On the cluster.* Rebuild istioctl (see the development loop) and follow the reproduction steps:
