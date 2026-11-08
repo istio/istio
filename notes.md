@@ -91,6 +91,46 @@ istioctl tag set default --revision canary --yes   # fixes the situation; the wa
 - Stretch goal: a stale default tag whose `istio.io/rev` target has no webhook still suppresses the warning. Can you detect it?
 - Add a release note (`releasenotes/notes/55987.yaml`, `kind: feature`, `area: istioctl`).
 
+**How to test your fix.**
+
+1. *Unit tests (fast, no cluster).* Add fixtures under `pkg/config/analysis/analyzers/testdata/` and one entry per scenario in `analyzers_test.go`. Each entry lists input files, the analyzer, and the expected `{message type, resource}` pairs (an empty list means no warnings):
+
+   | Fixture | Webhook labels | Expected |
+   | --- | --- | --- |
+   | `webhook_no_default.yaml` | `istio.io/rev: canary` | `IST0179` on the webhook |
+   | `webhook_default.yaml` | `istio.io/rev: default` | no messages |
+   | `webhook_default_tag.yaml` | `istio.io/tag: default`, `istio.io/rev: canary` | no messages |
+
+   ```shell
+   go test ./pkg/config/analysis/analyzers/ -run 'TestAnalyzers/webhook' -v
+   # also run the registration and metadata checks
+   go test ./pkg/config/analysis/analyzers/ -run 'TestAnalyzersInAll|TestAnalyzersHaveUniqueNames|TestAnalyzersHaveDescription'
+   ```
+
+   Sanity check: temporarily break your analyzer (for example, never report) and confirm the no-default test fails.
+
+1. *Try it without a cluster.* `istioctl analyze` can read local files, so you can test a fixture directly:
+
+   ```shell
+   istioctl analyze pkg/config/analysis/analyzers/testdata/webhook_no_default.yaml   # expect IST0179
+   istioctl analyze pkg/config/analysis/analyzers/testdata/webhook_default.yaml      # expect no IST0179
+   ```
+
+1. *On the cluster.* Rebuild istioctl (see the development loop) and follow the reproduction steps:
+
+   | State | Command | Expected |
+   | --- | --- | --- |
+   | Only revision `canary` installed | `istioctl analyze -A` | `IST0179` warning |
+   | After `istioctl tag set default --revision canary --yes` | `istioctl analyze -A` | no `IST0179` |
+   | Normal install (`istioctl install --set profile=ambient ...`) | `istioctl analyze -A` | no `IST0179` |
+
+1. *Before you push.* Run the whole analysis tree and the linter:
+
+   ```shell
+   go test ./pkg/config/analysis/... ./istioctl/pkg/analyze/...
+   make lint-go
+   ```
+
 ## A reasonable development loop
 
 ```shell
