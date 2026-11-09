@@ -1,0 +1,20 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 62726
+releaseNotes:
+  - |
+    **Fixed** an issue where Istio CNI changed the primary network name when
+    converting a single-plugin CNI configuration into a plugin list. The original
+    network name is now preserved, avoiding a separate allocation namespace for
+    IPAM plugins such as host-local.
+upgradeNotes:
+  - title: Existing CNI network names and IPAM allocations
+    content: |
+      This fix does not rename existing CNI plugin lists or migrate IPAM leases
+      created under a previously changed network name. If a node already has
+      allocations under multiple network names, reconcile them through a planned
+      node maintenance or replacement procedure. Restoring a primary CNI template
+      with a different name must be treated as an IPAM migration, not an online
+      configuration-only change.
