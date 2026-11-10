@@ -56,3 +56,15 @@ webhooks:
       name: example-webhook
       namespace: example
   name: webhook.example.com
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: injection-enabled
+  labels:
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: no-labels

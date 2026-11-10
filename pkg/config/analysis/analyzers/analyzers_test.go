@@ -855,6 +855,23 @@ var testGrid = []testCase{
 		expected:   []message{},
 	},
 	{
+		name:       "webhook namespace no default revision or tag",
+		inputFiles: []string{"testdata/webhook-revision-canary.yaml"},
+		analyzer:   &webhook.DefaultRevisionNamespaceAnalyzer{},
+		expected: []message{
+			{msg.NoDefaultRevisionOrTag, "Namespace injection-enabled"},
+		},
+	},
+	{
+		name: "webhook namespace default tag",
+		inputFiles: []string{
+			"testdata/webhook-revision-canary.yaml",
+			"testdata/webhook-default-tag.yaml",
+		},
+		analyzer: &webhook.DefaultRevisionNamespaceAnalyzer{},
+		expected: []message{},
+	},
+	{
 		name: "Route Rule no effect on Ingress",
 		inputFiles: []string{
 			"testdata/virtualservice_route_rule_no_effects_ingress.yaml",

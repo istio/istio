@@ -5,6 +5,6 @@ issue:
 - 55987
 releaseNotes:
 - |
-  **Added** an `istioctl analyze` warning (IST0179) when Istio injection webhooks exist but none of them injects for the default revision or default tag.
+  **Added** an `istioctl analyze` warning (IST0179) when Istio injection webhooks exist but none of them injects for the default revision or default tag. The warning is also reported on each namespace labeled `istio-injection=enabled`.
 - |
   **Improved** `istioctl analyze`, regardless of `--revision`, and istiod's in-cluster analysis to read the injection webhooks of every revision. Existing webhook checks, such as IST0139, may now report on webhooks of other revisions.
