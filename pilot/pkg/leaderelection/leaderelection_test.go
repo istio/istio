@@ -23,14 +23,17 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -138,10 +141,71 @@ func TestPerRevisionElection(t *testing.T) {
 	t.Log("drop")
 	// After leader is lost, we can take over
 	_, stop3 := createPerRevisionElection(t, "pod2", "foo", watcher, true, client)
+	defer close(stop3)
 	// Other revisions are independent
 	_, stop4 := createPerRevisionElection(t, "pod4", "not-foo", watcher, true, client)
-	close(stop3)
-	close(stop4)
+	defer close(stop4)
+	// Each per-revision Lease is labeled with its own revision, so that `istioctl uninstall` can prune it.
+	assert.Equal(t, getLease(t, client, testLock+"-foo").Labels, perRevisionLeaseLabels("foo"))
+	assert.Equal(t, getLease(t, client, testLock+"-not-foo").Labels, perRevisionLeaseLabels("not-foo"))
+}
+
+func TestPerRevisionLeaseLabels(t *testing.T) {
+	assert.Equal(t, perRevisionLeaseLabels("canary"), map[string]string{
+		"istio.io/rev":                "canary",
+		"operator.istio.io/component": "Pilot",
+	})
+	// istioctl uninstall selects the Leases by the operator's component name, so the two must not drift apart.
+	assert.Equal(t, pilotComponentName, string(component.PilotComponentName))
+}
+
+func TestPerRevisionElectionLabelsExistingLease(t *testing.T) {
+	// The Lease already exists without labels and without a holder, as it would after an in-place upgrade
+	// from an istiod version that did not label Leases.
+	existing := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: testLock + "-foo"},
+	}
+	client := fake.NewClientset(existing)
+	watcher := &fakeDefaultWatcher{"foo"}
+	_, stop := createPerRevisionElection(t, "pod1", "foo", watcher, true, client)
+	defer close(stop)
+	assert.Equal(t, getLease(t, client, testLock+"-foo").Labels, perRevisionLeaseLabels("foo"))
+}
+
+func TestSharedLeaseElectionIsNotLabeledWithRevision(t *testing.T) {
+	client := fake.NewClientset()
+	l := &LeaderElection{
+		namespace:      "ns",
+		name:           "pod1",
+		electionID:     testLock,
+		client:         client,
+		revision:       "foo",
+		defaultWatcher: &fakeDefaultWatcher{"foo"},
+		useLeaseLock:   true,
+		ttl:            time.Second,
+		cycle:          atomic.NewInt32(0),
+		enabled:        true,
+	}
+	l.AddRunFunction(func(stop <-chan struct{}) {
+		<-stop
+	})
+	stop := make(chan struct{})
+	defer close(stop)
+	go l.Run(stop)
+	retry.UntilOrFail(t, l.isLeader, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*10))
+
+	// A shared Lease is used by every revision. It gets no labels at all, so that neither uninstalling one revision
+	// nor a purge (which selects on the component label) deletes a lock that another revision may hold.
+	assert.Equal(t, len(getLease(t, client, testLock).Labels), 0)
+}
+
+func getLease(t *testing.T, client kubernetes.Interface, name string) *coordinationv1.Lease {
+	t.Helper()
+	lease, err := client.CoordinationV1().Leases("ns").Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return lease
 }
 
 func TestPrioritizedLeaderElection(t *testing.T) {
