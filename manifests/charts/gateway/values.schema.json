@@ -79,6 +79,9 @@
         "strategy": {
           "type": "object"
         },
+        "updateStrategy": {
+          "type": "object"
+        },
         "minReadySeconds": {
           "type": [ "null", "integer" ]
         },
