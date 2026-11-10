@@ -95,7 +95,7 @@ helm install istiod-canary manifests/charts/istio-control/istio-discovery -n ist
 kubectl get mutatingwebhookconfigurations -l istio.io/rev --show-labels   # only istio.io/rev=canary, no default
 # `analyze` defaults to --revision default and filters other revisions' webhooks out, so pass an empty revision
 istioctl analyze -A --revision ""      # BUG: no warning about missing default
-istioctl tag set default --revision canary --yes   # fixes the situation; the warning should disappear
+istioctl tag set default --revision canary -y   # fixes the situation; the warning should disappear
 istioctl analyze -A --revision ""      # no IST0179
 ```
 
