@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -51,13 +52,17 @@ const (
 	revisionNotFound = "could not find target revision"
 )
 
-var allGVKs = append(uninstall.NamespacedResources(), uninstall.ClusterCPResources...)
+// allGVKs includes the runtime Leases that istiod creates, so the checks below also cover their removal.
+var allGVKs = append(append(uninstall.NamespacedResources(), uninstall.ClusterCPResources...), uninstall.RuntimeResources...)
 
 func TestUninstallByRevision(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
+				cs := t.Clusters().Default()
+				checkRevisionLeasesExist(t, cs, stableRevision)
+				checkRevisionLeasesExist(t, cs, canaryRevision)
 				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 				uninstallCmd := []string{
 					"uninstall",
@@ -67,11 +72,38 @@ func TestUninstallByRevision(t *testing.T) {
 				if err != nil {
 					scopes.Framework.Errorf("failed to uninstall: %v, output: %v", err, out)
 				}
-				cs := t.Clusters().Default()
 				ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
 				checkCPResourcesUninstalled(t, cs, allGVKs, ls, false)
+				// Uninstalling one revision must leave the Leases of the other revision in place.
+				checkRevisionLeasesExist(t, cs, canaryRevision)
 			})
 		})
+}
+
+// checkRevisionLeasesExist checks that istiod has created and labeled the per-revision leader election Leases.
+// Without it, the uninstall check would also pass if the Leases had never been created.
+func checkRevisionLeasesExist(t framework.TestContext, cs cluster.Cluster, revision string) {
+	expected := []string{
+		"istio-gateway-deployment-" + revision,
+		"istio-gateway-status-leader-" + revision,
+	}
+	selector := fmt.Sprintf("istio.io/rev=%s,%s=%s", revision, manifest.IstioComponentLabel, component.PilotComponentName)
+	retry.UntilSuccessOrFail(t, func() error {
+		leases, err := cs.Kube().CoordinationV1().Leases(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{LabelSelector: selector})
+		if err != nil {
+			return err
+		}
+		found := sets.New[string]()
+		for _, l := range leases.Items {
+			found.Insert(l.Name)
+		}
+		for _, name := range expected {
+			if !found.Contains(name) {
+				return fmt.Errorf("expected Lease %s with labels %s, found %v", name, selector, sets.SortedList(found))
+			}
+		}
+		return nil
+	}, retry.Delay(checkResourceDelay), retry.Timeout(checkResourceTimeout))
 }
 
 func TestUninstallByNotFoundRevision(t *testing.T) {
