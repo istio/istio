@@ -1,0 +1,120 @@
+diff --git a/pkg/config/analysis/analyzers/all.go b/pkg/config/analysis/analyzers/all.go
+index 7bdc251215..609b072f38 100644
+--- a/pkg/config/analysis/analyzers/all.go
++++ b/pkg/config/analysis/analyzers/all.go
+@@ -76,6 +76,7 @@ func All() []analysis.Analyzer {
+ 		&serviceentry.ProtocolAddressesAnalyzer{},
+ 		&serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
+ 		&webhook.Analyzer{},
++		&webhook.DefaultRevisionAnalyzer{},
+ 		&telemetry.ProviderAnalyzer{},
+ 		&telemetry.SelectorAnalyzer{},
+ 		&telemetry.DefaultSelectorAnalyzer{},
+diff --git a/pkg/config/analysis/analyzers/webhook/webhook.go b/pkg/config/analysis/analyzers/webhook/webhook.go
+index 38e9044f15..44bbedd60f 100644
+--- a/pkg/config/analysis/analyzers/webhook/webhook.go
++++ b/pkg/config/analysis/analyzers/webhook/webhook.go
+@@ -208,3 +208,40 @@ func selectorMatches(selector *metav1.LabelSelector, labels klabels.Set) bool {
+ 	}
+ 	return s.Matches(labels)
+ }
++
++// DefaultRevisionAnalyzer warns when injection webhooks exist but none of them acts as the default revision or tag.
++type DefaultRevisionAnalyzer struct{}
++
++var _ analysis.Analyzer = &DefaultRevisionAnalyzer{}
++
++func (a *DefaultRevisionAnalyzer) Metadata() analysis.Metadata {
++	return analysis.Metadata{
++		Name:        "webhook.DefaultRevisionAnalyzer",
++		Description: "Checks that a default revision or tag exists when Istio injection webhooks are present",
++		Inputs: []config.GroupVersionKind{
++			gvk.MutatingWebhookConfiguration,
++		},
++	}
++}
++
++func (a *DefaultRevisionAnalyzer) Analyze(context analysis.Context) {
++	var first *resource.Instance
++	hasDefault := false
++	context.ForEach(gvk.MutatingWebhookConfiguration, func(r *resource.Instance) bool {
++		wh := r.Message.(*v1.MutatingWebhookConfiguration)
++		if !isIstioWebhook(wh) {
++			return true
++		}
++		if wh.Labels[label.IoIstioRev.Name] == "default" || wh.Labels[label.IoIstioTag.Name] == "default" {
++			hasDefault = true
++			return false
++		}
++		if first == nil || r.Metadata.FullName.String() < first.Metadata.FullName.String() {
++			first = r
++		}
++		return true
++	})
++	if !hasDefault && first != nil {
++		context.Report(gvk.MutatingWebhookConfiguration, msg.NewNoDefaultRevisionOrTag(first))
++	}
++}
+diff --git a/pkg/config/analysis/msg/messages.gen.go b/pkg/config/analysis/msg/messages.gen.go
+index 004f049a38..b4c0fc7a13 100755
+--- a/pkg/config/analysis/msg/messages.gen.go
++++ b/pkg/config/analysis/msg/messages.gen.go
+@@ -283,6 +283,10 @@ var (
+ 	// EnvoyFilterMayClearRouteCache defines a diag.MessageType for message "EnvoyFilterMayClearRouteCache".
+ 	// Description: Using EnvoyFilters with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run.
+ 	EnvoyFilterMayClearRouteCache = diag.NewMessageType(diag.Warning, "IST0178", "Using an EnvoyFilter with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run. This can cause a request to be routed differently than it was when the route-dependent filter was evaluated. See https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_filters.html#security-considerations.")
++
++	// NoDefaultRevisionOrTag defines a diag.MessageType for message "NoDefaultRevisionOrTag".
++	// Description: Istio sidecar injection webhooks exist, but none of them is the default revision or the default tag.
++	NoDefaultRevisionOrTag = diag.NewMessageType(diag.Warning, "IST0179", "No default revision or default tag found: no injection webhook handles workloads, gateways or namespaces without an istio.io/rev label. Set a default with 'istioctl tag set default --revision <revision>'.")
+ )
+ 
+ // All returns a list of all known message types.
+@@ -357,6 +361,7 @@ func All() []*diag.MessageType {
+ 		GatewayAPICRDVersionBelowMinimum,
+ 		ConflictingServiceEntryProtocol,
+ 		EnvoyFilterMayClearRouteCache,
++		NoDefaultRevisionOrTag,
+ 	}
+ }
+ 
+@@ -1039,3 +1044,11 @@ func NewEnvoyFilterMayClearRouteCache(r *resource.Instance) diag.Message {
+ 		r,
+ 	)
+ }
++
++// NewNoDefaultRevisionOrTag returns a new diag.Message based on NoDefaultRevisionOrTag.
++func NewNoDefaultRevisionOrTag(r *resource.Instance) diag.Message {
++	return diag.NewMessage(
++		NoDefaultRevisionOrTag,
++		r,
++	)
++}
+diff --git a/pkg/config/analysis/msg/messages.yaml b/pkg/config/analysis/msg/messages.yaml
+index 3cfa574ba8..ec9ab359a5 100644
+--- a/pkg/config/analysis/msg/messages.yaml
++++ b/pkg/config/analysis/msg/messages.yaml
+@@ -745,3 +745,9 @@ messages:
+     level: Warning
+     description: "Using EnvoyFilters with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run."
+     template: "Using an EnvoyFilter with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run. This can cause a request to be routed differently than it was when the route-dependent filter was evaluated. See https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_filters.html#security-considerations."
++
++  - name: "NoDefaultRevisionOrTag"
++    code: IST0179
++    level: Warning
++    description: "Istio sidecar injection webhooks exist, but none of them is the default revision or the default tag."
++    template: "No default revision or default tag found: no injection webhook handles workloads, gateways or namespaces without an istio.io/rev label. Set a default with 'istioctl tag set default --revision <revision>'."
+diff --git a/releasenotes/notes/55987.yaml b/releasenotes/notes/55987.yaml
+new file mode 100644
+index 0000000000..bcaee7ab19
+--- /dev/null
++++ b/releasenotes/notes/55987.yaml
+@@ -0,0 +1,8 @@
++apiVersion: release-notes/v2
++kind: feature
++area: istioctl
++issue:
++- 55987
++releaseNotes:
++- |
++    **Added** an `istioctl analyze` warning (IST0179) when injection webhooks exist but no default revision or default tag is configured.

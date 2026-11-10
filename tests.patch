@@ -1,0 +1,110 @@
+diff --git a/pkg/config/analysis/analyzers/analyzers_test.go b/pkg/config/analysis/analyzers/analyzers_test.go
+index 9bb69a7238..4ac0c525f1 100644
+--- a/pkg/config/analysis/analyzers/analyzers_test.go
++++ b/pkg/config/analysis/analyzers/analyzers_test.go
+@@ -808,6 +808,26 @@ var testGrid = []testCase{
+ 			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-overlap"},
+ 		},
+ 	},
++	{
++		name:       "webhook no default revision or tag",
++		inputFiles: []string{"testdata/webhook_no_default.yaml"},
++		analyzer:   &webhook.DefaultRevisionAnalyzer{},
++		expected: []message{
++			{msg.NoDefaultRevisionOrTag, "MutatingWebhookConfiguration istio-sidecar-injector-canary"},
++		},
++	},
++	{
++		name:       "webhook with default revision",
++		inputFiles: []string{"testdata/webhook_default.yaml"},
++		analyzer:   &webhook.DefaultRevisionAnalyzer{},
++		expected:   []message{},
++	},
++	{
++		name:       "webhook with default tag",
++		inputFiles: []string{"testdata/webhook_default_tag.yaml"},
++		analyzer:   &webhook.DefaultRevisionAnalyzer{},
++		expected:   []message{},
++	},
+ 	{
+ 		name: "Route Rule no effect on Ingress",
+ 		inputFiles: []string{
+diff --git a/pkg/config/analysis/analyzers/testdata/webhook_default.yaml b/pkg/config/analysis/analyzers/testdata/webhook_default.yaml
+new file mode 100644
+index 0000000000..cb9f805954
+--- /dev/null
++++ b/pkg/config/analysis/analyzers/testdata/webhook_default.yaml
+@@ -0,0 +1,20 @@
++apiVersion: admissionregistration.k8s.io/v1
++kind: MutatingWebhookConfiguration
++metadata:
++  name: istio-sidecar-injector-default
++  labels:
++    istio.io/rev: default
++webhooks:
++- admissionReviewVersions:
++  - v1beta1
++  clientConfig:
++    service:
++      name: istiod-default
++      namespace: istio-system
++  name: rev.namespace.sidecar-injector.istio.io
++  namespaceSelector:
++    matchExpressions:
++    - key: istio.io/rev
++      operator: In
++      values:
++      - default
+diff --git a/pkg/config/analysis/analyzers/testdata/webhook_default_tag.yaml b/pkg/config/analysis/analyzers/testdata/webhook_default_tag.yaml
+new file mode 100644
+index 0000000000..58874cefb5
+--- /dev/null
++++ b/pkg/config/analysis/analyzers/testdata/webhook_default_tag.yaml
+@@ -0,0 +1,21 @@
++apiVersion: admissionregistration.k8s.io/v1
++kind: MutatingWebhookConfiguration
++metadata:
++  name: istio-revision-tag-default
++  labels:
++    istio.io/rev: canary
++    istio.io/tag: default
++webhooks:
++- admissionReviewVersions:
++  - v1beta1
++  clientConfig:
++    service:
++      name: istiod-canary
++      namespace: istio-system
++  name: rev.namespace.sidecar-injector.istio.io
++  namespaceSelector:
++    matchExpressions:
++    - key: istio.io/tag
++      operator: In
++      values:
++      - default
+diff --git a/pkg/config/analysis/analyzers/testdata/webhook_no_default.yaml b/pkg/config/analysis/analyzers/testdata/webhook_no_default.yaml
+new file mode 100644
+index 0000000000..c2c3a5d5e6
+--- /dev/null
++++ b/pkg/config/analysis/analyzers/testdata/webhook_no_default.yaml
+@@ -0,0 +1,20 @@
++apiVersion: admissionregistration.k8s.io/v1
++kind: MutatingWebhookConfiguration
++metadata:
++  name: istio-sidecar-injector-canary
++  labels:
++    istio.io/rev: canary
++webhooks:
++- admissionReviewVersions:
++  - v1beta1
++  clientConfig:
++    service:
++      name: istiod-canary
++      namespace: istio-system
++  name: rev.namespace.sidecar-injector.istio.io
++  namespaceSelector:
++    matchExpressions:
++    - key: istio.io/rev
++      operator: In
++      values:
++      - canary

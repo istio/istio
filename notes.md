@@ -13,18 +13,30 @@ export HUB=gcr.io/istio-testing
 ./prow/integ-suite-kind.sh --skip-cleanup --skip-build
 ```
 
-These commands set up a running KinD cluster with a local container registry, ready to run any `istioctl` command.
+These commands set up a running KinD cluster with a local container registry, ready to install Istio.
 
 ## Install Istio
 
+For this session we will install with Helm straight from the charts in this repo. Unlike `istioctl install`, Helm gives full control over the `revision` value: leaving it empty creates the default `istio-sidecar-injector` webhook (`istio.io/rev=default`), and setting it creates only a named revision (no default).
+
 ```shell
-# Build istioctl binary
+# Build istioctl binary (still used for analyze, waypoint, tag, ...)
 make -B $(pwd)/out/linux_amd64/release/istioctl-linux-amd64
 # Convenience alias
 alias istioctl="$(pwd)/out/linux_amd64/release/istioctl-linux-amd64"
-istioctl install --set profile=ambient --skip-confirmation --set tag=$TAG --set hub=$HUB
+
 # waypoints are Kubernetes Gateway API Resources, install the CRDs
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.7.0/standard-install.yaml
+
+# Ambient install with Helm, revision left empty (the default)
+kubectl create namespace istio-system
+helm install istio-base manifests/charts/base -n istio-system
+helm install istiod manifests/charts/istio-control/istio-discovery -n istio-system \
+  --set profile=ambient --set global.hub=$HUB --set global.tag=$TAG --wait
+helm install istio-cni manifests/charts/istio-cni -n istio-system \
+  --set profile=ambient --set global.hub=$HUB --set global.tag=$TAG --wait
+helm install ztunnel manifests/charts/ztunnel -n istio-system \
+  --set profile=ambient --set hub=$HUB --set tag=$TAG --wait
 ```
 
 These commands install Istio with the ambient profile and set up the necessary Gateway API CRDs.
@@ -55,9 +67,97 @@ istioctl waypoint apply -n server
 istioctl waypoint status -n server --waypoint-timeout=10s
 ```
 
+You can check again that the traffic is flowing through the waypoint by running the same curl command from the client pod:
+
+```shell
+kubectl exec -n client deploy/sleep -it -- curl -v http://httpbin.server:8000/headers
+kubectl logs -n istio-system ds/ztunnel | grep outbound | tail -1
+```
+
+You will see the traffic flowing through the waypoint, indicated by the outbound logs in the ztunnel and the headers returned by the curl command.
+
+
 ## Reproduce the issue
 
 <!-- Each issue has its own reproduction steps. Follow the notes for your chosen issue. -->
+
+### Issue [#55987](https://github.com/istio/istio/issues/55987): `istioctl analyze` should warn when no default revision or tag exists
+
+**Background.** A revision is selected by the `istio.io/rev=<rev>` label on a namespace/pod/gateway. Workloads with *no* rev label are injected by the **default** revision or tag, which is represented by a `MutatingWebhookConfiguration` labelled `istio.io/rev=default` (default revision) or `istio.io/tag=default` (default tag, created with `istioctl tag set default --revision <rev>`). If none exists, unlabelled gateways/namespaces are injected by nothing, and on upgrade two revisions can fight over them. `analyze` should warn about this.
+
+**Reproduce.** The Helm install above leaves `revision` empty, so it created a default webhook (`istio.io/rev=default`) and hides the bug. Swap it for a named revision only (no default). `istioctl install` can't easily produce this state, which is why we use Helm:
+
+```shell
+helm uninstall istiod -n istio-system
+helm upgrade istio-base manifests/charts/base -n istio-system --set defaultRevision=canary
+helm install istiod-canary manifests/charts/istio-control/istio-discovery -n istio-system \
+  --set revision=canary --set profile=ambient --set global.hub=$HUB --set global.tag=$TAG --wait
+kubectl get mutatingwebhookconfigurations -l istio.io/rev --show-labels   # only istio.io/rev=canary, no default
+# `analyze` defaults to --revision default and filters other revisions' webhooks out, so pass an empty revision
+istioctl analyze -A --revision ""      # BUG: no warning about missing default
+istioctl tag set default --revision canary -y   # fixes the situation; the warning should disappear
+istioctl analyze -A --revision ""      # no IST0179
+```
+
+To go back to the default install: `helm uninstall istiod-canary -n istio-system`, run `istioctl tag remove default -y` if you set the tag, then repeat the `helm upgrade istio-base ...` (without `--set defaultRevision`) and `helm install istiod ...` commands from the install section.
+
+**Where to look.**
+
+- `pkg/config/analysis/analyzers/webhook/webhook.go`: the existing webhook analyzer; `isIstioWebhook` and `isDefaultRevisionedWebhook` are useful helpers.
+- `pkg/config/analysis/msg/messages.yaml`: message definitions (last code is `IST0178`). Add a new one (`IST0179`), then regenerate `messages.gen.go` with `go generate ./pkg/config/analysis/msg/` (needs `goimports` on your PATH; or run `gofmt -w` on the generated file).
+- `pkg/config/analysis/analyzers/all.go`: register any new analyzer here (`TestAnalyzersInAll` enforces it).
+- `pkg/config/analysis/analyzers/analyzers_test.go` plus `testdata/*.yaml`: table-driven analyzer tests.
+
+**Design hints / gotchas.**
+
+- Existing `webhook.Analyzer` is also used by the operator (`operator/pkg/webhook/webhook.go`, with `SkipDefaultRevisionedWebhook`), so a separate analyzer avoids changing that behavior.
+- Only consider webhooks where `isIstioWebhook` is true, and only warn if at least one exists (don't warn on clusters with no Istio injection webhooks at all). Note that a default install, including ambient, creates an `istio.io/rev=default` webhook, so it must not trigger the warning.
+- A default *tag* webhook (from `istioctl tag set default`) carries `istio.io/tag=default` and `istio.io/rev=<target revision>`, so check both labels.
+- **`--revision` filtering (important).** `istioctl analyze` defaults to `--revision default` (`istioctl/pkg/analyze/analyze.go`, flag `revision`). Webhooks go through the revision filter (`config.LabelsInRevision`), which drops any object labelled `istio.io/rev=<other>`. With only a `canary` webhook installed, the analyzer sees *no* webhooks and cannot warn, so the unit tests pass but the cluster run is silent unless you pass `--revision ""` (empty means "all revisions"). This is the limitation hit in closed [PR #57179](https://github.com/istio/istio/pull/57179). Options to discuss with maintainers: make the `--revision` default empty, stop revision-filtering `MutatingWebhookConfiguration` in the analysis source (`pkg/config/analysis/legacy/util/kuberesource/resources.go`, `knownTypes`), add `--all-revisions`, or soften the message. Our patch only covers the analyzer, so it needs `--revision ""`.
+- Name the analyzer after what it checks (e.g. `DefaultRevisionAnalyzer`), following other analyzers such as `telemetry.DefaultSelectorAnalyzer`.
+- Test three cases with fixtures in `testdata/`: no default (expect `IST0179`), default revision, and default tag (expect no messages). Run them with `go test ./pkg/config/analysis/analyzers/ -run 'TestAnalyzers/webhook'`.
+- Stretch goal: a stale default tag whose `istio.io/rev` target has no webhook still suppresses the warning. Can you detect it?
+- Add a release note (`releasenotes/notes/55987.yaml`, `kind: feature`, `area: istioctl`).
+
+**How to test your fix.**
+
+1. *Unit tests (fast, no cluster).* Add fixtures under `pkg/config/analysis/analyzers/testdata/` and one entry per scenario in `analyzers_test.go`. Each entry lists input files, the analyzer, and the expected `{message type, resource}` pairs (an empty list means no warnings):
+
+   | Fixture | Webhook labels | Expected |
+   | --- | --- | --- |
+   | `webhook_no_default.yaml` | `istio.io/rev: canary` | `IST0179` on the webhook |
+   | `webhook_default.yaml` | `istio.io/rev: default` | no messages |
+   | `webhook_default_tag.yaml` | `istio.io/tag: default`, `istio.io/rev: canary` | no messages |
+
+   ```shell
+   go test ./pkg/config/analysis/analyzers/ -run 'TestAnalyzers/webhook' -v
+   # also run the registration and metadata checks
+   go test ./pkg/config/analysis/analyzers/ -run 'TestAnalyzersInAll|TestAnalyzersHaveUniqueNames|TestAnalyzersHaveDescription'
+   ```
+
+   Sanity check: temporarily break your analyzer (for example, never report) and confirm the no-default test fails.
+
+1. *Try it without a cluster.* `istioctl analyze --use-kube=false` reads only the local files, so you can test a fixture directly (after you create it, or apply `tests.patch`; rebuild istioctl first):
+
+   ```shell
+   istioctl analyze --use-kube=false pkg/config/analysis/analyzers/testdata/webhook_no_default.yaml   # expect IST0179
+   istioctl analyze --use-kube=false pkg/config/analysis/analyzers/testdata/webhook_default.yaml      # expect no IST0179
+   ```
+
+1. *On the cluster.* Rebuild istioctl (see the development loop) and follow the reproduction steps:
+
+   | State | Command | Expected |
+   | --- | --- | --- |
+   | Only revision `canary` installed (Helm, see the reproduction) | `istioctl analyze -A --revision ""` | `IST0179` warning |
+   | After `istioctl tag set default --revision canary --yes` | `istioctl analyze -A --revision ""` | no `IST0179` |
+   | Default Helm install (empty `revision`) | `istioctl analyze -A` | no `IST0179` |
+
+1. *Before you push.* Run the whole analysis tree and the linter:
+
+   ```shell
+   go test ./pkg/config/analysis/... ./istioctl/pkg/analyze/...
+   make lint-go
+   ```
 
 ## A reasonable development loop
 
@@ -78,7 +178,7 @@ go test -p 1 -race ./path/to/affected/package/...
 
 ## Automated Testing
 
-To ensure your fix is not broken by future changes, Istio will ask that tests be included. Unit tests live alongside the code they cover — look for a `_test.go` file in the same package as the file you modified. Add test cases that exercise the scenario from the issue and verify the correct behavior.
+To ensure your fix is not broken by future changes, Istio will ask that tests be included. Unit tests live alongside the code they cover, look for a `_test.go` file in the same package as the file you modified. Add test cases that exercise the scenario from the issue and verify the correct behavior.
 
 Run the tests for your package with:
 
@@ -88,7 +188,7 @@ go test -p 1 -race ./path/to/affected/package/...
 
 ## If you are stuck
 
-If you're feeling stuck, you can ask one of the maintainers or contributors involved in the session for help. We've also included patches to help get you unstuck. `fix.patch` contains a proposed fix, you can look at it for a hint, or apply it directly with `git apply fix.patch` if you'd rather move on. Additionally, `tests.patch` contains suggested test cases that you can apply with `git apply tests.patch`.
+If you're feeling stuck, you can ask one of the maintainers or contributors involved in the session for help. We've also included patches to help get you unstuck. `fix.patch` contains a proposed fix, you can look at it for a hint, or apply it directly with `git apply fix.patch` if you'd rather move on. Additionally, `tests.patch` contains suggested test cases that you can apply with `git apply tests.patch`. For issue #55987, `fix.patch` adds a `webhook.DefaultRevisionAnalyzer` (message `IST0179`, registration, release note) and `tests.patch` adds three cases to `analyzers_test.go` (no default, default revision, default tag) plus the `testdata/webhook_*.yaml` fixtures. Run just those with `go test ./pkg/config/analysis/analyzers/ -run 'TestAnalyzers/webhook'`.
 
 ## Release notes
 
@@ -178,9 +278,14 @@ Notice that it reads tags, hubs, targets and variants correctly from environment
 The next step would be installing using these images. If Istio is already installed in your local KinD, you could edit deployments and daemon sets to use these images.
 
 ```shell
-istioctl install --set profile=ambient --skip-confirmation --set tag=$TAG --set hub=$HUB --set values.global.imagePullPolicy=Always
+helm upgrade --install istiod manifests/charts/istio-control/istio-discovery -n istio-system \
+  --set profile=ambient --set global.hub=$HUB --set global.tag=$TAG --set global.imagePullPolicy=Always --wait
+helm upgrade --install istio-cni manifests/charts/istio-cni -n istio-system \
+  --set profile=ambient --set global.hub=$HUB --set global.tag=$TAG --set global.imagePullPolicy=Always --wait
+helm upgrade --install ztunnel manifests/charts/ztunnel -n istio-system \
+  --set profile=ambient --set hub=$HUB --set tag=$TAG --set imagePullPolicy=Always --wait
 ```
 
-**PRO TIP:** By default, we'll install using the `IfNotPresent` imagePullPolicy. When building your local development loop, this can cause you some frustrations. After the first time a pod starts, the `istio-testing` tag will be present on the node and Kubernetes will stop pulling updated images when you push them! It's strongly advised to change this to `Always`. Notice, in the install command shown above we've taken care of this setting.
+**PRO TIP:** By default, we'll install using the `IfNotPresent` imagePullPolicy. When building your local development loop, this can cause you some frustrations. After the first time a pod starts, the `istio-testing` tag will be present on the node and Kubernetes will stop pulling updated images when you push them! It's strongly advised to change this to `Always`. Notice, in the install commands shown above we've taken care of this setting.
 
 From here, you are ready to start a development loop by making changes, running `make docker.push`, and restarting the containers you're working on. Give it a try. `newDiscoveryCommand` in `pilot/cmd/pilot-discovery/app/cmd.go` is the entry point for our istiod image. Try adding a log message to its RunE and then check out the logs after your newly built istiod starts up. You can tighten this loop further by only building the images you're working on, but I'll leave this as an exercise for the reader to figure out.
