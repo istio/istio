@@ -28,18 +28,37 @@ set -e
 
 # Determines the operating system.
 OS="${TARGET_OS:-$(uname)}"
-if [ "${OS}" = "Darwin" ] ; then
-  OSEXT="osx"
-else
-  OSEXT="linux"
-fi
+# TARGET_OS is often exported in lowercase (e.g. "linux") by build tooling.
+case "$(printf '%s' "${OS}" | tr '[:upper:]' '[:lower:]')" in
+  linux) OS="Linux" ;;
+  darwin|osx|macos) OS="Darwin" ;;
+esac
+ARCHIVE_EXT="tar.gz"
+case "${OS}" in
+  Darwin)
+    OSEXT="osx"
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    # Git Bash, MSYS2 and Cygwin on Windows
+    OS="Windows"
+    OSEXT="win"
+    ARCHIVE_EXT="zip"
+    ;;
+  *)
+    OSEXT="linux"
+    ;;
+esac
 
 # Determine the latest Istio version by version number ignoring alpha, beta, and rc versions.
 if [ "${ISTIO_VERSION}" = "" ] ; then
-  ISTIO_VERSION="$(curl -sL https://github.com/istio/istio/releases | \
-                  grep -o 'releases/[0-9]*.[0-9]*.[0-9]*/' | sort -V | \
-                  tail -1 | awk -F'/' '{ print $2}')"
+  # GitHub redirects releases/latest to releases/tag/<version>.
+  ISTIO_VERSION="$(curl -sIL -o /dev/null -w '%{url_effective}' \
+                  https://github.com/istio/istio/releases/latest || true)"
   ISTIO_VERSION="${ISTIO_VERSION##*/}"
+  case "${ISTIO_VERSION}" in
+    [0-9]*.[0-9]*.[0-9]*) ;;
+    *) ISTIO_VERSION="" ;;
+  esac
 fi
 
 LOCAL_ARCH=$(uname -m)
@@ -69,8 +88,17 @@ if [ "${ISTIO_VERSION}" = "" ] ; then
 fi
 
 NAME="istio-$ISTIO_VERSION"
-URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
-ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
+URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.${ARCHIVE_EXT}"
+ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.${ARCHIVE_EXT}"
+
+extract() {
+  if [ "${ARCHIVE_EXT}" = "zip" ]; then
+    unzip -q "$1"
+  else
+    tar -xzf "$1"
+  fi
+  rm "$1"
+}
 
 with_arch() {
   printf "\nDownloading %s from %s ...\n" "$NAME" "$ARCH_URL"
@@ -79,9 +107,8 @@ with_arch() {
     exit 1
   fi
   curl -fsLO "$ARCH_URL"
-  filename="istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
-  tar -xzf "${filename}"
-  rm "${filename}"
+  filename="istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.${ARCHIVE_EXT}"
+  extract "${filename}"
 }
 
 without_arch() {
@@ -91,9 +118,8 @@ without_arch() {
     exit 1
   fi
   curl -fsLO "$URL"
-  filename="istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
-  tar -xzf "${filename}"
-  rm "${filename}"
+  filename="istio-${ISTIO_VERSION}-${OSEXT}.${ARCHIVE_EXT}"
+  extract "${filename}"
 }
 
 # Istio 1.6 and above support arch
@@ -116,6 +142,12 @@ elif [ "${OS}" = "Darwin" ] ; then
   else
     with_arch
   fi
+elif [ "${OS}" = "Windows" ] ; then
+  if ! command -v unzip >/dev/null 2>&1; then
+    printf "unzip is required to extract the Istio release on Windows\n"
+    exit 1
+  fi
+  with_arch
 else
   printf "\n\n"
   printf "Unable to download Istio %s at this moment!\n" "$ISTIO_VERSION"
