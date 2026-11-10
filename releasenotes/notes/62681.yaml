@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 62681
+releaseNotes:
+  - |
+    **Fixed** the `downloadIstio` script failing to find the latest Istio version, and added support for Git Bash, MSYS and Cygwin on Windows.
