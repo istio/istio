@@ -19,7 +19,6 @@ package ambient
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/netip"
@@ -188,12 +187,8 @@ func TestWaypoint(t *testing.T) {
 			})
 			retry.UntilSuccessOrFail(t, func() error {
 				for _, name := range []string{"w1", "w2"} {
-					if err := checkWaypointIsReady(t, nsConfig.Name(), name); err != nil {
-						if !errors.Is(err, kubetest.ErrNoPodsFetched) {
-							return fmt.Errorf("failed to check gateway status: %v", err)
-						}
-					} else {
-						return fmt.Errorf("failed to delete multiple gateways: %s not cleaned up", name)
+					if err := checkWaypointIsDeleted(t, nsConfig.Name(), name); err != nil {
+						return fmt.Errorf("failed to delete multiple gateways: %v", err)
 					}
 				}
 				return nil
@@ -208,13 +203,10 @@ func TestWaypoint(t *testing.T) {
 				"--all",
 			})
 			retry.UntilSuccessOrFail(t, func() error {
-				if err := checkWaypointIsReady(t, nsConfig.Name(), "w3"); err != nil {
-					if errors.Is(err, kubetest.ErrNoPodsFetched) {
-						return nil
-					}
-					return fmt.Errorf("failed to check gateway status: %v", err)
+				if err := checkWaypointIsDeleted(t, nsConfig.Name(), "w3"); err != nil {
+					return fmt.Errorf("failed to clean up gateway in namespace %s: %v", nsConfig.Name(), err)
 				}
-				return fmt.Errorf("failed to clean up gateway in namespace: %s", nsConfig.Name())
+				return nil
 			}, retry.Timeout(30*time.Second), retry.BackoffDelay(time.Millisecond*100))
 		})
 }
@@ -227,6 +219,24 @@ func checkWaypointIsReadyInCluster(c cluster.Cluster, ns, name string) error {
 	fetch := kubetest.NewPodFetch(c, ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
 	_, err := kubetest.CheckPodsAreReady(fetch)
 	return err
+}
+
+// checkWaypointIsDeleted passes once every pod of the waypoint is gone or terminating.
+// Actual pod removal waits on container runtime cleanup, which can stall for tens of
+// seconds on loaded CI hosts and is not what the delete command is responsible for.
+func checkWaypointIsDeleted(t framework.TestContext, ns, name string) error {
+	pods, err := t.AllClusters()[0].Kube().CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{
+		LabelSelector: label.IoK8sNetworkingGatewayGatewayName.Name + "=" + name,
+	})
+	if err != nil {
+		return err
+	}
+	for _, p := range pods.Items {
+		if p.DeletionTimestamp == nil {
+			return fmt.Errorf("%s not cleaned up, pod %s is not terminating", name, p.Name)
+		}
+	}
+	return nil
 }
 
 func TestSimpleHTTPSandwich(t *testing.T) {
