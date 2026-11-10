@@ -1,0 +1,21 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-revision-tag-default
+  labels:
+    istio.io/rev: canary
+    istio.io/tag: default
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: istiod-canary
+      namespace: istio-system
+  name: rev.namespace.sidecar-injector.istio.io
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/tag
+      operator: In
+      values:
+      - default

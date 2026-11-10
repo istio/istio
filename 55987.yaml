@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 55987
+releaseNotes:
+- |
+    **Added** an `istioctl analyze` warning (IST0179) when injection webhooks exist but no default revision or default tag is configured.

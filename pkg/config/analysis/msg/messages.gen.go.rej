@@ -1,0 +1,21 @@
+--- messages.gen.go
++++ messages.gen.go
+@@ -283,6 +283,10 @@ var (
+ 	// EnvoyFilterMayClearRouteCache defines a diag.MessageType for message "EnvoyFilterMayClearRouteCache".
+ 	// Description: Using EnvoyFilters with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run.
+ 	EnvoyFilterMayClearRouteCache = diag.NewMessageType(diag.Warning, "IST0178", "Using an EnvoyFilter with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run. This can cause a request to be routed differently than it was when the route-dependent filter was evaluated. See https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_filters.html#security-considerations.")
++
++	// NoDefaultRevisionOrTag defines a diag.MessageType for message "NoDefaultRevisionOrTag".
++	// Description: Istio sidecar injection webhooks exist, but none of them is the default revision or the default tag.
++	NoDefaultRevisionOrTag = diag.NewMessageType(diag.Warning, "IST0179", "No default revision or default tag found: no injection webhook handles workloads, gateways or namespaces without an istio.io/rev label. Set a default with 'istioctl tag set default --revision <revision>'.")
+ )
+ 
+ // All returns a list of all known message types.
+@@ -357,6 +361,7 @@ func All() []*diag.MessageType {
+ 		GatewayAPICRDVersionBelowMinimum,
+ 		ConflictingServiceEntryProtocol,
+ 		EnvoyFilterMayClearRouteCache,
++		NoDefaultRevisionOrTag,
+ 	}
+ }
+ 
