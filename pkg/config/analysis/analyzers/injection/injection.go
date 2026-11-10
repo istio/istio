@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
@@ -53,6 +54,10 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 			gvk.Namespace,
 			gvk.Pod,
 			gvk.ConfigMap,
+			gvk.MutatingWebhookConfiguration,
+			gvk.ValidatingWebhookConfiguration,
+			gvk.KubernetesGateway,
+			gvk.Gateway,
 		},
 	}
 }
@@ -61,6 +66,58 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 func (a *Analyzer) Analyze(c analysis.Context) {
 	enableNamespacesByDefault := false
 	injectedNamespaces := make(map[string]bool)
+	defaultRevisionOrTagExists := false
+
+	c.ForEach(gvk.MutatingWebhookConfiguration, func(r *resource.Instance) bool {
+		wh := r.Message.(*admissionv1.MutatingWebhookConfiguration)
+		if wh.GetLabels()["istio.io/tag"] == "default" || wh.GetName() == "istio-revision-tag-default" {
+			defaultRevisionOrTagExists = true
+			return false
+		}
+		return true
+	})
+	if !defaultRevisionOrTagExists {
+		c.ForEach(gvk.ValidatingWebhookConfiguration, func(r *resource.Instance) bool {
+			wh := r.Message.(*admissionv1.ValidatingWebhookConfiguration)
+			if wh.GetLabels()[label.IoIstioRev.Name] == "default" || wh.GetName() == "istiod-default-validator" {
+				defaultRevisionOrTagExists = true
+				return false
+			}
+			return true
+		})
+	}
+	if !defaultRevisionOrTagExists {
+		c.ForEach(gvk.KubernetesGateway, func(r *resource.Instance) bool {
+			if _, ok := r.Metadata.Labels[label.IoIstioRev.Name]; ok {
+				return true
+			}
+			c.Report(gvk.KubernetesGateway, msg.NewNoDefaultRevision(r))
+			return true
+		})
+		c.ForEach(gvk.Gateway, func(r *resource.Instance) bool {
+			if _, ok := r.Metadata.Labels[label.IoIstioRev.Name]; ok {
+				return true
+			}
+			c.Report(gvk.Gateway, msg.NewNoDefaultRevision(r))
+			return true
+		})
+		c.ForEach(gvk.Namespace, func(r *resource.Instance) bool {
+			if r.Metadata.FullName.String() == constants.IstioSystemNamespace {
+				return true
+			}
+			if _, ok := r.Metadata.Labels[label.IoIstioRev.Name]; ok {
+				return true
+			}
+			if r.Metadata.Labels[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient {
+				return true
+			}
+			if r.Metadata.Labels[util.InjectionLabelName] == "disabled" {
+				return true
+			}
+			c.Report(gvk.Namespace, msg.NewNoDefaultRevision(r))
+			return true
+		})
+	}
 
 	c.ForEach(gvk.Namespace, func(r *resource.Instance) bool {
 		if r.Metadata.FullName.String() == constants.IstioSystemNamespace {

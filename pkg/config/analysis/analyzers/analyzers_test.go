@@ -285,6 +285,15 @@ var testGrid = []testCase{
 		expected:   []message{},
 	},
 	{
+		name:       "istioInjectionNoDefaultRevision",
+		inputFiles: []string{"testdata/no-default-revision.yaml"},
+		analyzer:   &injection.Analyzer{},
+		expected: []message{
+			{msg.NoDefaultRevision, "Gateway default/ingress"},
+			{msg.NoDefaultRevision, "Namespace default"},
+		},
+	},
+	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
 		analyzer:   &injection.Analyzer{},
@@ -807,6 +816,26 @@ var testGrid = []testCase{
 			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-missing-overlap"},
 			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-overlap"},
 		},
+	},
+	{
+		name:       "webhook no default revision or tag",
+		inputFiles: []string{"testdata/webhook_no_default.yaml"},
+		analyzer:   &webhook.DefaultRevisionAnalyzer{},
+		expected: []message{
+			{msg.NoDefaultRevisionOrTag, "MutatingWebhookConfiguration istio-sidecar-injector-canary"},
+		},
+	},
+	{
+		name:       "webhook with default revision",
+		inputFiles: []string{"testdata/webhook_default.yaml"},
+		analyzer:   &webhook.DefaultRevisionAnalyzer{},
+		expected:   []message{},
+	},
+	{
+		name:       "webhook with default tag",
+		inputFiles: []string{"testdata/webhook_default_tag.yaml"},
+		analyzer:   &webhook.DefaultRevisionAnalyzer{},
+		expected:   []message{},
 	},
 	{
 		name: "Route Rule no effect on Ingress",

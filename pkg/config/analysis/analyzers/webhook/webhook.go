@@ -208,3 +208,40 @@ func selectorMatches(selector *metav1.LabelSelector, labels klabels.Set) bool {
 	}
 	return s.Matches(labels)
 }
+
+// DefaultRevisionAnalyzer warns when injection webhooks exist but none of them acts as the default revision or tag.
+type DefaultRevisionAnalyzer struct{}
+
+var _ analysis.Analyzer = &DefaultRevisionAnalyzer{}
+
+func (a *DefaultRevisionAnalyzer) Metadata() analysis.Metadata {
+	return analysis.Metadata{
+		Name:        "webhook.DefaultRevisionAnalyzer",
+		Description: "Checks that a default revision or tag exists when Istio injection webhooks are present",
+		Inputs: []config.GroupVersionKind{
+			gvk.MutatingWebhookConfiguration,
+		},
+	}
+}
+
+func (a *DefaultRevisionAnalyzer) Analyze(context analysis.Context) {
+	var first *resource.Instance
+	hasDefault := false
+	context.ForEach(gvk.MutatingWebhookConfiguration, func(r *resource.Instance) bool {
+		wh := r.Message.(*v1.MutatingWebhookConfiguration)
+		if !isIstioWebhook(wh) {
+			return true
+		}
+		if wh.Labels[label.IoIstioRev.Name] == "default" || wh.Labels[label.IoIstioTag.Name] == "default" {
+			hasDefault = true
+			return false
+		}
+		if first == nil || r.Metadata.FullName.String() < first.Metadata.FullName.String() {
+			first = r
+		}
+		return true
+	})
+	if !hasDefault && first != nil {
+		context.Report(gvk.MutatingWebhookConfiguration, msg.NewNoDefaultRevisionOrTag(first))
+	}
+}
