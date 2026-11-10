@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where istiod could crash when generating waypoint clusters for `DNS` or `DNS_ROUND_ROBIN` ServiceEntries without endpoints.
