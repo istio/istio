@@ -35,10 +35,14 @@ fi
 
 # Determine the latest Istio version by version number ignoring alpha, beta, and rc versions.
 if [ "${ISTIO_VERSION}" = "" ] ; then
-  ISTIO_VERSION="$(curl -sL https://github.com/istio/istio/releases | \
-                  grep -o 'releases/[0-9]*.[0-9]*.[0-9]*/' | sort -V | \
-                  tail -1 | awk -F'/' '{ print $2}')"
+  # GitHub redirects releases/latest to releases/tag/<version>.
+  ISTIO_VERSION="$(curl -sIL -o /dev/null -w '%{url_effective}' \
+                  https://github.com/istio/istio/releases/latest || true)"
   ISTIO_VERSION="${ISTIO_VERSION##*/}"
+  case "${ISTIO_VERSION}" in
+    [0-9]*.[0-9]*.[0-9]*) ;;
+    *) ISTIO_VERSION="" ;;
+  esac
 fi
 
 if [ "${ISTIO_VERSION}" = "" ] ; then
