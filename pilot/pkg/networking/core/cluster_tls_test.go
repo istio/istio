@@ -1844,6 +1844,107 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 }
 
+func TestGatewayBackendClientTLSContext(t *testing.T) {
+	const clientCredential = "kubernetes-gateway://gateway/client"
+	for _, tt := range []struct {
+		name              string
+		credentialName    string
+		caCredentialName  string
+		caCertificates    string
+		gatewayCredential string
+		wantCAResource    string
+	}{
+		{
+			name: "BackendTLSPolicy CA", credentialName: "configmap://backend/ca",
+			gatewayCredential: clientCredential, wantCAResource: "configmap://backend/ca",
+		},
+		{
+			name: "explicit CA takes precedence", credentialName: "configmap://backend/unused",
+			caCredentialName: "configmap://backend/ca", gatewayCredential: clientCredential,
+			wantCAResource: "configmap://backend/ca",
+		},
+		{
+			name: "file CA", caCertificates: "/etc/certs/backend-ca.pem",
+			gatewayCredential: clientCredential, wantCAResource: "file-root:/etc/certs/backend-ca.pem",
+		},
+		{
+			name: "system CA", gatewayCredential: clientCredential, wantCAResource: "file-root:system",
+		},
+		{
+			name: "invalid client reference", gatewayCredential: credentials.InvalidSecretTypeURI,
+			wantCAResource: "file-root:system",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			settings := &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CredentialName:       tt.credentialName,
+				CaCertCredentialName: tt.caCredentialName,
+				CaCertificates:       tt.caCertificates,
+				Sni:                  "backend.example.com",
+				SubjectAltNames:      []string{"backend.example.com"},
+				CaCrl:                "/etc/certs/backend.crl",
+			}
+			original := settings.DeepCopy()
+			cb := &ClusterBuilder{proxyType: model.Router}
+			want, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{mutable: newTestCluster()}, settings.DeepCopy())
+			assert.NoError(t, err)
+			// Client identity is the only change to the backend's TLS context.
+			want.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{{
+				Name: tt.gatewayCredential, SdsConfig: authn_model.SDSAdsConfig,
+			}}
+			// Explicit ConfigMap CA references omit the legacy CredentialName "-cacert" suffix.
+			want.CommonTlsContext.GetCombinedValidationContext().ValidationContextSdsSecretConfig.Name = tt.wantCAResource
+
+			got, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{
+				mutable: newTestCluster(), gatewayBackendClientCredential: tt.gatewayCredential,
+			}, settings)
+			assert.NoError(t, err)
+			assert.Equal(t, got, want)
+			assert.Equal(t, settings, original, "shared backend policy must not be mutated")
+		})
+	}
+}
+
+func TestGatewayBackendClientTLSDoesNotOverrideOtherPolicies(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		proxyType model.NodeType
+		settings  *networking.ClientTLSSettings
+	}{
+		{name: "no TLS policy", proxyType: model.Router},
+		{
+			name: "disabled TLS", proxyType: model.Router,
+			settings: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+		},
+		{
+			name: "explicit mutual TLS", proxyType: model.Router,
+			settings: &networking.ClientTLSSettings{
+				Mode: networking.ClientTLSSettings_MUTUAL, CredentialName: "destination-rule-client",
+			},
+		},
+		{
+			name: "Istio mutual TLS", proxyType: model.Router,
+			settings: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+		},
+		{
+			name: "sidecar SIMPLE TLS", proxyType: model.SidecarProxy,
+			settings: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := &ClusterBuilder{proxyType: tt.proxyType}
+			want, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{mutable: newTestCluster()}, tt.settings)
+			assert.NoError(t, err)
+			got, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{
+				mutable: newTestCluster(), gatewayBackendClientCredential: "kubernetes-gateway://gateway/client",
+			}, tt.settings)
+			assert.NoError(t, err)
+			assert.Equal(t, got, want)
+		})
+	}
+}
+
 func TestSimpleCaCertCredentialName(t *testing.T) {
 	cb := &ClusterBuilder{proxyType: model.SidecarProxy}
 	settings := &networking.ClientTLSSettings{
