@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
@@ -169,6 +170,9 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	} else {
 		// DynamicDNS uses a custom cluster type and has the same cluster for HTTP and TLS protocols
 		localCluster = cb.buildDFPCluster(clusterName, svc, &port)
+	}
+	if localCluster == nil {
+		return nil
 	}
 
 	// Ensure VIP cluster has services metadata for stats filter usage
@@ -354,7 +358,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 			}
 		}
 	}
-	return clusters
+	return slices.FilterInPlace(clusters, func(c *cluster.Cluster) bool { return c != nil })
 }
 
 // buildInnerConnectOriginateCluster creates a cluster that innitiate inner HBONE tunnel of double-HBONE.
