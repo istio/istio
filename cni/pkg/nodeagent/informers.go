@@ -219,7 +219,7 @@ func (s *InformerHandlers) isNamespaceExcluded(namespace string) bool {
 type enrollmentCheck struct{}
 
 func (s *InformerHandlers) enqueueEnrollmentChecks(interval time.Duration) {
-	log.Infof("checking ambient enrollment every %v", interval)
+	log.Infof("checking ambient enrollment every %s", interval)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
