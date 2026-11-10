@@ -21,9 +21,11 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	admitv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -31,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/test"
@@ -195,6 +198,32 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(2))
 	// We have a store for Istio configs and one for service discovery K8S resources.
 	g.Expect(sa.stores).To(HaveLen(2))
+}
+
+func TestAddRunningKubeSourceWithRevisionReadsAllWebhooks(t *testing.T) {
+	g := NewWithT(t)
+
+	mk := kube.NewFakeClient(&admitv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-revision-tag-default",
+			Labels: map[string]string{label.IoIstioRev.Name: "canary", label.IoIstioTag.Name: "default"},
+		},
+	})
+
+	var found bool
+	a := &testAnalyzer{
+		fn: func(ctx analysis.Context) {
+			found = ctx.Exists(gvk.MutatingWebhookConfiguration, resource.NewFullName("", "istio-revision-tag-default"))
+		},
+		inputs: []config.GroupVersionKind{gvk.MutatingWebhookConfiguration},
+	}
+
+	sa := NewSourceAnalyzer(analysis.Combine("a", a), "", "", nil)
+	sa.AddRunningKubeSourceWithRevision(mk, "default", false)
+
+	_, err := sa.Analyze(test.NewStop(t))
+	g.Expect(err).To(BeNil())
+	g.Expect(found).To(BeTrue())
 }
 
 func TestAddReaderKubeSource(t *testing.T) {
