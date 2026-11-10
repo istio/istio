@@ -602,12 +602,12 @@ func TestApplyConfigOverrides(t *testing.T) {
 `,
 		},
 		{
-			name:      "value with an equal sign",
-			overrides: []string{"defaultConfig.proxyMetadata.FOO=a=b"},
+			name:      "value with equal signs and commas",
+			overrides: []string{"defaultConfig.proxyMetadata.OTEL_RESOURCE_ATTRIBUTES=k8s.namespace.name=bar,k8s.pod.name=foo"},
 			want: `defaultConfig:
   concurrency: 2
   proxyMetadata:
-    FOO: a=b
+    OTEL_RESOURCE_ATTRIBUTES: k8s.namespace.name=bar,k8s.pod.name=foo
     POD_NAMESPACE: bar
 `,
 		},
