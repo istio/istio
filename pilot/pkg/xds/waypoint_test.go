@@ -15,6 +15,7 @@
 package xds_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -551,6 +552,53 @@ func TestIngressUseWaypoint(t *testing.T) {
 		// 3.0.0.1: Waypoint Pod IP
 		"connect_originate;1.2.3.4:80;3.0.0.1:15008",
 	})
+}
+
+func TestWaypointDNSClustersWithoutEndpoints(t *testing.T) {
+	for _, resolution := range []struct {
+		name        string
+		clusterType clusterv3.Cluster_DiscoveryType
+	}{
+		{"DNS", clusterv3.Cluster_STRICT_DNS},
+		{"DNS_ROUND_ROBIN", clusterv3.Cluster_LOGICAL_DNS},
+	} {
+		for _, withEndpoints := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/endpoints=%t", resolution.name, withEndpoints), func(t *testing.T) {
+				serviceEntry := strings.Replace(appServiceEntry, "resolution: STATIC", "resolution: "+resolution.name, 1)
+				serviceEntry = strings.Replace(serviceEntry, "    protocol: HTTP", `    protocol: HTTP
+  - number: 443
+    name: tls
+    protocol: TLS
+  - number: 8080
+    name: auto
+    protocol: ""`, 1)
+				configs := []string{waypointGateway, waypointSvc, waypointInstance, serviceEntry}
+				if withEndpoints {
+					configs = append(configs, appWorkloadEntry)
+				}
+				d, proxy := setupWaypointTest(t, configs...)
+				clusters := xdstest.ExtractClusters(d.Clusters(proxy))
+				assert.Equal(t, clusters["main_internal"] != nil, true)
+				for _, port := range []struct {
+					number int
+					subset string
+				}{
+					{80, "http"},
+					{443, "tcp"},
+					{8080, "http"},
+					{8080, "tcp"},
+				} {
+					name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, port.subset, "app.com", port.number)
+					c := clusters[name]
+					assert.Equal(t, c != nil, withEndpoints, name)
+					if withEndpoints {
+						assert.Equal(t, c.GetType(), resolution.clusterType, name)
+						assert.Equal(t, len(c.GetLoadAssignment().GetEndpoints()) > 0, true, name)
+					}
+				}
+			})
+		}
+	}
 }
 
 func TestWaypointClusterWithDynamicDNS(t *testing.T) {
