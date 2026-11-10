@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Added** `--overrideConfig` and `--overrideEnv` flags to `istioctl experimental workload entry configure`,
+    which allow overriding entries of the generated `mesh.yaml` and `cluster.env`,
+    e.g. `--overrideConfig defaultConfig.binaryPath=/usr/bin/envoy --overrideEnv CA_ADDR=istiod.istio-system.svc.test.com:443`.

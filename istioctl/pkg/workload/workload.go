@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -75,12 +76,17 @@ var (
 	network        string
 	locality       string
 	weight         uint32
+	overrideConfig []string
+	overrideEnv    []string
 )
 
 const (
 	istioEastWestGatewayServiceName = "istio-eastwestgateway"
 	filePerms                       = os.FileMode(0o744)
 )
+
+// envVarNamePattern matches valid environment variable names, which is what the keys of cluster.env must be.
+var envVarNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 func Cmd(ctx cli.Context) *cobra.Command {
 	namespace = ctx.Namespace()
@@ -206,12 +212,20 @@ func configureCommand(ctx cli.Context) *cobra.Command {
 		Short: "Generates all the required configuration files for a workload instance running on a VM or non-Kubernetes environment",
 		Long: `Generates all the required configuration files for workload instance on a VM or non-Kubernetes environment from a WorkloadGroup artifact.
 This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.
-Configure requires either the WorkloadGroup artifact path or its location on the API server.`,
+Configure requires either the WorkloadGroup artifact path or its location on the API server.
+
+The generated mesh.yaml and cluster.env can be customized with --overrideConfig and --overrideEnv respectively,
+which is useful when the generated configuration has to be adjusted for the environment the workload runs in.`,
 		Example: `  # configure example using a local WorkloadGroup artifact
   istioctl x workload entry configure -f workloadgroup.yaml -o config
 
   # configure example using the API server
-  istioctl x workload entry configure --name foo --namespace bar -o config`,
+  istioctl x workload entry configure --name foo --namespace bar -o config
+
+  # override entries of the generated mesh.yaml and cluster.env
+  istioctl x workload entry configure -f workloadgroup.yaml -o config \
+    --overrideConfig defaultConfig.binaryPath=/usr/bin/envoy \
+    --overrideEnv CA_ADDR=istiod.istio-system.svc.test.com:443`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if filename == "" && (name == "" || namespace == "") {
 				return fmt.Errorf("expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup")
@@ -262,6 +276,12 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 			if len(internalIP) > 0 && len(externalIP) > 0 {
 				return fmt.Errorf("the flags --internalIP and --externalIP are mutually exclusive")
 			}
+			if _, err := parseConfigOverrides(overrideConfig); err != nil {
+				return err
+			}
+			if _, err := parseEnvOverrides(overrideEnv); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
@@ -279,6 +299,12 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().BoolVar(&dnsCapture, "capture-dns", true, "Enables the capture of outgoing DNS packets on port 53, redirecting to istio-agent")
 	configureCmd.PersistentFlags().StringVar(&internalIP, "internalIP", "", "Internal IP address of the workload")
 	configureCmd.PersistentFlags().StringVar(&externalIP, "externalIP", "", "External IP address of the workload")
+	configureCmd.PersistentFlags().StringArrayVar(&overrideConfig, "overrideConfig", nil, "Override an entry of the generated mesh.yaml, "+
+		"in the format <path>=<value>, where the path is relative to the root of mesh.yaml; "+
+		"e.g. --overrideConfig defaultConfig.binaryPath=/usr/bin/envoy. Repeat the flag to override multiple entries.")
+	configureCmd.PersistentFlags().StringArrayVar(&overrideEnv, "overrideEnv", nil, "Override an entry of the generated cluster.env, "+
+		"in the format <name>=<value>; e.g. --overrideEnv CA_ADDR=istiod.istio-system.svc.test.com:443. "+
+		"Repeat the flag to override multiple entries.")
 	opts.AttachControlPlaneFlags(configureCmd)
 	return configureCmd
 }
@@ -380,16 +406,87 @@ func createClusterEnv(wg *clientnetworking.WorkloadGroup, config *meshconfig.Pro
 		overrides["REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION"] = "true"
 	}
 
+	// user supplied overrides take precedence over everything that was generated
+	userOverrides, err := parseEnvOverrides(overrideEnv)
+	if err != nil {
+		return err
+	}
+
 	// clusterEnv will use proxyMetadata from the proxyConfig + overrides specific to the WorkloadGroup and cmd args
 	// this is similar to the way the injector sets all values proxyConfig.proxyMetadata to the Pod's env
 	clusterEnv := map[string]string{}
-	for _, metaMap := range []map[string]string{config.ProxyMetadata, overrides} {
+	for _, metaMap := range []map[string]string{config.ProxyMetadata, overrides, userOverrides} {
 		for k, v := range metaMap {
 			clusterEnv[k] = v
 		}
 	}
 
 	return os.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
+}
+
+// parseEnvOverrides parses the --overrideEnv flag values, which are expected to be in the <name>=<value> format.
+func parseEnvOverrides(overrides []string) (map[string]string, error) {
+	out := make(map[string]string, len(overrides))
+	for _, override := range overrides {
+		name, value, found := strings.Cut(override, "=")
+		if !found {
+			return nil, fmt.Errorf("invalid --overrideEnv %q: expected the <name>=<value> format", override)
+		}
+		name = strings.TrimSpace(name)
+		if !envVarNamePattern.MatchString(name) {
+			return nil, fmt.Errorf("invalid --overrideEnv %q: %q is not a valid environment variable name", override, name)
+		}
+		out[name] = value
+	}
+	return out, nil
+}
+
+// parseConfigOverrides parses the --overrideConfig flag values, which are expected to be in the <path>=<value> format,
+// where the path is relative to the root of the generated mesh.yaml, e.g. defaultConfig.binaryPath=/usr/bin/envoy.
+func parseConfigOverrides(overrides []string) ([]configOverride, error) {
+	out := make([]configOverride, 0, len(overrides))
+	for _, override := range overrides {
+		path, value, found := strings.Cut(override, "=")
+		if !found {
+			return nil, fmt.Errorf("invalid --overrideConfig %q: expected the <path>=<value> format", override)
+		}
+		path = strings.TrimSpace(path)
+		if path == "" {
+			return nil, fmt.Errorf("invalid --overrideConfig %q: the path must not be empty", override)
+		}
+		out = append(out, configOverride{path: path, value: strings.TrimSpace(value)})
+	}
+	return out, nil
+}
+
+type configOverride struct {
+	path  string
+	value string
+}
+
+// applyConfigOverrides applies the --overrideConfig values on top of the generated mesh config.
+func applyConfigOverrides(meshConfig values.Map, overrides []configOverride) (err error) {
+	// setting a path that traverses a scalar value, e.g. defaultConfig.concurrency.foo, panics,
+	// so turn that into an error instead of crashing the command
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("failed to apply --overrideConfig: %v", r)
+		}
+	}()
+	for _, override := range overrides {
+		// proxyMetadata is a map of strings, so its values must be kept as they are instead of
+		// being converted to the type they look like, e.g. 15020 would otherwise become an integer.
+		if strings.Contains(override.path, "proxyMetadata.") {
+			if err := meshConfig.SetPath(override.path, override.value); err != nil {
+				return fmt.Errorf("failed to apply --overrideConfig %s=%s: %v", override.path, override.value, err)
+			}
+			continue
+		}
+		if err := meshConfig.SetPaths(fmt.Sprintf("%s=%s", override.path, override.value)); err != nil {
+			return fmt.Errorf("failed to apply --overrideConfig %s=%s: %v", override.path, override.value, err)
+		}
+	}
+	return nil
 }
 
 // Get and store the needed certificate and token. The certificate comes from the CA root cert, and
@@ -525,12 +622,34 @@ func createMeshConfig(kubeClient kube.CLIClient, wg *clientnetworking.WorkloadGr
 		return nil, err
 	}
 
-	proxyYAML, err := yaml.Marshal(map[string]any{"defaultConfig": proxyConfig})
+	generatedConfig := values.Map{"defaultConfig": proxyConfig}
+	defaultConfig := meshConfig.DefaultConfig
+
+	overrides, err := parseConfigOverrides(overrideConfig)
+	if err != nil {
+		return nil, err
+	}
+	if len(overrides) > 0 {
+		if err := applyConfigOverrides(generatedConfig, overrides); err != nil {
+			return nil, err
+		}
+		// validate the overridden config and make sure that the returned ProxyConfig, which is used to
+		// generate cluster.env, is consistent with what is written to mesh.yaml
+		overridden := &meshconfig.MeshConfig{}
+		if err := protomarshal.ApplyJSONStrict(generatedConfig.JSON(), overridden); err != nil {
+			return nil, fmt.Errorf("failed to apply --overrideConfig: %v", err)
+		}
+		if overridden.DefaultConfig != nil {
+			defaultConfig = overridden.DefaultConfig
+		}
+	}
+
+	proxyYAML, err := yaml.Marshal(generatedConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return meshConfig.DefaultConfig, os.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
+	return defaultConfig, os.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
 }
 
 func marshalWorkloadEntryPodPorts(p map[string]uint32) string {
