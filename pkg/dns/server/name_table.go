@@ -37,6 +37,22 @@ type Config struct {
 	MulticlusterHeadlessEnabled bool
 }
 
+// nameTableServices returns the services to include in the name table, grouped per egress listener.
+// Sidecars iterate their egress listeners, mirroring LDS, so that every model.Service for a host
+// (for example a ServiceEntry with multiple addresses) is included.
+// Gateways have no egress listeners in their SidecarScope (the default gateway scope is egress: */*),
+// so iterating them would produce an empty table; use all services visible to the gateway instead.
+func nameTableServices(node *model.Proxy) [][]*model.Service {
+	if node.Type == model.Router && len(node.SidecarScope.EgressListeners) == 0 {
+		return [][]*model.Service{node.SidecarScope.Services()}
+	}
+	out := make([][]*model.Service, 0, len(node.SidecarScope.EgressListeners))
+	for _, el := range node.SidecarScope.EgressListeners {
+		out = append(out, el.Services())
+	}
+	return out
+}
+
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
 // be used by the agent to resolve DNS. This logic is always active. However, local DNS resolution
 // will only be effective if DNS capture is enabled in the proxy
@@ -44,8 +60,8 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	out := &dnsProto.NameTable{
 		Table: make(map[string]*dnsProto.NameTable_NameInfo),
 	}
-	for _, el := range cfg.Node.SidecarScope.EgressListeners {
-		for _, svc := range el.Services() {
+	for _, services := range nameTableServices(cfg.Node) {
+		for _, svc := range services {
 			var addressList []string
 			hostName := svc.Hostname
 			headless := false
