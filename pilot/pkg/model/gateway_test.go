@@ -673,7 +673,7 @@ func TestContainsIstioMutualTLSGatewayServer(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			gw := makeConfig("gateway", "istio-system", "*.example.com", "tls", tt.protocol, 443, "egressgateway", "", tt.mode, nil, "sa")
-			mgw := mergeGateways([]gatewayWithInstances{{gw, true, nil}}, &Proxy{}, makePushContext())
+			mgw := mergeGateways([]gatewayWithInstances{{gateway: gw, legacyGatewaySelector: true}}, &Proxy{}, makePushContext())
 			assert.Equal(t, mgw.ContainsIstioMutualTLSGatewayServer, tt.want)
 		})
 	}
