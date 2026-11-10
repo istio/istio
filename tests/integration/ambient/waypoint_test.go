@@ -965,9 +965,6 @@ spec:
 			}
 		})
 		t.NewSubTest("ingress-service").Run(func(t framework.TestContext) {
-			if t.Settings().AmbientMultiNetwork {
-				t.Skip("https://github.com/istio/istio/issues/54245")
-			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": apps.ServiceAddressedWaypoint.ServiceName(),
 			}, `apiVersion: networking.istio.io/v1alpha3
@@ -1022,9 +1019,6 @@ spec:
 			})
 		})
 		t.NewSubTest("ns level ingress-use-waypoint").Run(func(t framework.TestContext) {
-			if t.Settings().AmbientMultiNetwork {
-				t.Skip("https://github.com/istio/istio/issues/54245")
-			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": apps.ServiceAddressedWaypoint.ServiceName(),
 			}, `apiVersion: networking.istio.io/v1alpha3
