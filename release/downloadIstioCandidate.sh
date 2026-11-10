@@ -28,6 +28,11 @@ set -e
 
 # Determines the operating system.
 OS="${TARGET_OS:-$(uname)}"
+# TARGET_OS is often exported in lowercase (e.g. "linux") by build tooling.
+case "$(printf '%s' "${OS}" | tr '[:upper:]' '[:lower:]')" in
+  linux) OS="Linux" ;;
+  darwin|osx|macos) OS="Darwin" ;;
+esac
 ARCHIVE_EXT="tar.gz"
 case "${OS}" in
   Darwin)
