@@ -15,28 +15,115 @@
 package gateway
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+type backendTLSUpdater struct {
+	model.XDSUpdater
+	updates chan *model.PushRequest
+}
+
+func (u backendTLSUpdater) ConfigUpdate(req *model.PushRequest) {
+	u.updates <- req
+}
+
+func TestBackendClientCertificateGrantUpdates(t *testing.T) {
+	cert, err := os.ReadFile(filepath.Join(env.IstioSrc, "tests/testdata/certs/default/cert-chain.pem"))
+	assert.NoError(t, err)
+	key, err := os.ReadFile(filepath.Join(env.IstioSrc, "tests/testdata/certs/default/key.pem"))
+	assert.NoError(t, err)
+	gateway := &k8s.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "edge", Namespace: "ns"},
+		Spec:       *gatewaySpec.DeepCopy(),
+	}
+	gateway.Spec.TLS = &k8s.GatewayTLSConfig{Backend: &k8s.GatewayBackendTLS{
+		ClientCertificateRef: &k8s.SecretObjectReference{Name: "client", Namespace: ptr.Of(k8s.Namespace("certs"))},
+	}}
+	grant := &gatewayv1beta1.ReferenceGrant{
+		ObjectMeta: metav1.ObjectMeta{Name: "client", Namespace: "certs"},
+		Spec: gatewayv1beta1.ReferenceGrantSpec{
+			From: []gatewayv1beta1.ReferenceGrantFrom{{Group: k8s.GroupName, Kind: "Gateway", Namespace: "ns"}},
+			To:   []gatewayv1beta1.ReferenceGrantTo{{Group: "", Kind: "Secret", Name: ptr.Of(k8s.ObjectName("client"))}},
+		},
+	}
+	kc := kube.NewFakeClient(gateway, grant,
+		&k8s.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: "gwclass"}, Spec: *gatewayClassSpec},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "client", Namespace: "certs"},
+			Type:       corev1.SecretTypeTLS,
+			Data:       map[string][]byte{corev1.TLSCertKey: cert, corev1.TLSPrivateKeyKey: key},
+		})
+	setupClientCRDs(t, kc)
+	stop := test.NewStop(t)
+	updater := backendTLSUpdater{updates: make(chan *model.PushRequest, 20)}
+	ctrl := NewController(kc, AlwaysReady, controller.Options{KrtDebugger: krt.GlobalDebugHandler}, updater)
+	kc.RunAndWait(stop)
+	go ctrl.Run(stop)
+	ctrl.Reconcile(core.NewConfigGenTest(t, core.TestOptions{}).PushContext())
+	kube.WaitForCacheSync("test", stop, ctrl.HasSynced)
+	parent := types.NamespacedName{Namespace: "ns", Name: "edge"}
+	credential := "kubernetes-gateway://certs/client"
+	assert.EventuallyEqual(t, func() string { return ctrl.GetGatewayBackendClientCredentialName(parent) }, credential)
+	// Ignore initial synchronization; only grant changes below should cause these updates.
+	for len(updater.updates) > 0 {
+		<-updater.updates
+	}
+	parentKey := model.ConfigKey{Kind: kind.Gateway, Namespace: parent.Namespace, Name: parent.Name}
+	for _, revoked := range []bool{true, false} {
+		name, want := "restored", credential
+		if revoked {
+			name, want = "revoked", credentials.InvalidSecretTypeURI
+		}
+		t.Run(name, func(t *testing.T) {
+			grants := kc.GatewayAPI().GatewayV1beta1().ReferenceGrants("certs")
+			if revoked {
+				assert.NoError(t, grants.Delete(context.Background(), grant.Name, metav1.DeleteOptions{}))
+			} else {
+				_, err := grants.Create(context.Background(), grant.DeepCopy(), metav1.CreateOptions{})
+				assert.NoError(t, err)
+			}
+			assert.EventuallyEqual(t, func() string { return ctrl.GetGatewayBackendClientCredentialName(parent) }, want)
+			assert.EventuallyEqual(t, func() bool {
+				select {
+				case req := <-updater.updates:
+					return req.ConfigsUpdated.Contains(parentKey)
+				default:
+					return false
+				}
+			}, true)
+		})
+	}
+}
 
 var (
 	gatewayClassSpec = &k8s.GatewayClassSpec{
