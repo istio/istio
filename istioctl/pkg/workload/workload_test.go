@@ -233,11 +233,19 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 			internalIP: "10.10.10.10",
 			ingressIP:  "10.10.10.11",
 			extraArgs: []string{
+				// adds a field that is not in the generated mesh.yaml
 				"--overrideConfig", "defaultConfig.binaryPath=/usr/bin/envoy",
+				// adds a field that is not in the generated mesh.yaml and is not a string
 				"--overrideConfig", "defaultConfig.concurrency=4",
-				"--overrideConfig", "defaultConfig.proxyMetadata.CLUSTER_MESH_CONFIG_VALUE=bar",
-				"--overrideConfig", "defaultConfig.proxyMetadata.ISTIO_META_DNS_AUTO_ALLOCATE=true",
+				// overrides a proxy metadata entry inherited from the mesh config,
+				// which has to be reflected in cluster.env as well
+				"--overrideConfig", "defaultConfig.proxyMetadata.PROXY_CONFIG_XDS_AGENT=true",
+				// adds a proxy metadata entry that is in neither the generated mesh.yaml nor cluster.env,
+				// and whose value has to remain a string
+				"--overrideConfig", "defaultConfig.proxyMetadata.DNS_FORWARD_PARALLEL=true",
+				// overrides an entry that the command generates from the revision
 				"--overrideEnv", "CA_ADDR=istiod.istio-system.svc.test.com:443",
+				// overrides a generated entry with a value containing commas
 				"--overrideEnv", "ISTIO_LOCAL_EXCLUDE_PORTS=22,15090,15021,15020,9000",
 			},
 		},
@@ -582,14 +590,15 @@ func TestApplyConfigOverrides(t *testing.T) {
 `,
 		},
 		{
-			name:      "set a nested field that does not exist yet",
-			overrides: []string{"defaultConfig.sds.enabled=true"},
+			name:      "set a field whose parents are not in the generated config",
+			overrides: []string{"defaultConfig.proxyHeaders.server.disabled=true"},
 			want: `defaultConfig:
   concurrency: 2
+  proxyHeaders:
+    server:
+      disabled: true
   proxyMetadata:
     POD_NAMESPACE: bar
-  sds:
-    enabled: true
 `,
 		},
 		{

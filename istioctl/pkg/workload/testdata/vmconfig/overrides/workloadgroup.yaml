@@ -8,7 +8,7 @@ spec:
       proxy.istio.io/config: |-
         proxyMetadata:
           # this should override the value from the global meshconfig
-          PROXY_CONFIG_ANNOT_VALUE: bar
+          ISTIO_META_CERT_SIGNER: annotation-signer
     labels: {}
   template:
     ports: {}
