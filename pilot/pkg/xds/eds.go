@@ -144,6 +144,11 @@ func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
+	// Backend client identity changes replace upstream TLS settings on existing clusters.
+	// Envoy needs an EDS update to finish warming their replacements.
+	if gatewayBackendClientCredentialChanged(req, proxy) {
+		return true
+	}
 	// CDS needs to be pushed for waypoint proxies on kind.Address changes, so we need to push EDS as well.
 	if proxy.Type == model.Waypoint && waypointNeedsPush(req, proxy) {
 		return true
@@ -161,7 +166,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, 
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 
-	resources, logDetails := eds.buildEndpoints(proxy, req, w, canSendPartialFullPushes(req))
+	resources, logDetails := eds.buildEndpoints(proxy, req, w, canSendPartialFullPushes(req, proxy))
 	return resources, logDetails, nil
 }
 
@@ -172,13 +177,13 @@ func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushReque
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 
-	partialPush := canSendPartialFullPushes(req)
+	partialPush := canSendPartialFullPushes(req, proxy)
 	resources, logs := eds.buildEndpoints(proxy, req, w, partialPush)
 	return resources, nil, logs, partialPush, nil
 }
 
-func canSendPartialFullPushes(req *model.PushRequest) bool {
-	if req.Forced {
+func canSendPartialFullPushes(req *model.PushRequest, proxy *model.Proxy) bool {
+	if req.Forced || gatewayBackendClientCredentialChanged(req, proxy) {
 		return false
 	}
 
@@ -200,6 +205,20 @@ func canSendPartialFullPushes(req *model.PushRequest) bool {
 	}
 
 	return true
+}
+
+func gatewayBackendClientCredentialChanged(req *model.PushRequest, proxy *model.Proxy) bool {
+	if proxy.Type != model.Router || !model.HasConfigsOfKind(req.ConfigsUpdated, kind.Gateway) {
+		return false
+	}
+	var previous, current string
+	if proxy.PrevMergedGateway != nil {
+		previous = proxy.PrevMergedGateway.BackendClientCredential
+	}
+	if proxy.MergedGateway != nil {
+		current = proxy.MergedGateway.BackendClientCredential
+	}
+	return previous != current
 }
 
 func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,

@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	envoycore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	mesh "istio.io/api/mesh/v1alpha1"
@@ -27,11 +28,14 @@ import (
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/core"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
@@ -41,6 +45,87 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
+
+func TestGatewayBackendClientCredentialEDS(t *testing.T) {
+	services := []*model.Service{}
+	clusters := sets.New[string]()
+	for _, name := range []string{"eds-1.default.svc.cluster.local", "eds-2.default.svc.cluster.local"} {
+		services = append(services, &model.Service{
+			Hostname: host.Name(name),
+			Ports: model.PortList{{
+				Name: "http", Port: 80, Protocol: protocol.HTTP,
+			}},
+			Attributes: model.ServiceAttributes{Namespace: "default"},
+		})
+		clusters.Insert("outbound|80||" + name)
+	}
+	cg := core.NewConfigGenTest(t, core.TestOptions{
+		Services: services,
+		Configs: []config.Config{{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.Gateway, Name: "gateway", Namespace: "default",
+				Annotations: map[string]string{constants.InternalGatewayParent: "default/gateway"},
+			},
+			Spec: &networking.Gateway{Servers: []*networking.Server{{
+				Port: &networking.Port{Number: 80, Name: "http", Protocol: "HTTP"}, Hosts: []string{"*"},
+			}}},
+		}},
+	})
+	parent := types.NamespacedName{Namespace: "default", Name: "gateway"}
+	refs := map[types.NamespacedName]string{}
+	push := cg.PushContext()
+	push.GatewayAPIController = model.FakeController{BackendClientCredentials: refs}
+	gen := &EdsGenerator{Cache: model.DisabledCache{}, EndpointIndex: cg.Env().EndpointIndex}
+	watch := &model.WatchedResource{TypeUrl: v3.EndpointType, ResourceNames: clusters}
+	const (
+		a = "kubernetes-gateway://default/client-a"
+		b = "kubernetes-gateway://default/client-b"
+	)
+	for _, tt := range []struct {
+		name, previous, current string
+	}{
+		{"unconfigured", "", ""},
+		{"unchanged", a, a},
+		{"added", "", a},
+		{"replaced", a, b},
+		{"removed", a, ""},
+		{"invalidated", a, credentials.InvalidSecretTypeURI},
+		{"recovered", credentials.InvalidSecretTypeURI, a},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			refs[parent] = tt.previous
+			proxy := cg.SetupProxy(&model.Proxy{Type: model.Router})
+			refs[parent] = tt.current
+			proxy.SetGatewaysForProxy(push)
+			for _, mixed := range []bool{false, true} {
+				t.Run(fmt.Sprintf("mixed=%v", mixed), func(t *testing.T) {
+					updates := sets.New(model.ConfigKey{Kind: kind.Gateway, Name: "gateway", Namespace: "default"})
+					want := sets.New[string]()
+					if mixed {
+						updates.Insert(model.ConfigKey{Kind: kind.Endpoints, Name: "eds-1.default.svc.cluster.local", Namespace: "default"})
+						want.Insert("outbound|80||eds-1.default.svc.cluster.local")
+					}
+					if tt.previous != tt.current {
+						want = clusters
+					}
+					req := &model.PushRequest{Push: push, ConfigsUpdated: updates}
+					resources, _, err := gen.Generate(proxy, watch, req)
+					assert.NoError(t, err)
+					delta, removed, _, _, err := gen.GenerateDeltas(proxy, req, watch)
+					assert.NoError(t, err)
+					assert.Equal(t, len(removed), 0)
+					for _, result := range []model.Resources{resources, delta} {
+						got := sets.New[string]()
+						for _, resource := range result {
+							got.Insert(resource.Name)
+						}
+						assert.Equal(t, got, want)
+					}
+				})
+			}
+		})
+	}
+}
 
 func TestWorkloadSubscriberNeedsAddressPush(t *testing.T) {
 	test.SetForTest(t, &features.ScopedAddressPushes, true)
@@ -1048,7 +1133,7 @@ func TestCanSendPartialFullPushesIgnoresSkippedConfigs(t *testing.T) {
 					endpoint,
 					model.ConfigKey{Kind: skippedKind, Name: "unrelated"},
 				),
-			}), true)
+			}, &model.Proxy{Type: model.SidecarProxy}), true)
 		})
 	}
 }
@@ -1083,7 +1168,7 @@ func TestCanSendPartialFullPushesConservativeFallbacks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, canSendPartialFullPushes(tt.req), false)
+			assert.Equal(t, canSendPartialFullPushes(tt.req, &model.Proxy{Type: model.SidecarProxy}), false)
 		})
 	}
 }

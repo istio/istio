@@ -604,6 +604,7 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 		ContainsAutoPassthroughGateways: prevMergedGateway.ContainsAutoPassthroughGateways,
 		AutoPassthroughSNIHosts:         prevMergedGateway.GetAutoPassthroughGatewaySNIHosts(),
 		GatewayNames:                    prevMergedGateway.GatewayNames,
+		BackendClientCredential:         prevMergedGateway.BackendClientCredential,
 	}
 }
 

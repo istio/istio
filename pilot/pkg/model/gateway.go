@@ -144,13 +144,12 @@ func NewGatewayScopeKey(proxyType NodeType, namespace string, gateways []string)
 	return GatewayScopeKey{ProxyType: proxyType, Namespace: namespace, Gateways: strings.Join(gateways, ",")}
 }
 
-// PrevMergedGateway describes previous state of the gateway.
-// Currently, it only contains information relevant for auto passthrough gateways
-// and gateway names used by CDS.
+// PrevMergedGateway describes previous state of the gateway relevant to CDS and EDS.
 type PrevMergedGateway struct {
 	ContainsAutoPassthroughGateways bool
 	AutoPassthroughSNIHosts         sets.Set[string]
 	GatewayNames                    []string
+	BackendClientCredential         string
 }
 
 func (g *PrevMergedGateway) HasAutoPassthroughGateway() bool {
