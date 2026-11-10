@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+
+kind: feature
+
+area: installation
+
+issue:
+  - 59490
+
+releaseNotes:
+- |
+  **Added** `updateStrategy` to the gateway Helm chart to configure the DaemonSet update strategy when `kind: DaemonSet` is used.

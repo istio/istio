@@ -106,6 +106,10 @@ _internal_defaults_do_not_set:
   # Deployment Update strategy
   strategy: {}
 
+  # DaemonSet update strategy, for use with `kind: DaemonSet`. See
+  # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec
+  updateStrategy: {}
+
   # Sets the Deployment minReadySeconds value
   minReadySeconds:
 
