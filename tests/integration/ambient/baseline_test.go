@@ -3170,6 +3170,78 @@ spec:
 	})
 }
 
+// TestIngressL7CrossCluster covers steady-state cross-cluster (cross-network)
+// L7 ingress and validates that traffic is load-balanced across all clusters
+// when every cluster has healthy endpoints.
+func TestIngressL7CrossCluster(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		dst := apps.Captured
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Destination": dst.Config().Service,
+		}, `apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+		istio.DefaultIngressOrFail(t, t).CallOrFail(t, echo.CallOptions{
+			Port:    echo.Port{Protocol: protocol.HTTP, ServicePort: 80},
+			Scheme:  scheme.HTTP,
+			Count:   5,
+			Timeout: time.Second * 2,
+			Check:   check.OK(),
+			To:      dst,
+		})
+
+		t.NewSubTest("cross-cluster").Run(func(t framework.TestContext) {
+			if !t.Settings().AmbientMultiNetwork {
+				t.Skip("this test is ambient multi-network specific")
+			}
+			labelServiceGlobal(t, dst.Config().Service, t.AllClusters()...)
+			t.Cleanup(func() {
+				unlabelServiceGlobal(t, dst.Config().Service, t.AllClusters()...)
+			})
+			// Allow istiod to debounce and push updated endpoints with double-HBONE resources to the ingress gateway.
+			time.Sleep(2 * features.DebounceAfter)
+
+			istio.DefaultIngressOrFail(t, t).CallOrFail(t, echo.CallOptions{
+				Port:                    echo.Port{Protocol: protocol.HTTP, ServicePort: 80},
+				Scheme:                  scheme.HTTP,
+				Count:                   20,
+				Timeout:                 time.Second * 30,
+				NewConnectionPerRequest: true,
+				Check:                   check.And(check.OK(), check.ReachedTargetClusters(t)),
+				To:                      dst,
+				Retry: echo.Retry{
+					Options: []retry.Option{retry.Timeout(2 * time.Minute), retry.Delay(time.Second)},
+				},
+			})
+		})
+	})
+}
+
 var CheckDeny = check.Or(
 	check.ErrorContains("rpc error: code = PermissionDenied"), // gRPC
 	check.ErrorContains("EOF"),                                // TCP envoy
