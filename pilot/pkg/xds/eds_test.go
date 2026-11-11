@@ -2431,7 +2431,7 @@ func TestEdsCacheNotPoisonedByMergedPush(t *testing.T) {
 		if wantCached {
 			want = "cached:1/1"
 		}
-		if !strings.HasSuffix(details.AdditionalInfo, want) {
+		if !strings.Contains(details.AdditionalInfo, " "+want+" ") {
 			t.Fatalf("%s: expected %s, got %q", p.ID, want, details.AdditionalInfo)
 		}
 		if len(res) == 0 {
