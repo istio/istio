@@ -1577,6 +1577,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 		// nolint lll
 		g.Expect(extProcPerRoute.GetOverrides().GetGrpcService().GetTargetSpecifier().(*envoycore.GrpcService_EnvoyGrpc_).EnvoyGrpc.GetClusterName()).To(Equal("outbound|9002||ext-proc-svc.test-namespace.svc.cluster.local"))
+		// nolint lll
+		g.Expect(extProcPerRoute.GetOverrides().GetGrpcService().GetTargetSpecifier().(*envoycore.GrpcService_EnvoyGrpc_).EnvoyGrpc.GetAuthority()).To(Equal("ext-proc-svc.test-namespace.svc.cluster.local"))
 		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestBodyMode()).To(Equal(extproc.ProcessingMode_FULL_DUPLEX_STREAMED))
 		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestHeaderMode()).To(Equal(extproc.ProcessingMode_SEND))
 		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetResponseBodyMode()).To(Equal(extproc.ProcessingMode_FULL_DUPLEX_STREAMED))
@@ -1627,6 +1629,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 		// nolint lll
 		g.Expect(extProcPerRoute.GetOverrides().GetGrpcService().GetTargetSpecifier().(*envoycore.GrpcService_EnvoyGrpc_).EnvoyGrpc.GetClusterName()).To(Equal("outbound|9002||ext-proc-svc.test-namespace.svc.cluster.local"))
+		// nolint lll
+		g.Expect(extProcPerRoute.GetOverrides().GetGrpcService().GetTargetSpecifier().(*envoycore.GrpcService_EnvoyGrpc_).EnvoyGrpc.GetAuthority()).To(Equal("ext-proc-svc.test-namespace.svc.cluster.local"))
 		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestBodyMode()).To(Equal(extproc.ProcessingMode_FULL_DUPLEX_STREAMED))
 		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestHeaderMode()).To(Equal(extproc.ProcessingMode_SEND))
 		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetResponseBodyMode()).To(Equal(extproc.ProcessingMode_FULL_DUPLEX_STREAMED))

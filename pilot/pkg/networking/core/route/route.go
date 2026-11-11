@@ -715,6 +715,8 @@ func buildExtProcPerRoute(cfg kube.InferencePoolBackendConfig) *anypb.Any {
 					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 							ClusterName: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(cfg.FQDN), extPortNum),
+							// Envoy sends the cluster name as :authority when this is unset, which RFC 9113-strict ext_proc servers reject as an invalid host
+							Authority: cfg.FQDN,
 						},
 					},
 				},
