@@ -187,6 +187,13 @@ func TestRender(t *testing.T) {
 			diffSelect:  "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
 		},
 		{
+			desc:        "istiod-zonal-deployments-zone-autoscale",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "HorizontalPodAutoscaler:*:istiod",
+		},
+		{
 			desc:        "istiod-pdb-default",
 			releaseName: "istiod",
 			namespace:   "istio-system",

@@ -1,0 +1,33 @@
+# Not created if istiod is running remotely
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: istiod-zone-a
+  namespace: "istio-system"
+  labels:
+    app: istiod
+    release: istiod
+    istio.io/rev: "default"
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
+    app.kubernetes.io/name: "istiod"
+    zone: "zone-a"
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istiod"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: istiod-1.0.0
+spec:
+  maxReplicas: 4
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istiod-zone-a
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80

@@ -2,6 +2,7 @@ spec:
   values:
     autoscaleEnabled: false
     replicaCount: 2
+    zonalDeploymentsTopologyKey: topology.k8s.aws/zone-id
     zonalDeployments:
     - name: zone-a
     - name: zone-b

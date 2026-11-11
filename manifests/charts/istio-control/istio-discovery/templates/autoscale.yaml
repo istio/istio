@@ -1,8 +1,11 @@
 {{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # Not created if istiod is running remotely
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
-{{- if and .Values.autoscaleEnabled .Values.autoscaleMin .Values.autoscaleMax }}
+{{- if .Values.autoscaleEnabled }}
 {{- range $zone := include "istiod.zones" . | fromJsonArray }}
+{{- $autoscaleMin := hasKey $zone "autoscaleMin" | ternary $zone.autoscaleMin $.Values.autoscaleMin }}
+{{- $autoscaleMax := hasKey $zone "autoscaleMax" | ternary $zone.autoscaleMax $.Values.autoscaleMax }}
+{{- if and $autoscaleMin $autoscaleMax }}
 {{- with $ }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -21,8 +24,8 @@ metadata:
     {{- end }}
     {{- include "istio.labels" . | nindent 4 }}
 spec:
-  maxReplicas: {{ hasKey $zone "autoscaleMax" | ternary $zone.autoscaleMax .Values.autoscaleMax }}
-  minReplicas: {{ hasKey $zone "autoscaleMin" | ternary $zone.autoscaleMin .Values.autoscaleMin }}
+  maxReplicas: {{ $autoscaleMax }}
+  minReplicas: {{ $autoscaleMin }}
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -46,6 +49,7 @@ spec:
   behavior: {{ toYaml .Values.autoscaleBehavior | nindent 4 }}
   {{- end }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
