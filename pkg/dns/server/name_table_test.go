@@ -1031,3 +1031,60 @@ func TestNameTableGateway(t *testing.T) {
 		t.Errorf("gateway name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
 	}
 }
+
+// TestNameTableGatewayMultiAddressServiceEntry verifies that a ServiceEntry with multiple addresses
+// (one model.Service per address, all with the same hostname) resolves to every address for gateways,
+// as it does for sidecars.
+func TestNameTableGatewayMultiAddressServiceEntry(t *testing.T) {
+	mesh := &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+	serviceWithVIP1 := &model.Service{
+		Hostname:       host.Name("mysql.foo.bar"),
+		DefaultAddress: "10.0.0.5",
+		Ports: model.PortList{&model.Port{
+			Name:     "tcp",
+			Port:     3306,
+			Protocol: protocol.TCP,
+		}},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Name:            "mysql-svc",
+			Namespace:       "testns",
+			ServiceRegistry: provider.External,
+		},
+	}
+	serviceWithVIP2 := serviceWithVIP1.ShallowCopy()
+	serviceWithVIP2.DefaultAddress = "10.0.0.6"
+
+	push := model.NewPushContext()
+	push.Mesh = mesh
+	push.AddPublicServices([]*model.Service{serviceWithVIP1, serviceWithVIP2})
+
+	build := func(typ model.NodeType) *dnsProto.NameTable {
+		p := &model.Proxy{
+			IPAddresses: []string{"9.9.9.9"},
+			Metadata:    &model.NodeMetadata{},
+			Type:        typ,
+			DNSDomain:   "testns.svc.cluster.local",
+		}
+		p.SetSidecarScope(push)
+		p.DiscoverIPMode()
+		return dnsServer.BuildNameTable(dnsServer.Config{Node: p, Push: push})
+	}
+
+	expected := &dnsProto.NameTable{
+		Table: map[string]*dnsProto.NameTable_NameInfo{
+			serviceWithVIP1.Hostname.String(): {
+				Ips:      []string{serviceWithVIP1.DefaultAddress, serviceWithVIP2.DefaultAddress},
+				Registry: provider.External.String(),
+			},
+		},
+	}
+	sidecarTable := build(model.SidecarProxy)
+	gatewayTable := build(model.Router)
+	if diff := cmp.Diff(expected, sidecarTable, protocmp.Transform()); diff != "" {
+		t.Errorf("unexpected sidecar name table (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(gatewayTable, sidecarTable, protocmp.Transform()); diff != "" {
+		t.Errorf("gateway name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
+	}
+}

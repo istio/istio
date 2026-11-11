@@ -41,10 +41,12 @@ type Config struct {
 // Sidecars iterate their egress listeners, mirroring LDS, so that every model.Service for a host
 // (for example a ServiceEntry with multiple addresses) is included.
 // Gateways have no egress listeners in their SidecarScope (the default gateway scope is egress: */*),
-// so iterating them would produce an empty table; use all services visible to the gateway instead.
-func nameTableServices(node *model.Proxy) [][]*model.Service {
+// so iterating them would produce an empty table. Use all services exported to the gateway's namespace
+// instead, as a sidecar's default egress listener does. SidecarScope.Services is not used because it
+// keeps only one service per hostname, which would drop addresses of multi-address ServiceEntries.
+func nameTableServices(node *model.Proxy, push *model.PushContext) [][]*model.Service {
 	if node.Type == model.Router && len(node.SidecarScope.EgressListeners) == 0 {
-		return [][]*model.Service{node.SidecarScope.Services()}
+		return [][]*model.Service{push.ServicesExportedToNamespace(node.ConfigNamespace)}
 	}
 	out := make([][]*model.Service, 0, len(node.SidecarScope.EgressListeners))
 	for _, el := range node.SidecarScope.EgressListeners {
@@ -60,7 +62,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	out := &dnsProto.NameTable{
 		Table: make(map[string]*dnsProto.NameTable_NameInfo),
 	}
-	for _, services := range nameTableServices(cfg.Node) {
+	for _, services := range nameTableServices(cfg.Node, cfg.Push) {
 		for _, svc := range services {
 			var addressList []string
 			hostName := svc.Hostname
