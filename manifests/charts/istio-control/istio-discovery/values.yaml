@@ -81,8 +81,9 @@ _internal_defaults_do_not_set:
   # scaled by its own HorizontalPodAutoscaler. The istiod Service and PodDisruptionBudget keep
   # selecting the pods of every zone. Pair it with `trafficDistribution: PreferSameZone` so proxies
   # connect to the istiod in their own zone and each zone scales on the load of its own proxies.
-  # Each entry needs a `name` and can override `replicaCount`, `autoscaleMin` and `autoscaleMax`
-  # for that zone, for example:
+  # Each entry needs a `name`. Every zone's Deployment and HorizontalPodAutoscaler start from
+  # `replicaCount`, `autoscaleMin` and `autoscaleMax`, so those apply to each zone, and an entry can
+  # set them to override them for that zone, for example:
   # zonalDeployments:
   #   - name: us-east-1a
   #   - name: us-east-1b
