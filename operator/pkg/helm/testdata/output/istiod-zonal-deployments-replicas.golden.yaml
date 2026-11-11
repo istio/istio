@@ -51,7 +51,7 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       nodeSelector:
-        example.com/zone: zone-a
+        topology.kubernetes.io/zone: zone-a
       tolerations:
         - key: "cni.istio.io/not-ready"
           operator: "Exists"
@@ -246,7 +246,7 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       nodeSelector:
-        example.com/zone: zone-b
+        topology.kubernetes.io/zone: zone-b
       tolerations:
         - key: "cni.istio.io/not-ready"
           operator: "Exists"

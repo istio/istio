@@ -76,22 +76,19 @@ _internal_defaults_do_not_set:
 
   topologySpreadConstraints: []
 
-  # Run one istiod Deployment per zone instead of a single one, each pinned to its zone through
-  # `nodeSelector` on `topologyKey` and, when `autoscaleEnabled` is true, scaled by its own
-  # HorizontalPodAutoscaler. The istiod Service and PodDisruptionBudget keep selecting the pods of
-  # every zone. Pair it with `trafficDistribution: PreferSameZone` so proxies connect to the istiod
-  # in their own zone and each zone scales on the load of its own proxies.
-  # Each entry in `zones` needs a `name` and can override `replicaCount`, `autoscaleMin` and
-  # `autoscaleMax` for that zone, for example:
-  # zones:
+  # Run one istiod Deployment per zone listed here instead of a single one, each pinned to its zone
+  # through `nodeSelector` on `topology.kubernetes.io/zone` and, when `autoscaleEnabled` is true,
+  # scaled by its own HorizontalPodAutoscaler. The istiod Service and PodDisruptionBudget keep
+  # selecting the pods of every zone. Pair it with `trafficDistribution: PreferSameZone` so proxies
+  # connect to the istiod in their own zone and each zone scales on the load of its own proxies.
+  # Each entry needs a `name` and can override `replicaCount`, `autoscaleMin` and `autoscaleMax`
+  # for that zone, for example:
+  # zonalDeployments:
   #   - name: us-east-1a
   #   - name: us-east-1b
   #     autoscaleMin: 3
   #     autoscaleMax: 10
-  zonalDeployments:
-    enabled: false
-    topologyKey: topology.kubernetes.io/zone
-    zones: []
+  zonalDeployments: []
 
   # The duration in seconds the istiod pod needs to terminate gracefully.
   # Defaults to the Kubernetes default of 30 seconds.

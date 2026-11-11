@@ -80,7 +80,7 @@ spec:
     spec:
 {{- $nodeSelector := .Values.nodeSelector }}
 {{- with $zone.name }}
-{{- $nodeSelector = merge (dict $.Values.zonalDeployments.topologyKey .) (deepCopy ($.Values.nodeSelector | default dict)) }}
+{{- $nodeSelector = merge (dict "topology.kubernetes.io/zone" .) (deepCopy ($.Values.nodeSelector | default dict)) }}
 {{- end }}
 {{- if $nodeSelector }}
       nodeSelector:
