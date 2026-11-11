@@ -107,3 +107,16 @@ Render resource requirements, omitting any nil values.
   {{- end }}
 {{- end }}
 {{- end -}}
+
+{{- define "gateway.zones" -}}
+{{- if and .Values.zonalDeployments (eq (.Values.kind | default "Deployment") "Deployment") -}}
+{{- range .Values.zonalDeployments -}}
+{{- if not (and (kindIs "map" .) .name) -}}
+{{- fail "every entry in zonalDeployments must be a map with a name" -}}
+{{- end -}}
+{{- end -}}
+{{- toJson .Values.zonalDeployments -}}
+{{- else -}}
+{{- toJson (list (dict "name" "")) -}}
+{{- end -}}
+{{- end }}

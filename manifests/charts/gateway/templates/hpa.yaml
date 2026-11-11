@@ -1,22 +1,30 @@
 {{- if and (.Values.autoscaling.enabled) (eq .Values.kind "Deployment") }}
+{{- range $index, $zone := include "gateway.zones" . | fromJsonArray }}
+{{- with $ }}
+{{- if $index }}
+---
+{{- end }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "gateway.name" . }}
+  name: {{ include "gateway.name" . }}{{- with $zone.name }}-{{ . }}{{- end }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
     app.kubernetes.io/name: {{ include "gateway.name" . }}
     {{- include "istio.labels" . | nindent 4}}
     {{- include "gateway.labels" . | nindent 4 }}
+    {{- with $zone.name }}
+    zone: {{ . | quote }}
+    {{- end }}
   annotations:
     {{- .Values.annotations | toYaml | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: {{ .Values.kind | default "Deployment" }}
-    name: {{ include "gateway.name" . }}
-  minReplicas: {{ .Values.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+    name: {{ include "gateway.name" . }}{{- with $zone.name }}-{{ . }}{{- end }}
+  minReplicas: {{ hasKey $zone "minReplicas" | ternary $zone.minReplicas .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ hasKey $zone "maxReplicas" | ternary $zone.maxReplicas .Values.autoscaling.maxReplicas }}
   metrics:
     {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
     - type: Resource
@@ -37,4 +45,6 @@ spec:
   {{- if .Values.autoscaling.autoscaleBehavior }}
   behavior: {{ toYaml .Values.autoscaling.autoscaleBehavior | nindent 4 }}
   {{- end }}
+{{- end }}
+{{- end }}
 {{- end }}

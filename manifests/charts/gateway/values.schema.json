@@ -280,6 +280,33 @@
         "topologySpreadConstraints": {
           "type": "array"
         },
+        "zonalDeployments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "replicaCount": {
+                "type": "integer"
+              },
+              "minReplicas": {
+                "type": "integer"
+              },
+              "maxReplicas": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "zonalDeploymentsTopologyKey": {
+          "type": "string"
+        },
         "networkGateway": {
           "type": "string"
         },
