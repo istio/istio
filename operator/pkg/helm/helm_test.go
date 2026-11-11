@@ -110,6 +110,20 @@ func TestRender(t *testing.T) {
 			diffSelect:  "Deployment:*:istio-ingress",
 		},
 		{
+			desc:        "gateway-zonal-deployments",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Deployment:*:istio-ingress*,HorizontalPodAutoscaler:*:istio-ingress*,PodDisruptionBudget:*:istio-ingress,Service:*:istio-ingress",
+		},
+		{
+			desc:        "gateway-zonal-deployments-replicas",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Deployment:*:istio-ingress*",
+		},
+		{
 			desc:        "gateway-daemonset-update-strategy",
 			releaseName: "istio-ingress",
 			namespace:   "istio-ingress",
