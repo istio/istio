@@ -3333,8 +3333,11 @@ type PilotConfig struct {
 	TrustedZtunnelName string `protobuf:"bytes,69,opt,name=trustedZtunnelName,proto3" json:"trustedZtunnelName,omitempty"`
 	// Run one istiod Deployment, and one HorizontalPodAutoscaler, per listed zone instead of a single one.
 	ZonalDeployments []*PilotZonalDeployment `protobuf:"bytes,71,rep,name=zonalDeployments,proto3" json:"zonalDeployments,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Node label each zone in `zonalDeployments` is pinned to through `nodeSelector`.
+	// Defaults to `topology.kubernetes.io/zone`.
+	ZonalDeploymentsTopologyKey string `protobuf:"bytes,72,opt,name=zonalDeploymentsTopologyKey,proto3" json:"zonalDeploymentsTopologyKey,omitempty"`
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *PilotConfig) Reset() {
@@ -3710,6 +3713,13 @@ func (x *PilotConfig) GetZonalDeployments() []*PilotZonalDeployment {
 		return x.ZonalDeployments
 	}
 	return nil
+}
+
+func (x *PilotConfig) GetZonalDeploymentsTopologyKey() string {
+	if x != nil {
+		return x.ZonalDeploymentsTopologyKey
+	}
+	return ""
 }
 
 type PilotTaintControllerConfig struct {
@@ -5309,7 +5319,7 @@ func (x *BaseConfig) GetValidationFailurePolicy() string {
 
 type PilotZonalDeployment struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Name of the zone, the value of `topology.kubernetes.io/zone` on its nodes.
+	// Name of the zone, the value of `zonalDeploymentsTopologyKey` on its nodes.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Overrides `replicaCount` for this zone.
 	ReplicaCount uint32 `protobuf:"varint,2,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
@@ -6199,7 +6209,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04mode\x18\x02 \x01(\x0e29.istio.operator.v1alpha1.OutboundTrafficPolicyConfig.ModeR\x04mode\"(\n" +
 	"\x04Mode\x12\r\n" +
 	"\tALLOW_ANY\x10\x00\x12\x11\n" +
-	"\rREGISTRY_ONLY\x10\x01\"\x80\x17\n" +
+	"\rREGISTRY_ONLY\x10\x01\"\xc2\x17\n" +
 	"\vPilotConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12F\n" +
 	"\x10autoscaleEnabled\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
@@ -6252,7 +6262,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x15deploymentAnnotations\x18C \x01(\v2\x17.google.protobuf.StructR\x15deploymentAnnotations\x12e\n" +
 	"!sidecarInjectorWebhookAnnotations\x18D \x01(\v2\x17.google.protobuf.StructR!sidecarInjectorWebhookAnnotations\x12.\n" +
 	"\x12trustedZtunnelName\x18E \x01(\tR\x12trustedZtunnelName\x12Y\n" +
-	"\x10zonalDeployments\x18G \x03(\v2-.istio.operator.v1alpha1.PilotZonalDeploymentR\x10zonalDeployments\"h\n" +
+	"\x10zonalDeployments\x18G \x03(\v2-.istio.operator.v1alpha1.PilotZonalDeploymentR\x10zonalDeployments\x12@\n" +
+	"\x1bzonalDeploymentsTopologyKey\x18H \x01(\tR\x1bzonalDeploymentsTopologyKey\"h\n" +
 	"\x1aPilotTaintControllerConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x12\n" +
