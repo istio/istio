@@ -2,10 +2,12 @@
 # Not created if istiod is running remotely
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 {{- if and .Values.autoscaleEnabled .Values.autoscaleMin .Values.autoscaleMax }}
+{{- range $zone := include "istiod.zones" . | fromJsonArray }}
+{{- with $ }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}{{- with $zone.name }}-{{ . }}{{- end }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
     app: istiod
@@ -14,14 +16,17 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     app.kubernetes.io/name: "istiod"
+    {{- with $zone.name }}
+    zone: {{ . | quote }}
+    {{- end }}
     {{- include "istio.labels" . | nindent 4 }}
 spec:
-  maxReplicas: {{ .Values.autoscaleMax }}
-  minReplicas: {{ .Values.autoscaleMin }}
+  maxReplicas: {{ hasKey $zone "autoscaleMax" | ternary $zone.autoscaleMax .Values.autoscaleMax }}
+  minReplicas: {{ hasKey $zone "autoscaleMin" | ternary $zone.autoscaleMin .Values.autoscaleMin }}
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+    name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}{{- with $zone.name }}-{{ . }}{{- end }}
   metrics:
   - type: Resource
     resource:
@@ -41,6 +46,8 @@ spec:
   behavior: {{ toYaml .Values.autoscaleBehavior | nindent 4 }}
   {{- end }}
 ---
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

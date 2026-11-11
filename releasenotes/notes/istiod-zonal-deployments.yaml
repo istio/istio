@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+    **Added** a `zonalDeployments` value to the `istiod` chart, to run one istiod Deployment and one
+    HorizontalPodAutoscaler per zone instead of a single one. Each zone's istiod pods are pinned to
+    their zone and scale on their own load, while the istiod Service and PodDisruptionBudget keep
+    selecting the pods of every zone. Combined with `trafficDistribution: PreferSameZone`, proxies
+    connect to the istiod in their own zone and each zone's control plane scales with the proxies
+    in that zone.

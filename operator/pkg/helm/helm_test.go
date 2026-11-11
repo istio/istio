@@ -173,6 +173,20 @@ func TestRender(t *testing.T) {
 			diffSelect:  "Service:*:istiod",
 		},
 		{
+			desc:        "istiod-zonal-deployments",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod,PodDisruptionBudget:*:istiod,Service:*:istiod",
+		},
+		{
+			desc:        "istiod-zonal-deployments-replicas",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
+		},
+		{
 			desc:        "istiod-pdb-default",
 			releaseName: "istiod",
 			namespace:   "istio-system",

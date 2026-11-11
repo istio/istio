@@ -1,0 +1,11 @@
+spec:
+  values:
+    autoscaleEnabled: false
+    replicaCount: 2
+    zonalDeployments:
+      enabled: true
+      topologyKey: example.com/zone
+      zones:
+      - name: zone-a
+      - name: zone-b
+        replicaCount: 3
