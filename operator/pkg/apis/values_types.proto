@@ -1066,8 +1066,8 @@ message PilotConfig {
   // The name of the ztunnel that istiod should trust for mTLS.
   string trustedZtunnelName = 69;
 
-  // Run one istiod Deployment, and one HorizontalPodAutoscaler, per zone instead of a single one.
-  PilotZonalDeploymentsConfig zonalDeployments = 71;
+  // Run one istiod Deployment, and one HorizontalPodAutoscaler, per listed zone instead of a single one.
+  repeated PilotZonalDeployment zonalDeployments = 71;
 }
 
 message PilotTaintControllerConfig {
@@ -1472,17 +1472,8 @@ message BaseConfig {
   string validationFailurePolicy = 7;
 }
 
-message PilotZonalDeploymentsConfig {
-  // Run one istiod Deployment per zone in `zones` instead of a single one.
-  google.protobuf.BoolValue enabled = 1;
-  // Node label each zone's istiod pods are pinned to through `nodeSelector`.
-  string topologyKey = 2;
-  // Zones to run an istiod Deployment in.
-  repeated PilotZonalDeployment zones = 3;
-}
-
 message PilotZonalDeployment {
-  // Name of the zone, the value of `topologyKey` on its nodes.
+  // Name of the zone, the value of `topology.kubernetes.io/zone` on its nodes.
   string name = 1;
   // Overrides `replicaCount` for this zone.
   uint32 replicaCount = 2;

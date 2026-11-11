@@ -48,16 +48,13 @@ Render resource requirements, omitting any nil values.
 {{- end -}}
 
 {{- define "istiod.zones" -}}
-{{- if .Values.zonalDeployments.enabled -}}
-{{- if not .Values.zonalDeployments.zones -}}
-{{- fail "zonalDeployments.zones must list at least one zone when zonalDeployments.enabled is true" -}}
-{{- end -}}
-{{- range .Values.zonalDeployments.zones -}}
+{{- if .Values.zonalDeployments -}}
+{{- range .Values.zonalDeployments -}}
 {{- if not (and (kindIs "map" .) .name) -}}
-{{- fail "every entry in zonalDeployments.zones must be a map with a name" -}}
+{{- fail "every entry in zonalDeployments must be a map with a name" -}}
 {{- end -}}
 {{- end -}}
-{{- toJson .Values.zonalDeployments.zones -}}
+{{- toJson .Values.zonalDeployments -}}
 {{- else -}}
 {{- toJson (list (dict "name" "")) -}}
 {{- end -}}
