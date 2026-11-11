@@ -3338,8 +3338,11 @@ type PilotConfig struct {
 	// https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
 	// Defaults to 0 (the pod is considered available as soon as it is ready).
 	MinReadySeconds int32 `protobuf:"varint,71,opt,name=minReadySeconds,proto3" json:"minReadySeconds,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Traffic distribution preference for the istiod service.
+	// See https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
+	TrafficDistribution string `protobuf:"bytes,72,opt,name=trafficDistribution,proto3" json:"trafficDistribution,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *PilotConfig) Reset() {
@@ -3722,6 +3725,13 @@ func (x *PilotConfig) GetMinReadySeconds() int32 {
 		return x.MinReadySeconds
 	}
 	return 0
+}
+
+func (x *PilotConfig) GetTrafficDistribution() string {
+	if x != nil {
+		return x.TrafficDistribution
+	}
+	return ""
 }
 
 type PilotTaintControllerConfig struct {
@@ -4282,8 +4292,10 @@ type ProxyConfig struct {
 	IncludeInboundPorts string `protobuf:"bytes,38,opt,name=includeInboundPorts,proto3" json:"includeInboundPorts,omitempty"`
 	// A comma separated list of outbound ports for which traffic is to be redirected to Envoy, regardless of the destination IP.
 	IncludeOutboundPorts string `protobuf:"bytes,39,opt,name=includeOutboundPorts,proto3" json:"includeOutboundPorts,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// The variant of the proxy container image to use. Options are "debug" or "distroless". Unset will use global.variant.
+	Variant       string `protobuf:"bytes,45,opt,name=variant,proto3" json:"variant,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ProxyConfig) Reset() {
@@ -4490,6 +4502,13 @@ func (x *ProxyConfig) GetIncludeInboundPorts() string {
 func (x *ProxyConfig) GetIncludeOutboundPorts() string {
 	if x != nil {
 		return x.IncludeOutboundPorts
+	}
+	return ""
+}
+
+func (x *ProxyConfig) GetVariant() string {
+	if x != nil {
+		return x.Variant
 	}
 	return ""
 }
@@ -6148,7 +6167,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04mode\x18\x02 \x01(\x0e29.istio.operator.v1alpha1.OutboundTrafficPolicyConfig.ModeR\x04mode\"(\n" +
 	"\x04Mode\x12\r\n" +
 	"\tALLOW_ANY\x10\x00\x12\x11\n" +
-	"\rREGISTRY_ONLY\x10\x01\"\x86\x17\n" +
+	"\rREGISTRY_ONLY\x10\x01\"\xb8\x17\n" +
 	"\vPilotConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12F\n" +
 	"\x10autoscaleEnabled\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
@@ -6202,7 +6221,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"!sidecarInjectorWebhookAnnotations\x18D \x01(\v2\x17.google.protobuf.StructR!sidecarInjectorWebhookAnnotations\x12.\n" +
 	"\x12trustedZtunnelName\x18E \x01(\tR\x12trustedZtunnelName\x125\n" +
 	"\tpdbLabels\x18F \x01(\v2\x17.google.protobuf.StructR\tpdbLabels\x12(\n" +
-	"\x0fminReadySeconds\x18G \x01(\x05R\x0fminReadySeconds\"h\n" +
+	"\x0fminReadySeconds\x18G \x01(\x05R\x0fminReadySeconds\x120\n" +
+	"\x13trafficDistribution\x18H \x01(\tR\x13trafficDistribution\"h\n" +
 	"\x1aPilotTaintControllerConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x12\n" +
@@ -6233,7 +6253,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\n" +
 	"targetPort\x18\x04 \x01(\x05R\n" +
 	"targetPort\x12\x1a\n" +
-	"\bprotocol\x18\x05 \x01(\tR\bprotocol\"\xbf\n" +
+	"\bprotocol\x18\x05 \x01(\tR\bprotocol\"\xd9\n" +
 	"\n" +
 	"\vProxyConfig\x12\x1e\n" +
 	"\n" +
@@ -6266,7 +6286,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\tlifecycle\x18$ \x01(\v2\x17.google.protobuf.StructR\tlifecycle\x12h\n" +
 	"\x1fholdApplicationUntilProxyStarts\x18% \x01(\v2\x1a.google.protobuf.BoolValueB\x02\x18\x01R\x1fholdApplicationUntilProxyStarts\x120\n" +
 	"\x13includeInboundPorts\x18& \x01(\tR\x13includeInboundPorts\x122\n" +
-	"\x14includeOutboundPorts\x18' \x01(\tR\x14includeOutboundPorts\"p\n" +
+	"\x14includeOutboundPorts\x18' \x01(\tR\x14includeOutboundPorts\x12\x18\n" +
+	"\avariant\x18- \x01(\tR\avariant\"p\n" +
 	"\fStartupProbe\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12*\n" +
 	"\x10failureThreshold\x18\x02 \x01(\rR\x10failureThreshold\"\x9d\x01\n" +

@@ -190,6 +190,10 @@ _internal_defaults_do_not_set:
     proxy:
       image: proxyv2
 
+      # Variant of the proxy image to use. If unset, global.variant is used.
+      # Currently supported are: [debug, distroless]
+      variant: ""
+
       # CAUTION: It is important to ensure that all Istio helm charts specify the same clusterDomain value
       # cluster domain. Default value is "cluster.local".
       clusterDomain: "cluster.local"
