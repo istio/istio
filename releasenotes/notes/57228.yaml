@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 57228
+releaseNotes:
+  - |
+    **Fixed** `istioctl install --set` rejecting two Helm chart values that were missing from the
+    operator's `values_types.proto` schema. `pilot.trafficDistribution` and `global.proxy.variant`
+    are used by the charts and can now be set.

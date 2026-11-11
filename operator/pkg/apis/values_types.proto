@@ -1065,6 +1065,10 @@ message PilotConfig {
 
   // The name of the ztunnel that istiod should trust for mTLS.
   string trustedZtunnelName = 69;
+
+  // Traffic distribution preference for the istiod service.
+  // See https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
+  string trafficDistribution = 70;
 }
 
 message PilotTaintControllerConfig {
@@ -1263,6 +1267,9 @@ message ProxyConfig {
 
   // A comma separated list of outbound ports for which traffic is to be redirected to Envoy, regardless of the destination IP.
   string includeOutboundPorts = 39;
+
+  // The variant of the proxy container image to use. Options are "debug" or "distroless". Unset will use global.variant.
+  string variant = 44;
 }
 
 message StartupProbe {

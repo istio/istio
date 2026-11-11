@@ -3331,8 +3331,11 @@ type PilotConfig struct {
 	SidecarInjectorWebhookAnnotations *structpb.Struct `protobuf:"bytes,68,opt,name=sidecarInjectorWebhookAnnotations,proto3" json:"sidecarInjectorWebhookAnnotations,omitempty"`
 	// The name of the ztunnel that istiod should trust for mTLS.
 	TrustedZtunnelName string `protobuf:"bytes,69,opt,name=trustedZtunnelName,proto3" json:"trustedZtunnelName,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Traffic distribution preference for the istiod service.
+	// See https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
+	TrafficDistribution string `protobuf:"bytes,70,opt,name=trafficDistribution,proto3" json:"trafficDistribution,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *PilotConfig) Reset() {
@@ -3699,6 +3702,13 @@ func (x *PilotConfig) GetSidecarInjectorWebhookAnnotations() *structpb.Struct {
 func (x *PilotConfig) GetTrustedZtunnelName() string {
 	if x != nil {
 		return x.TrustedZtunnelName
+	}
+	return ""
+}
+
+func (x *PilotConfig) GetTrafficDistribution() string {
+	if x != nil {
+		return x.TrafficDistribution
 	}
 	return ""
 }
@@ -4259,8 +4269,10 @@ type ProxyConfig struct {
 	IncludeInboundPorts string `protobuf:"bytes,38,opt,name=includeInboundPorts,proto3" json:"includeInboundPorts,omitempty"`
 	// A comma separated list of outbound ports for which traffic is to be redirected to Envoy, regardless of the destination IP.
 	IncludeOutboundPorts string `protobuf:"bytes,39,opt,name=includeOutboundPorts,proto3" json:"includeOutboundPorts,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// The variant of the proxy container image to use. Options are "debug" or "distroless". Unset will use global.variant.
+	Variant       string `protobuf:"bytes,44,opt,name=variant,proto3" json:"variant,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ProxyConfig) Reset() {
@@ -4460,6 +4472,13 @@ func (x *ProxyConfig) GetIncludeInboundPorts() string {
 func (x *ProxyConfig) GetIncludeOutboundPorts() string {
 	if x != nil {
 		return x.IncludeOutboundPorts
+	}
+	return ""
+}
+
+func (x *ProxyConfig) GetVariant() string {
+	if x != nil {
+		return x.Variant
 	}
 	return ""
 }
@@ -6118,7 +6137,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04mode\x18\x02 \x01(\x0e29.istio.operator.v1alpha1.OutboundTrafficPolicyConfig.ModeR\x04mode\"(\n" +
 	"\x04Mode\x12\r\n" +
 	"\tALLOW_ANY\x10\x00\x12\x11\n" +
-	"\rREGISTRY_ONLY\x10\x01\"\xa5\x16\n" +
+	"\rREGISTRY_ONLY\x10\x01\"\xd7\x16\n" +
 	"\vPilotConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12F\n" +
 	"\x10autoscaleEnabled\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
@@ -6170,7 +6189,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x03pdb\x18B \x01(\v2\x17.google.protobuf.StructR\x03pdb\x12M\n" +
 	"\x15deploymentAnnotations\x18C \x01(\v2\x17.google.protobuf.StructR\x15deploymentAnnotations\x12e\n" +
 	"!sidecarInjectorWebhookAnnotations\x18D \x01(\v2\x17.google.protobuf.StructR!sidecarInjectorWebhookAnnotations\x12.\n" +
-	"\x12trustedZtunnelName\x18E \x01(\tR\x12trustedZtunnelName\"h\n" +
+	"\x12trustedZtunnelName\x18E \x01(\tR\x12trustedZtunnelName\x120\n" +
+	"\x13trafficDistribution\x18F \x01(\tR\x13trafficDistribution\"h\n" +
 	"\x1aPilotTaintControllerConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x12\n" +
@@ -6201,7 +6221,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\n" +
 	"targetPort\x18\x04 \x01(\x05R\n" +
 	"targetPort\x12\x1a\n" +
-	"\bprotocol\x18\x05 \x01(\tR\bprotocol\"\x85\n" +
+	"\bprotocol\x18\x05 \x01(\tR\bprotocol\"\x9f\n" +
 	"\n" +
 	"\vProxyConfig\x12\x1e\n" +
 	"\n" +
@@ -6233,7 +6253,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\tlifecycle\x18$ \x01(\v2\x17.google.protobuf.StructR\tlifecycle\x12h\n" +
 	"\x1fholdApplicationUntilProxyStarts\x18% \x01(\v2\x1a.google.protobuf.BoolValueB\x02\x18\x01R\x1fholdApplicationUntilProxyStarts\x120\n" +
 	"\x13includeInboundPorts\x18& \x01(\tR\x13includeInboundPorts\x122\n" +
-	"\x14includeOutboundPorts\x18' \x01(\tR\x14includeOutboundPorts\"p\n" +
+	"\x14includeOutboundPorts\x18' \x01(\tR\x14includeOutboundPorts\x12\x18\n" +
+	"\avariant\x18, \x01(\tR\avariant\"p\n" +
 	"\fStartupProbe\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12*\n" +
 	"\x10failureThreshold\x18\x02 \x01(\rR\x10failureThreshold\"\x9d\x01\n" +
