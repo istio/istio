@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // A cross-network inner tunnel forwarded by the ambient east-west gateway carries the service
@@ -68,6 +69,17 @@ func TestSidecarHBONEServiceAddressedConnect(t *testing.T) {
 			}
 			if internal == nil {
 				t.Fatalf("no %s listener", MainInternalName)
+			}
+			// The sniffed port's chains are told apart by application protocol, which the HTTP
+			// inspector supplies.
+			hasHTTPInspector := false
+			for _, lf := range internal.ListenerFilters {
+				if lf.Name == wellknown.HTTPInspector {
+					hasHTTPInspector = true
+				}
+			}
+			if !hasHTTPInspector {
+				t.Errorf("main_internal should have the HTTP inspector")
 			}
 			if !enabled {
 				if internal.FilterChainMatcher != nil {

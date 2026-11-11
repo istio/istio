@@ -188,11 +188,6 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		lb.sanitizeFilterChainForHBONE(passthrough)
 		l.FilterChains = append(l.FilterChains, passthrough)
 	}
-	// Cross-network inner tunnels from ambient clients address the workload by service hostname,
-	// which filter_chain_match cannot see; switch to a matcher that can also match the authority.
-	if sidecarAmbientBridgeEnabled() && len(l.FilterChains) > 0 {
-		lb.useHBONEFilterChainMatcher(l)
-	}
 	// If there are no filter chains, populate a dummy one that never matches. Envoy doesn't allow no chains, but removing the
 	// entire listeners makes the errors logs more confusing (instead of "no filter chain found" we have no listener at all).
 	if len(l.FilterChains) == 0 {
@@ -212,6 +207,12 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	l.ListenerFilters = append(l.ListenerFilters, xdsfilters.OriginalDestination)
 	// TODO: Exclude inspectors from some inbound ports.
 	l.ListenerFilters = append(l.ListenerFilters, populateListenerFilters(lb.node, l, true)...)
+	// Cross-network inner tunnels from ambient clients address the workload by service hostname,
+	// which filter_chain_match cannot see; switch to a matcher that can also match the authority.
+	// This clears filter_chain_match, so it must come after the inspectors are derived from it.
+	if sidecarAmbientBridgeEnabled() && len(l.FilterChains) > 0 {
+		lb.useHBONEFilterChainMatcher(l)
+	}
 	return []*listener.Listener{terminate, l}
 }
 
