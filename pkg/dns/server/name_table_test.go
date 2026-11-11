@@ -1030,6 +1030,16 @@ func TestNameTableGateway(t *testing.T) {
 	if diff := cmp.Diff(gatewayTable, sidecarTable, protocmp.Transform()); diff != "" {
 		t.Errorf("gateway name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
 	}
+
+	// Older gateway scopes carry an egress listener with no services (only mesh VirtualServices).
+	// The gateway table must not depend on it.
+	gwWithListener := newProxy(model.Router)
+	scope := *gwWithListener.SidecarScope
+	scope.EgressListeners = []*model.IstioEgressListenerWrapper{{}}
+	gwWithListener.SidecarScope = &scope
+	if diff := cmp.Diff(build(gwWithListener), sidecarTable, protocmp.Transform()); diff != "" {
+		t.Errorf("gateway (with empty egress listener) name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
+	}
 }
 
 // TestNameTableGatewayMultiAddressServiceEntry verifies that a ServiceEntry with multiple addresses

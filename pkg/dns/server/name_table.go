@@ -40,12 +40,13 @@ type Config struct {
 // nameTableServices returns the services to include in the name table, grouped per egress listener.
 // Sidecars iterate their egress listeners, mirroring LDS, so that every model.Service for a host
 // (for example a ServiceEntry with multiple addresses) is included.
-// Gateways have no egress listeners in their SidecarScope (the default gateway scope is egress: */*),
-// so iterating them would produce an empty table. Use all services exported to the gateway's namespace
-// instead, as a sidecar's default egress listener does. SidecarScope.Services is not used because it
-// keeps only one service per hostname, which would drop addresses of multi-address ServiceEntries.
+// Gateways always use a default scope (egress: */*), but its egress listeners are not a reliable source of
+// services: the gateway scope may have none, or only a listener without services. Use all services exported
+// to the gateway's namespace instead, as a sidecar's default egress listener does. SidecarScope.Services is
+// not used because it keeps only one service per hostname, which would drop addresses of multi-address
+// ServiceEntries.
 func nameTableServices(node *model.Proxy, push *model.PushContext) [][]*model.Service {
-	if node.Type == model.Router && len(node.SidecarScope.EgressListeners) == 0 {
+	if node.Type == model.Router {
 		return [][]*model.Service{push.ServicesExportedToNamespace(node.ConfigNamespace)}
 	}
 	out := make([][]*model.Service, 0, len(node.SidecarScope.EgressListeners))
