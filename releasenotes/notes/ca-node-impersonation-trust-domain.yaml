@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue: []
+releaseNotes:
+  - |
+    **Fixed** the Istio CA's trusted-node impersonation path (`CA_TRUSTED_NODE_ACCOUNTS`) validating
+    an impersonated identity's namespace, service account, and node placement, but not that its
+    SPIFFE trust domain matches the mesh's own trust domain. A compromised trusted node proxy (such
+    as ztunnel) could request, and have signed, a certificate for an otherwise-valid workload
+    identity under an attacker-chosen trust domain. Impersonation requests are now rejected unless
+    the requested identity's trust domain matches the CA's configured mesh trust domain.
+
+    **Credit**: This vulnerability was discovered and reported by eric-owo.
