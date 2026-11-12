@@ -400,7 +400,9 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 		ObjectTransform: transform,
 		FieldSelector:   fieldSelector,
 	}
-	if resourceGVK == gvk.KubernetesGateway {
+	if resourceGVK == gvk.KubernetesGateway || resourceGVK == gvk.MutatingWebhookConfiguration || resourceGVK == gvk.ValidatingWebhookConfiguration {
+		// These resources are cluster-scoped and determine default revision/tag semantics for the whole cluster.
+		// They must be visible even when analyzing a single revision to avoid missing the default tag/revision state.
 		filter.ObjectFilter = kubetypes.ComposeFilters(namespaceFilter, extraFilter)
 	}
 
