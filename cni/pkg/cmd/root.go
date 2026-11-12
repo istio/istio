@@ -147,6 +147,13 @@ var rootCmd = &cobra.Command{
 				} else {
 					shouldStopCleanup = ambientAgent.ShouldStopCleanup("istio-cni", nodeagent.PodNamespace, cfg.InstallConfig.IstioOwnedCNIConfig)
 				}
+				// A replaced agent (its pod deleted while the new one already started) can see
+				// its ServiceAccount token revoked and take that as an uninstall. The node state
+				// is the new agent's by then, so leave it alone.
+				if !shouldStopCleanup && ambientAgent.Replaced() {
+					log.Info("Ambient node agent replaced by a newer agent on this node, leaving the plugin and node rules in place")
+					shouldStopCleanup = true
+				}
 				log.Infof("Ambient node agent shutting down - should stop cleanup? %t", shouldStopCleanup)
 
 				// TODO(jaellio) - do we want to add support for a partial cleanup

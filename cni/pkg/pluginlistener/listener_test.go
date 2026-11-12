@@ -17,6 +17,7 @@ package pluginlistener
 import (
 	"context"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -52,4 +53,56 @@ func connect(socket string) (*grpc.ClientConn, error) {
 	}
 
 	return conn, nil
+}
+
+func TestCloseRemovesOwnSocket(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "test")
+	l, err := NewListener(f)
+	if err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+	if err := l.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	if _, err := os.Stat(f); !os.IsNotExist(err) {
+		t.Fatalf("expected the socket file removed, stat err: %v", err)
+	}
+}
+
+// A replacement agent binds its own socket at the path while the old agent is still
+// shutting down; the old agent's Close must leave the new socket in place.
+func TestCloseLeavesReplacedSocket(t *testing.T) {
+	for _, network := range []string{"unix", "unixpacket"} {
+		t.Run(network, func(t *testing.T) {
+			f := filepath.Join(t.TempDir(), "test")
+			old, err := Listen(network, f)
+			if err != nil {
+				t.Fatalf("unexpected error %v", err)
+			}
+			replacement, err := Listen(network, f)
+			if err != nil {
+				t.Fatalf("unexpected error %v", err)
+			}
+			defer replacement.Close()
+
+			if err := old.Close(); err != nil {
+				t.Fatalf("close: %v", err)
+			}
+			if _, err := os.Stat(f); err != nil {
+				t.Fatalf("the replacement's socket was removed: %v", err)
+			}
+			conn, err := net.Dial(network, f)
+			if err != nil {
+				t.Fatalf("the replacement's socket does not accept connections: %v", err)
+			}
+			conn.Close()
+
+			if err := replacement.Close(); err != nil {
+				t.Fatalf("close: %v", err)
+			}
+			if _, err := os.Stat(f); !os.IsNotExist(err) {
+				t.Fatalf("expected the socket file removed, stat err: %v", err)
+			}
+		})
+	}
 }

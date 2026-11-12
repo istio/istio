@@ -17,7 +17,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,6 +24,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/cni/pkg/pluginlistener"
 	"istio.io/istio/pkg/zdsapi"
 )
 
@@ -43,8 +43,13 @@ type updateRequest struct {
 }
 
 func (z *ztunnelServer) accept() (ZtunnelConnection, error) {
-	ul, ok := z.listener.(*net.UnixListener)
-	if !ok {
+	var ul *net.UnixListener
+	switch l := z.listener.(type) {
+	case *pluginlistener.Listener:
+		ul = l.UnixListener
+	case *net.UnixListener:
+		ul = l
+	default:
 		return nil, fmt.Errorf("listener is not a unix listener")
 	}
 	log.Debug("accepting unix conn")
@@ -223,18 +228,9 @@ func newZtunnelServer(addr string, pods PodNetnsCache, keepaliveInterval time.Du
 		return nil, fmt.Errorf("addr cannot be empty")
 	}
 
-	resolvedAddr, err := net.ResolveUnixAddr("unixpacket", addr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve unix addr: %w", err)
-	}
-	// remove potentially existing address
-	// Remove unix socket before use, if one is leftover from previous CNI restart
-	if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-		// Anything other than "file not found" is an error.
-		return nil, fmt.Errorf("failed to remove unix://%s: %w", addr, err)
-	}
-
-	l, err := net.ListenUnix("unixpacket", resolvedAddr)
+	// Listen removes a socket left over from a previous CNI restart, and on Close leaves
+	// alone a socket that a newer agent on this node has bound at the same path.
+	l, err := pluginlistener.Listen("unixpacket", addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen unix: %w", err)
 	}
