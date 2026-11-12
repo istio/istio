@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection"
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
@@ -63,6 +64,19 @@ const (
 
 // Leader election key prefix for remote istiod managed clusters
 const remoteIstiodPrefix = "^"
+
+// pilotComponentName is the value of the operator.istio.io/component label for istiod resources.
+// It must match component.PilotComponentName in operator/pkg/component and the label set by the
+// istio-discovery chart, so that `istioctl uninstall` selects per-revision Leases.
+const pilotComponentName = "Pilot"
+
+// perRevisionLeaseLabels returns the labels set on per-revision Leases.
+func perRevisionLeaseLabels(revision string) map[string]string {
+	return map[string]string{
+		label.IoIstioRev.Name:        revision,
+		label.OperatorComponent.Name: pilotComponentName,
+	}
+}
 
 type LeaderElection struct {
 	namespace string
@@ -177,7 +191,7 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 			// See below, where we disable KeyComparison as well
 			leaseKey = ""
 		}
-		lock = &k8sresourcelock.LeaseLock{
+		leaseLock := &k8sresourcelock.LeaseLock{
 			LeaseMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
 			Client:    l.client.CoordinationV1(),
 			LockConfig: k8sresourcelock.ResourceLockConfig{
@@ -185,6 +199,13 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 				Key:      leaseKey,
 			},
 		}
+		if l.perRevision {
+			// A per-revision Lease belongs to exactly one revision. Labeling it like the rest of the control plane
+			// lets `istioctl uninstall` prune it together with this revision's istiod Deployment. Shared Leases get no
+			// labels, because other revisions still use them after this revision is removed.
+			leaseLock.Labels = perRevisionLeaseLabels(l.revision)
+		}
+		lock = leaseLock
 	}
 
 	config := k8sleaderelection.LeaderElectionConfig{
@@ -244,6 +265,8 @@ func NewLeaseLeaderElection(namespace, name, electionID, revision string, client
 }
 
 // NewPerRevisionLeaderElection creates a *per revision* leader election. This means there will be one leader for each revision.
+// The Lease is named "<electionID>-<revision>" and is labeled with istio.io/rev and operator.istio.io/component,
+// so that `istioctl uninstall` removes it together with the revision.
 func NewPerRevisionLeaderElection(namespace, name, electionID, revision string, client kube.Client) *LeaderElection {
 	// PerRevision is new, so always use the more modern lease lock
 	return newLeaderElection(namespace, name, electionID, revision, true, false, true, client)

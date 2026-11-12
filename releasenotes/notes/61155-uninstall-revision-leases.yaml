@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 61155
+  - 59968
+releaseNotes:
+  - |
+    **Fixed** an issue where `istioctl uninstall` left the per-revision leader election Leases
+    (`istio-gateway-deployment-<revision>` and `istio-gateway-status-leader-<revision>`) in the cluster.
+    Istiod now labels these Leases with its revision, and `istioctl uninstall` removes them when it removes that revision's istiod.
+    Leases are labeled only by an istiod that includes this fix. If a revision never ran such an istiod, for example the old
+    revision in a canary upgrade, remove its Leases manually after uninstalling it with
+    `kubectl delete lease -n istio-system istio-gateway-deployment-<revision> istio-gateway-status-leader-<revision>`.

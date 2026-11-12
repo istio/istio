@@ -26,6 +26,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coordinationv1client "k8s.io/client-go/kubernetes/typed/coordination/v1"
+
+	"istio.io/istio/pkg/maps"
 )
 
 type LeaseLock struct {
@@ -35,6 +37,10 @@ type LeaseLock struct {
 	Client     coordinationv1client.LeasesGetter
 	LockConfig ResourceLockConfig
 	lease      *coordinationv1.Lease
+	// Labels are set on the Lease when it is created, and merged into an existing Lease on every update.
+	// Labels that are already on the Lease but are not in this map are left untouched.
+	// This is a backport of the upstream client-go LeaseLock.Labels field.
+	Labels map[string]string
 }
 
 // Get returns the election record from a Lease spec
@@ -59,6 +65,7 @@ func (ll *LeaseLock) Create(ctx context.Context, ler LeaderElectionRecord) error
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ll.LeaseMeta.Name,
 			Namespace: ll.LeaseMeta.Namespace,
+			Labels:    maps.Clone(ll.Labels),
 		},
 		Spec: LeaderElectionRecordToLeaseSpec(&ler),
 	}
@@ -86,6 +93,14 @@ func (ll *LeaseLock) Update(ctx context.Context, ler LeaderElectionRecord) error
 		return errors.New("lease not initialized, call get or create first")
 	}
 	ll.lease.Spec = LeaderElectionRecordToLeaseSpec(&ler)
+	if len(ll.Labels) > 0 {
+		if ll.lease.Labels == nil {
+			ll.lease.Labels = make(map[string]string, len(ll.Labels))
+		}
+		// Only overwrite the labels that are specifically set. This also labels Leases that were created
+		// before the labels were introduced, for example by an older istiod of the same revision.
+		maps.Copy(ll.lease.Labels, ll.Labels)
+	}
 	ensureHolderKey(ler, ll.lease)
 
 	lease, err := ll.Client.Leases(ll.LeaseMeta.Namespace).Update(ctx, ll.lease, metav1.UpdateOptions{})
