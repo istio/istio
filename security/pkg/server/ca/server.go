@@ -193,6 +193,7 @@ func (s *Server) Register(grpcServer *grpc.Server) {
 func New(
 	ca CertificateAuthority,
 	ttl time.Duration,
+	trustDomain string,
 	authenticators []security.Authenticator,
 	controller multicluster.ComponentBuilder,
 ) (*Server, error) {
@@ -211,7 +212,7 @@ func New(
 	if len(features.CATrustedNodeAccounts) > 0 {
 		// TODO: do we need some way to delayed readiness until this is synced? Probably
 		// Worst case is we deny some requests though which are retried
-		server.nodeAuthorizer = NewMulticlusterNodeAuthenticator(features.CATrustedNodeAccounts, controller)
+		server.nodeAuthorizer = NewMulticlusterNodeAuthenticator(features.CATrustedNodeAccounts, trustDomain, controller)
 	}
 	return server, nil
 }

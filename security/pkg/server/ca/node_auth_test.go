@@ -38,8 +38,12 @@ type pod struct {
 }
 
 func (p pod) Identity() string {
+	return p.IdentityInTrustDomain("cluster.local")
+}
+
+func (p pod) IdentityInTrustDomain(trustDomain string) string {
 	return spiffe.Identity{
-		TrustDomain:    "cluster.local",
+		TrustDomain:    trustDomain,
 		Namespace:      p.namespace,
 		ServiceAccount: p.account,
 	}.String()
@@ -121,6 +125,14 @@ func TestSingleClusterNodeAuthorization(t *testing.T) {
 			wantErr:                 "",
 		},
 		{
+			name:                    "allowed identities, on node, but foreign trust domain",
+			caller:                  ztunnelCaller,
+			trustedAccounts:         allowZtunnel,
+			requestedIdentityString: podSameNode.IdentityInTrustDomain("evil.local"),
+			pods:                    []pod{ztunnelPod, podSameNode},
+			wantErr:                 "not in trust domain",
+		},
+		{
 			name:                    "invalid requested",
 			caller:                  ztunnelCaller,
 			trustedAccounts:         allowZtunnel,
@@ -176,7 +188,7 @@ func TestSingleClusterNodeAuthorization(t *testing.T) {
 				})
 			}
 			c := kube.NewFakeClient(pods...)
-			na := NewClusterNodeAuthorizer(c, tt.trustedAccounts)
+			na := NewClusterNodeAuthorizer(c, tt.trustedAccounts, "cluster.local")
 			c.RunAndWait(test.NewStop(t))
 			kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
 
@@ -287,7 +299,7 @@ func TestMultiClusterNodeAuthorization(t *testing.T) {
 	remote2Client := kube.NewFakeClient(remoteCluster2Pods...)
 
 	mc := multicluster.NewFakeController()
-	mNa := NewMulticlusterNodeAuthenticator(allowZtunnel, mc)
+	mNa := NewMulticlusterNodeAuthenticator(allowZtunnel, "cluster.local", mc)
 	stop := test.NewStop(t)
 	mc.Add("primary", primaryClient, stop)
 	mc.Add("remote", remoteClient, stop)
@@ -333,6 +345,13 @@ func TestMultiClusterNodeAuthorization(t *testing.T) {
 			caller:                  ztunnelCallerPrimary,
 			requestedIdentityString: podSameNodeRemote.Identity(),
 			wantErr:                 "no instance",
+		},
+		{
+			name:                    "allowed identities, on node of primary cluster, but foreign trust domain",
+			callerClusterID:         cluster.ID("primary"),
+			caller:                  ztunnelCallerPrimary,
+			requestedIdentityString: podSameNodePrimary.IdentityInTrustDomain("evil.local"),
+			wantErr:                 "not in trust domain",
 		},
 	}
 
