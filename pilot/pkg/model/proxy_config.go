@@ -153,6 +153,9 @@ func toMeshConfigProxyConfig(pc *v1beta1.ProxyConfig) *meshconfig.ProxyConfig {
 	if pc.Image != nil {
 		mcpc.Image = pc.Image
 	}
+	if pc.Resources != nil {
+		mcpc.Resources = pc.Resources
+	}
 	return mcpc
 }
 

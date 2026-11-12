@@ -32,6 +32,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwk"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -57,6 +58,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/grpc"
 	netutil "istio.io/istio/pkg/util/net"
@@ -3294,9 +3296,48 @@ var ValidateProxyConfig = RegisterValidateFunc("ValidateProxyConfig",
 		errs = AppendValidation(errs,
 			validateWorkloadSelector(spec.Selector),
 			validateConcurrency(spec.Concurrency.GetValue()),
+			validateProxyResources(spec.Resources),
 		)
 		return errs.Unwrap()
 	})
+
+var proxyResourceNames = sets.New("cpu", "memory", "ephemeral-storage")
+
+func validateProxyResources(r *networkingv1beta1.ProxyResources) (v Validation) {
+	if r == nil {
+		return v
+	}
+	parse := func(kind string, list map[string]string) map[string]resource.Quantity {
+		out := make(map[string]resource.Quantity, len(list))
+		for _, name := range slices.Sort(maps.Keys(list)) {
+			if !proxyResourceNames.Contains(name) {
+				v = appendErrorf(v, "resources.%s: unsupported resource %q, must be one of %v", kind, name, sets.SortedList(proxyResourceNames))
+				continue
+			}
+			q, err := resource.ParseQuantity(list[name])
+			if err != nil {
+				v = appendErrorf(v, "resources.%s.%s: invalid quantity %q: %v", kind, name, list[name], err)
+				continue
+			}
+			if q.Sign() < 0 {
+				v = appendErrorf(v, "resources.%s.%s: quantity %q must not be negative", kind, name, list[name])
+				continue
+			}
+			out[name] = q
+		}
+		return out
+	}
+	requests := parse("requests", r.Requests)
+	limits := parse("limits", r.Limits)
+	for _, name := range slices.Sort(maps.Keys(requests)) {
+		req := requests[name]
+		if lim, ok := limits[name]; ok && req.Cmp(lim) > 0 {
+			v = appendErrorf(v, "resources.requests.%s (%s) must be less than or equal to resources.limits.%s (%s)",
+				name, r.Requests[name], name, r.Limits[name])
+		}
+	}
+	return v
+}
 
 func validateConcurrency(concurrency int32) (v Validation) {
 	if concurrency < 0 {

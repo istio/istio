@@ -183,6 +183,58 @@ proxyHeaders:
   envoyDebugHeaders:
     disabled: true`,
 		},
+		{
+			name: "resources merge per key",
+			base: `
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "2"`,
+			overlay: `
+resources:
+  requests:
+    cpu: 50m
+  limits:
+    memory: 256Mi`,
+			result: `
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: "2"
+    memory: 256Mi`,
+		},
+		{
+			name: "resources kept when overlay has none",
+			base: `
+resources:
+  limits:
+    cpu: "1"`,
+			overlay: `
+concurrency: 2`,
+			result: `
+concurrency: 2
+resources:
+  limits:
+    cpu: "1"`,
+		},
+		{
+			name: "resources set by overlay only",
+			base: `
+concurrency: 2`,
+			overlay: `
+resources:
+  requests:
+    memory: 64Mi`,
+			result: `
+concurrency: 2
+resources:
+  requests:
+    memory: 64Mi`,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

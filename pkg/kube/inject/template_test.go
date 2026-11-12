@@ -20,7 +20,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1beta1"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestOmitNil(t *testing.T) {
@@ -301,6 +304,94 @@ func TestOtelResourceAttributes(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("otelResourceAttributes() = %q, want %q", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestProxyResources(t *testing.T) {
+	values := map[string]any{
+		"global": map[string]any{
+			"proxy": map[string]any{
+				"resources": map[string]any{
+					"requests": map[string]any{"cpu": "100m", "memory": "128Mi"},
+					"limits":   map[string]any{"cpu": float64(2), "memory": nil},
+				},
+			},
+		},
+	}
+	cases := []struct {
+		name        string
+		pc          *meshconfig.ProxyConfig
+		annotations map[string]string
+		values      map[string]any
+		want        map[string]any
+	}{
+		{
+			name: "no resources in ProxyConfig",
+			pc:   &meshconfig.ProxyConfig{},
+			want: nil,
+		},
+		{
+			name: "nil ProxyConfig",
+			want: nil,
+		},
+		{
+			name: "fills from defaults per key",
+			pc: &meshconfig.ProxyConfig{Resources: &networking.ProxyResources{
+				Requests: map[string]string{"cpu": "50m"},
+			}},
+			values: values,
+			want: map[string]any{
+				"requests": map[string]any{"cpu": "50m", "memory": "128Mi"},
+				"limits":   map[string]any{"cpu": "2"},
+			},
+		},
+		{
+			name: "annotations override",
+			pc: &meshconfig.ProxyConfig{Resources: &networking.ProxyResources{
+				Limits: map[string]string{"memory": "256Mi"},
+			}},
+			annotations: map[string]string{
+				annotation.SidecarProxyMemory.Name:   "64Mi",
+				annotation.SidecarProxyCPULimit.Name: "500m",
+			},
+			values: values,
+			want: map[string]any{
+				"requests": map[string]any{"cpu": "100m", "memory": "64Mi"},
+				"limits":   map[string]any{"cpu": "500m", "memory": "256Mi"},
+			},
+		},
+		{
+			name: "request above an inherited default limit is kept as is",
+			pc: &meshconfig.ProxyConfig{Resources: &networking.ProxyResources{
+				Requests: map[string]string{"cpu": "4"},
+			}},
+			values: values,
+			want: map[string]any{
+				"requests": map[string]any{"cpu": "4", "memory": "128Mi"},
+				"limits":   map[string]any{"cpu": "2"},
+			},
+		},
+		{
+			name: "no defaults",
+			pc: &meshconfig.ProxyConfig{Resources: &networking.ProxyResources{
+				Limits: map[string]string{"cpu": "1"},
+			}},
+			want: map[string]any{
+				"limits": map[string]any{"cpu": "1"},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := proxyResources(tc.pc, tc.annotations, tc.values)
+			if tc.want == nil {
+				if got != nil {
+					t.Fatalf("expected nil, got %v", got)
+				}
+				return
+			}
+			assert.Equal(t, got, tc.want)
 		})
 	}
 }

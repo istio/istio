@@ -1,5 +1,8 @@
 {{- define "resources"  }}
-  {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+  {{- $proxyResources := proxyResources .ProxyConfig .ObjectMeta.Annotations .Values }}
+  {{- if $proxyResources }}
+      {{ toYaml $proxyResources | indent 6 }}
+  {{- else if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
     {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) }}
       requests:
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -}}
