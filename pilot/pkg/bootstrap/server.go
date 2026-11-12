@@ -1182,9 +1182,8 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	if s.multiclusterController != nil {
 		remoteServices := RemoteServicesCollection(s.multiclusterController, s.internalStop)
 		_ = remoteServices
+		s.initRemoteServicesController(args)
 	}
-
-	s.initRemoteServicesController(args)
 
 	s.initSDSServer()
 
@@ -1282,7 +1281,7 @@ func (s *Server) initRemoteServicesController(args *PilotArgs) {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.RemoteServicesAddressController, args.Revision, s.kubeClient).
 			AddRunFunction(func(leaderStop <-chan struct{}) {
-				ambient.NewIPAllocator(s.kubeClient, leaderStop)
+				ambient.NewIPAllocator(s.kubeClient, leaderStop, s.multiclusterController, s.environment.Watcher)
 				<-leaderStop
 			}).Run(stop)
 		return nil
