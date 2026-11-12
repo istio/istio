@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Added** a `minReadySeconds` value to the `istiod` Helm chart, which sets `minReadySeconds` on the `istiod` Deployment.
+    This lets a new `istiod` pod stay Ready for a period before the rollout removes an old one, giving proxies time to reconnect
+    to a warm control plane. It defaults to `0`, which preserves the previous behavior.
