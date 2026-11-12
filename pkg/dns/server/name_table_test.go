@@ -1030,6 +1030,20 @@ func TestNameTableGateway(t *testing.T) {
 	if diff := cmp.Diff(gatewayTable, sidecarTable, protocmp.Transform()); diff != "" {
 		t.Errorf("gateway name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
 	}
+
+	if diff := cmp.Diff(build(withEmptyEgressListener(newProxy(model.Router))), sidecarTable, protocmp.Transform()); diff != "" {
+		t.Errorf("gateway (with empty egress listener) name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
+	}
+}
+
+// withEmptyEgressListener gives the proxy a copy of its sidecar scope with a single egress listener that
+// carries no services. Gateway scopes have this shape on releases before the gateway egress listener was
+// removed; the gateway name table must not depend on it.
+func withEmptyEgressListener(p *model.Proxy) *model.Proxy {
+	scope := *p.SidecarScope
+	scope.EgressListeners = []*model.IstioEgressListenerWrapper{{}}
+	p.SidecarScope = &scope
+	return p
 }
 
 // TestNameTableGatewayMultiAddressServiceEntry verifies that a ServiceEntry with multiple addresses
@@ -1059,7 +1073,7 @@ func TestNameTableGatewayMultiAddressServiceEntry(t *testing.T) {
 	push.Mesh = mesh
 	push.AddPublicServices([]*model.Service{serviceWithVIP1, serviceWithVIP2})
 
-	build := func(typ model.NodeType) *dnsProto.NameTable {
+	newProxy := func(typ model.NodeType) *model.Proxy {
 		p := &model.Proxy{
 			IPAddresses: []string{"9.9.9.9"},
 			Metadata:    &model.NodeMetadata{},
@@ -1068,6 +1082,9 @@ func TestNameTableGatewayMultiAddressServiceEntry(t *testing.T) {
 		}
 		p.SetSidecarScope(push)
 		p.DiscoverIPMode()
+		return p
+	}
+	build := func(p *model.Proxy) *dnsProto.NameTable {
 		return dnsServer.BuildNameTable(dnsServer.Config{Node: p, Push: push})
 	}
 
@@ -1079,12 +1096,14 @@ func TestNameTableGatewayMultiAddressServiceEntry(t *testing.T) {
 			},
 		},
 	}
-	sidecarTable := build(model.SidecarProxy)
-	gatewayTable := build(model.Router)
+	sidecarTable := build(newProxy(model.SidecarProxy))
 	if diff := cmp.Diff(expected, sidecarTable, protocmp.Transform()); diff != "" {
 		t.Errorf("unexpected sidecar name table (-want +got):\n%s", diff)
 	}
-	if diff := cmp.Diff(gatewayTable, sidecarTable, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(build(newProxy(model.Router)), sidecarTable, protocmp.Transform()); diff != "" {
 		t.Errorf("gateway name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
+	}
+	if diff := cmp.Diff(build(withEmptyEgressListener(newProxy(model.Router))), sidecarTable, protocmp.Transform()); diff != "" {
+		t.Errorf("gateway (with empty egress listener) name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
 	}
 }
