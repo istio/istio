@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/pkg/consts"
 
@@ -374,6 +375,23 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 		tt.WaitUnordered(slices.Map(expected, func(c config.Config) string {
 			return fmt.Sprintf("add/%v/%v", c.GroupVersionKind.Kind, krt.GetKey(c))
 		})...)
+	}
+}
+
+func TestClientReadsMutatingWebhooksOfAllRevisions(t *testing.T) {
+	fake := kube.NewFakeClient(&admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-sidecar-injector-canary",
+			Labels: map[string]string{"istio.io/rev": "canary"},
+		},
+	})
+	store := NewForSchemas(fake, Option{Revision: "default"}, collection.SchemasFor(collections.MutatingWebhookConfiguration))
+	stop := test.NewStop(t)
+	go store.Run(stop)
+	fake.RunAndWait(stop)
+	kube.WaitForCacheSync("test", stop, store.HasSynced)
+	if store.Get(gvk.MutatingWebhookConfiguration, "istio-sidecar-injector-canary", "") == nil {
+		t.Fatal("webhook of another revision was filtered out")
 	}
 }
 

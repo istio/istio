@@ -25,6 +25,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -207,4 +208,83 @@ func selectorMatches(selector *metav1.LabelSelector, labels klabels.Set) bool {
 		return false
 	}
 	return s.Matches(labels)
+}
+
+type DefaultRevisionAnalyzer struct{}
+
+var _ analysis.Analyzer = &DefaultRevisionAnalyzer{}
+
+func (a *DefaultRevisionAnalyzer) Metadata() analysis.Metadata {
+	return analysis.Metadata{
+		Name:        "webhook.DefaultRevisionAnalyzer",
+		Description: "Checks that a default revision or default tag exists when Istio injection webhooks are present",
+		Inputs: []config.GroupVersionKind{
+			gvk.MutatingWebhookConfiguration,
+		},
+	}
+}
+
+func (a *DefaultRevisionAnalyzer) Analyze(context analysis.Context) {
+	if wh := noDefaultInjector(context); wh != nil {
+		context.Report(gvk.MutatingWebhookConfiguration, msg.NewNoDefaultRevisionOrTag(wh))
+	}
+}
+
+type DefaultRevisionNamespaceAnalyzer struct{}
+
+var _ analysis.Analyzer = &DefaultRevisionNamespaceAnalyzer{}
+
+func (a *DefaultRevisionNamespaceAnalyzer) Metadata() analysis.Metadata {
+	return analysis.Metadata{
+		Name:        "webhook.DefaultRevisionNamespaceAnalyzer",
+		Description: "Checks that namespaces labeled istio-injection=enabled are injected by a default revision or default tag",
+		Inputs: []config.GroupVersionKind{
+			gvk.MutatingWebhookConfiguration,
+			gvk.Namespace,
+		},
+	}
+}
+
+func (a *DefaultRevisionNamespaceAnalyzer) Analyze(context analysis.Context) {
+	if noDefaultInjector(context) == nil {
+		return
+	}
+	context.ForEach(gvk.Namespace, func(r *resource.Instance) bool {
+		if r.Metadata.Labels[util.InjectionLabelName] == util.InjectionLabelEnableValue {
+			context.Report(gvk.Namespace, msg.NewNoDefaultRevisionOrTag(r))
+		}
+		return true
+	})
+}
+
+func noDefaultInjector(context analysis.Context) *resource.Instance {
+	var first *resource.Instance
+	hasDefault := false
+	context.ForEach(gvk.MutatingWebhookConfiguration, func(r *resource.Instance) bool {
+		injector := false
+		for _, w := range r.Message.(*v1.MutatingWebhookConfiguration).Webhooks {
+			if !strings.HasSuffix(w.Name, "sidecar-injector.istio.io") {
+				continue
+			}
+			injector = true
+			// Selectors, not labels: 'istioctl tag set default' deactivates the default revision's webhook but keeps its istio.io/rev=default label.
+			if selectorMatches(w.NamespaceSelector, klabels.Set{util.InjectionLabelName: util.InjectionLabelEnableValue}) &&
+				selectorMatches(w.ObjectSelector, klabels.Set{}) {
+				hasDefault = true
+				return false
+			}
+		}
+		if !injector {
+			return true
+		}
+		// ForEach order is not stable, so report on the lowest name to keep the output deterministic.
+		if first == nil || r.Metadata.FullName.String() < first.Metadata.FullName.String() {
+			first = r
+		}
+		return true
+	})
+	if hasDefault {
+		return nil
+	}
+	return first
 }

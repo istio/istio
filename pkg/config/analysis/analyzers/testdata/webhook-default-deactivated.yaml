@@ -1,0 +1,20 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-sidecar-injector
+  labels:
+    istio.io/rev: default
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-system
+  name: namespace.sidecar-injector.istio.io
+  namespaceSelector:
+    matchLabels:
+      istio.io/deactivated: never-match
+  objectSelector:
+    matchLabels:
+      istio.io/deactivated: never-match

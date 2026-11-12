@@ -76,6 +76,8 @@ func All() []analysis.Analyzer {
 		&serviceentry.ProtocolAddressesAnalyzer{},
 		&serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
 		&webhook.Analyzer{},
+		&webhook.DefaultRevisionAnalyzer{},
+		&webhook.DefaultRevisionNamespaceAnalyzer{},
 		&telemetry.ProviderAnalyzer{},
 		&telemetry.SelectorAnalyzer{},
 		&telemetry.DefaultSelectorAnalyzer{},

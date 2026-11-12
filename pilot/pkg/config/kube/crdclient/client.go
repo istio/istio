@@ -400,7 +400,7 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 		ObjectTransform: transform,
 		FieldSelector:   fieldSelector,
 	}
-	if resourceGVK == gvk.KubernetesGateway {
+	if resourceGVK == gvk.KubernetesGateway || resourceGVK == gvk.MutatingWebhookConfiguration {
 		filter.ObjectFilter = kubetypes.ComposeFilters(namespaceFilter, extraFilter)
 	}
 

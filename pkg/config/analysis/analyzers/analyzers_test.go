@@ -809,6 +809,69 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "webhook no default revision or tag",
+		inputFiles: []string{
+			"testdata/webhook-revision-canary.yaml",
+			"testdata/webhook-non-istio.yaml",
+		},
+		analyzer: &webhook.DefaultRevisionAnalyzer{},
+		expected: []message{
+			{msg.NoDefaultRevisionOrTag, "MutatingWebhookConfiguration istio-sidecar-injector-canary"},
+		},
+	},
+	{
+		name: "webhook default revision",
+		inputFiles: []string{
+			"testdata/webhook-revision-canary.yaml",
+			"testdata/image-auto.yaml",
+		},
+		analyzer: &webhook.DefaultRevisionAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "webhook default tag",
+		inputFiles: []string{
+			"testdata/webhook-revision-canary.yaml",
+			"testdata/webhook-default-tag.yaml",
+		},
+		analyzer: &webhook.DefaultRevisionAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "webhook deactivated default revision",
+		inputFiles: []string{
+			"testdata/webhook-revision-canary.yaml",
+			"testdata/webhook-default-deactivated.yaml",
+		},
+		analyzer: &webhook.DefaultRevisionAnalyzer{},
+		expected: []message{
+			{msg.NoDefaultRevisionOrTag, "MutatingWebhookConfiguration istio-sidecar-injector"},
+		},
+	},
+	{
+		name:       "webhook no istio webhooks",
+		inputFiles: []string{"testdata/webhook-non-istio.yaml"},
+		analyzer:   &webhook.DefaultRevisionAnalyzer{},
+		expected:   []message{},
+	},
+	{
+		name:       "webhook namespace no default revision or tag",
+		inputFiles: []string{"testdata/webhook-revision-canary.yaml"},
+		analyzer:   &webhook.DefaultRevisionNamespaceAnalyzer{},
+		expected: []message{
+			{msg.NoDefaultRevisionOrTag, "Namespace injection-enabled"},
+		},
+	},
+	{
+		name: "webhook namespace default tag",
+		inputFiles: []string{
+			"testdata/webhook-revision-canary.yaml",
+			"testdata/webhook-default-tag.yaml",
+		},
+		analyzer: &webhook.DefaultRevisionNamespaceAnalyzer{},
+		expected: []message{},
+	},
+	{
 		name: "Route Rule no effect on Ingress",
 		inputFiles: []string{
 			"testdata/virtualservice_route_rule_no_effects_ingress.yaml",
