@@ -474,7 +474,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			test.SetForTest(t, &features.CATrustedNodeAccounts, c.trustedNodeAccounts)
 
 			multiClusterController := multicluster.NewFakeController()
-			server, _ := New(c.ca, time.Duration(1), c.authenticators, multiClusterController)
+			server, _ := New(c.ca, time.Duration(1), "cluster.local", c.authenticators, multiClusterController)
 
 			var pods []runtime.Object
 			for _, p := range c.pods {
@@ -536,6 +536,79 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 
 			}
 		})
+	}
+}
+
+// TestAC001_ForeignTrustDomainIsSigned reproduces istio-private/pswg#26: a trusted node (ztunnel)
+// impersonating a workload that genuinely runs on its own node, but requesting an identity in a
+// trust domain other than the mesh's own, must be rejected rather than signed.
+func TestAC001_ForeignTrustDomainIsSigned(t *testing.T) {
+	allowZtunnel := sets.Set[types.NamespacedName]{
+		{Name: "ztunnel", Namespace: "istio-system"}: {},
+	}
+	ztunnelCaller := security.KubernetesInfo{
+		PodName:           "ztunnel-a",
+		PodNamespace:      "istio-system",
+		PodUID:            "12345",
+		PodServiceAccount: "ztunnel",
+	}
+	ztunnelPod := pod{
+		name:      ztunnelCaller.PodName,
+		namespace: ztunnelCaller.PodNamespace,
+		account:   ztunnelCaller.PodServiceAccount,
+		uid:       ztunnelCaller.PodUID,
+		node:      "zt-node",
+	}
+	podSameNode := pod{
+		name:      "pod-a",
+		namespace: "ns-a",
+		account:   "sa-a",
+		uid:       "1",
+		node:      "zt-node",
+	}
+
+	test.SetForTest(t, &features.CATrustedNodeAccounts, allowZtunnel)
+
+	multiClusterController := multicluster.NewFakeController()
+	server, _ := New(&mockca.FakeCA{
+		SignedCert:    []byte(testCert),
+		KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert), nil),
+	}, time.Duration(1), "cluster.local", []security.Authenticator{&mockAuthenticator{
+		identities:     []string{"test-identity"},
+		kubernetesInfo: ztunnelCaller,
+	}}, multiClusterController)
+
+	client := kube.NewFakeClient(toPod(ztunnelPod, true), toPod(podSameNode, false))
+	stop := test.NewStop(t)
+	multiClusterController.Add("fake", client, stop)
+	client.RunAndWait(stop)
+
+	if server.nodeAuthorizer != nil {
+		for _, c := range server.nodeAuthorizer.component.All() {
+			kube.WaitForCacheSync("test", stop, c.pods.HasSynced)
+		}
+	}
+
+	// podSameNode genuinely runs on the caller's node, so this would be signed before the fix --
+	// the only thing wrong with the request is the trust domain.
+	reqMeta, _ := structpb.NewStruct(map[string]any{
+		security.ImpersonatedIdentity: podSameNode.IdentityInTrustDomain("evil.local"),
+	})
+	request := &pb.IstioCertificateRequest{
+		Csr:      "dumb CSR",
+		Metadata: reqMeta,
+	}
+
+	p := &peer.Peer{Addr: &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}, AuthInfo: credentials.TLSInfo{}}
+	ctx := peer.NewContext(context.Background(), p)
+	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
+		"clusterid": []string{"fake"},
+	})
+
+	response, err := server.CreateCertificate(ctx, request)
+	s, _ := status.FromError(err)
+	if s.Code() != codes.Unauthenticated {
+		t.Fatalf("expected impersonation for a foreign trust domain to be rejected, got code %v (response: %v)", s.Code(), response)
 	}
 }
 
