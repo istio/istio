@@ -9769,6 +9769,26 @@ spec:
                     description: The image type of the image.
                     type: string
                 type: object
+              resources:
+                description: Compute resources for the injected `istio-proxy` container.
+                properties:
+                  limits:
+                    additionalProperties:
+                      maxLength: 64
+                      type: string
+                    description: Maximum amount of compute resources allowed for the
+                      proxy container.
+                    maxProperties: 3
+                    type: object
+                  requests:
+                    additionalProperties:
+                      maxLength: 64
+                      type: string
+                    description: Minimum amount of compute resources requested by
+                      the proxy container.
+                    maxProperties: 3
+                    type: object
+                type: object
               selector:
                 description: Optional.
                 properties:

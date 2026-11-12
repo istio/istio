@@ -22,6 +22,9 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -164,6 +167,84 @@ func TestProxyConfig(t *testing.T) {
 				})
 			}
 		})
+}
+
+func TestProxyConfigResources(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			type sizing struct {
+				requestsCPU, requestsMemory, limitsCPU, limitsMemory string
+			}
+			cases := []struct {
+				prefix string
+				want   sizing
+			}{
+				{"pc-resources-a", sizing{"50m", "64Mi", "200m", "128Mi"}},
+				{"pc-resources-b", sizing{"100m", "96Mi", "400m", "256Mi"}},
+			}
+			for _, tc := range cases {
+				ns := namespace.NewOrFail(ctx, namespace.Config{
+					Prefix: tc.prefix,
+					Inject: true,
+				})
+				ctx.ConfigIstio().YAML(ns.Name(), fmt.Sprintf(`
+apiVersion: networking.istio.io/v1beta1
+kind: ProxyConfig
+metadata:
+  name: sizing
+spec:
+  resources:
+    requests:
+      cpu: %s
+      memory: %s
+    limits:
+      cpu: %s
+      memory: %s
+`, tc.want.requestsCPU, tc.want.requestsMemory, tc.want.limitsCPU, tc.want.limitsMemory)).ApplyOrFail(ctx)
+
+				instances := deployment.New(ctx, ctx.Clusters().Configs()...).
+					WithConfig(echo.Config{Namespace: ns, Service: "sized"}).
+					BuildOrFail(ctx)
+				for _, inst := range instances {
+					attempts := 0
+					retry.UntilSuccessOrFail(ctx, func() error {
+						if attempts > 0 {
+							if err := inst.Restart(); err != nil {
+								return fmt.Errorf("failed to restart echo instance: %v", err)
+							}
+						}
+						attempts++
+						for _, w := range inst.WorkloadsOrFail(ctx) {
+							pod, err := inst.Config().Cluster.Kube().CoreV1().Pods(ns.Name()).Get(ctx.Context(), w.PodName(), metav1.GetOptions{})
+							if err != nil {
+								return err
+							}
+							got := proxyResources(pod)
+							if got == nil {
+								return fmt.Errorf("istio-proxy container not found in pod %s", w.PodName())
+							}
+							actual := sizing{
+								got.Requests.Cpu().String(), got.Requests.Memory().String(),
+								got.Limits.Cpu().String(), got.Limits.Memory().String(),
+							}
+							if actual != tc.want {
+								return fmt.Errorf("pod %s: expected istio-proxy resources %+v, got %+v", w.PodName(), tc.want, actual)
+							}
+						}
+						return nil
+					}, retry.Timeout(time.Second*45))
+				}
+			}
+		})
+}
+
+func proxyResources(pod *corev1.Pod) *corev1.ResourceRequirements {
+	for _, c := range append(pod.Spec.InitContainers, pod.Spec.Containers...) {
+		if c.Name == "istio-proxy" {
+			return &c.Resources
+		}
+	}
+	return nil
 }
 
 func checkInjectedValues(t framework.TestContext, instances echo.Instances, values map[string]string) {
