@@ -1077,6 +1077,13 @@ func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 	return out
 }
 
+// ServicesExportedToNamespace returns all services visible to the given namespace. Unlike
+// SidecarScope.Services, services that share a hostname (for example a ServiceEntry with
+// multiple addresses) are not merged.
+func (ps *PushContext) ServicesExportedToNamespace(ns string) []*Service {
+	return ps.servicesExportedToNamespace(ns)
+}
+
 // GetTotalServiceCount returns the total services within the mesh.
 // Note: per proxy services should use SidecarScope.Services.
 func (ps *PushContext) GetTotalServiceCount() int {

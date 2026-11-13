@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** an issue where gateways with the DNS proxy enabled (`ISTIO_META_ENABLE_DNS_SERVER`)
+    received an empty DNS name table. The name table is built from the proxy's egress listeners,
+    and the default gateway scope has none, so no services were included. Gateways now get every
+    service visible to them, as a sidecar with the default scope does.

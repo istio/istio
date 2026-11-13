@@ -1066,6 +1066,9 @@ message PilotConfig {
   // The name of the ztunnel that istiod should trust for mTLS.
   string trustedZtunnelName = 69;
 
+  // Additional labels for the istiod PodDisruptionBudget.
+  google.protobuf.Struct pdbLabels = 70;
+
   // Run one istiod Deployment, and one HorizontalPodAutoscaler, per listed zone instead of a single one.
   repeated PilotZonalDeployment zonalDeployments = 71;
 
