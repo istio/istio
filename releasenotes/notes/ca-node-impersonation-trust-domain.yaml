@@ -7,4 +7,4 @@ releaseNotes:
     an impersonated identity in any SPIFFE trust domain instead of only the mesh's configured trust
     domain.
 
-    **Credit**: This vulnerability was discovered and reported by eric-owo.
+    **Credit**: This bug was discovered and reported by eric-owo.
