@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 62805
+releaseNotes:
+  - |
+    **Fixed** a stopping proxy with `EXIT_ON_ZERO_ACTIVE_CONNECTIONS` closing all its listeners, including the Prometheus
+    listener (`:15090`), when its drain duration ended, while it went on serving its open connections. The agent now drains
+    Envoy with `skip_exit`, as it already does for `/drain`, and ends Envoy itself once no connection is open. Until then
+    the proxy keeps its listeners: its metrics stay available, and connections that arrive late are drained rather than
+    refused.
