@@ -17,7 +17,7 @@ package deployment
 import (
 	"path"
 
-	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -63,12 +63,12 @@ func (e External) Build(t resource.Context, b deployment.Builder) deployment.Bui
 		},
 		Subsets: []echo.SubsetConfig{
 			{
-				Version:     "v1",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				Version: "v1",
+				Labels:  map[string]string{label.SidecarInject.Name: "false"},
 			},
 			{
-				Version:     "v2",
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				Version: "v2",
+				Labels:  map[string]string{label.SidecarInject.Name: "false"},
 			},
 		},
 	}

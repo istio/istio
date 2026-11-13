@@ -22,7 +22,7 @@ import (
 	"path"
 	"strconv"
 
-	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/common"
@@ -313,7 +313,7 @@ func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo
 		With(&dest, echo.Config{
 			Service:   "destination",
 			Namespace: appsNamespace,
-			Subsets:   []echo.SubsetConfig{{Annotations: map[string]string{annotation.SidecarInject.Name: "false"}}},
+			Subsets:   []echo.SubsetConfig{{Labels: map[string]string{label.SidecarInject.Name: "false"}}},
 			Ports: []echo.Port{
 				{
 					// Plain HTTP port, will match no listeners and fall through

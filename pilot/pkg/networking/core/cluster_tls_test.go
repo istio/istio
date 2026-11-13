@@ -1844,6 +1844,63 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 }
 
+func TestSimpleCaCertCredentialName(t *testing.T) {
+	cb := &ClusterBuilder{proxyType: model.SidecarProxy}
+	settings := &networking.ClientTLSSettings{
+		Mode:                 networking.ClientTLSSettings_SIMPLE,
+		CaCertificates:       "/etc/certs/ca.pem",
+		CaCertCredentialName: "configmap://backend/backend-ca",
+		CaCrl:                "/etc/certs/backend.crl",
+	}
+
+	context, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{mutable: newTestCluster()}, settings)
+	assert.NoError(t, err)
+	assert.Equal(t,
+		context.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(),
+		"file-root:/etc/certs/ca.pem",
+	)
+
+	context, err = cb.buildUpstreamClusterTLSContext(&buildClusterOpts{
+		mutable:          newTestCluster(),
+		isDrWithSelector: true,
+	}, settings)
+	assert.NoError(t, err)
+	assert.Equal(t,
+		context.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(),
+		"configmap://backend/backend-ca",
+	)
+	assert.Equal(t,
+		context.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetCrl().GetFilename(),
+		"/etc/certs/backend.crl",
+	)
+}
+
+func TestMutualCaCertCredentialNameWithFileIdentity(t *testing.T) {
+	cb := &ClusterBuilder{proxyType: model.SidecarProxy}
+	settings := &networking.ClientTLSSettings{
+		Mode:                 networking.ClientTLSSettings_MUTUAL,
+		ClientCertificate:    "/etc/certs/client.pem",
+		PrivateKey:           "/etc/certs/client-key.pem",
+		CaCertCredentialName: "configmap://backend/backend-ca",
+		CaCrl:                "/etc/certs/backend.crl",
+	}
+
+	context, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{
+		mutable:          newTestCluster(),
+		isDrWithSelector: true,
+	}, settings)
+	assert.NoError(t, err)
+	assert.Equal(t, len(context.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()), 1)
+	assert.Equal(t,
+		context.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(),
+		"configmap://backend/backend-ca",
+	)
+	assert.Equal(t,
+		context.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetCrl().GetFilename(),
+		"/etc/certs/backend.crl",
+	)
+}
+
 func TestBuildAutoMtlsSettings(t *testing.T) {
 	tlsSettings := &networking.ClientTLSSettings{
 		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,

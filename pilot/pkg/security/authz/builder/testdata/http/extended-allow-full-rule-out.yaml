@@ -83,13 +83,16 @@ typedConfig:
                     name: :method
                     stringMatch:
                       exact: method
+                      ignoreCase: true
                 - header:
                     name: :method
                     stringMatch:
+                      ignoreCase: true
                       prefix: method-prefix-
                 - header:
                     name: :method
                     stringMatch:
+                      ignoreCase: true
                       suffix: -suffix-method
                 - header:
                     name: :method
@@ -101,13 +104,16 @@ typedConfig:
                       name: :method
                       stringMatch:
                         exact: not-method
+                        ignoreCase: true
                   - header:
                       name: :method
                       stringMatch:
+                        ignoreCase: true
                         prefix: not-method-prefix-
                   - header:
                       name: :method
                       stringMatch:
+                        ignoreCase: true
                         suffix: -not-suffix-method
                   - header:
                       name: :method

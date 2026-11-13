@@ -110,6 +110,9 @@ type Config struct {
 	// Mirrors Envoy file.
 	XDSRootCAFile string
 
+	// XDSRootCA is the PEM root CA for the XDS connection. Takes precedence over XDSRootCAFile.
+	XDSRootCA []byte
+
 	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
 	InsecureSkipVerify bool
 
@@ -311,7 +314,7 @@ func dialWithConfig(ctx context.Context, config *Config) (*grpc.ClientConn, erro
 	var err error
 	// If we need MTLS - CertDir or Secrets provider is set.
 	if len(config.CertDir) > 0 || config.SecretManager != nil {
-		tlsCfg, err := tlsConfig(config)
+		tlsCfg, err := TLSConfig(config)
 		if err != nil {
 			return nil, err
 		}
@@ -331,14 +334,17 @@ func dialWithConfig(ctx context.Context, config *Config) (*grpc.ClientConn, erro
 	return conn, nil
 }
 
-func tlsConfig(config *Config) (*tls.Config, error) {
+// TLSConfig builds the client TLS config for the XDS connection from config.
+func TLSConfig(config *Config) (*tls.Config, error) {
 	var serverCABytes []byte
 	var err error
 
 	getClientCertificate := getClientCertFn(config)
 
 	// Load the root CAs
-	if config.XDSRootCAFile != "" {
+	if len(config.XDSRootCA) > 0 {
+		serverCABytes = config.XDSRootCA
+	} else if config.XDSRootCAFile != "" {
 		serverCABytes, err = os.ReadFile(config.XDSRootCAFile)
 		if err != nil {
 			return nil, err
@@ -358,9 +364,12 @@ func tlsConfig(config *Config) (*tls.Config, error) {
 		}
 	}
 
-	serverCAs := x509.NewCertPool()
-	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
-		return nil, err
+	var serverCAs *x509.CertPool
+	if len(serverCABytes) > 0 {
+		serverCAs = x509.NewCertPool()
+		if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
+			return nil, fmt.Errorf("failed to parse root CA certificates")
+		}
 	}
 
 	shost, _, _ := net.SplitHostPort(config.Address)

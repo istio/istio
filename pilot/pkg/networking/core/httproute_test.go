@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -2346,6 +2347,467 @@ func TestWaypointInboundRouteHashPolicyNilService(t *testing.T) {
 			if hp := r.GetRoute().HashPolicy; len(hp) != 0 {
 				t.Fatalf("expected no hash_policy when svc is nil, got %v", hp)
 			}
+		}
+	}
+}
+
+func TestBuildDeltaHTTPRoutes(t *testing.T) {
+	services := []*model.Service{
+		buildHTTPService("svc-a.default.svc.cluster.local", visibility.Public, wildcardIPv4, "default", 8080),
+		buildHTTPService("svc-b.default.svc.cluster.local", visibility.Public, wildcardIPv4, "default", 9090),
+	}
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
+			Name:             "sc",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Sidecar,
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port:  &networking.SidecarPort{Number: 8080, Protocol: "HTTP", Name: "a"},
+					Hosts: []string{"default/svc-a.default.svc.cluster.local"},
+				},
+				{
+					Port:  &networking.SidecarPort{Number: 9090, Protocol: "HTTP", Name: "b"},
+					Hosts: []string{"default/svc-b.default.svc.cluster.local"},
+				},
+			},
+		},
+	}
+	virtualServiceA := &config.Config{
+		Meta: config.Meta{
+			Name:             "vs-a",
+			Namespace:        "default",
+			GroupVersionKind: gvk.VirtualService,
+		},
+		Spec: &networking.VirtualService{
+			Hosts: []string{"svc-a.default.svc.cluster.local"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "svc-b.default.svc.cluster.local"},
+				}},
+			}},
+		},
+	}
+	destinationRuleA := &config.Config{
+		Meta: config.Meta{
+			Name:             "dr-a",
+			Namespace:        "default",
+			GroupVersionKind: gvk.DestinationRule,
+		},
+		Spec: &networking.DestinationRule{
+			Host: "*.default.svc.cluster.local",
+		},
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Services:       services,
+		ConfigPointers: []*config.Config{sidecarConfig, virtualServiceA, destinationRuleA},
+	})
+	proxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
+	watched := &model.WatchedResource{ResourceNames: sets.New("8080", "9090")}
+
+	cases := []struct {
+		name       string
+		cfgs       sets.Set[model.ConfigKey]
+		wantDelta  bool
+		wantRoutes sets.String
+	}{
+		{
+			name:       "service entry falls back to a full rebuild",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "svc-a.default.svc.cluster.local", Namespace: "default"}),
+			wantDelta:  false,
+			wantRoutes: sets.New("8080", "9090"),
+		},
+		{
+			name:       "virtual service affects only the port it's bound to",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "vs-a", Namespace: "default"}),
+			wantDelta:  true,
+			wantRoutes: sets.New("8080"),
+		},
+		{
+			name:       "wildcard destination rule for a virtual service destination falls back to a full rebuild",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "dr-a", Namespace: "default"}),
+			wantDelta:  false,
+			wantRoutes: sets.New("8080", "9090"),
+		},
+		{
+			name:       "unmappable kind falls back to a full rebuild",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.Sidecar, Name: "sc", Namespace: "default"}),
+			wantDelta:  false,
+			wantRoutes: sets.New("8080", "9090"),
+		},
+	}
+
+	test.SetForTest(t, &features.EnableDeltaRDS, true)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			req := &model.PushRequest{Push: cg.PushContext(), ConfigsUpdated: c.cfgs}
+			routes, removed, _, usedDelta := cg.ConfigGen.BuildDeltaHTTPRoutes(proxy, req, watched)
+			if usedDelta != c.wantDelta {
+				t.Fatalf("usedDelta = %v, want %v", usedDelta, c.wantDelta)
+			}
+			if len(removed) != 0 {
+				t.Fatalf("unexpected removed routes: %v", removed)
+			}
+			got := sets.New[string]()
+			for _, r := range routes {
+				got.Insert(r.Name)
+			}
+			if !got.Equals(c.wantRoutes) {
+				t.Fatalf("got routes %v, want %v", got, c.wantRoutes)
+			}
+		})
+	}
+
+	t.Run("feature flag off falls back to a full rebuild", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableDeltaRDS, false)
+		req := &model.PushRequest{
+			Push: cg.PushContext(),
+			ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind: kind.ServiceEntry, Name: "svc-a.default.svc.cluster.local", Namespace: "default",
+			}),
+		}
+		routes, _, _, usedDelta := cg.ConfigGen.BuildDeltaHTTPRoutes(proxy, req, watched)
+		if usedDelta {
+			t.Fatalf("expected usedDelta=false when feature flag is disabled")
+		}
+		if len(routes) != 2 {
+			t.Fatalf("expected all watched routes rebuilt, got %d", len(routes))
+		}
+	})
+
+	t.Run("waypoint virtual service update selects routes backed by its egress listener", func(t *testing.T) {
+		waypoint := cg.SetupProxy(&model.Proxy{Type: model.Waypoint, ConfigNamespace: "default"})
+		routes, _, _, usedDelta := cg.ConfigGen.BuildDeltaHTTPRoutes(waypoint, &model.PushRequest{
+			Push: cg.PushContext(),
+			ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind: kind.VirtualService, Name: virtualServiceA.Name, Namespace: virtualServiceA.Namespace,
+			}),
+		}, watched)
+		if !usedDelta {
+			t.Fatal("expected a delta response")
+		}
+		got := sets.New[string]()
+		for _, route := range routes {
+			got.Insert(route.Name)
+		}
+		// Waypoints have a single catch-all egress listener, so every watched route resolves to
+		// that listener and is rebuilt when one of its VirtualServices changes.
+		if !got.Equals(sets.New("8080", "9090")) {
+			t.Fatalf("got routes %v, want [8080 9090]", got)
+		}
+	})
+
+	t.Run("deleted virtual service is selected from the previous scope", func(t *testing.T) {
+		previous := NewConfigGenTest(t, TestOptions{
+			Services:       services,
+			ConfigPointers: []*config.Config{sidecarConfig, virtualServiceA},
+		})
+		previousProxy := previous.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
+		current := NewConfigGenTest(t, TestOptions{
+			Services:       services,
+			ConfigPointers: []*config.Config{sidecarConfig},
+		})
+		proxy := current.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
+		proxy.PrevSidecarScope = previousProxy.SidecarScope
+
+		routes, _, _, usedDelta := current.ConfigGen.BuildDeltaHTTPRoutes(proxy, &model.PushRequest{
+			Push: current.PushContext(),
+			ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind: kind.VirtualService, Name: virtualServiceA.Name, Namespace: virtualServiceA.Namespace,
+			}),
+		}, watched)
+		if !usedDelta {
+			t.Fatal("expected a delta response")
+		}
+		got := sets.New[string]()
+		for _, route := range routes {
+			got.Insert(route.Name)
+		}
+		if !got.Equals(sets.New("8080")) {
+			t.Fatalf("got routes %v, want [8080]", got)
+		}
+	})
+}
+
+func TestBuildDeltaHTTPRoutesGateway(t *testing.T) {
+	gatewayA := &config.Config{
+		Meta: config.Meta{
+			Name:             "gw-a",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{{
+				Hosts: []string{"a.example.com"},
+				Port:  &networking.Port{Name: "http-a", Number: 80, Protocol: "HTTP"},
+			}},
+		},
+	}
+	gatewayB := &config.Config{
+		Meta: config.Meta{
+			Name:             "gw-b",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{{
+				Hosts: []string{"b.example.com"},
+				Port:  &networking.Port{Name: "http-b", Number: 8080, Protocol: "HTTP"},
+			}},
+		},
+	}
+	virtualServiceA := &config.Config{
+		Meta: config.Meta{
+			Name:             "vs-a",
+			Namespace:        "default",
+			GroupVersionKind: gvk.VirtualService,
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"a.example.com"},
+			Gateways: []string{"gw-a"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "svc-a.default.svc.cluster.local"},
+				}},
+			}},
+		},
+	}
+	virtualServiceB := &config.Config{
+		Meta: config.Meta{
+			Name:             "vs-b",
+			Namespace:        "default",
+			GroupVersionKind: gvk.VirtualService,
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"b.example.com"},
+			Gateways: []string{"gw-b"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "svc-b.default.svc.cluster.local"},
+				}},
+			}},
+		},
+	}
+
+	services := []*model.Service{
+		buildHTTPService("svc-a.default.svc.cluster.local", visibility.Public, wildcardIPv4, "default", 8080),
+		buildHTTPService("svc-b.default.svc.cluster.local", visibility.Public, wildcardIPv4, "default", 9090),
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Services:       services,
+		ConfigPointers: []*config.Config{gatewayA, gatewayB, virtualServiceA, virtualServiceB},
+	})
+	test.SetForTest(t, &features.EnableDeltaRDS, true)
+	gatewayLabels := map[string]string{"istio": "ingressgateway"}
+	proxy := cg.SetupProxy(&model.Proxy{
+		Type:            model.Router,
+		ConfigNamespace: "default",
+		Labels:          gatewayLabels,
+		Metadata:        &model.NodeMetadata{Labels: gatewayLabels},
+	})
+	watched := &model.WatchedResource{ResourceNames: sets.New("http.80", "http.8080")}
+
+	cases := []struct {
+		name       string
+		cfgs       sets.Set[model.ConfigKey]
+		wantDelta  bool
+		wantRoutes sets.String
+	}{
+		{
+			name:       "gateway update falls back to a full rebuild",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.Gateway, Name: "gw-a", Namespace: "default"}),
+			wantDelta:  false,
+			wantRoutes: sets.New("http.80", "http.8080"),
+		},
+		{
+			name:       "virtual service update affects only routes for gateways it's attached to",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "vs-b", Namespace: "default"}),
+			wantDelta:  true,
+			wantRoutes: sets.New("http.8080"),
+		},
+		{
+			name:       "service entry falls back to a full rebuild",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "svc-a.default.svc.cluster.local", Namespace: "default"}),
+			wantDelta:  false,
+			wantRoutes: sets.New("http.80", "http.8080"),
+		},
+		{
+			name:       "unmapped kind falls back to a full rebuild",
+			cfgs:       sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "dr-a", Namespace: "default"}),
+			wantDelta:  false,
+			wantRoutes: sets.New("http.80", "http.8080"),
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			req := &model.PushRequest{Push: cg.PushContext(), ConfigsUpdated: c.cfgs}
+			routes, removed, _, usedDelta := cg.ConfigGen.BuildDeltaHTTPRoutes(proxy, req, watched)
+			if usedDelta != c.wantDelta {
+				t.Fatalf("usedDelta = %v, want %v", usedDelta, c.wantDelta)
+			}
+			if len(removed) != 0 {
+				t.Fatalf("unexpected removed routes: %v", removed)
+			}
+			got := sets.New[string]()
+			for _, r := range routes {
+				got.Insert(r.Name)
+			}
+			if !got.Equals(c.wantRoutes) {
+				t.Fatalf("got routes %v, want %v", got, c.wantRoutes)
+			}
+		})
+	}
+
+	t.Run("route no longer present in merged gateway falls back conservatively", func(t *testing.T) {
+		// http.9090 is watched but no current gateway server maps to it (e.g. the gateway
+		// that used to own it was deleted); PrevMergedGateway does not track ServersByRouteName,
+		// so it must be conservatively treated as affected whenever anything changes. Uses a
+		// VirtualService update, since Gateway-kind updates are no longer delta-eligible and
+		// always fall back to a full rebuild before reaching this logic.
+		req := &model.PushRequest{
+			Push: cg.PushContext(),
+			ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind: kind.VirtualService, Name: "vs-a", Namespace: "default",
+			}),
+		}
+		watchedWithDeletedRoute := &model.WatchedResource{ResourceNames: sets.New("http.80", "http.8080", "http.9090")}
+		routes, _, _, usedDelta := cg.ConfigGen.BuildDeltaHTTPRoutes(proxy, req, watchedWithDeletedRoute)
+		if !usedDelta {
+			t.Fatal("expected a delta response")
+		}
+		got := sets.New[string]()
+		for _, r := range routes {
+			got.Insert(r.Name)
+		}
+		if !got.Equals(sets.New("http.80", "http.9090")) {
+			t.Fatalf("got routes %v, want [http.80 http.9090]", got)
+		}
+	})
+
+	t.Run("feature flag off falls back to a full rebuild", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableDeltaRDS, false)
+		req := &model.PushRequest{
+			Push: cg.PushContext(),
+			ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind: kind.Gateway, Name: "gw-a", Namespace: "default",
+			}),
+		}
+		routes, _, _, usedDelta := cg.ConfigGen.BuildDeltaHTTPRoutes(proxy, req, watched)
+		if usedDelta {
+			t.Fatalf("expected usedDelta=false when feature flag is disabled")
+		}
+		if len(routes) != 2 {
+			t.Fatalf("expected all watched routes rebuilt, got %d", len(routes))
+		}
+	})
+}
+
+// A VirtualService can route to a different port than its Sidecar egress listener.
+// The route's destination cluster must be imported without exposing additional
+// services or ports on the listener.
+func TestSidecarVirtualServiceDestinationPorts(t *testing.T) {
+	for _, namespace := range []string{"default", "other"} {
+		for _, tt := range []struct {
+			name          string
+			backendPorts  []int
+			importBackend bool
+		}{
+			{name: "single port", backendPorts: []int{8080}},
+			{name: "multiple ports", backendPorts: []int{8080, 9090}},
+			{name: "includes listener port", backendPorts: []int{80, 8080, 9090}},
+			{name: "merge with direct import", backendPorts: []int{80, 8080, 9090}, importBackend: true},
+		} {
+			t.Run(namespace+"/"+tt.name, func(t *testing.T) {
+				backend := &model.Service{
+					Hostname:       "backend.example.com",
+					DefaultAddress: "10.0.0.2",
+					Attributes:     model.ServiceAttributes{Name: "backend", Namespace: namespace},
+				}
+				for _, port := range tt.backendPorts {
+					backend.Ports = append(backend.Ports, &model.Port{
+						Name: fmt.Sprintf("http-%d", port), Port: port, Protocol: protocol.HTTP,
+					})
+				}
+				cg := NewConfigGenTest(t, TestOptions{
+					Services: []*model.Service{
+						{
+							Hostname:       "frontend.example.com",
+							DefaultAddress: "10.0.0.1",
+							Attributes:     model.ServiceAttributes{Name: "frontend", Namespace: "default"},
+							Ports: model.PortList{
+								{Name: "http", Port: 80, Protocol: protocol.HTTP},
+								{Name: "http-unused", Port: 9090, Protocol: protocol.HTTP},
+							},
+						},
+						backend,
+					},
+					ConfigTemplateInput: tt.importBackend,
+					ConfigString: `
+apiVersion: networking.istio.io/v1
+kind: Sidecar
+metadata:
+  name: default
+  namespace: default
+spec:
+  egress:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*/frontend.example.com"
+{{ if . }}
+    - "*/backend.example.com"
+{{ end }}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: frontend
+  namespace: default
+spec:
+  hosts:
+  - frontend.example.com
+  http:
+  - route:
+    - destination:
+        host: backend.example.com
+        port:
+          number: 8080
+`,
+				})
+				proxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
+				const destinationCluster = "outbound|8080||backend.example.com"
+				foundRoute := false
+				for _, rc := range cg.Routes(proxy) {
+					for _, vh := range rc.VirtualHosts {
+						if vh.Name == "frontend.example.com:80" {
+							assert.Equal(t, len(vh.Routes), 1)
+							assert.Equal(t, vh.Routes[0].GetRoute().GetCluster(), destinationCluster)
+							foundRoute = true
+						}
+					}
+				}
+				assert.Equal(t, foundRoute, true)
+				clusters := xdstest.ExtractClusters(cg.Clusters(proxy))
+				if clusters[destinationCluster] == nil {
+					t.Errorf("HTTP route references missing cluster %s", destinationCluster)
+				}
+				assert.Equal(t, clusters["outbound|80||backend.example.com"] != nil, tt.importBackend)
+				assert.Equal(t, clusters["outbound|9090||backend.example.com"] == nil, true)
+				assert.Equal(t, clusters["outbound|9090||frontend.example.com"] == nil, true)
+				for _, svc := range proxy.SidecarScope.EgressListeners[0].Services() {
+					assert.Equal(t, len(svc.Ports), 1)
+					assert.Equal(t, svc.Ports[0].Port, 80)
+				}
+			})
 		}
 	}
 }

@@ -70,7 +70,7 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 			switch {
 			case strings.Contains(eString, "You must provide a proxyID in the query string"):
 				return nil, fmt.Errorf(" You must provide a proxyID in the query string, e.g. [%s]",
-					"edsz?proxyID=istio-ingressgateway")
+					"edsz?proxyID=istio-ingressgateway-7d9f8b-x2k9q.istio-system")
 
 			case strings.Contains(eString, "404 page not found"):
 				return HandlerForRetrieveDebugList(false, kubeClient, *centralOpts, writer, istioNamespace)

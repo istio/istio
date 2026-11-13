@@ -108,8 +108,9 @@ func XdsVersionCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 	var xdsResponses *discovery.DiscoveryResponse
-	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
-		GetRemoteVersion: xdsRemoteVersionWrapper(ctx, &opts, &centralOpts, &xdsResponses),
+	var versionCmd *cobra.Command
+	versionCmd = istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
+		GetRemoteVersion: xdsRemoteVersionWrapper(ctx, &versionCmd, &opts, &centralOpts, &xdsResponses),
 		GetProxyVersions: xdsProxyVersionWrapper(&xdsResponses),
 	})
 	opts.AttachControlPlaneFlags(versionCmd)
@@ -160,7 +161,7 @@ func XdsVersionCommand(ctx cli.Context) *cobra.Command {
 // xdsRemoteVersionWrapper uses outXDS to share the XDS response with xdsProxyVersionWrapper.
 // (Screwy API on istioVersion.CobraCommandWithOptions)
 // nolint: lll
-func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **discovery.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
+func xdsRemoteVersionWrapper(ctx cli.Context, pc **cobra.Command, opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **discovery.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
 		xdsRequest := discovery.DiscoveryRequest{
 			TypeUrl: xds.TypeDebugSyncronization,
@@ -171,6 +172,7 @@ func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptio
 		}
 		xdsResponse, err := multixds.RequestAndProcessXds(&xdsRequest, *centralOpts, ctx.IstioNamespace(), kubeClient)
 		if err != nil {
+			fmt.Fprintf((*pc).ErrOrStderr(), "unable to retrieve the control plane version over XDS: %v\n", err)
 			return nil, err
 		}
 		*outXDS = xdsResponse

@@ -21,7 +21,7 @@ import (
 	"net"
 	"testing"
 
-	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/slices"
 	echot "istio.io/istio/pkg/test/echo"
@@ -78,14 +78,14 @@ func getEchoConfigs() []echo.Config {
 			Ports:          ports.All(),
 			IPFamilyPolicy: "PreferDualStack",
 			BindFamily:     "IPv4",
-			Subsets:        []echo.SubsetConfig{{Annotations: map[string]string{annotation.SidecarInject.Name: "false"}}},
+			Subsets:        []echo.SubsetConfig{{Labels: map[string]string{label.SidecarInject.Name: "false"}}},
 		},
 		{
 			Service:        "echo-v6-naked",
 			Ports:          ports.All(),
 			IPFamilyPolicy: "PreferDualStack",
 			BindFamily:     "IPv6",
-			Subsets:        []echo.SubsetConfig{{Annotations: map[string]string{annotation.SidecarInject.Name: "false"}}},
+			Subsets:        []echo.SubsetConfig{{Labels: map[string]string{label.SidecarInject.Name: "false"}}},
 		},
 	}
 }

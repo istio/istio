@@ -81,6 +81,8 @@ type Writer[T controllers.Object] interface {
 	Update(object T) (T, error)
 	// UpdateStatus updates a resource's status, returning the newly applied resource.
 	UpdateStatus(object T) (T, error)
+	// UpdateStatusNoResponse updates a resource's status without decoding the returned resource.
+	UpdateStatusNoResponse(object T) error
 	// Patch patches the resource, returning the newly applied resource.
 	Patch(name, namespace string, pt apitypes.PatchType, data []byte) (T, error)
 	// PatchStatus patches the resource's status, returning the newly applied resource.

@@ -106,6 +106,10 @@ _internal_defaults_do_not_set:
   # Deployment Update strategy
   strategy: {}
 
+  # DaemonSet update strategy, for use with `kind: DaemonSet`. See
+  # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec
+  updateStrategy: {}
+
   # Sets the Deployment minReadySeconds value
   minReadySeconds:
 
@@ -118,6 +122,12 @@ _internal_defaults_do_not_set:
   labels:
     # By default, don't enroll gateways into the ambient dataplane
     "istio.io/dataplane-mode": none
+
+  # Additional selector labels applied to Deployment matchLabels, Pod template, PDB, NetworkPolicy, and Service.
+  # Note: Deployment.spec.selector is immutable in Kubernetes; this field is intended for initial creation
+  # or brownfield adoption (e.g. migrating from IstioOperator). Modifying this on an existing deployment
+  # will be rejected by Kubernetes.
+  selectorLabels: {}
 
   # Annotations to apply to all resources
   annotations: {}
@@ -191,6 +201,14 @@ _internal_defaults_do_not_set:
   # Configure the DNS policy for the gateway pods. See
   # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
   dnsPolicy: ""
+
+  # Run the gateway pods in the host network namespace. This binds the gateway ports
+  # directly on the node network and is useful for serving on privileged ports (for
+  # example 80/443) without a NodePort or LoadBalancer. When enabled, the ports must be
+  # free on every node the gateway runs on, and the pod does not have its own network
+  # namespace. See
+  # https://kubernetes.io/docs/concepts/configuration/overview/#hostnetwork
+  hostNetwork: false
 
   # Configure DNS settings for the gateway pods. See
   # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config

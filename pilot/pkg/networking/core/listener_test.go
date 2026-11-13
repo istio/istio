@@ -1411,19 +1411,23 @@ func TestPrecomputedNetworkFiltersSNISelection(t *testing.T) {
 	assert.Equal(t, len(pod.FilterChains[0].GetFilterChainMatch().GetServerNames()), 0)
 }
 
+// Chains share filters unless NETWORK_FILTER patches apply, and metadata unless FILTER_CHAIN or LISTENER patches apply.
 func TestPrecomputedNetworkFiltersChainIsolation(t *testing.T) {
 	test.SetForTest(t, &features.EnableHeadlessFilterChainListener, true)
-	for _, envoyFilters := range []bool{false, true} {
-		t.Run(fmt.Sprintf("envoyfilters=%t", envoyFilters), func(t *testing.T) {
-			testPrecomputedNetworkFiltersChainIsolation(t, envoyFilters)
+	for _, applyTo := range []networking.EnvoyFilter_ApplyTo{
+		networking.EnvoyFilter_INVALID, networking.EnvoyFilter_NETWORK_FILTER, networking.EnvoyFilter_FILTER_CHAIN,
+		networking.EnvoyFilter_LISTENER,
+	} {
+		t.Run(fmt.Sprintf("envoyfilter=%s", applyTo), func(t *testing.T) {
+			testPrecomputedNetworkFiltersChainIsolation(t, applyTo)
 		})
 	}
 }
 
-func testPrecomputedNetworkFiltersChainIsolation(t *testing.T, envoyFilters bool) {
+func testPrecomputedNetworkFiltersChainIsolation(t *testing.T, applyTo networking.EnvoyFilter_ApplyTo) {
 	configs := []config.Config{}
-	if envoyFilters {
-		configs = headlessTestEnvoyFilters(networking.EnvoyFilter_NETWORK_FILTER)
+	if applyTo != networking.EnvoyFilter_INVALID {
+		configs = headlessTestEnvoyFilters(applyTo)
 	}
 	h := headlessTestService("headless.test", protocol.TLS, 0)
 	vs := config.Config{
@@ -1443,15 +1447,20 @@ func testPrecomputedNetworkFiltersChainIsolation(t *testing.T, envoyFilters bool
 	assert.Equal(t, a.GetFilterChainMatch().GetServerNames(), b.GetFilterChainMatch().GetServerNames())
 	assert.Equal(t, len(a.GetFilterChainMatch().PrefixRanges), 1)
 	assert.Equal(t, len(b.GetFilterChainMatch().PrefixRanges), 1)
-	if &a.Filters[0] == &b.Filters[0] || a.Metadata == b.Metadata {
-		t.Fatal("chains share a filter slice or metadata")
+	if &a.Filters[0] == &b.Filters[0] {
+		t.Fatal("chains share a filter slice")
 	}
-	assert.Equal(t, a.Filters[0] == b.Filters[0], !envoyFilters)
+	assert.Equal(t, a.Metadata != nil, true)
+	assert.Equal(t, a.Filters[0] == b.Filters[0], applyTo != networking.EnvoyFilter_NETWORK_FILTER)
+	metadataPatched := applyTo == networking.EnvoyFilter_FILTER_CHAIN || applyTo == networking.EnvoyFilter_LISTENER
+	assert.Equal(t, a.Metadata == b.Metadata, !metadataPatched)
 	before := protomarshal.Clone(b)
-	if envoyFilters {
+	if applyTo == networking.EnvoyFilter_NETWORK_FILTER {
 		a.Filters[0].GetTypedConfig().Value[0] ^= 1
 	}
-	a.Metadata.FilterMetadata = nil
+	if metadataPatched {
+		a.Metadata.FilterMetadata = nil
+	}
 	assert.Equal(t, proto.Equal(b, before), true)
 }
 
@@ -1546,6 +1555,7 @@ func TestPrecomputedNetworkFilters(t *testing.T) {
 					assert.Equal(t, got[i].destinationCIDRs, want[i].destinationCIDRs)
 					assert.Equal(t, got[i].sniHosts, want[i].sniHosts)
 					assert.Equal(t, got[i].networkFilters, want[i].networkFilters)
+					assert.Equal(t, got[i].metadata, want[i].metadata)
 					if previous != nil {
 						if &got[i].networkFilters[0] == &previous[i].networkFilters[0] {
 							t.Fatal("pods share a filter slice")

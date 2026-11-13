@@ -12,10 +12,9 @@ spec:
   strategy: {}
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       labels:
         app: hello
+        sidecar.istio.io/inject: "false"
         tier: backend
         track: stable
     spec:

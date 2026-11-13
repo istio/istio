@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube/krt"
 	pkgmodel "istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -38,6 +39,7 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 		{
 			name: "gateway name from label",
 			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
 				Labels: map[string]string{
 					gatewayNameLabel: "my-gateway",
 				},
@@ -54,7 +56,8 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 		{
 			name: "gateway name from role fallback - same namespace",
 			proxy: &model.Proxy{
-				Labels: map[string]string{},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
 					Namespace: "default",
 					Raw: map[string]any{
@@ -69,25 +72,24 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "gateway name from role fallback - different namespace",
+			name: "gateway name from role fallback - different namespace rejected",
 			proxy: &model.Proxy{
-				Labels: map[string]string{},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "other-ns"},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
-					Namespace: "wrong-namespace",
+					Namespace: "other-ns",
 					Raw: map[string]any{
-						"role": "other-ns~gw",
+						"role": "wrong-namespace~gw",
 					},
 				},
 			},
-			wantNN: types.NamespacedName{
-				Namespace: "other-ns",
-				Name:      "gw",
-			},
-			wantErr: false,
+			wantNN:  types.NamespacedName{},
+			wantErr: true,
 		},
 		{
 			name: "label takes precedence over role - gateway names should be the same regardless",
 			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
 				Labels: map[string]string{
 					gatewayNameLabel: "label-gateway",
 				},
@@ -107,7 +109,8 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 		{
 			name: "no gateway name available",
 			proxy: &model.Proxy{
-				Labels: map[string]string{},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
 					Namespace: "default",
 					Raw:       map[string]any{},
@@ -119,7 +122,8 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 		{
 			name: "invalid role format - missing tilde",
 			proxy: &model.Proxy{
-				Labels: map[string]string{},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
 					Namespace: "default",
 					Raw: map[string]any{
@@ -133,12 +137,27 @@ func TestGetGatewayNameForProxy(t *testing.T) {
 		{
 			name: "role is not a string",
 			proxy: &model.Proxy{
-				Labels: map[string]string{},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
 					Namespace: "default",
 					Raw: map[string]any{
 						"role": 123,
 					},
+				},
+			},
+			wantNN:  types.NamespacedName{},
+			wantErr: true,
+		},
+		{
+			name: "no verified identity - rejected",
+			proxy: &model.Proxy{
+				VerifiedIdentity: nil, // plaintext 15010 or identity check disabled
+				Labels: map[string]string{
+					gatewayNameLabel: "my-gateway",
+				},
+				Metadata: &pkgmodel.NodeMetadata{
+					Namespace: "default",
 				},
 			},
 			wantNN:  types.NamespacedName{},
@@ -204,22 +223,24 @@ func TestGenerateDeltas_RoleNamespace(t *testing.T) {
 		wantError     bool
 	}{
 		{
-			name: "proxy with role pointing to other-ns should get other-ns resource",
+			name: "proxy with incorrect role ns should fail",
 			proxy: &model.Proxy{
-				Labels: map[string]string{},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "other-ns"},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
-					Namespace: "wrong-namespace", // This should be ignored
+					Namespace: "other-ns",
 					Raw: map[string]any{
-						"role": "other-ns~gw", // This specifies the correct namespace
+						"role": "wrong-namespace~gw", // wrong-namespace should cause a failure
 					},
 				},
 			},
 			wantResources: []string{"resource-1", "global-resource"},
-			wantError:     false,
+			wantError:     true,
 		},
 		{
-			name: "proxy with label should use proxy namespace",
+			name: "proxy with label should use verified identity namespace",
 			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
 				Labels: map[string]string{
 					gatewayNameLabel: "gw",
 				},
@@ -233,7 +254,8 @@ func TestGenerateDeltas_RoleNamespace(t *testing.T) {
 		{
 			name: "proxy without gateway name should error",
 			proxy: &model.Proxy{
-				Labels: map[string]string{},
+				VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
+				Labels:           map[string]string{},
 				Metadata: &pkgmodel.NodeMetadata{
 					Namespace: "default",
 					Raw:       map[string]any{},

@@ -99,7 +99,8 @@ func (its *tokenSupplier) GetRequestMetadata(ctx context.Context, uri ...string)
 
 // RequireTransportSecurity fulfills the grpc/credentials.PerRPCCredentials interface
 func (its *tokenSupplier) RequireTransportSecurity() bool {
-	return false
+	// The token is a bearer credential, never send it over an unauthenticated transport.
+	return true
 }
 
 func createServiceAccountToken(ctx context.Context, client Client,

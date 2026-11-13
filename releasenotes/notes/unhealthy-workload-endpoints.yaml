@@ -1,0 +1,18 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: []
+
+releaseNotes:
+  - |
+    **Fixed** unhealthy endpoint propagation when `PILOT_AUTO_SEND_UNHEALTHY_ENDPOINTS` or
+    `PILOT_SEND_UNHEALTHY_ENDPOINTS` is enabled. Unready pods selected by `ServiceEntry` resources
+    and unhealthy health-checked `WorkloadEntry` resources selected by Kubernetes Services or
+    `ServiceEntry` resources are now retained with their health status instead of being omitted.
+
+upgradeNotes:
+  - title: Unhealthy endpoints from pods and WorkloadEntries
+    content: |
+      With `PILOT_AUTO_SEND_UNHEALTHY_ENDPOINTS` enabled (the default), unready pods selected by
+      ServiceEntries and unhealthy health-checked WorkloadEntries can now appear in endpoint
+      discovery responses with unhealthy status.

@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** a crash in ztunnel where an inbound HBONE request with a malformed `traceparent` header caused an
+    index-out-of-bounds panic, dropping all streams on that connection. Invalid `traceparent` headers are now
+    ignored and a new trace ID is generated.
+securityNotes:
+  - |
+    __[GHSA-77vw-rg85-wx5x](https://github.com/istio/istio/security/advisories/GHSA-77vw-rg85-wx5x)__:
+    Ztunnel panicked when parsing a 55-byte `traceparent` header that did not contain four dash-separated fields,
+    terminating the inbound HBONE connection task and dropping every stream multiplexed on that connection.
+    Headers with the correct length but an invalid field layout were also accepted instead of rejected.
+      - CVSS Score: 6.5 [AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H&version=3.1)
+
+     **Credit**: This vulnerability was discovered and reported by Raphael Fakhri (https://github.com/RaphaelFakhri).

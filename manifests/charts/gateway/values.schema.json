@@ -79,6 +79,9 @@
         "strategy": {
           "type": "object"
         },
+        "updateStrategy": {
+          "type": "object"
+        },
         "minReadySeconds": {
           "type": [ "null", "integer" ]
         },
@@ -87,6 +90,12 @@
         },
         "labels": {
           "type": "object"
+        },
+        "selectorLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "name": {
           "type": "string"
@@ -342,6 +351,9 @@
         },
         "dnsPolicy": {
           "type": "string"
+        },
+        "hostNetwork": {
+          "type": "boolean"
         },
         "dnsConfig": {
           "type": "object"

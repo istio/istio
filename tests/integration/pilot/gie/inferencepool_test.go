@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
@@ -98,8 +99,10 @@ func TestInferencePoolMultipleTargetPorts(t *testing.T) {
 			// Under GatewayAPIOnly mode the injection webhook is not deployed, so no sidecar
 			// gets injected here
 			eppAnnotations := map[string]string{
-				"sidecar.istio.io/inject":                      "false",
 				"traffic.sidecar.istio.io/excludeInboundPorts": "9002",
+			}
+			eppLabels := map[string]string{
+				label.SidecarInject.Name: "false",
 			}
 			eppConfig := echo.Config{
 				Service:   "mock-epp",
@@ -117,6 +120,7 @@ func TestInferencePoolMultipleTargetPorts(t *testing.T) {
 					{
 						Version:     "v1",
 						Annotations: eppAnnotations,
+						Labels:      eppLabels,
 					},
 				},
 			}

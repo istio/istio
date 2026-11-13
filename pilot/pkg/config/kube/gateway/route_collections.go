@@ -395,7 +395,9 @@ func GRPCRouteCollection(
 					// TODO: standardize a status message for this upstream and report
 					continue
 				}
-				name := fmt.Sprintf("%s~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
+				// Include the route kind in the name so this does not collide with the VirtualService
+				// generated for an HTTPRoute with the same name, as both are joined into one collection.
+				name := fmt.Sprintf("%s~grpc~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
 				sortHTTPRoutes(routes)
 
 				cfg := config.Config{

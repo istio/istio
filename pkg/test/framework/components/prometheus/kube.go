@@ -257,7 +257,7 @@ func (c *kubeComponent) RawQuery(cluster cluster.Cluster, promQL string) (model.
 	api := c.api[cluster.Name()]
 	c.mu.RUnlock()
 
-	v, _, err := api.Query(context.Background(), promQL, time.Now())
+	v, _, _, err := api.Query(context.Background(), promQL, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("error querying Prometheus: %v", err)
 	}

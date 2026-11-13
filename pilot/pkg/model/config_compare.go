@@ -20,13 +20,13 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 )
 
 // NeedsPush checks whether a config update event requires an XDS push.
-// Returns false only when the spec is unchanged AND neither old nor new config
-// has any istio.io label or annotation — i.e. a pure non-Istio metadata change
-// (Helm annotations, Argo CD labels, kubectl.kubernetes.io/last-applied-configuration)
-// that has no effect on XDS state.
+// Returns false only when the spec is unchanged AND no istio.io label or annotation
+// value changed, i.e. a pure non-Istio metadata change (Helm annotations, Argo CD labels,
+// kubectl.kubernetes.io/last-applied-configuration) that has no effect on XDS state.
 func NeedsPush(prev config.Config, curr config.Config) bool {
 	if prev.GroupVersionKind != curr.GroupVersionKind {
 		// This should never happen.
@@ -36,26 +36,13 @@ func NeedsPush(prev config.Config, curr config.Config) bool {
 	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") {
 		return true
 	}
-	// If current/previous metadata has "*istio.io" label/annotation, just push
-	for label := range curr.Meta.Labels {
-		if strings.Contains(label, "istio.io") {
-			return true
-		}
+	if alwaysPush(prev.Meta) || alwaysPush(curr.Meta) {
+		return true
 	}
-	for annotation := range curr.Meta.Annotations {
-		if strings.Contains(annotation, "istio.io") {
-			return true
-		}
-	}
-	for label := range prev.Meta.Labels {
-		if strings.Contains(label, "istio.io") {
-			return true
-		}
-	}
-	for annotation := range prev.Meta.Annotations {
-		if strings.Contains(annotation, "istio.io") {
-			return true
-		}
+	// istio.io labels/annotations can change behavior, push only if one of their values changed
+	if istioMetadataChanged(prev.Meta.Labels, curr.Meta.Labels) ||
+		istioMetadataChanged(prev.Meta.Annotations, curr.Meta.Annotations) {
+		return true
 	}
 	prevspecProto, okProtoP := prev.Spec.(proto.Message)
 	currspecProto, okProtoC := curr.Spec.(proto.Message)
@@ -63,4 +50,29 @@ func NeedsPush(prev config.Config, curr config.Config) bool {
 		return !proto.Equal(prevspecProto, currspecProto)
 	}
 	return true
+}
+
+// istioMetadataChanged returns true if any key containing istio.io was added, removed or changed.
+func istioMetadataChanged(prev, curr map[string]string) bool {
+	n := 0
+	for k, v := range curr {
+		if strings.Contains(k, "istio.io") {
+			n++
+			if pv, f := prev[k]; !f || pv != v {
+				return true
+			}
+		}
+	}
+	for k := range prev {
+		if strings.Contains(k, "istio.io") {
+			n--
+		}
+	}
+	return n != 0
+}
+
+func alwaysPush(m config.Meta) bool {
+	_, l := m.Labels[constants.AlwaysPushLabel]
+	_, a := m.Annotations[constants.AlwaysPushLabel]
+	return l || a
 }

@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"strings"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	"k8s.io/apimachinery/pkg/types"
 
 	authzpb "istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
@@ -84,6 +86,9 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 
 	// Each condition in the when needs to be consolidated into either permission or principal.
 	for _, when := range r.When {
+		if when == nil {
+			continue
+		}
 		k := when.Key
 		switch {
 		case k == attrDestIP:
@@ -123,7 +128,7 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 
 	for _, from := range r.From {
 		merged := basePrincipal.copy()
-		if s := from.Source; s != nil {
+		if s := from.GetSource(); s != nil {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
 			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
@@ -140,7 +145,7 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 
 	for _, to := range r.To {
 		merged := basePermission.copy()
-		if o := to.Operation; o != nil {
+		if o := to.GetOperation(); o != nil {
 			merged.insertFront(destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts)
 			merged.insertFront(pathGenerator{}, pathMatcher, o.Paths, o.NotPaths)
 			merged.insertFront(methodGenerator{}, methodHeader, o.Methods, o.NotMethods)
@@ -296,7 +301,14 @@ func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Perm
 	return permissions, nil
 }
 
+// principal builds principal matchers for one rule. useAuthenticated selects whether peer identity
+// matchers use the connection's authenticated identity (true) or the terminating listener's filter
+// state (false). Source-IP rules follow that same choice between direct_remote_ip and the preserved peer IP.
 func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
+	if g, ok := r.g.(srcIPGenerator); ok && !useAuthenticated {
+		return g.filterStatePrincipals(r, action)
+	}
+
 	var principals []*rbacpb.Principal
 	if r.extended != nil {
 		if len(r.values) > 0 {
@@ -350,6 +362,23 @@ func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_A
 		}
 	}
 	return principals, nil
+}
+
+// cidrRanges parses values as IPs or CIDRs. As in checkError, an invalid value fails the rule in an ALLOW policy, and
+// is skipped otherwise.
+func (r rule) cidrRanges(values []string, action rbacpb.RBAC_Action) ([]*core.CidrRange, error) {
+	var ranges []*core.CidrRange
+	for _, value := range values {
+		cidr, err := util.AddrStrToCidrRange(value)
+		if err != nil {
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		ranges = append(ranges, cidr)
+	}
+	return ranges, nil
 }
 
 func (r rule) checkError(action rbacpb.RBAC_Action, err error) error {

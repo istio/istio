@@ -15,7 +15,6 @@ spec:
         app: hello
         tier: backend
         track: stable
-      annotations:
         sidecar.istio.io/inject: "false"
     spec:
       containers:

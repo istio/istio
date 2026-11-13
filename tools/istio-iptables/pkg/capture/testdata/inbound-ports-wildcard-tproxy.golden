@@ -8,6 +8,7 @@ ip6tables-save
 -A ISTIO_DIVERT -j ACCEPT
 -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15006
 -A PREROUTING -p tcp -j ISTIO_INBOUND
+-A ISTIO_INBOUND -p tcp --syn -j ISTIO_TPROXY
 -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT
 -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
 -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark

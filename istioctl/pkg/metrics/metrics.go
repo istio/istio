@@ -226,7 +226,7 @@ func getLatency(promAPI promv1.API, workloadName, workloadNamespace string, dura
 }
 
 func vectorValue(promAPI promv1.API, query string) (float64, error) {
-	val, _, err := promAPI.Query(context.Background(), query, time.Now())
+	val, _, _, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		return 0, fmt.Errorf("query() failure for '%s': %v", query, err)
 	}

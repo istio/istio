@@ -16,14 +16,17 @@ package kclient
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"sync/atomic"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apitypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -47,6 +50,7 @@ type fullClient[T controllers.Object] struct {
 
 type writeClient[T controllers.Object] struct {
 	client kube.Client
+	gvr    schema.GroupVersionResource
 }
 
 // handlerRegistration stores a handler, with the registration so it can be de-registered
@@ -167,6 +171,60 @@ func (n *writeClient[T]) UpdateStatus(object T) (T, error) {
 		return ptr.Empty[T](), fmt.Errorf("%T does not support UpdateStatus", object)
 	}
 	return api.UpdateStatus(context.Background(), object, metav1.UpdateOptions{})
+}
+
+func (n *writeClient[T]) UpdateStatusNoResponse(object T) error {
+	rc := n.client.RawRESTClient()
+	if rc == nil {
+		_, err := n.UpdateStatus(object)
+		return err
+	}
+	gvk := types.MustGVKFromType[T]().Kubernetes()
+	return updateStatusNoResponse(context.Background(), rc, n.gvr, gvk, object)
+}
+
+// encodeWithGVK encodes the object with the GVK set.
+// Objects from informers typically have an empty TypeMeta, but the API server requires it.
+// This mirrors client-go's WithVersionEncoder: temporarily set the GVK while encoding.
+func encodeWithGVK(object controllers.Object, gvk schema.GroupVersionKind) ([]byte, error) {
+	kind := object.GetObjectKind()
+	if oldGVK := kind.GroupVersionKind(); oldGVK != gvk {
+		kind.SetGroupVersionKind(gvk)
+		defer kind.SetGroupVersionKind(oldGVK)
+	}
+	return json.Marshal(object)
+}
+
+func updateStatusNoResponse(
+	ctx context.Context,
+	client rest.Interface,
+	gvr schema.GroupVersionResource,
+	gvk schema.GroupVersionKind,
+	object controllers.Object,
+) error {
+	body, err := encodeWithGVK(object, gvk)
+	if err != nil {
+		return err
+	}
+	apiPath := []string{"apis", gvr.Group, gvr.Version}
+	if gvr.Group == "" {
+		apiPath = []string{"api", gvr.Version}
+	}
+
+	response, err := client.Put().
+		AbsPath(apiPath...).
+		NamespaceIfScoped(object.GetNamespace(), object.GetNamespace() != "").
+		Resource(gvr.Resource).
+		Name(object.GetName()).
+		SubResource("status").
+		SetHeader("Content-Type", runtime.ContentTypeJSON).
+		Body(body).
+		Stream(ctx)
+	if err != nil {
+		return err
+	}
+	_ = response.Close()
+	return nil
 }
 
 func (n *writeClient[T]) Delete(name, namespace string) error {
@@ -307,7 +365,7 @@ func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) C
 	gvr := types.MustToGVR[T](types.MustGVKFromType[T]())
 	inf := kubeclient.GetInformerFiltered[T](c, ToOpts(c, gvr, filter), gvr)
 	return &fullClient[T]{
-		writeClient: writeClient[T]{client: c},
+		writeClient: writeClient[T]{client: c, gvr: gvr},
 		Informer:    newInformerClient[T](gvr, inf, filter),
 	}
 }
@@ -323,7 +381,7 @@ func NewFilteredDelayed[T controllers.ComparableObject](
 ) Client[T] {
 	inf := NewDelayedInformer[T](c, gvr, kubetypes.StandardInformer, filter)
 	return &fullClient[T]{
-		writeClient: writeClient[T]{client: c},
+		writeClient: writeClient[T]{client: c, gvr: gvr},
 		Informer:    inf,
 	}
 }
@@ -377,7 +435,8 @@ func NewMetadata(c kube.Client, gvr schema.GroupVersionResource, filter Filter) 
 
 // NewWriteClient is exposed for testing.
 func NewWriteClient[T controllers.ComparableObject](c kube.Client) Writer[T] {
-	return &writeClient[T]{client: c}
+	gvr := types.MustToGVR[T](types.MustGVKFromType[T]())
+	return &writeClient[T]{client: c, gvr: gvr}
 }
 
 func newDelayedInformer[T controllers.ComparableObject](

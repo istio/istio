@@ -23,7 +23,9 @@ import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	rbactcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,8 +39,11 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/slices"
@@ -1286,4 +1291,248 @@ func TestWaypointScopedAddressPush(t *testing.T) {
 		},
 	})
 	ads.ExpectResponse(t)
+}
+
+// TestWaypointDeltaClustersRouteToNonWaypointService verifies that a VirtualService-only delta push
+// adds the waypoint's outbound cluster for a backend that a new route references, and removes it
+// when the route is deleted. The route does not change the set of visible services, so the delta
+// must reconcile against the waypoint's route-referenced services rather than the sidecar scope diff.
+func TestWaypointDeltaClustersRouteToNonWaypointService(t *testing.T) {
+	// Mesh routes are only indexed by the services they attach to when waypoints are enabled.
+	test.SetForTest(t, &features.EnableAmbientWaypoints, true)
+	backendServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: backend
+  namespace: default
+spec:
+  hosts: [backend.com]
+  addresses: [1.2.3.5]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+`
+	vs := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "app-to-backend",
+			Namespace:        "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts: []string{"app.com"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "backend.com", Port: &networking.PortSelector{Number: 80}},
+				}},
+			}},
+		},
+	}
+	vsKey := sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: vs.Name, Namespace: vs.Namespace})
+	backendCluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", "backend.com", 80)
+	// Clusters the waypoint always has, independent of routes. These must never be removed by the
+	// outbound reconciliation.
+	alwaysPresent := []string{
+		model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80),
+		"main_internal",
+		"encap",
+		"connect_originate",
+	}
+
+	d, proxy := setupWaypointTest(t,
+		waypointGateway, waypointSvc, waypointInstance,
+		appServiceEntry, appWorkloadEntry, backendServiceEntry)
+
+	// Recompute the push context and the proxy's scope after a config change, so that
+	// PrevSidecarScope is set like in a real push.
+	repush := func(wantVirtualServices int) {
+		retry.UntilOrFail(t, func() bool {
+			return len(d.Env().VirtualServiceController.MergedVirtualServices()) == wantVirtualServices
+		}, retry.Timeout(time.Second*5))
+		pc := model.NewPushContext()
+		pc.InitContext(d.Env(), nil, nil)
+		d.Env().SetPushContext(pc)
+		proxy.SetSidecarScope(pc)
+	}
+	clusterNames := func() sets.String {
+		return sets.New(slices.Map(d.Clusters(proxy), (*clusterv3.Cluster).GetName)...)
+	}
+
+	watched := clusterNames()
+	for _, c := range alwaysPresent {
+		assert.Equal(t, watched.Contains(c), true)
+	}
+	assert.Equal(t, watched.Contains(backendCluster), false)
+
+	// Add the route. The delta must add the backend's outbound cluster.
+	if _, err := d.Store().Create(vs); err != nil {
+		t.Fatal(err)
+	}
+	repush(1)
+	clusters, removed, delta := d.DeltaClusters(proxy, vsKey, &model.WatchedResource{ResourceNames: watched})
+	assert.Equal(t, delta, true)
+	built := sets.New(slices.Map(clusters, (*clusterv3.Cluster).GetName)...)
+	assert.Equal(t, built.Contains(backendCluster), true)
+	for _, c := range alwaysPresent {
+		assert.Equal(t, slices.Contains(removed, c), false)
+	}
+	// The delta result must match a full build.
+	full := clusterNames()
+	assert.Equal(t, sets.SortedList(watched.Union(built).DeleteAll(removed...)), sets.SortedList(full))
+
+	// Remove the route. The delta must remove the backend's outbound cluster.
+	watched = full
+	if err := d.Store().Delete(gvk.VirtualService, vs.Name, vs.Namespace, nil); err != nil {
+		t.Fatal(err)
+	}
+	repush(0)
+	clusters, removed, delta = d.DeltaClusters(proxy, vsKey, &model.WatchedResource{ResourceNames: watched})
+	assert.Equal(t, delta, true)
+	assert.Equal(t, slices.Contains(removed, backendCluster), true)
+	built = sets.New(slices.Map(clusters, (*clusterv3.Cluster).GetName)...)
+	assert.Equal(t, built.Contains(backendCluster), false)
+	for _, c := range alwaysPresent {
+		assert.Equal(t, slices.Contains(removed, c), false)
+	}
+	full = clusterNames()
+	assert.Equal(t, full.Contains(backendCluster), false)
+	assert.Equal(t, sets.SortedList(watched.Union(built).DeleteAll(removed...)), sets.SortedList(full))
+}
+
+const (
+	httpRBACTypeURL    = "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC"
+	networkRBACTypeURL = "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC"
+	hcmTypeURL         = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+)
+
+// rbacConfigs returns the JSON of every network and HTTP RBAC filter on the listener.
+func rbacConfigs(t *testing.T, l *listenerv3.Listener) []string {
+	t.Helper()
+	if l == nil {
+		t.Fatal("listener not found")
+	}
+	var out []string
+	for _, fc := range l.GetFilterChains() {
+		for _, f := range fc.GetFilters() {
+			switch f.GetTypedConfig().GetTypeUrl() {
+			case networkRBACTypeURL:
+				out = append(out, xdstest.Dump(t, xdstest.UnmarshalAny[rbactcp.RBAC](t, f.GetTypedConfig())))
+			case hcmTypeURL:
+				for _, hf := range xdstest.UnmarshalAny[hcm.HttpConnectionManager](t, f.GetTypedConfig()).GetHttpFilters() {
+					if hf.GetTypedConfig().GetTypeUrl() == httpRBACTypeURL {
+						out = append(out, xdstest.Dump(t, xdstest.UnmarshalAny[rbachttp.RBAC](t, hf.GetTypedConfig())))
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+// assertSourceIPMatching checks how RBAC filters for the source-ip policy match ipBlocks: using the peer IP in filter
+// state on internal listeners, or the direct remote address otherwise.
+func assertSourceIPMatching(t *testing.T, l *listenerv3.Listener, internal bool) {
+	t.Helper()
+	const policy = "source-ip"
+	found := false
+	for _, cfg := range rbacConfigs(t, l) {
+		if !strings.Contains(cfg, policy) {
+			continue
+		}
+		found = true
+		usesPeerIP := strings.Contains(cfg, `"addressMatch"`) && strings.Contains(cfg, `"io.istio.peer_direct_remote_ip"`)
+		usesDirect := strings.Contains(cfg, `"directRemoteIp"`)
+		if internal && (!usesPeerIP || usesDirect) {
+			t.Fatalf("%s: internal listener must match ipBlocks against the peer IP in filter state:\n%s", l.GetName(), cfg)
+		}
+		if !internal && (usesPeerIP || !usesDirect) {
+			t.Fatalf("%s: listener must match ipBlocks against the direct remote address:\n%s", l.GetName(), cfg)
+		}
+		// remoteIpBlocks keep matching the remote address on every listener.
+		if !strings.Contains(cfg, `"remoteIp"`) {
+			t.Fatalf("%s: listener must match remoteIpBlocks against the remote address:\n%s", l.GetName(), cfg)
+		}
+	}
+	if !found {
+		t.Fatalf("%s: no RBAC filter enforces %s", l.GetName(), policy)
+	}
+}
+
+// assertPeerIPFilterState checks that a CONNECT terminating listener stores the direct peer of the HBONE connection
+// for the internal listener.
+func assertPeerIPFilterState(t *testing.T, l *listenerv3.Listener) {
+	t.Helper()
+	if l == nil {
+		t.Fatal("listener not found")
+	}
+	terminate := xdstest.Dump(t, l)
+	if !strings.Contains(terminate, `"io.istio.peer_direct_remote_ip"`) ||
+		!strings.Contains(terminate, `"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%"`) {
+		t.Fatalf("%s does not store the peer address in filter state:\n%s", l.GetName(), terminate)
+	}
+}
+
+const sourceIPPolicyRules = `  rules:
+  - from:
+    - source:
+        ipBlocks: ["10.0.0.1", "2001:db8::/32"]
+  - from:
+    - source:
+        notIpBlocks: ["10.0.0.2"]
+  - from:
+    - source:
+        remoteIpBlocks: ["10.0.0.3"]
+  - when:
+    - key: source.ip
+      notValues: ["10.0.0.4"]
+`
+
+// TestWaypointSourceIPAuthorization checks that ipBlocks on a waypoint match the peer that the HBONE terminating
+// listener stores in filter state, as the direct remote address of main_internal is an internal Envoy address.
+// See https://github.com/istio/istio/issues/62522.
+func TestWaypointSourceIPAuthorization(t *testing.T) {
+	for _, action := range []string{"ALLOW", "DENY"} {
+		t.Run(action, func(t *testing.T) {
+			policy := `apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: source-ip
+  namespace: default
+spec:
+  targetRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: app
+  action: ` + action + "\n" + sourceIPPolicyRules
+			d, proxy := setupWaypointTest(t,
+				waypointGateway, waypointSvc, waypointInstance,
+				appServiceEntry, policy)
+			listeners := d.Listeners(proxy)
+
+			assertSourceIPMatching(t, xdstest.ExtractListener("main_internal", listeners), true)
+			assertPeerIPFilterState(t, xdstest.ExtractListener("connect_terminate", listeners))
+		})
+	}
+}
+
+// TestSidecarHBONESourceIPAuthorization checks that a sidecar matches ipBlocks against the peer in filter state on its
+// HBONE internal listener, and against the direct remote address on its regular inbound listener.
+func TestSidecarHBONESourceIPAuthorization(t *testing.T) {
+	test.SetForTest(t, &features.EnableSidecarHBONEListening, true)
+	policy := `apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: source-ip
+  namespace: istio-system
+spec:
+  action: DENY
+` + sourceIPPolicyRules
+	d := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: policy})
+	proxy := d.SetupProxy(&model.Proxy{Metadata: &model.NodeMetadata{EnableHBONE: true}})
+	listeners := d.Listeners(proxy)
+
+	assertSourceIPMatching(t, xdstest.ExtractListener("main_internal", listeners), true)
+	assertSourceIPMatching(t, xdstest.ExtractListener(model.VirtualInboundListenerName, listeners), false)
+	assertPeerIPFilterState(t, xdstest.ExtractListener("connect_terminate", listeners))
 }

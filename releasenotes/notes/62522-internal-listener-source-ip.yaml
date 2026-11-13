@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue:
+  - 62522
+releaseNotes:
+  - |
+    **Fixed** `AuthorizationPolicy` `ipBlocks` and `notIpBlocks` matching on
+    waypoint and sidecar HBONE internal listeners to use the downstream
+    client's direct remote IP address instead of the internal Envoy address.
+securityNotes:
+  - |
+    __[GHSA-9gqj-583v-mpqp](https://github.com/istio/istio/security/advisories/GHSA-9gqj-583v-mpqp)__: `AuthorizationPolicy` `ipBlocks`, `notIpBlocks` and the `source.ip` condition on ambient waypoints, and on sidecars receiving HBONE traffic, matched the Envoy internal listener address instead of the client IP, so `DENY` rules on these fields could fail open.
+    - CVSS Score: 5.6 [AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L](https://www.first.org/cvss/calculator/3.1#CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L)
+
+    **Credit**: This vulnerability was discovered and reported by [@adilfulara](https://github.com/adilfulara).

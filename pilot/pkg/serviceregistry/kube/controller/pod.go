@@ -160,25 +160,27 @@ func (pc *PodCache) onEvent(old, pod *v1.Pod, ev model.Event) error {
 	}
 
 	key := config.NamespacedName(pod)
+	// Retain unready pods when unhealthy endpoints are enabled so workload handlers
+	// can track their health and services can decide whether to publish them.
+	includePod := shouldPodBeInEndpoints(pod) && (IsPodReady(pod) ||
+		features.GlobalSendUnhealthyEndpoints.Load() || features.DefaultSendUnhealthyEndpoints.Load())
 	switch ev {
 	case model.EventAdd:
-		if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
+		if includePod {
 			pc.addPod(pod, ip, key, false)
 		} else {
 			return nil
 		}
 	case model.EventUpdate:
-		if !shouldPodBeInEndpoints(pod) || !IsPodReady(pod) {
+		if !includePod {
 			// delete only if this pod was in the cache
 			if !pc.deleteIP(ip, key) {
 				return nil
 			}
 			ev = model.EventDelete
-		} else if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
+		} else {
 			labelUpdated := pc.labelFilter(old, pod)
 			pc.addPod(pod, ip, key, labelUpdated)
-		} else {
-			return nil
 		}
 	case model.EventDelete:
 		// delete only if this pod was in the cache,
@@ -197,13 +199,17 @@ func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event, ip strin
 	if len(pc.c.handlers.GetWorkloadHandlers()) == 0 {
 		return
 	}
+	healthStatus := model.UnHealthy
+	if IsPodReady(pod) {
+		healthStatus = model.Healthy
+	}
 	// fire instance handles for workload
 	ep := pc.c.NewEndpointBuilder(pod).buildIstioEndpoint(
 		ip,
 		0,
 		"",
 		model.AlwaysDiscoverable,
-		model.Healthy,
+		healthStatus,
 		features.GlobalSendUnhealthyEndpoints.Load() || features.DefaultSendUnhealthyEndpoints.Load(),
 	)
 	// If pod is dual stack, handle all IPs

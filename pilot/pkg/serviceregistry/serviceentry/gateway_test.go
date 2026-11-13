@@ -49,7 +49,7 @@ func externalHostnameSpec(hostname string, port int32) *gatewayx.BackendSpec {
 		ExternalHostname: &gatewayx.ExternalHostnameBackend{
 			Hostname: gatewayv1.PreciseHostname(hostname),
 		},
-		Port: gatewayx.BackendPort{Port: gatewayx.PortNumber(port)},
+		Port: gatewayx.BackendPort{Number: gatewayx.PortNumber(port)},
 	}
 }
 
@@ -114,7 +114,7 @@ func TestBackendToServiceEntry(t *testing.T) {
 			name: "nil externalHostname is ignored",
 			in: xbackendConfig("no-hostname", &gatewayx.BackendSpec{
 				Type: gatewayx.BackendTypeExternalHostname,
-				Port: gatewayx.BackendPort{Port: 80},
+				Port: gatewayx.BackendPort{Number: 80},
 			}),
 		},
 		{

@@ -9,6 +9,7 @@
 -A ISTIO_INBOUND -p tcp --dport 15020 -j RETURN
 -A ISTIO_INBOUND -p tcp --dport 15021 -j RETURN
 -A ISTIO_INBOUND -p tcp --dport 15090 -j RETURN
+-A ISTIO_INBOUND -p tcp --syn -j ISTIO_TPROXY
 -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT
 -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
 -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark
