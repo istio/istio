@@ -956,3 +956,154 @@ func TestPodNameTableLocalRemoteAddresses(t *testing.T) {
 		})
 	}
 }
+
+// TestNameTableGateway verifies that gateways, whose default SidecarScope has no egress
+// listeners, get the same name table as a sidecar with the default (egress: */*) scope.
+func TestNameTableGateway(t *testing.T) {
+	mesh := &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+	pod1 := &model.Proxy{
+		IPAddresses: []string{"1.2.3.4"},
+		Metadata:    &model.NodeMetadata{},
+		Type:        model.SidecarProxy,
+		DNSDomain:   "testns.svc.cluster.local",
+	}
+	headlessService := &model.Service{
+		Hostname:       host.Name("headless-svc.testns.svc.cluster.local"),
+		DefaultAddress: constants.UnspecifiedIP,
+		Ports: model.PortList{&model.Port{
+			Name:     "http-port",
+			Port:     8080,
+			Protocol: protocol.HTTP,
+		}},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Name:            "headless-svc",
+			Namespace:       "testns",
+			ServiceRegistry: provider.Kubernetes,
+		},
+	}
+	clusterIPService := &model.Service{
+		Hostname:       host.Name("clusterip-svc.testns.svc.cluster.local"),
+		DefaultAddress: "10.0.0.10",
+		Ports: model.PortList{&model.Port{
+			Name:     "http-port",
+			Port:     8080,
+			Protocol: protocol.HTTP,
+		}},
+		Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{
+			Name:            "clusterip-svc",
+			Namespace:       "testns",
+			ServiceRegistry: provider.Kubernetes,
+		},
+	}
+
+	push := model.NewPushContext()
+	push.Mesh = mesh
+	push.AddPublicServices([]*model.Service{headlessService, clusterIPService})
+	push.AddServiceInstances(headlessService,
+		makeServiceInstances(pod1, headlessService, "pod1", "headless-svc", model.Healthy))
+
+	newProxy := func(typ model.NodeType) *model.Proxy {
+		p := &model.Proxy{
+			IPAddresses: []string{"9.9.9.9"},
+			Metadata:    &model.NodeMetadata{},
+			Type:        typ,
+			DNSDomain:   "testns.svc.cluster.local",
+		}
+		p.SetSidecarScope(push)
+		p.DiscoverIPMode()
+		return p
+	}
+	build := func(p *model.Proxy) *dnsProto.NameTable {
+		return dnsServer.BuildNameTable(dnsServer.Config{Node: p, Push: push, MulticlusterHeadlessEnabled: true})
+	}
+
+	sidecarTable := build(newProxy(model.SidecarProxy))
+	gatewayTable := build(newProxy(model.Router))
+
+	for _, h := range []string{"headless-svc.testns.svc.cluster.local", "clusterip-svc.testns.svc.cluster.local"} {
+		if _, ok := gatewayTable.Table[h]; !ok {
+			t.Errorf("gateway name table is missing %q (keys: %v)", h, nameTableKeys(gatewayTable))
+		}
+	}
+	if diff := cmp.Diff(gatewayTable, sidecarTable, protocmp.Transform()); diff != "" {
+		t.Errorf("gateway name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(build(withEmptyEgressListener(newProxy(model.Router))), sidecarTable, protocmp.Transform()); diff != "" {
+		t.Errorf("gateway (with empty egress listener) name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
+	}
+}
+
+// withEmptyEgressListener gives the proxy a copy of its sidecar scope with a single egress listener that
+// carries no services. Gateway scopes have this shape on releases before the gateway egress listener was
+// removed; the gateway name table must not depend on it.
+func withEmptyEgressListener(p *model.Proxy) *model.Proxy {
+	scope := *p.SidecarScope
+	scope.EgressListeners = []*model.IstioEgressListenerWrapper{{}}
+	p.SidecarScope = &scope
+	return p
+}
+
+// TestNameTableGatewayMultiAddressServiceEntry verifies that a ServiceEntry with multiple addresses
+// (one model.Service per address, all with the same hostname) resolves to every address for gateways,
+// as it does for sidecars.
+func TestNameTableGatewayMultiAddressServiceEntry(t *testing.T) {
+	mesh := &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+	serviceWithVIP1 := &model.Service{
+		Hostname:       host.Name("mysql.foo.bar"),
+		DefaultAddress: "10.0.0.5",
+		Ports: model.PortList{&model.Port{
+			Name:     "tcp",
+			Port:     3306,
+			Protocol: protocol.TCP,
+		}},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Name:            "mysql-svc",
+			Namespace:       "testns",
+			ServiceRegistry: provider.External,
+		},
+	}
+	serviceWithVIP2 := serviceWithVIP1.ShallowCopy()
+	serviceWithVIP2.DefaultAddress = "10.0.0.6"
+
+	push := model.NewPushContext()
+	push.Mesh = mesh
+	push.AddPublicServices([]*model.Service{serviceWithVIP1, serviceWithVIP2})
+
+	newProxy := func(typ model.NodeType) *model.Proxy {
+		p := &model.Proxy{
+			IPAddresses: []string{"9.9.9.9"},
+			Metadata:    &model.NodeMetadata{},
+			Type:        typ,
+			DNSDomain:   "testns.svc.cluster.local",
+		}
+		p.SetSidecarScope(push)
+		p.DiscoverIPMode()
+		return p
+	}
+	build := func(p *model.Proxy) *dnsProto.NameTable {
+		return dnsServer.BuildNameTable(dnsServer.Config{Node: p, Push: push})
+	}
+
+	expected := &dnsProto.NameTable{
+		Table: map[string]*dnsProto.NameTable_NameInfo{
+			serviceWithVIP1.Hostname.String(): {
+				Ips:      []string{serviceWithVIP1.DefaultAddress, serviceWithVIP2.DefaultAddress},
+				Registry: provider.External.String(),
+			},
+		},
+	}
+	sidecarTable := build(newProxy(model.SidecarProxy))
+	if diff := cmp.Diff(expected, sidecarTable, protocmp.Transform()); diff != "" {
+		t.Errorf("unexpected sidecar name table (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(build(newProxy(model.Router)), sidecarTable, protocmp.Transform()); diff != "" {
+		t.Errorf("gateway name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
+	}
+	if diff := cmp.Diff(build(withEmptyEgressListener(newProxy(model.Router))), sidecarTable, protocmp.Transform()); diff != "" {
+		t.Errorf("gateway (with empty egress listener) name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
+	}
+}
