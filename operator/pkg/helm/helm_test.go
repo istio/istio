@@ -110,6 +110,20 @@ func TestRender(t *testing.T) {
 			diffSelect:  "Deployment:*:istio-ingress",
 		},
 		{
+			desc:        "gateway-zonal-deployments",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Deployment:*:istio-ingress*,HorizontalPodAutoscaler:*:istio-ingress*,PodDisruptionBudget:*:istio-ingress,Service:*:istio-ingress",
+		},
+		{
+			desc:        "gateway-zonal-deployments-replicas",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Deployment:*:istio-ingress*",
+		},
+		{
 			desc:        "gateway-daemonset-update-strategy",
 			releaseName: "istio-ingress",
 			namespace:   "istio-ingress",
@@ -171,6 +185,27 @@ func TestRender(t *testing.T) {
 			namespace:   "istio-system",
 			chartName:   "istio-control/istio-discovery",
 			diffSelect:  "Service:*:istiod",
+		},
+		{
+			desc:        "istiod-zonal-deployments",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod,PodDisruptionBudget:*:istiod,Service:*:istiod",
+		},
+		{
+			desc:        "istiod-zonal-deployments-replicas",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
+		},
+		{
+			desc:        "istiod-zonal-deployments-zone-autoscale",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "HorizontalPodAutoscaler:*:istiod",
 		},
 		{
 			desc:        "istiod-pdb-default",

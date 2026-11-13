@@ -1068,6 +1068,13 @@ message PilotConfig {
 
   // Additional labels for the istiod PodDisruptionBudget.
   google.protobuf.Struct pdbLabels = 70;
+
+  // Run one istiod Deployment, and one HorizontalPodAutoscaler, per listed zone instead of a single one.
+  repeated PilotZonalDeployment zonalDeployments = 71;
+
+  // Node label each zone in `zonalDeployments` is pinned to through `nodeSelector`.
+  // Defaults to `topology.kubernetes.io/zone`.
+  string zonalDeploymentsTopologyKey = 72;
 }
 
 message PilotTaintControllerConfig {
@@ -1470,6 +1477,17 @@ message BaseConfig {
   // Failure policy for the validation webhook. Defaults to `Ignore` on install, and is
   // left unset on upgrade so the value set at runtime by the webhook controller is kept.
   string validationFailurePolicy = 7;
+}
+
+message PilotZonalDeployment {
+  // Name of the zone, the value of `zonalDeploymentsTopologyKey` on its nodes.
+  string name = 1;
+  // Overrides `replicaCount` for this zone.
+  uint32 replicaCount = 2;
+  // Overrides `autoscaleMin` for this zone.
+  uint32 autoscaleMin = 3;
+  // Overrides `autoscaleMax` for this zone.
+  uint32 autoscaleMax = 4;
 }
 
 message IstiodRemoteConfig {

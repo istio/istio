@@ -1,0 +1,390 @@
+# Not created if istiod is running remotely
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod-zone-a
+  namespace: "istio-system"
+  labels:
+    app: istiod
+    istio.io/rev: "default"
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
+    istio: pilot
+    release: istiod
+    app.kubernetes.io/name: "istiod"
+    zone: "zone-a"
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istiod"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: istiod-1.0.0
+spec:
+  replicas: 2
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  selector:
+    matchLabels:
+      istio: pilot
+      zone: "zone-a"
+  template:
+    metadata:
+      labels:
+        app: istiod
+        istio.io/rev: "default"
+        install.operator.istio.io/owning-resource: unknown
+        sidecar.istio.io/inject: "false"
+        operator.istio.io/component: "Pilot"
+        istio: pilot
+        istio.io/dataplane-mode: none
+        app.kubernetes.io/name: "istiod"
+        zone: "zone-a"
+        app.kubernetes.io/managed-by: "Helm"
+        app.kubernetes.io/instance: "istiod"
+        app.kubernetes.io/part-of: "istio"
+        app.kubernetes.io/version: "1.0.0"
+        helm.sh/chart: istiod-1.0.0
+      annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/inject: "false"
+    spec:
+      nodeSelector:
+        topology.k8s.aws/zone-id: zone-a
+      tolerations:
+        - key: "cni.istio.io/not-ready"
+          operator: "Exists"
+      terminationGracePeriodSeconds: 30
+      serviceAccountName: istiod
+      containers:
+        - name: discovery
+          image: "registry.istio.io/testing/pilot:latest"
+          args:
+          - "discovery"
+          - --monitoringAddr=:15014
+          - --log_output_level=default:info
+          - --domain
+          - cluster.local
+          - --keepaliveMaxServerConnectionAge
+          - "30m"
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+            name: http-debug
+          - containerPort: 15010
+            protocol: TCP
+            name: grpc-xds
+          - containerPort: 15012
+            protocol: TCP
+            name: tls-xds
+          - containerPort: 15017
+            protocol: TCP
+            name: https-webhooks
+          - containerPort: 15014
+            protocol: TCP
+            name: http-monitoring
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 1
+            periodSeconds: 3
+            timeoutSeconds: 5
+          env:
+          - name: REVISION
+            value: "default"
+          - name: PILOT_CERT_PROVIDER
+            value: istiod
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.serviceAccountName
+          - name: KUBECONFIG
+            value: /var/run/secrets/remote/config
+          # If you explicitly told us where ztunnel lives, use that.
+          # Otherwise, assume it lives in our namespace
+          # Also, check for an explicit ENV override (legacy approach) and prefer that
+          # if present
+          
+          
+          - name: CA_TRUSTED_NODE_ACCOUNTS
+            value: "istio-system/ztunnel"
+          - name: PILOT_TRACE_SAMPLING
+            value: "1"
+# If externalIstiod is set via Values.Global, then enable the pilot env variable. However, if it's set via Values.pilot.env, then
+# don't set it here to avoid duplication.
+# TODO (nshankar13): Move from Helm chart to code: https://github.com/istio/istio/issues/52449
+          - name: PILOT_ENABLE_ANALYSIS
+            value: "false"
+          - name: CLUSTER_ID
+            value: "Kubernetes"
+          - name: PLATFORM
+            value: ""
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2048Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+          - name: local-certs
+            mountPath: /var/run/secrets/istio-dns
+          - name: cacerts
+            mountPath: /etc/cacerts
+            readOnly: true
+          - name: istio-kubeconfig
+            mountPath: /var/run/secrets/remote
+            readOnly: true
+          - name: istio-csr-dns-cert
+            mountPath: /var/run/secrets/istiod/tls
+            readOnly: true
+          - name: istio-csr-ca-configmap
+            mountPath: /var/run/secrets/istiod/ca
+            readOnly: true
+      volumes:
+      # Technically not needed on this pod - but it helps debugging/testing SDS
+      # Should be removed after everything works.
+      - emptyDir:
+          medium: Memory
+        name: local-certs
+      - name: istio-token
+        projected:
+          sources:
+            - serviceAccountToken:
+                audience: istio-ca
+                expirationSeconds: 43200
+                path: istio-token
+      # Optional: user-generated root
+      - name: cacerts
+        secret:
+          secretName: cacerts
+          optional: true
+      - name: istio-kubeconfig
+        secret:
+          secretName: istio-kubeconfig
+          optional: true
+      # Optional: istio-csr dns pilot certs
+      - name: istio-csr-dns-cert
+        secret:
+          secretName: istiod-tls
+          optional: true
+      - name: istio-csr-ca-configmap
+        configMap:
+          name: istio-ca-root-cert
+          defaultMode: 420
+          optional: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod-zone-b
+  namespace: "istio-system"
+  labels:
+    app: istiod
+    istio.io/rev: "default"
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
+    istio: pilot
+    release: istiod
+    app.kubernetes.io/name: "istiod"
+    zone: "zone-b"
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istiod"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: istiod-1.0.0
+spec:
+  replicas: 3
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  selector:
+    matchLabels:
+      istio: pilot
+      zone: "zone-b"
+  template:
+    metadata:
+      labels:
+        app: istiod
+        istio.io/rev: "default"
+        install.operator.istio.io/owning-resource: unknown
+        sidecar.istio.io/inject: "false"
+        operator.istio.io/component: "Pilot"
+        istio: pilot
+        istio.io/dataplane-mode: none
+        app.kubernetes.io/name: "istiod"
+        zone: "zone-b"
+        app.kubernetes.io/managed-by: "Helm"
+        app.kubernetes.io/instance: "istiod"
+        app.kubernetes.io/part-of: "istio"
+        app.kubernetes.io/version: "1.0.0"
+        helm.sh/chart: istiod-1.0.0
+      annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/inject: "false"
+    spec:
+      nodeSelector:
+        topology.k8s.aws/zone-id: zone-b
+      tolerations:
+        - key: "cni.istio.io/not-ready"
+          operator: "Exists"
+      terminationGracePeriodSeconds: 30
+      serviceAccountName: istiod
+      containers:
+        - name: discovery
+          image: "registry.istio.io/testing/pilot:latest"
+          args:
+          - "discovery"
+          - --monitoringAddr=:15014
+          - --log_output_level=default:info
+          - --domain
+          - cluster.local
+          - --keepaliveMaxServerConnectionAge
+          - "30m"
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+            name: http-debug
+          - containerPort: 15010
+            protocol: TCP
+            name: grpc-xds
+          - containerPort: 15012
+            protocol: TCP
+            name: tls-xds
+          - containerPort: 15017
+            protocol: TCP
+            name: https-webhooks
+          - containerPort: 15014
+            protocol: TCP
+            name: http-monitoring
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 1
+            periodSeconds: 3
+            timeoutSeconds: 5
+          env:
+          - name: REVISION
+            value: "default"
+          - name: PILOT_CERT_PROVIDER
+            value: istiod
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.serviceAccountName
+          - name: KUBECONFIG
+            value: /var/run/secrets/remote/config
+          # If you explicitly told us where ztunnel lives, use that.
+          # Otherwise, assume it lives in our namespace
+          # Also, check for an explicit ENV override (legacy approach) and prefer that
+          # if present
+          
+          
+          - name: CA_TRUSTED_NODE_ACCOUNTS
+            value: "istio-system/ztunnel"
+          - name: PILOT_TRACE_SAMPLING
+            value: "1"
+# If externalIstiod is set via Values.Global, then enable the pilot env variable. However, if it's set via Values.pilot.env, then
+# don't set it here to avoid duplication.
+# TODO (nshankar13): Move from Helm chart to code: https://github.com/istio/istio/issues/52449
+          - name: PILOT_ENABLE_ANALYSIS
+            value: "false"
+          - name: CLUSTER_ID
+            value: "Kubernetes"
+          - name: PLATFORM
+            value: ""
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2048Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+          - name: local-certs
+            mountPath: /var/run/secrets/istio-dns
+          - name: cacerts
+            mountPath: /etc/cacerts
+            readOnly: true
+          - name: istio-kubeconfig
+            mountPath: /var/run/secrets/remote
+            readOnly: true
+          - name: istio-csr-dns-cert
+            mountPath: /var/run/secrets/istiod/tls
+            readOnly: true
+          - name: istio-csr-ca-configmap
+            mountPath: /var/run/secrets/istiod/ca
+            readOnly: true
+      volumes:
+      # Technically not needed on this pod - but it helps debugging/testing SDS
+      # Should be removed after everything works.
+      - emptyDir:
+          medium: Memory
+        name: local-certs
+      - name: istio-token
+        projected:
+          sources:
+            - serviceAccountToken:
+                audience: istio-ca
+                expirationSeconds: 43200
+                path: istio-token
+      # Optional: user-generated root
+      - name: cacerts
+        secret:
+          secretName: cacerts
+          optional: true
+      - name: istio-kubeconfig
+        secret:
+          secretName: istio-kubeconfig
+          optional: true
+      # Optional: istio-csr dns pilot certs
+      - name: istio-csr-dns-cert
+        secret:
+          secretName: istiod-tls
+          optional: true
+      - name: istio-csr-ca-configmap
+        configMap:
+          name: istio-ca-root-cert
+          defaultMode: 420
+          optional: true

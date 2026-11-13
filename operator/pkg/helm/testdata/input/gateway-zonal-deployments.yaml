@@ -1,0 +1,13 @@
+spec:
+  values:
+    autoscaling:
+      minReplicas: 2
+      maxReplicas: 10
+    nodeSelector:
+      kubernetes.io/os: linux
+    zonalDeploymentsTopologyKey: topology.k8s.aws/zone-id
+    zonalDeployments:
+    - name: use1-az1
+    - name: use1-az2
+      minReplicas: 3
+      maxReplicas: 20

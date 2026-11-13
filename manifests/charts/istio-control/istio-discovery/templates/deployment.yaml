@@ -1,10 +1,12 @@
 {{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # Not created if istiod is running remotely
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
+{{- range $zone := include "istiod.zones" . | fromJsonArray }}
+{{- with $ }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}{{- with $zone.name }}-{{ . }}{{- end }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
     app: istiod
@@ -14,6 +16,9 @@ metadata:
     istio: pilot
     release: {{ .Release.Name }}
     app.kubernetes.io/name: "istiod"
+    {{- with $zone.name }}
+    zone: {{ . | quote }}
+    {{- end }}
     {{- include "istio.labels" . | nindent 4 }}
 {{- range $key, $val := .Values.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
@@ -24,8 +29,8 @@ metadata:
   {{- end }}
 spec:
 {{- if not .Values.autoscaleEnabled }}
-{{- if .Values.replicaCount }}
-  replicas: {{ .Values.replicaCount }}
+{{- with (hasKey $zone "replicaCount" | ternary $zone.replicaCount .Values.replicaCount) }}
+  replicas: {{ . }}
 {{- end }}
 {{- end }}
   strategy:
@@ -39,6 +44,9 @@ spec:
       istio.io/rev: {{ .Values.revision | default "default" | quote }}
       {{- else }}
       istio: pilot
+      {{- end }}
+      {{- with $zone.name }}
+      zone: {{ . | quote }}
       {{- end }}
   template:
     metadata:
@@ -58,6 +66,9 @@ spec:
         {{- end }}
         istio.io/dataplane-mode: none
         app.kubernetes.io/name: "istiod"
+        {{- with $zone.name }}
+        zone: {{ . | quote }}
+        {{- end }}
         {{- include "istio.labels" . | nindent 8 }}
       annotations:
         prometheus.io/port: "15014"
@@ -67,9 +78,13 @@ spec:
 {{ toYaml .Values.podAnnotations | indent 8 }}
         {{- end }}
     spec:
-{{- if .Values.nodeSelector }}
+{{- $nodeSelector := .Values.nodeSelector }}
+{{- with $zone.name }}
+{{- $nodeSelector = merge (dict $.Values.zonalDeploymentsTopologyKey .) (deepCopy ($.Values.nodeSelector | default dict)) }}
+{{- end }}
+{{- if $nodeSelector }}
       nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
+{{ toYaml $nodeSelector | indent 8 }}
 {{- end }}
 {{- with .Values.affinity }}
       affinity:
@@ -320,5 +335,7 @@ spec:
       {{- end }}
 
 ---
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

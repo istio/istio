@@ -1,0 +1,7 @@
+spec:
+  values:
+    autoscaleMax: 0
+    zonalDeployments:
+    - name: zone-a
+      autoscaleMax: 4
+    - name: zone-b
