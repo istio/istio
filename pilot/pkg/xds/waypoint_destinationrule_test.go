@@ -38,16 +38,16 @@ func waypointEDS(t *testing.T, d *xds.FakeDiscoveryServer, proxy *model.Proxy, c
 	if err != nil {
 		t.Fatal(err)
 	}
-	clas := make([]*endpoint.ClusterLoadAssignment, 0, len(res))
+	loads := make([]*endpoint.ClusterLoadAssignment, 0, len(res))
 	for _, r := range res {
 		cla := &endpoint.ClusterLoadAssignment{}
 		if err := r.Resource.UnmarshalTo(cla); err != nil {
 			t.Fatal(err)
 		}
-		clas = append(clas, cla)
+		loads = append(loads, cla)
 	}
 	return map[string][]string{
-		"generator": slices.Sort(xdstest.ExtractLoadAssignments(clas)[cluster]),
+		"generator": slices.Sort(xdstest.ExtractLoadAssignments(loads)[cluster]),
 		"builder":   slices.Sort(xdstest.ExtractLoadAssignments(d.Endpoints(proxy))[cluster]),
 	}
 }
