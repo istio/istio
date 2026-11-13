@@ -1280,6 +1280,40 @@ func TestRemoteMeshConfigUnavailable(t *testing.T) {
 	assert.EventuallyEqual(t, c.MeshConfig().Get, &meshwatcher.RestrictedMeshConfig{TrustDomain: "remote"})
 }
 
+// A remote cluster that is readable but lacks this revision's mesh ConfigMap (e.g. it runs a
+// different revision) must fall back to the local trust domain rather than the default
+// mesh config's cluster.local. See https://github.com/istio/istio/issues/62777.
+func TestRemoteMeshConfigMissingForRevision(t *testing.T) {
+	test.SetForTest(t, &features.RemoteClusterTimeout, 20*time.Millisecond)
+	stop := test.NewStop(t)
+	remote := kube.NewFakeClient()
+	configMaps := clienttest.NewWriter[*v1.ConfigMap](t, remote)
+	// Only another revision's mesh config exists in the remote cluster.
+	configMaps.Create(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "istio-peer", Namespace: secretNamespace},
+		Data:       map[string]string{"mesh": "trustDomain: peer"},
+	})
+	local := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "mesh.example"})
+	c := &Cluster{
+		ID: "remote", Client: remote, stop: stop,
+		initialSync: uberatomic.NewBool(false), initialSyncTimeout: uberatomic.NewBool(false),
+		remoteClusterCollections: uberatomic.NewPointer[remoteClusterCollections](nil),
+		systemNamespace:          secretNamespace, meshConfigMapName: "istio-client", SyncedCh: make(chan struct{}),
+	}
+	go c.Run(local, nil, Add, nil, nil)
+	assert.EventuallyEqual(t, c.initialSync.Load, true)
+	assert.EventuallyEqual(t, c.MeshConfig().Get, &meshwatcher.RestrictedMeshConfig{TrustDomain: "mesh.example"})
+
+	configMaps.Create(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "istio-client", Namespace: secretNamespace},
+		Data:       map[string]string{"mesh": "trustDomain: remote"},
+	})
+	assert.EventuallyEqual(t, c.MeshConfig().Get, &meshwatcher.RestrictedMeshConfig{TrustDomain: "remote"})
+
+	configMaps.Delete("istio-client", secretNamespace)
+	assert.EventuallyEqual(t, c.MeshConfig().Get, &meshwatcher.RestrictedMeshConfig{TrustDomain: "mesh.example"})
+}
+
 func TestMeshConfigMapName(t *testing.T) {
 	for _, revision := range []string{"", "default", "canary"} {
 		t.Run(revision, func(t *testing.T) {
