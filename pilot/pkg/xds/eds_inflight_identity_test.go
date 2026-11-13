@@ -35,26 +35,25 @@ import (
 // but builds EDS from the live EndpointIndex. If a Service's endpoints switch to
 // a workload with a different identity during that push, Envoy would receive the
 // new endpoint with the old SAN list and fail with CERTIFICATE_VERIFY_FAILED/SAN
-// matcher until the next push. Knative switches public Service endpoints between
-// the activator (system namespace) and the user workload, so it hits this window.
-// The in-flight push must not send those endpoints; the next push sends both.
+// matcher until the next push. The in-flight push must not send those endpoints;
+// the next push sends both the updated SAN list and endpoints.
 func TestInFlightPushSANEndpointMismatch(t *testing.T) {
 	const (
-		ns        = "serving-tests"
-		hostname  = "revision.serving-tests.svc.cluster.local"
-		clusterNm = "outbound|80||" + hostname
-		activator = "spiffe://cluster.local/ns/knative-serving/sa/activator"
-		workload  = "spiffe://cluster.local/ns/serving-tests/sa/default"
+		ns               = "default"
+		hostname         = "service.default.svc.cluster.local"
+		clusterNm        = "outbound|80||" + hostname
+		originalIdentity = "spiffe://cluster.local/ns/default/sa/original"
+		updatedIdentity  = "spiffe://cluster.local/ns/default/sa/updated"
 	)
 	for _, tc := range []struct {
 		name         string
 		nextIdentity string
 		wantSkipped  bool
 	}{
-		// Activator -> workload, as in the CI failure.
-		{name: "identity changes", nextIdentity: workload, wantSkipped: true},
+		// Replacing a Pod with a different service account requires updated SANs.
+		{name: "identity changes", nextIdentity: updatedIdentity, wantSkipped: true},
 		// Control: replacing a Pod with the same identity is sent immediately.
-		{name: "same identity", nextIdentity: activator, wantSkipped: false},
+		{name: "same identity", nextIdentity: originalIdentity, wantSkipped: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
@@ -66,19 +65,19 @@ func TestInFlightPushSANEndpointMismatch(t *testing.T) {
 			s.MemRegistry.AddService(svc)
 			ep := func(ip, sa string) []*model.IstioEndpoint {
 				return []*model.IstioEndpoint{{
-					Addresses: []string{ip}, EndpointPort: 8012, ServicePortName: "http",
+					Addresses: []string{ip}, EndpointPort: 8080, ServicePortName: "http",
 					ServiceAccount: sa, TLSMode: model.IstioMutualTLSModeLabel, HealthStatus: model.Healthy,
 				}}
 			}
-			s.MemRegistry.SetEndpoints(hostname, ns, ep("10.0.0.1", activator))
-			// Wait until a push context exists that knows the activator identity.
-			assert.EventuallyEqual(t, func() []string { return s.PushContext().ServiceAccounts(svc.Hostname, ns) }, []string{activator})
+			s.MemRegistry.SetEndpoints(hostname, ns, ep("10.0.0.1", originalIdentity))
+			// Wait until a push context exists that knows the original identity.
+			assert.EventuallyEqual(t, func() []string { return s.PushContext().ServiceAccounts(svc.Hostname, ns) }, []string{originalIdentity})
 
 			// A full push begins: its PushContext snapshot is taken now.
 			inFlight := s.PushContext()
 			inFlightStart := time.Now()
 
-			// Knative updates the Service's endpoints mid-push. The registry writes the
+			// The Service's endpoints are replaced mid-push. The registry writes the
 			// live EndpointIndex immediately; the corrective push is still debounced.
 			s.MemRegistry.SetEndpoints(hostname, ns, ep("10.0.0.2", tc.nextIdentity))
 
@@ -89,22 +88,22 @@ func TestInFlightPushSANEndpointMismatch(t *testing.T) {
 			watched := &model.WatchedResource{ResourceNames: sets.New(clusterNm)}
 			sans, ips := allowedSANs(t, s, proxy, watched, req), endpointIPs(t, s, proxy, watched, req)
 			t.Logf("in-flight push sends CDS SANs=%v with EDS endpoints=%v", sans, ips)
-			assert.Equal(t, sans, []string{activator})
+			assert.Equal(t, sans, []string{originalIdentity})
 
 			if !tc.wantSkipped {
 				assert.Equal(t, ips, []string{"10.0.0.2"})
 				return
 			}
-			// Envoy keeps its previous (activator) endpoints, which match the old SANs.
+			// Envoy keeps its previous endpoints, which match the old SANs.
 			if len(ips) != 0 {
 				t.Fatalf("in-flight push sent endpoints %v that its SANs %v reject", ips, sans)
 			}
 
 			// The service account change queued a full push; its context allows the new
 			// identity, so CDS and EDS are sent together and consistently.
-			assert.EventuallyEqual(t, func() []string { return s.PushContext().ServiceAccounts(svc.Hostname, ns) }, []string{workload})
+			assert.EventuallyEqual(t, func() []string { return s.PushContext().ServiceAccounts(svc.Hostname, ns) }, []string{updatedIdentity})
 			next := &model.PushRequest{Push: s.PushContext(), Forced: true, Start: time.Now()}
-			assert.Equal(t, allowedSANs(t, s, proxy, watched, next), []string{workload})
+			assert.Equal(t, allowedSANs(t, s, proxy, watched, next), []string{updatedIdentity})
 			assert.Equal(t, endpointIPs(t, s, proxy, watched, next), []string{"10.0.0.2"})
 			t.Log("next push sends matching SANs and endpoints")
 
