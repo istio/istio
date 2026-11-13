@@ -34,9 +34,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/monitoring/monitortest"
@@ -369,17 +371,18 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                string
-		authenticators      []security.Authenticator
-		ca                  CertificateAuthority
-		certChain           []string
-		pods                []pod
-		impersonatePod      pod
-		callerClusterID     cluster.ID
-		trustedNodeAccounts sets.Set[types.NamespacedName]
-		isMultiCluster      bool
-		remoteClusterPods   []pod
-		code                codes.Code
+		name                   string
+		authenticators         []security.Authenticator
+		ca                     CertificateAuthority
+		certChain              []string
+		pods                   []pod
+		impersonatePod         pod
+		impersonateTrustDomain string
+		callerClusterID        cluster.ID
+		trustedNodeAccounts    sets.Set[types.NamespacedName]
+		isMultiCluster         bool
+		remoteClusterPods      []pod
+		code                   codes.Code
 	}{
 		{
 			name: "No node authorizer",
@@ -467,6 +470,23 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			remoteClusterPods:   []pod{ztunnelPodRemote, podSameNodeRemote},
 			code:                codes.OK,
 		},
+		{
+			name: "Pod on node, but impersonated identity in foreign trust domain",
+			authenticators: []security.Authenticator{&mockAuthenticator{
+				identities:     []string{"test-identity"},
+				kubernetesInfo: ztunnelCaller,
+			}},
+			ca: &mockca.FakeCA{
+				SignedCert:    []byte(testCert),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert), nil),
+			},
+			pods:                   []pod{ztunnelPod, podSameNode},
+			impersonatePod:         podSameNode,
+			impersonateTrustDomain: "evil.local",
+			callerClusterID:        cluster.ID("fake"),
+			trustedNodeAccounts:    allowZtunnel,
+			code:                   codes.Unauthenticated,
+		},
 	}
 
 	for _, c := range testCases {
@@ -474,7 +494,8 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			test.SetForTest(t, &features.CATrustedNodeAccounts, c.trustedNodeAccounts)
 
 			multiClusterController := multicluster.NewFakeController()
-			server, _ := New(c.ca, time.Duration(1), c.authenticators, multiClusterController)
+			meshHolder := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"})
+			server, _ := New(c.ca, time.Duration(1), meshHolder, c.authenticators, multiClusterController)
 
 			var pods []runtime.Object
 			for _, p := range c.pods {
@@ -501,8 +522,12 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 				}
 			}
 
+			impersonateTrustDomain := c.impersonateTrustDomain
+			if impersonateTrustDomain == "" {
+				impersonateTrustDomain = "cluster.local"
+			}
 			reqMeta, _ := structpb.NewStruct(map[string]any{
-				security.ImpersonatedIdentity: c.impersonatePod.Identity(),
+				security.ImpersonatedIdentity: c.impersonatePod.IdentityInTrustDomain(impersonateTrustDomain),
 			})
 			request := &pb.IstioCertificateRequest{
 				Csr:      "dumb CSR",

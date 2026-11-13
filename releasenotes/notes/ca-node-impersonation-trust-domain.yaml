@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** the Istio CA's trusted-node impersonation path (`CA_TRUSTED_NODE_ACCOUNTS`) accepting
+    an impersonated identity in any SPIFFE trust domain instead of only the mesh's configured trust
+    domain.
+
+    **Credit**: This bug was discovered and reported by eric-owo.
