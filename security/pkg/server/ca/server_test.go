@@ -34,9 +34,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/monitoring/monitortest"
@@ -492,7 +494,8 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			test.SetForTest(t, &features.CATrustedNodeAccounts, c.trustedNodeAccounts)
 
 			multiClusterController := multicluster.NewFakeController()
-			server, _ := New(c.ca, time.Duration(1), &mockMeshHolder{"cluster.local"}, c.authenticators, multiClusterController)
+			meshHolder := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"})
+			server, _ := New(c.ca, time.Duration(1), meshHolder, c.authenticators, multiClusterController)
 
 			var pods []runtime.Object
 			for _, p := range c.pods {
