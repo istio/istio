@@ -134,6 +134,58 @@ func TestStartStop(t *testing.T) {
 	<-ctx.Done()
 }
 
+// drainRecorder is a proxy that records how the agent asks it to drain, and runs until aborted.
+type drainRecorder struct {
+	skipExit chan bool
+}
+
+func (d drainRecorder) Run(abort <-chan error) error { return <-abort }
+
+func (d drainRecorder) Drain(skipExit bool) error {
+	d.skipExit <- skipExit
+	return nil
+}
+
+func (d drainRecorder) Cleanup() {}
+
+func (d drainRecorder) UpdateConfig(_ []byte) error { return nil }
+
+// TestTerminateDrain checks how the agent drains Envoy when the pod stops. With
+// EXIT_ON_ZERO_ACTIVE_CONNECTIONS the agent ends Envoy itself once no connection is open, so it
+// must drain with skip_exit. Otherwise Envoy stops every listener when its drain time ends (for
+// a gateway, its Prometheus listener too) while it still serves the connections that remain.
+func TestTerminateDrain(t *testing.T) {
+	cases := []struct {
+		name         string
+		exitOnZero   bool
+		wantSkipExit bool
+	}{
+		{name: "exit on zero active connections", exitOnZero: true, wantSkipExit: true},
+		{name: "fixed termination drain", exitOnZero: false, wantSkipExit: false},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			server := testserver.CreateAndStartServer(downstreamCxZeroAcStats)
+			defer server.Close()
+			proxy := drainRecorder{skipExit: make(chan bool, 1)}
+			a := NewAgent(proxy, 0, 0, "localhost", server.Listener.Addr().(*net.TCPAddr).Port, 15021, 15009, 0, 0, tt.exitOnZero)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			done := make(chan struct{})
+			go func() {
+				a.Run(ctx)
+				close(done)
+			}()
+			cancel()
+
+			if got := <-proxy.skipExit; got != tt.wantSkipExit {
+				t.Errorf("drain skip_exit: want %v, got %v", tt.wantSkipExit, got)
+			}
+			<-done
+		})
+	}
+}
+
 func TestActiveConnections(t *testing.T) {
 	cases := []struct {
 		name     string
