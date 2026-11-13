@@ -21,6 +21,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -40,13 +41,13 @@ type MulticlusterNodeAuthorizor struct {
 
 func NewMulticlusterNodeAuthenticator(
 	trustedNodeAccounts sets.Set[types.NamespacedName],
-	trustDomain string,
+	meshHolder mesh.Holder,
 	controller multicluster.ComponentBuilder,
 ) *MulticlusterNodeAuthorizor {
 	m := &MulticlusterNodeAuthorizor{
 		trustedNodeAccounts: trustedNodeAccounts,
 		component: multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster) *ClusterNodeAuthorizer {
-			return NewClusterNodeAuthorizer(cluster.Client, trustedNodeAccounts, trustDomain)
+			return NewClusterNodeAuthorizer(cluster.Client, trustedNodeAccounts, meshHolder)
 		}),
 	}
 	return m
@@ -68,14 +69,15 @@ func (m *MulticlusterNodeAuthorizor) authenticateImpersonation(ctx context.Conte
 
 type ClusterNodeAuthorizer struct {
 	trustedNodeAccounts sets.Set[types.NamespacedName]
-	// trustDomain is the mesh trust domain configured for the CA. A requested identity must be in
-	// this trust domain, regardless of whether its namespace/service account/node placement checks out.
-	trustDomain string
-	pods        kclient.Client[*v1.Pod]
-	nodeIndex   kclient.Index[SaNode, *v1.Pod]
+	// meshHolder gives the live mesh trust domain configured for the CA. A requested identity must
+	// be in this trust domain, regardless of whether its namespace/service account/node placement
+	// checks out.
+	meshHolder mesh.Holder
+	pods       kclient.Client[*v1.Pod]
+	nodeIndex  kclient.Index[SaNode, *v1.Pod]
 }
 
-func NewClusterNodeAuthorizer(client kube.Client, trustedNodeAccounts sets.Set[types.NamespacedName], trustDomain string) *ClusterNodeAuthorizer {
+func NewClusterNodeAuthorizer(client kube.Client, trustedNodeAccounts sets.Set[types.NamespacedName], meshHolder mesh.Holder) *ClusterNodeAuthorizer {
 	pods := kclient.NewFiltered[*v1.Pod](client, kclient.Filter{
 		ObjectFilter:    client.ObjectFilter(),
 		ObjectTransform: kube.StripPodUnusedFields,
@@ -101,7 +103,7 @@ func NewClusterNodeAuthorizer(client kube.Client, trustedNodeAccounts sets.Set[t
 		pods:                pods,
 		nodeIndex:           index,
 		trustedNodeAccounts: trustedNodeAccounts,
-		trustDomain:         trustDomain,
+		meshHolder:          meshHolder,
 	}
 }
 
@@ -130,8 +132,9 @@ func (na *ClusterNodeAuthorizer) authenticateImpersonation(caller security.Kuber
 	// Impersonation is only permitted within the CA's own trust domain; otherwise a compromised
 	// trusted node could obtain a CA-signed identity in an attacker-chosen trust domain even though
 	// the namespace/service account/node placement checks below would pass.
-	if requestedIdentity.TrustDomain != na.trustDomain {
-		return fmt.Errorf("requested identity %v is not in trust domain %q", requestedIdentityString, na.trustDomain)
+	trustDomain := na.meshHolder.Mesh().GetTrustDomain()
+	if requestedIdentity.TrustDomain != trustDomain {
+		return fmt.Errorf("requested identity %v is not in trust domain %q", requestedIdentityString, trustDomain)
 	}
 
 	// Finally, we validate the requested identity is running on the same node the caller is on

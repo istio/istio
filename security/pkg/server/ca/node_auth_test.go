@@ -25,13 +25,27 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 )
+
+// mockMeshHolder is a mutable mesh.Holder for tests, so a trust domain change can be observed
+// without recreating the authorizer
+type mockMeshHolder struct {
+	trustDomain string
+}
+
+var _ mesh.Holder = &mockMeshHolder{}
+
+func (m *mockMeshHolder) Mesh() *meshconfig.MeshConfig {
+	return &meshconfig.MeshConfig{TrustDomain: m.trustDomain}
+}
 
 type pod struct {
 	name, namespace, account, node, uid string
@@ -188,7 +202,7 @@ func TestSingleClusterNodeAuthorization(t *testing.T) {
 				})
 			}
 			c := kube.NewFakeClient(pods...)
-			na := NewClusterNodeAuthorizer(c, tt.trustedAccounts, "cluster.local")
+			na := NewClusterNodeAuthorizer(c, tt.trustedAccounts, &mockMeshHolder{"cluster.local"})
 			c.RunAndWait(test.NewStop(t))
 			kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
 
@@ -200,6 +214,60 @@ func TestSingleClusterNodeAuthorization(t *testing.T) {
 				t.Fatalf("expected error %q, got %q", tt.wantErr, err)
 			}
 		})
+	}
+}
+
+// TestNodeAuthorizationUsesLiveTrustDomain verifies the trust domain check reads the mesh config
+// fresh on every request rather than a value captured once when the authorizer was constructed.
+func TestNodeAuthorizationUsesLiveTrustDomain(t *testing.T) {
+	allowZtunnel := map[types.NamespacedName]struct{}{
+		{Name: "ztunnel", Namespace: "istio-system"}: {},
+	}
+	ztunnelCaller := security.KubernetesInfo{
+		PodName:           "ztunnel-a",
+		PodNamespace:      "istio-system",
+		PodUID:            "12345",
+		PodServiceAccount: "ztunnel",
+	}
+	ztunnelPod := pod{
+		name:      ztunnelCaller.PodName,
+		namespace: ztunnelCaller.PodNamespace,
+		account:   ztunnelCaller.PodServiceAccount,
+		uid:       ztunnelCaller.PodUID,
+		node:      "zt-node",
+	}
+	podSameNode := pod{
+		name:      "pod-a",
+		namespace: "ns-a",
+		account:   "sa-a",
+		uid:       "1",
+		node:      "zt-node",
+	}
+
+	c := kube.NewFakeClient(&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: ztunnelPod.name, Namespace: ztunnelPod.namespace, UID: types.UID(ztunnelPod.uid)},
+		Spec:       v1.PodSpec{ServiceAccountName: ztunnelPod.account, NodeName: ztunnelPod.node},
+	}, &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: podSameNode.name, Namespace: podSameNode.namespace, UID: types.UID(podSameNode.uid)},
+		Spec:       v1.PodSpec{ServiceAccountName: podSameNode.account, NodeName: podSameNode.node},
+	})
+	holder := &mockMeshHolder{"cluster.local"}
+	na := NewClusterNodeAuthorizer(c, allowZtunnel, holder)
+	c.RunAndWait(test.NewStop(t))
+	kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
+
+	if err := na.authenticateImpersonation(ztunnelCaller, podSameNode.IdentityInTrustDomain("cluster.local")); err != nil {
+		t.Fatalf("expected impersonation in the current trust domain to succeed, got %v", err)
+	}
+
+	// Change the mesh's trust domain without recreating the authorizer
+	holder.trustDomain = "new.domain"
+
+	if err := na.authenticateImpersonation(ztunnelCaller, podSameNode.IdentityInTrustDomain("cluster.local")); err == nil || !strings.Contains(err.Error(), "not in trust domain") {
+		t.Fatalf("expected the now-stale trust domain to be rejected immediately, got %v", err)
+	}
+	if err := na.authenticateImpersonation(ztunnelCaller, podSameNode.IdentityInTrustDomain("new.domain")); err != nil {
+		t.Fatalf("expected impersonation in the newly configured trust domain to succeed immediately, got %v", err)
 	}
 }
 
@@ -299,7 +367,7 @@ func TestMultiClusterNodeAuthorization(t *testing.T) {
 	remote2Client := kube.NewFakeClient(remoteCluster2Pods...)
 
 	mc := multicluster.NewFakeController()
-	mNa := NewMulticlusterNodeAuthenticator(allowZtunnel, "cluster.local", mc)
+	mNa := NewMulticlusterNodeAuthenticator(allowZtunnel, &mockMeshHolder{"cluster.local"}, mc)
 	stop := test.NewStop(t)
 	mc.Add("primary", primaryClient, stop)
 	mc.Add("remote", remoteClient, stop)
