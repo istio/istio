@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62052
+releaseNotes:
+  - |
+    **Fixed** an issue where pilot could serialize the same configuration into different
+    bytes in different replicas (nested `Any` payload map ordering in EnvoyFilter patches,
+    and gateway filter chain ordering). Envoy hashes listeners to decide whether an update
+    is required, so those byte differences made it take the in-place filter chain update
+    path, drain filter chains and close the connections bound to them
+    (`filter_chain_is_being_removed`), interrupting in-flight long-lived/SSE requests.

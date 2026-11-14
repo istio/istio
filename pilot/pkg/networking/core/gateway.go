@@ -213,6 +213,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	listeners := make([]*listener.Listener, 0)
 	for _, ml := range mutableopts {
 		ml.mutable.Listener = buildGatewayListener(*ml.opts, ml.transport)
+		// The chains were collected in map iteration order above; order them
+		// deterministically so the listener serializes identically in every process.
+		sortFilterChains(ml.mutable.Listener)
 
 		// Set listener-level buffer limit from ConnectionSettings.
 		if v := safeUint32(cs.GetListenerPerConnectionBufferLimitBytes()); v != nil {
