@@ -204,3 +204,52 @@ func assertNoIstioCNI(t *testing.T, path string) {
 		}
 	}
 }
+
+// Without an istio-owned config, a config written ahead of the detected primary is the one the
+// runtime uses, so istio-cni must move into it.
+func TestChainedConfigFollowsConfigInFront(t *testing.T) {
+	cfg := ownedTestConfig(t)
+	cfg.IstioOwnedCNIConfig = false
+	cfg.IstioOwnedCNIConfigFilename = ""
+	dir := cfg.MountedCNINetDir
+
+	path, _ := install(t, cfg, "")
+	path, err := install(t, cfg, path)
+	assert.NoError(t, err)
+	assert.Equal(t, path, filepath.Join(dir, primaryName))
+
+	if err := file.AtomicCopy(filepath.Join("testdata", "list.conflist"), dir, antreaName); err != nil {
+		t.Fatal(err)
+	}
+
+	path, err = install(t, cfg, path)
+	if err == nil {
+		t.Fatal("expected the preempted config to be rewritten")
+	}
+	assert.Equal(t, cfg.CNIConfName, antreaName)
+	assert.Equal(t, path, filepath.Join(dir, antreaName))
+	types := pluginTypes(t, path)
+	assert.Equal(t, types[len(types)-1], "istio-cni")
+
+	_, err = install(t, cfg, path)
+	assert.NoError(t, err)
+}
+
+func TestChainedConfiguredPrimaryStaysPinned(t *testing.T) {
+	cfg := ownedTestConfig(t)
+	cfg.IstioOwnedCNIConfig = false
+	cfg.IstioOwnedCNIConfigFilename = ""
+	cfg.CNIConfName = primaryName
+	cfg.CNIConfNameDetected = false
+	dir := cfg.MountedCNINetDir
+
+	path, _ := install(t, cfg, "")
+	if err := file.AtomicCopy(filepath.Join("testdata", "list.conflist"), dir, antreaName); err != nil {
+		t.Fatal(err)
+	}
+
+	path, err := install(t, cfg, path)
+	assert.NoError(t, err)
+	assert.Equal(t, cfg.CNIConfName, primaryName)
+	assert.Equal(t, path, filepath.Join(dir, primaryName))
+}

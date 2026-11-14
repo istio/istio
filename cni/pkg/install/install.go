@@ -446,13 +446,15 @@ func checkValidCNIConfig(cfg *config.InstallConfig, cniConfigFilepath string) er
 	// created or rewritten
 	if defaultCNIConfigFilepath != cniConfigFilepath {
 		log.Debugf("cniConfigFilePath mismatch: expected %s but found %s", defaultCNIConfigFilepath, cniConfigFilepath)
-		if len(cfg.CNIConfName) > 0 || !cfg.ChainedCNIPlugin {
+		// A detected CNIConfName is not an override: a config that sorts ahead of it is the one the
+		// runtime uses now, so istio-cni must be written there.
+		if (len(cfg.CNIConfName) > 0 && !cfg.CNIConfNameDetected) || !cfg.ChainedCNIPlugin {
 			// Install was run with overridden CNI config file so don't error out on preempt check
 			// Likely the only use for this is testing the script
 			installLog.Warnf("CNI config file %q preempted by %q", cniConfigFilepath, defaultCNIConfigFilepath)
 		} else {
-			// CNIConfName is guaranteed empty here (see the condition above), so set it to the
-			// default CNI config filename (the primary CNI config file)
+			// CNIConfName is empty or was detected, so set it to the default CNI config filename
+			// (the primary CNI config file)
 			if istioOwned && firstCNIConfigFilename == cfg.IstioOwnedCNIConfigFilename {
 				// Since the Istio owned CNI config is the highest priority, set the CNIConfigName to the config
 				// with the second highest priority. We will copy the configuration in this file to create the
