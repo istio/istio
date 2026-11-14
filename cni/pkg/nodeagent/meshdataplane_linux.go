@@ -55,6 +55,10 @@ func (s *meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.P
 	return s.netServer.ConstructInitialSnapshot(existingAmbientPods)
 }
 
+func (s *meshDataplane) ReconcileEnrollment(ctx context.Context, ambientPods []*corev1.Pod) error {
+	return s.netServer.ReconcileEnrollment(ctx, ambientPods)
+}
+
 // ConstructInitialSnapshot should always be invoked before this function.
 func (s *meshDataplane) Start(ctx context.Context) {
 	s.netServer.Start(ctx)
