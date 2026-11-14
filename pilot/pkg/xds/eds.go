@@ -259,7 +259,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		var dr *model.ConsolidatedDestRule
 		if svc != nil && !isSelfDiscoveryCluster {
 			// disable DR lookup for self discovery cluster, we don't need to apply subsetting or traffic policies.
-			dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
+			dr = endpoints.DestinationRuleForCluster(proxy, dir, svc.Hostname)
 		}
 
 		// If no service or destination rule update affects this cluster, check peer authentication before recomputing.

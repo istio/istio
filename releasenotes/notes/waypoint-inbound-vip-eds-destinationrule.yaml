@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** waypoint EDS selecting a different `DestinationRule` than CDS for service clusters.
+    EDS honored a `workloadSelector` matching the waypoint, which CDS ignores, and treated the
+    default cluster's `http`/`tcp` protocol marker as a subset name, so a subset named `http` or
+    `tcp` filtered the default cluster's endpoints, leaving it empty when its labels matched nothing.
