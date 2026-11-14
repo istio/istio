@@ -1175,6 +1175,14 @@ func IsWaypointProxy(node *Proxy) bool {
 }
 
 func ShouldCreateDoubleHBONEResources(p *Proxy) bool {
+	isHBONESendEnabled := bool(!p.Metadata.DisableHBONESend) && features.EnableHBONESend
+
+	// Note that we only consider EnableHBONESend for ingress gateway, as traditionally
+	// that flag has been ignored for waypoints when generating endpoint/cluster discovery
+	// information.
+	return features.EnableAmbientMultiNetwork &&
+		((IsIngressGateway(p) && features.EnableAmbientIngressMultiNetwork && isHBONESendEnabled) ||
+			(IsWaypointProxy(p) && features.EnableAmbientWaypointMultiNetwork))
 	if !features.EnableAmbientMultiNetwork {
 		return false
 	}
