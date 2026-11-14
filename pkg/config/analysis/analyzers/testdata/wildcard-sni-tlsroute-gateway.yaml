@@ -1,0 +1,464 @@
+# Gateway API TLSRoute on istio-class Gateways (Passthrough) to a wildcard DYNAMIC_DNS ServiceEntry. Layouts match the
+# kind ground truth (Obsidian note 18, T-*): the analyzer warns exactly where istiod skips the rule.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata: {name: wikipedia, namespace: egress}
+spec:
+  hosts: ["*.wikipedia.org"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: {name: egw, namespace: egress}
+spec:
+  gatewayClassName: istio
+  listeners: [{name: tls, port: 443, protocol: TLS, tls: {mode: Passthrough}, allowedRoutes: {namespaces: {from: All}}}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: {name: egw-wiki, namespace: egress}
+spec:
+  gatewayClassName: istio
+  listeners: [{name: tls, port: 443, protocol: TLS, hostname: "*.wikipedia.org", tls: {mode: Passthrough}}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: {name: egw-org, namespace: egress}
+spec:
+  gatewayClassName: istio
+  listeners: [{name: tls, port: 443, protocol: TLS, hostname: "*.org", tls: {mode: Passthrough}}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: {name: egw-en, namespace: egress}
+spec:
+  gatewayClassName: istio
+  listeners: [{name: tls, port: 443, protocol: TLS, hostname: "en.wikipedia.org", tls: {mode: Passthrough}}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: {name: egw-same, namespace: egress}
+spec:
+  gatewayClassName: istio
+  listeners: [{name: tls, port: 443, protocol: TLS, tls: {mode: Passthrough}}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: {name: egw-two, namespace: egress}
+spec:
+  gatewayClassName: istio
+  listeners: [{name: a, port: 443, protocol: TLS, hostname: "*.wikipedia.org", tls: {mode: Passthrough}}, {name: b, port: 8443, protocol: TLS, tls: {mode: Passthrough}}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: {name: egw-other-class, namespace: egress}
+spec:
+  gatewayClassName: other
+  listeners: [{name: tls, port: 443, protocol: TLS, tls: {mode: Passthrough}}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: {name: egw-terminate, namespace: egress}
+spec:
+  gatewayClassName: istio
+  listeners: [{name: tls, port: 443, protocol: TLS, tls: {mode: Terminate, certificateRefs: [{name: cert}]}}]
+---
+# Under the host: no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-b, namespace: egress}
+spec:
+  hostnames: ["*.wikipedia.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Wider than the host: warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-c, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# One hostname outside the host: warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-c2, namespace: egress}
+spec:
+  hostnames: ["en.wikipedia.org", "www.example.com"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Listener *.wikipedia.org narrows *.org to *.wikipedia.org: no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-d, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-wiki}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-wiki}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Listener *.org: still wider than the host, warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-e, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-org}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-org}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Listener en.wikipedia.org narrows to en.wikipedia.org: no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-f, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-en}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-en}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Cross-namespace, allowed by the listener; ResolvedRefs=False does not stop istiod: warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-g, namespace: app}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw, namespace: egress}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw, namespace: egress}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "False", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Not accepted (listener allows only its namespace): no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-h, namespace: app}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-same, namespace: egress}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-same, namespace: egress}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "False", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "False", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# sectionName of the listener without hostname: warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-i, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-two, sectionName: b}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-two, sectionName: b}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# sectionName of the *.wikipedia.org listener: no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-j, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-two, sectionName: a}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-two, sectionName: a}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# No sectionName: both listeners; the one without hostname skips it, warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-l, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-two}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-two}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Gateway of another class: not configured by istiod, no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-other-class, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-other-class}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-other-class}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# TLS Terminate listener: not a passthrough route, no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-terminate, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-terminate}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-terminate}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# No status (for example, files): binding unknown, no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-no-status, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+---
+# Two weighted backends: istiod does not apply the rule, no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-weighted, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443, weight: 1}, {name: other, port: 443, weight: 1}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Service backend, not the wildcard host: no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-service, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw}]
+  rules:
+  - backendRefs: [{name: wikipedia, port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Listener that accepts routes from namespaces labeled team=a.
+apiVersion: v1
+kind: Namespace
+metadata: {name: app-sel, labels: {team: a}}
+---
+apiVersion: v1
+kind: Namespace
+metadata: {name: app-nosel}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: {name: egw-sel, namespace: egress}
+spec:
+  gatewayClassName: istio
+  listeners: [{name: tls, port: 443, protocol: TLS, tls: {mode: Passthrough}, allowedRoutes: {namespaces: {from: Selector, selector: {matchLabels: {team: a}}}}}]
+---
+# Namespace matches the selector: warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-sel, namespace: app-sel}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-sel, namespace: egress}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-sel, namespace: egress}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Namespace does not match (a stale Accepted status must not count): no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-nosel, namespace: app-nosel}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-sel, namespace: egress}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-sel, namespace: egress}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Same namespace, would warn, but not accepted: no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-not-accepted, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "False", reason: NotAllowedByListeners, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Stale Accepted=True from another namespace on a listener that allows only its own namespace: no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-same-stale, namespace: app}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-same, namespace: egress}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-same, namespace: egress}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Gateway of another revision (canary): served by an istiod that was not analyzed.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: {name: egw-canary, namespace: egress, labels: {istio.io/rev: canary}}
+spec:
+  gatewayClassName: istio
+  listeners: [{name: tls, port: 443, protocol: TLS, tls: {mode: Passthrough}}]
+---
+# Revision not analyzed: no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-canary, namespace: egress}
+spec:
+  hostnames: ["*.org"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-canary}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-canary}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# No hostnames (older API versions): istiod uses ["*"], warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-no-hostnames, namespace: egress}
+spec:
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# No hostnames, listener *.wikipedia.org narrows "*": no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: t-no-hostnames-wiki, namespace: egress}
+spec:
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: egw-wiki}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.wikipedia.org", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: egw-wiki}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}

@@ -1,0 +1,194 @@
+# Gateway API TLSRoute attached to a waypoint-bound wildcard DYNAMIC_DNS ServiceEntry. Layouts match the kind ground
+# truth (Obsidian note 18, W-T-*): the waypoint uses a rule only when its hostnames are exactly the ServiceEntry host.
+apiVersion: v1
+kind: Namespace
+metadata: {name: amb-t, labels: {istio.io/dataplane-mode: ambient}}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: {name: wp-t, namespace: amb-t}
+spec:
+  gatewayClassName: istio-waypoint
+  listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata: {name: wiki-t, namespace: amb-t, labels: {istio.io/use-waypoint: wp-t}}
+spec:
+  hosts: ["*.wikitls.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata: {name: no-waypoint-t, namespace: amb-t, labels: {istio.io/use-waypoint: none}}
+spec:
+  hosts: ["*.nowp.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+# Exactly the host: used, no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: w-exact, namespace: amb-t}
+spec:
+  hostnames: ["*.wikitls.example"]
+  parentRefs: [{group: networking.istio.io, kind: ServiceEntry, name: wiki-t}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.other.example", port: 443}]
+status:
+  parents:
+  - parentRef: {group: networking.istio.io, kind: ServiceEntry, name: wiki-t}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Narrower: ignored, warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: w-narrow, namespace: amb-t}
+spec:
+  hostnames: ["en.wikitls.example"]
+  parentRefs: [{group: networking.istio.io, kind: ServiceEntry, name: wiki-t}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.other.example", port: 443}]
+status:
+  parents:
+  - parentRef: {group: networking.istio.io, kind: ServiceEntry, name: wiki-t}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Wider: ignored, warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: w-wider, namespace: amb-t}
+spec:
+  hostnames: ["*.example"]
+  parentRefs: [{group: networking.istio.io, kind: ServiceEntry, name: wiki-t}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.other.example", port: 443}]
+status:
+  parents:
+  - parentRef: {group: networking.istio.io, kind: ServiceEntry, name: wiki-t}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Two hostnames: ignored, warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: w-two, namespace: amb-t}
+spec:
+  hostnames: ["en.wikitls.example", "de.wikitls.example"]
+  parentRefs: [{group: networking.istio.io, kind: ServiceEntry, name: wiki-t}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.other.example", port: 443}]
+status:
+  parents:
+  - parentRef: {group: networking.istio.io, kind: ServiceEntry, name: wiki-t}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Not accepted: no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: w-not-accepted, namespace: amb-t}
+spec:
+  hostnames: ["en.wikitls.example"]
+  parentRefs: [{group: networking.istio.io, kind: ServiceEntry, name: wiki-t}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.other.example", port: 443}]
+status:
+  parents:
+  - parentRef: {group: networking.istio.io, kind: ServiceEntry, name: wiki-t}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "False", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# ServiceEntry without a waypoint: no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: w-no-waypoint, namespace: amb-t}
+spec:
+  hostnames: ["en.nowp.example"]
+  parentRefs: [{group: networking.istio.io, kind: ServiceEntry, name: no-waypoint-t}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.other.example", port: 443}]
+status:
+  parents:
+  - parentRef: {group: networking.istio.io, kind: ServiceEntry, name: no-waypoint-t}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+    - {type: ResolvedRefs, status: "True", reason: ResolvedRefs, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# istiod keeps only the hostnames matching the ServiceEntry host (compatibleRoutesForHost): exactly the host remains,
+# the waypoint uses the rule, no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: w-filtered, namespace: amb-t}
+spec:
+  hostnames: ["*.wikitls.example", "api.unrelated.example"]
+  parentRefs: [{group: networking.istio.io, kind: ServiceEntry, name: wiki-t}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.other.example", port: 443}]
+status:
+  parents:
+  - parentRef: {group: networking.istio.io, kind: ServiceEntry, name: wiki-t}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Parent is a Gateway that happens to share the ServiceEntry name: not a waypoint route, no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: w-gateway-parent, namespace: amb-t}
+spec:
+  hostnames: ["en.wikitls.example"]
+  parentRefs: [{group: gateway.networking.k8s.io, kind: Gateway, name: wiki-t}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.other.example", port: 443}]
+status:
+  parents:
+  - parentRef: {group: gateway.networking.k8s.io, kind: Gateway, name: wiki-t}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# No hostnames: istiod uses the ServiceEntry host, the waypoint uses the rule. No warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: w-no-hostnames, namespace: amb-t}
+spec:
+  parentRefs: [{group: networking.istio.io, kind: ServiceEntry, name: wiki-t}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.other.example", port: 443}]
+status:
+  parents:
+  - parentRef: {group: networking.istio.io, kind: ServiceEntry, name: wiki-t}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
+---
+# Only weight-0 backends: the rule has no match and the waypoint always uses it. No warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata: {name: w-zero-weight, namespace: amb-t}
+spec:
+  hostnames: ["en.wikitls.example"]
+  parentRefs: [{group: networking.istio.io, kind: ServiceEntry, name: wiki-t}]
+  rules:
+  - backendRefs: [{group: networking.istio.io, kind: Hostname, name: "*.other.example", port: 443, weight: 0}]
+status:
+  parents:
+  - parentRef: {group: networking.istio.io, kind: ServiceEntry, name: wiki-t}
+    controllerName: istio.io/gateway-controller
+    conditions:
+    - {type: Accepted, status: "True", reason: Accepted, message: "", lastTransitionTime: "2026-11-06T00:00:00Z"}
