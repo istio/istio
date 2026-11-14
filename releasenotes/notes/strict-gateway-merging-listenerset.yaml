@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62686
+releaseNotes:
+- |
+  **Fixed** strict gateway merging counting a ListenerSet under its own namespace instead of its parent Gateway's namespace.
+  This caused a false `multiple managed GatewayAPI gateway namespaces` warning, and let classic Istio Gateways in a
+  ListenerSet's namespace merge into the managed gateway.

@@ -2522,7 +2522,8 @@ func filterStrictGatewayMerging(instances []gatewayWithInstances) []gatewayWithI
 		cfg := gwi.gateway
 		if cfg.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway &&
 			cfg.Annotations[constants.InternalServiceAccount] != "" {
-			managedGWAPINamespaces.Insert(cfg.Namespace)
+			// A ListenerSet's listeners are generated in the ListenerSet's namespace, but belong to the parent Gateway.
+			managedGWAPINamespaces.Insert(ptr.NonEmptyOrDefault(cfg.Annotations[constants.InternalParentNamespace], cfg.Namespace))
 		}
 	}
 
