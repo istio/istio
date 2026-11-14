@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // gatewayPorts are the gateway server port and the gateway route destination port.
@@ -178,27 +179,27 @@ func TestEgressGatewayWildcardDynamicDNS(t *testing.T) {
 					deny.ApplyOrFail(t, apply.NoCleanup)
 					t.NewSubTest("denied by AuthorizationPolicy at egress gateway").Run(func(t framework.TestContext) {
 						for _, c := range client {
-							c.CallOrFail(t, httpsCall(host, check.Error()))
+							c.CallOrFail(t, httpsCall(host, false))
 						}
 					})
 					t.NewSubTest("tls passthrough to wildcard host via egress gateway").Run(func(t framework.TestContext) {
 						deny.DeleteOrFail(t)
 						for _, c := range client {
-							c.CallOrFail(t, httpsCall(host, check.OK()))
+							c.CallOrFail(t, httpsCall(host, true))
 						}
 					})
 					t.NewSubTest("denied by ipBlocks at egress gateway").Run(func(t framework.TestContext) {
 						args["Action"], args["Source"] = "DENY", "ipBlocks: "+ipv4CIDRs(t, client)
 						t.ConfigIstio().Eval(settings.EgressGatewayServiceNamespace, args, sourceIPAtEgressGateway).ApplyOrFail(t)
 						for _, c := range client {
-							c.CallOrFail(t, httpsCall(host, check.Error()))
+							c.CallOrFail(t, httpsCall(host, false))
 						}
 					})
 					if ports.subset != "" {
 						t.NewSubTest("route to a removed subset fails").Run(func(t framework.TestContext) {
 							applySubset(t, map[string]string{"WildcardHost": args["WildcardHost"], "Subset": "other"})
 							for _, c := range client {
-								c.CallOrFail(t, httpsCall(host, check.Error()))
+								c.CallOrFail(t, httpsCall(host, false))
 							}
 						})
 					}
@@ -275,7 +276,7 @@ func TestEgressGatewayWildcardDynamicDNSRejectsOtherSNI(t *testing.T) {
 			}
 			t.NewSubTest("other host reachable without the egress gateway").Run(func(t framework.TestContext) {
 				for _, c := range client {
-					c.CallOrFail(t, httpsCall(otherHost, check.OK()))
+					c.CallOrFail(t, httpsCall(otherHost, true))
 				}
 			})
 			t.ConfigIstio().Eval(apps.Namespace.Name(), args, routeViaEgressGateway, routeOtherHostViaEgressGateway).ApplyOrFail(t)
@@ -285,19 +286,19 @@ func TestEgressGatewayWildcardDynamicDNSRejectsOtherSNI(t *testing.T) {
 			deny.ApplyOrFail(t, apply.NoCleanup)
 			t.NewSubTest("both hosts denied by AuthorizationPolicy at egress gateway").Run(func(t framework.TestContext) {
 				for _, c := range client {
-					c.CallOrFail(t, httpsCall(host, check.Error()))
-					c.CallOrFail(t, httpsCall(otherHost, check.Error()))
+					c.CallOrFail(t, httpsCall(host, false))
+					c.CallOrFail(t, httpsCall(otherHost, false))
 				}
 			})
 			deny.DeleteOrFail(t)
 			t.NewSubTest("wildcard host reaches the gateway destination").Run(func(t framework.TestContext) {
 				for _, c := range client {
-					c.CallOrFail(t, httpsCall(host, check.OK()))
+					c.CallOrFail(t, httpsCall(host, true))
 				}
 			})
 			t.NewSubTest("host outside the wildcard host is not forwarded").Run(func(t framework.TestContext) {
 				for _, c := range client {
-					c.CallOrFail(t, httpsCall(otherHost, check.Error()))
+					c.CallOrFail(t, httpsCall(otherHost, false))
 				}
 			})
 		})
@@ -454,7 +455,7 @@ func TestEgressGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 					deny.ApplyOrFail(t, apply.NoCleanup)
 					t.NewSubTest("denied by AuthorizationPolicy at egress gateway").Run(func(t framework.TestContext) {
 						for _, c := range append(allowed, other...) {
-							c.CallOrFail(t, httpsCall(host, check.Error()))
+							c.CallOrFail(t, httpsCall(host, false))
 						}
 					})
 
@@ -462,12 +463,12 @@ func TestEgressGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 					deny.DeleteOrFail(t)
 					t.NewSubTest("allowed caller reaches wildcard host over mTLS").Run(func(t framework.TestContext) {
 						for _, c := range allowed {
-							c.CallOrFail(t, httpsCall(host, check.OK()))
+							c.CallOrFail(t, httpsCall(host, true))
 						}
 					})
 					t.NewSubTest("other caller denied for the same host").Run(func(t framework.TestContext) {
 						for _, c := range other {
-							c.CallOrFail(t, httpsCall(host, check.Error()))
+							c.CallOrFail(t, httpsCall(host, false))
 						}
 					})
 				})
@@ -542,7 +543,7 @@ func TestEgressGatewayMutualTLSWildcardDynamicDNSSourceIP(t *testing.T) {
 					deny := t.ConfigIstio().Eval(settings.EgressGatewayServiceNamespace, args, denySNIAtEgressGateway)
 					deny.ApplyOrFail(t, apply.NoCleanup)
 					for _, c := range append(selected, other...) {
-						c.CallOrFail(t, httpsCall(host, check.Error()))
+						c.CallOrFail(t, httpsCall(host, false))
 					}
 					deny.DeleteOrFail(t)
 
@@ -551,16 +552,12 @@ func TestEgressGatewayMutualTLSWildcardDynamicDNSSourceIP(t *testing.T) {
 							// Start with no policy in effect, so that a denial below comes from this row's policy and not
 							// from the barrier or the previous row.
 							for _, c := range append(selected, other...) {
-								c.CallOrFail(t, httpsCall(host, check.OK()))
+								c.CallOrFail(t, httpsCall(host, true))
 							}
 							args["Action"], args["Source"] = tc.action, tc.source
 							t.ConfigIstio().Eval(settings.EgressGatewayServiceNamespace, args, sourceIPAtEgressGateway).ApplyOrFail(t)
 							// Denied callers first: a denial shows that the policy is in effect at the gateway.
 							for _, ok := range []bool{false, true} {
-								c := check.Error()
-								if ok {
-									c = check.OK()
-								}
 								var callers echo.Instances
 								if tc.selectedOK == ok {
 									callers = append(callers, selected...)
@@ -569,7 +566,7 @@ func TestEgressGatewayMutualTLSWildcardDynamicDNSSourceIP(t *testing.T) {
 									callers = append(callers, other...)
 								}
 								for _, caller := range callers {
-									caller.CallOrFail(t, httpsCall(host, c))
+									caller.CallOrFail(t, httpsCall(host, ok))
 								}
 							}
 						})
@@ -631,7 +628,7 @@ func TestEgressGatewayMutualTLSWildcardDynamicDNSRejectsOtherSNI(t *testing.T) {
 			}
 			t.NewSubTest("other host reachable without the egress gateway").Run(func(t framework.TestContext) {
 				for _, c := range client {
-					c.CallOrFail(t, httpsCall(otherHost, check.OK()))
+					c.CallOrFail(t, httpsCall(otherHost, true))
 				}
 			})
 			t.ConfigIstio().Eval(apps.Namespace.Name(), args,
@@ -642,19 +639,19 @@ func TestEgressGatewayMutualTLSWildcardDynamicDNSRejectsOtherSNI(t *testing.T) {
 			deny.ApplyOrFail(t, apply.NoCleanup)
 			t.NewSubTest("both hosts denied by AuthorizationPolicy at egress gateway").Run(func(t framework.TestContext) {
 				for _, c := range client {
-					c.CallOrFail(t, httpsCall(host, check.Error()))
-					c.CallOrFail(t, httpsCall(otherHost, check.Error()))
+					c.CallOrFail(t, httpsCall(host, false))
+					c.CallOrFail(t, httpsCall(otherHost, false))
 				}
 			})
 			deny.DeleteOrFail(t)
 			t.NewSubTest("wildcard host reaches the gateway destination").Run(func(t framework.TestContext) {
 				for _, c := range client {
-					c.CallOrFail(t, httpsCall(host, check.OK()))
+					c.CallOrFail(t, httpsCall(host, true))
 				}
 			})
 			t.NewSubTest("host outside the wildcard host is not forwarded").Run(func(t framework.TestContext) {
 				for _, c := range client {
-					c.CallOrFail(t, httpsCall(otherHost, check.Error()))
+					c.CallOrFail(t, httpsCall(otherHost, false))
 				}
 			})
 		})
@@ -667,8 +664,14 @@ func applySubset(t framework.TestContext, args map[string]string) {
 	}
 }
 
-// httpsCall calls the host on port 443 with the host as SNI.
-func httpsCall(host string, c echo.Checker) echo.CallOptions {
+// httpsCall calls the host on port 443 with the host as SNI and checks that the call succeeds or fails.
+// Calls that should succeed send several requests per attempt, so that requests reaching a gateway that
+// denies them fail the check every time instead of passing on retry.
+func httpsCall(host string, ok bool) echo.CallOptions {
+	c, count := check.Error(), 1
+	if ok {
+		c, count = check.OK(), 5
+	}
 	return echo.CallOptions{
 		Address: host,
 		Port:    echo.Port{ServicePort: 443},
@@ -678,8 +681,10 @@ func httpsCall(host string, c echo.Checker) echo.CallOptions {
 			InsecureSkipVerify: true,
 			ServerName:         host,
 		},
-		Count: 1,
+		Count: count,
 		Check: c,
+		// Count above 3 drops the default converge, so ask for it again.
+		Retry: echo.Retry{Options: []retry.Option{retry.Converge(3)}},
 	}
 }
 
