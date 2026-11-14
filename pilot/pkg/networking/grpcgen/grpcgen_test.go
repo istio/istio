@@ -47,6 +47,8 @@ import (
 	security "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -56,6 +58,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
@@ -65,6 +68,7 @@ import (
 	"istio.io/istio/pkg/test/echo/server/endpoint"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Address of the test gRPC service, used in tests.
@@ -101,6 +105,133 @@ func TestGRPCRDSSubscriptions(t *testing.T) {
 		if !slices.EqualUnordered(got, names) {
 			t.Fatalf("expected routes %v, got %v", names, got)
 		}
+	}
+}
+
+const (
+	watched   = "watched.svc.svc.cluster.local"
+	unrelated = "unrelated.svc.svc.cluster.local"
+	backend   = "backend.svc.svc.cluster.local"
+	alias     = "alias.svc.svc.cluster.local"
+	local     = "local.client.svc.cluster.local"
+)
+
+func pushTestService(hostname, address string) *model.Service {
+	return &model.Service{
+		Hostname:       host.Name(hostname),
+		DefaultAddress: address,
+		Attributes:     model.ServiceAttributes{Name: hostname[:len(hostname)-len(".svc.cluster.local")], Namespace: "svc"},
+		Ports:          model.PortList{{Name: "grpc", Port: 8080, Protocol: protocol.GRPC}},
+	}
+}
+
+func pushTestServices() []*model.Service {
+	aliasSvc := pushTestService(alias, "10.0.0.4")
+	aliasSvc.Resolution = model.Alias
+	aliasSvc.Attributes.K8sAttributes.ExternalName = backend
+	localSvc := pushTestService(local, "10.0.0.5")
+	localSvc.Attributes.Namespace = "client"
+	return []*model.Service{
+		pushTestService(watched, "10.0.0.1"), pushTestService(unrelated, "10.0.0.2"), pushTestService(backend, "10.0.0.3"), aliasSvc, localSvc,
+	}
+}
+
+func update(reason model.TriggerReason, configKind kind.Kind, name, namespace string) *model.PushRequest {
+	return &model.PushRequest{
+		Reason:         model.NewReasonStats(reason),
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: configKind, Name: name, Namespace: namespace}),
+	}
+}
+
+func serviceUpdate(hostname string) *model.PushRequest {
+	return update(model.ServiceUpdate, kind.ServiceEntry, hostname, "svc")
+}
+
+func watch(typeURL string, names ...string) *model.WatchedResource {
+	return &model.WatchedResource{TypeUrl: typeURL, ResourceNames: sets.New(names...)}
+}
+
+func TestGenerateScopedPushes(t *testing.T) {
+	rule := func(name, hostname string) config.Config {
+		return config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.DestinationRule, Name: name, Namespace: "svc"},
+			Spec: &networking.DestinationRule{Host: hostname},
+		}
+	}
+	cg := core.NewConfigGenTest(t, core.TestOptions{
+		Services: pushTestServices(),
+		Configs:  []config.Config{rule("watched-dr", watched), rule("unrelated-dr", unrelated), rule("wildcard-dr", "*.svc.svc.cluster.local")},
+	})
+	proxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "client", Metadata: &model.NodeMetadata{Generator: "grpc"}})
+	g := &grpcgen.GrpcConfigGenerator{}
+	route := watch(v3.RouteType, "outbound|8080||"+watched)
+	cluster := watch(v3.ClusterType, "outbound|8080|v1|"+watched)
+	listener := watch(v3.ListenerType, watched+":8080")
+	server := watch(v3.ListenerType, "grpc/server?xds.resource.listening_address=0.0.0.0:8080")
+	all := []*model.WatchedResource{route, cluster, listener}
+	// A service account change is a ServiceEntry update with an endpoint reason, here merged with a
+	// headless endpoint update elsewhere.
+	serviceAccountChange := update(model.EndpointUpdate, kind.ServiceEntry, watched, "svc").
+		CopyMerge(update(model.HeadlessEndpointUpdate, kind.ServiceEntry, unrelated, "svc"))
+	unrelatedRule := update(model.ConfigUpdate, kind.DestinationRule, "unrelated-dr", "svc")
+	for _, tt := range []struct {
+		name    string
+		watches []*model.WatchedResource
+		req     *model.PushRequest
+		want    bool
+	}{
+		{"watched service", all, serviceUpdate(watched), true},
+		{"unrelated service", all, serviceUpdate(unrelated), false},
+		{"unrelated and watched service", all, serviceUpdate(unrelated).CopyMerge(serviceUpdate(watched)), true},
+		{"watched endpoints", all, update(model.EndpointUpdate, kind.Endpoints, watched, "svc"), false},
+		{"watched service accounts and unrelated headless endpoints", []*model.WatchedResource{cluster}, serviceAccountChange, true},
+		{"own namespace service", all, update(model.ServiceUpdate, kind.ServiceEntry, local, "client"), true},
+		{"server listener and unrelated service", []*model.WatchedResource{server}, serviceUpdate(unrelated), false},
+		{"short listener name", []*model.WatchedResource{watch(v3.ListenerType, "local:8080")}, serviceUpdate(unrelated), false},
+		{"alias of updated service", []*model.WatchedResource{watch(v3.RouteType, "outbound|8080||"+alias)}, serviceUpdate(backend), true},
+		{"destination rule for watched", all, update(model.ConfigUpdate, kind.DestinationRule, "watched-dr", "svc"), true},
+		{"destination rule for unrelated", []*model.WatchedResource{cluster, listener}, unrelatedRule, false},
+		{"destination rule for unrelated, routes", []*model.WatchedResource{route}, unrelatedRule, true},
+		{"wildcard destination rule", all, update(model.ConfigUpdate, kind.DestinationRule, "wildcard-dr", "svc"), true},
+		{"unknown destination rule", all, update(model.ConfigUpdate, kind.DestinationRule, "unknown-dr", "svc"), true},
+		{"unrelated service and virtual service", all, serviceUpdate(unrelated).CopyMerge(update(model.ConfigUpdate, kind.VirtualService, "vs", "svc")), true},
+		{"forced", all, serviceUpdate(unrelated).CopyMerge(&model.PushRequest{Forced: true}), true},
+		{"wildcard watch", []*model.WatchedResource{watch(v3.RouteType), watch(v3.ListenerType)}, serviceUpdate(unrelated), true},
+		{"unparseable name", []*model.WatchedResource{watch(v3.RouteType, "invalid")}, serviceUpdate(unrelated), true},
+	} {
+		for _, w := range tt.watches {
+			t.Run(tt.name+"/"+v3.GetShortType(w.TypeUrl), func(t *testing.T) {
+				tt.req.Push = cg.PushContext()
+				resources, _, err := g.Generate(proxy, w, tt.req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := resources != nil; got != tt.want {
+					t.Fatalf("pushed=%v, want %v: %v", got, tt.want, resources)
+				}
+			})
+		}
+	}
+}
+
+func TestGRPCScopedPushes(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{Services: pushTestServices()})
+	for _, tt := range []struct {
+		typeURL string
+		name    string
+	}{
+		{v3.ListenerType, watched + ":8080"},
+		{v3.ClusterType, "outbound|8080||" + watched},
+		{v3.RouteType, "outbound|8080||" + watched},
+	} {
+		t.Run(v3.GetShortType(tt.typeURL), func(t *testing.T) {
+			ads := s.ConnectADS().WithType(tt.typeURL).WithMetadata(model.NodeMetadata{Generator: "grpc", Namespace: "client"})
+			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{tt.name}})
+			s.Discovery.ConfigUpdate(serviceUpdate(unrelated))
+			ads.ExpectNoResponse(t)
+			s.Discovery.ConfigUpdate(serviceUpdate(watched))
+			ads.ExpectResponse(t)
+		})
 	}
 }
 
