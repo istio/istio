@@ -809,6 +809,36 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "webhook default revision",
+		inputFiles: []string{
+			"testdata/webhook.yaml",
+		},
+		analyzer: &webhook.Analyzer{CheckDefaultRevision: true},
+		expected: []message{
+			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-missing-overlap"},
+			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-missing-overlap"},
+			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-overlap"},
+		},
+	},
+	{
+		name: "webhook no default revision",
+		inputFiles: []string{
+			"testdata/webhook-no-default-revision.yaml",
+		},
+		analyzer: &webhook.Analyzer{CheckDefaultRevision: true},
+		expected: []message{
+			{msg.NoDefaultRevision, "MutatingWebhookConfiguration istio-revision-tag-canary"},
+		},
+	},
+	{
+		name: "webhook default tag",
+		inputFiles: []string{
+			"testdata/webhook-default-tag.yaml",
+		},
+		analyzer: &webhook.Analyzer{CheckDefaultRevision: true},
+		expected: []message{},
+	},
+	{
 		name: "Route Rule no effect on Ingress",
 		inputFiles: []string{
 			"testdata/virtualservice_route_rule_no_effects_ingress.yaml",

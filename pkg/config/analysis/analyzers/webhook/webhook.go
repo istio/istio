@@ -28,12 +28,15 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
 type Analyzer struct {
 	SkipServiceCheck             bool
 	SkipDefaultRevisionedWebhook bool
+	// CheckDefaultRevision reports when no webhook injects for the default revision or a default tag.
+	CheckDefaultRevision bool
 }
 
 var _ analysis.Analyzer = &Analyzer{}
@@ -89,6 +92,10 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 		revisions.InsertAll(revs...)
 		return true
 	})
+
+	if a.CheckDefaultRevision && len(resources) > 0 && !hasDefaultInjector(webhooks) {
+		context.Report(gvk.MutatingWebhookConfiguration, msg.NewNoDefaultRevision(resources[sets.SortedList(sets.New(maps.Keys(resources)...))[0]]))
+	}
 
 	// Set up all relevant namespace and object selector permutations
 	namespaceLabels := getNamespaceLabels()
@@ -146,6 +153,19 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 			}
 		}
 	}
+}
+
+// hasDefaultInjector reports whether any webhook injects into namespaces labeled istio-injection=enabled. Only the
+// default revision and the default tag do.
+func hasDefaultInjector(webhooks map[string][]v1.MutatingWebhook) bool {
+	for _, whs := range webhooks {
+		for _, wh := range whs {
+			if selectorMatches(wh.NamespaceSelector, klabels.Set{"istio-injection": "enabled"}) && selectorMatches(wh.ObjectSelector, klabels.Set{}) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func isIstioWebhook(wh *v1.MutatingWebhookConfiguration) bool {

@@ -745,3 +745,9 @@ messages:
     level: Warning
     description: "Using EnvoyFilters with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run."
     template: "Using an EnvoyFilter with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run. This can cause a request to be routed differently than it was when the route-dependent filter was evaluated. See https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_filters.html#security-considerations."
+
+  - name: "NoDefaultRevision"
+    code: IST0179
+    level: Warning
+    description: "No sidecar injector serves the default revision, so there is no default revision or default revision tag."
+    template: "No default revision or default revision tag was found. Namespaces labeled istio-injection=enabled get no sidecar injection, and resources without an istio.io/rev label are not owned by a defined revision. Set one with `istioctl tag set default --revision <revision>`."
