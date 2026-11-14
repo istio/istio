@@ -56,8 +56,9 @@ func TestBackendPolicyPortSettingsUpdates(t *testing.T) {
 				},
 				Spec: &networking.DestinationRule{Host: testHost, TrafficPolicy: &networking.TrafficPolicy{
 					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
-						Port: &networking.PortSelector{Number: 8080},
-						Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE, Sni: "old.example.com"},
+						Port:        &networking.PortSelector{Number: 8080},
+						Tls:         &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE, Sni: "old.example.com"},
+						RetryBudget: &networking.TrafficPolicy_RetryBudget{MinRetryConcurrency: 5},
 					}},
 				}},
 			}
@@ -82,7 +83,9 @@ func TestBackendPolicyPortSettingsUpdates(t *testing.T) {
 				assert.Equal(t, ports[0].LoadBalancer, originalUser.TrafficPolicy.PortLevelSettings[0].LoadBalancer)
 				return ports[0]
 			}
-			assert.Equal(t, merge(&backend).Tls, originalBackend.TrafficPolicy.PortLevelSettings[0].Tls)
+			merged := merge(&backend)
+			assert.Equal(t, merged.Tls, originalBackend.TrafficPolicy.PortLevelSettings[0].Tls)
+			assert.Equal(t, merged.RetryBudget, originalBackend.TrafficPolicy.PortLevelSettings[0].RetryBudget)
 			assert.Equal(t, user.Spec.(*networking.DestinationRule), originalUser)
 			assert.Equal(t, backend.Spec.(*networking.DestinationRule), originalBackend)
 
