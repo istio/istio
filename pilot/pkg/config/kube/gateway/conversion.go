@@ -1223,7 +1223,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
 		}
 		hostname = string(to.Name)
-		if ctx.LookupHostname(hostname, namespace) == nil {
+		if ctx.LookupVisibleHostname(hostname, namespace) == nil {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case config.GroupVersionKind{Group: features.MCSAPIGroup, Kind: "ServiceImport"}:

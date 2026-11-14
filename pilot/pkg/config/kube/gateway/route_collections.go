@@ -693,6 +693,15 @@ func (r RouteContext) LookupHostname(hostname string, namespace string) *model.S
 	return nil
 }
 
+// LookupVisibleHostname is like LookupHostname, but also finds services defined in other namespaces
+// that are exported to namespace.
+func (r RouteContext) LookupVisibleHostname(hostname string, namespace string) *model.Service {
+	if c := r.internalContext.Get(r.Krt).Load(); c != nil {
+		return c.GetVisibleService(hostname, namespace)
+	}
+	return nil
+}
+
 type RouteContextInputs struct {
 	Grants          gatewaycommon.ReferenceGrants
 	RouteParents    RouteParents
