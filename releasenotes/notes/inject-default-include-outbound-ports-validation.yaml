@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: installation
+
+releaseNotes:
+  - |
+    **Fixed** missing validation of `values.global.proxy.includeOutboundPorts`
+    during installation and when loading sidecar injection configuration.
+    Invalid default outbound ports are now rejected instead of causing
+    newly injected Pods to fail initialization.
+    Installation validation matches the injector's handling of whitespace
+    and empty entries in the port list.
