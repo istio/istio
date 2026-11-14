@@ -3332,9 +3332,14 @@ type PilotConfig struct {
 	// The name of the ztunnel that istiod should trust for mTLS.
 	TrustedZtunnelName string `protobuf:"bytes,69,opt,name=trustedZtunnelName,proto3" json:"trustedZtunnelName,omitempty"`
 	// Additional labels for the istiod PodDisruptionBudget.
-	PdbLabels     *structpb.Struct `protobuf:"bytes,70,opt,name=pdbLabels,proto3" json:"pdbLabels,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	PdbLabels *structpb.Struct `protobuf:"bytes,70,opt,name=pdbLabels,proto3" json:"pdbLabels,omitempty"`
+	// Minimum number of seconds a newly created Pilot pod must be ready, without any of its containers crashing,
+	// for it to be considered available (see `minReadySeconds` here:
+	// https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
+	// Defaults to 0 (the pod is considered available as soon as it is ready).
+	MinReadySeconds int32 `protobuf:"varint,71,opt,name=minReadySeconds,proto3" json:"minReadySeconds,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *PilotConfig) Reset() {
@@ -3710,6 +3715,13 @@ func (x *PilotConfig) GetPdbLabels() *structpb.Struct {
 		return x.PdbLabels
 	}
 	return nil
+}
+
+func (x *PilotConfig) GetMinReadySeconds() int32 {
+	if x != nil {
+		return x.MinReadySeconds
+	}
+	return 0
 }
 
 type PilotTaintControllerConfig struct {
@@ -6127,7 +6139,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04mode\x18\x02 \x01(\x0e29.istio.operator.v1alpha1.OutboundTrafficPolicyConfig.ModeR\x04mode\"(\n" +
 	"\x04Mode\x12\r\n" +
 	"\tALLOW_ANY\x10\x00\x12\x11\n" +
-	"\rREGISTRY_ONLY\x10\x01\"\xdc\x16\n" +
+	"\rREGISTRY_ONLY\x10\x01\"\x86\x17\n" +
 	"\vPilotConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12F\n" +
 	"\x10autoscaleEnabled\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
@@ -6180,7 +6192,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x15deploymentAnnotations\x18C \x01(\v2\x17.google.protobuf.StructR\x15deploymentAnnotations\x12e\n" +
 	"!sidecarInjectorWebhookAnnotations\x18D \x01(\v2\x17.google.protobuf.StructR!sidecarInjectorWebhookAnnotations\x12.\n" +
 	"\x12trustedZtunnelName\x18E \x01(\tR\x12trustedZtunnelName\x125\n" +
-	"\tpdbLabels\x18F \x01(\v2\x17.google.protobuf.StructR\tpdbLabels\"h\n" +
+	"\tpdbLabels\x18F \x01(\v2\x17.google.protobuf.StructR\tpdbLabels\x12(\n" +
+	"\x0fminReadySeconds\x18G \x01(\x05R\x0fminReadySeconds\"h\n" +
 	"\x1aPilotTaintControllerConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x12\n" +

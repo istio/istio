@@ -28,6 +28,9 @@ spec:
   replicas: {{ .Values.replicaCount }}
 {{- end }}
 {{- end }}
+{{- if .Values.minReadySeconds }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
+{{- end }}
   strategy:
     rollingUpdate:
       maxSurge: {{ .Values.rollingMaxSurge }}

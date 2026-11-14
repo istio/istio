@@ -1068,6 +1068,12 @@ message PilotConfig {
 
   // Additional labels for the istiod PodDisruptionBudget.
   google.protobuf.Struct pdbLabels = 70;
+
+  // Minimum number of seconds a newly created Pilot pod must be ready, without any of its containers crashing,
+  // for it to be considered available (see `minReadySeconds` here:
+  // https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
+  // Defaults to 0 (the pod is considered available as soon as it is ready).
+  int32 minReadySeconds = 71;
 }
 
 message PilotTaintControllerConfig {
