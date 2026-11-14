@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+- |
+  **Fixed** `AuthorizationPolicy` validation accepting `source.trustDomain` condition values that contain `/`.
+  These values are now rejected, matching the validation of the `trustDomains` and `notTrustDomains` fields.
