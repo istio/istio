@@ -1536,3 +1536,22 @@ spec:
 	assertSourceIPMatching(t, xdstest.ExtractListener(model.VirtualInboundListenerName, listeners), false)
 	assertPeerIPFilterState(t, xdstest.ExtractListener("connect_terminate", listeners))
 }
+
+func TestWaypointConnectOriginateHasHTTP2Keepalive(t *testing.T) {
+	g := NewWithT(t)
+	d, p := setupWaypointTest(t, waypointGateway, waypointSvc, waypointInstance)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(p))
+	c := clusters["connect_originate"]
+	g.Expect(c).NotTo(BeNil())
+
+	po := c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
+	g.Expect(po).NotTo(BeNil())
+	var httpOptions upstream.HttpProtocolOptions
+	g.Expect(po.UnmarshalTo(&httpOptions)).To(Succeed())
+
+	keepalive := httpOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions().GetConnectionKeepalive()
+	g.Expect(keepalive).NotTo(BeNil(), "connect_originate must send HTTP/2 PINGs to detect dead peers")
+	g.Expect(keepalive.GetInterval().AsDuration()).To(Equal(10 * time.Second))
+	g.Expect(keepalive.GetTimeout().AsDuration()).To(Equal(20 * time.Second))
+}
