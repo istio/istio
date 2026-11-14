@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** locality failover priorities ignoring the zone of endpoints on a remote network in
+    multi-network meshes. Remote zones were placed in a single priority.
