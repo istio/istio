@@ -21,9 +21,9 @@ apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   annotations:
-    internal.istio.io/parents: HTTPRoute/multi-service.default
+    internal.istio.io/parents: HTTPRoute/echo-1-all-ports.default,HTTPRoute/multi-service.default,HTTPRoute/multi-service.default
     internal.istio.io/route-semantics: gateway
-  name: default~8080~echo-1.default.svc.domain.suffix
+  name: default~echo-1.default.svc.domain.suffix
   namespace: default
 spec:
   gateways:
@@ -31,81 +31,29 @@ spec:
   hosts:
   - echo-1.default.svc.domain.suffix
   http:
+  - match:
+    - uri:
+        prefix: /all
+    name: default.echo-1-all-ports.0
+    route:
+    - destination:
+        host: echo.default.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - port: 80
+    name: default.multi-service.0
+    route:
+    - destination:
+        host: echo.default.svc.domain.suffix
+        port:
+          number: 80
   - match:
     - port: 8080
     name: default.multi-service.0
     route:
     - destination:
         host: echo.default.svc.domain.suffix
-        port:
-          number: 80
----
-apiVersion: networking.istio.io/v1
-kind: VirtualService
-metadata:
-  annotations:
-    internal.istio.io/parents: HTTPRoute/multi-service.default
-    internal.istio.io/route-semantics: gateway
-  name: default~80~echo-1.default.svc.domain.suffix
-  namespace: default
-spec:
-  gateways:
-  - mesh
-  hosts:
-  - echo-1.default.svc.domain.suffix
-  http:
-  - match:
-    - port: 80
-    name: default.multi-service.0
-    route:
-    - destination:
-        host: echo.default.svc.domain.suffix
-        port:
-          number: 80
----
-apiVersion: networking.istio.io/v1
-kind: VirtualService
-metadata:
-  annotations:
-    internal.istio.io/parents: HTTPRoute/echo-port.default
-    internal.istio.io/route-semantics: gateway
-  name: default~80~echo-port.default.svc.domain.suffix
-  namespace: default
-spec:
-  gateways:
-  - mesh
-  hosts:
-  - echo-port.default.svc.domain.suffix
-  http:
-  - match:
-    - port: 80
-    name: default.echo-port.0
-    route:
-    - destination:
-        host: echo.default.svc.domain.suffix
-        port:
-          number: 80
----
-apiVersion: networking.istio.io/v1
-kind: VirtualService
-metadata:
-  annotations:
-    internal.istio.io/parents: HTTPRoute/consumer-override.default
-    internal.istio.io/route-semantics: gateway
-  name: default~80~httpbin-apple.apple.svc.domain.suffix
-  namespace: default
-spec:
-  gateways:
-  - mesh
-  hosts:
-  - httpbin-apple.apple.svc.domain.suffix
-  http:
-  - match:
-    - port: 80
-    name: default.consumer-override.0
-    route:
-    - destination:
-        host: httpbin-apple.apple.svc.domain.suffix
         port:
           number: 80
 ---
@@ -124,6 +72,29 @@ spec:
   - echo-2.default.svc.domain.suffix
   http:
   - name: default.multi-service.0
+    route:
+    - destination:
+        host: echo.default.svc.domain.suffix
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  annotations:
+    internal.istio.io/parents: HTTPRoute/echo-port.default
+    internal.istio.io/route-semantics: gateway
+  name: default~echo-port.default.svc.domain.suffix
+  namespace: default
+spec:
+  gateways:
+  - mesh
+  hosts:
+  - echo-port.default.svc.domain.suffix
+  http:
+  - match:
+    - port: 80
+    name: default.echo-port.0
     route:
     - destination:
         host: echo.default.svc.domain.suffix
@@ -182,6 +153,29 @@ spec:
     route:
     - destination:
         host: example.default.svc.domain.suffix
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  annotations:
+    internal.istio.io/parents: HTTPRoute/consumer-override.default
+    internal.istio.io/route-semantics: gateway
+  name: default~httpbin-apple.apple.svc.domain.suffix
+  namespace: default
+spec:
+  gateways:
+  - mesh
+  hosts:
+  - httpbin-apple.apple.svc.domain.suffix
+  http:
+  - match:
+    - port: 80
+    name: default.consumer-override.0
+    route:
+    - destination:
+        host: httpbin-apple.apple.svc.domain.suffix
         port:
           number: 80
 ---
