@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -66,6 +67,8 @@ type Server struct {
 	isReady *atomic.Value
 
 	cniServerStopFunc func()
+
+	owner agentOwner
 }
 
 func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, args AmbientArgs) (*Server, error) {
@@ -78,6 +81,12 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		ctx:        ctx,
 		kubeClient: client,
 		isReady:    ready,
+	}
+
+	// Claim the node before creating any node state, so an agent that is still shutting
+	// down sees that it has been replaced.
+	if pluginSocket != "" {
+		s.owner = claimAgentOwner(filepath.Dir(pluginSocket), PodName)
 	}
 
 	s.dataplane, err = initMeshDataplane(client, args)
@@ -129,6 +138,17 @@ func (s *Server) Start() {
 func (s *Server) Stop(skipCleanup bool) {
 	s.cniServerStopFunc()
 	s.dataplane.Stop(skipCleanup)
+	if !skipCleanup {
+		s.owner.release()
+	}
+}
+
+// Replaced reports whether a newer node agent has started on this node since this one
+// did. That happens when this agent's pod is replaced while it is still shutting down,
+// for example after a force delete; the node's CNI config, sockets and host rules then
+// belong to the new agent.
+func (s *Server) Replaced() bool {
+	return s.owner.replaced()
 }
 
 // ShouldStopCleanup of istio-cni config and binary when upgrading or on node reboot
