@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Improved** Istiod push queue performance and reduced allocations when repeatedly merging updates for a proxy.

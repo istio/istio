@@ -158,6 +158,64 @@ func TestMergeUpdateRequest(t *testing.T) {
 	}
 }
 
+func TestCopyMergeInPlace(t *testing.T) {
+	olderPush, newerPush := NewPushContext(), NewPushContext()
+	var t0 time.Time
+	newReqs := func() (*PushRequest, *PushRequest, *PushRequest) {
+		return &PushRequest{
+			Push:           olderPush,
+			Start:          t0,
+			ConfigsUpdated: sets.New(ConfigKey{Kind: kind.Endpoints, Name: "a"}),
+			Reason:         NewReasonStats(EndpointUpdate),
+		}, &PushRequest{
+			Start:          t0.Add(time.Second),
+			ConfigsUpdated: sets.New(ConfigKey{Kind: kind.Endpoints, Name: "b"}),
+			Reason:         NewReasonStats(EndpointUpdate),
+		}, &PushRequest{
+			Push:             newerPush,
+			Start:            t0.Add(time.Minute),
+			ConfigsUpdated:   sets.New(ConfigKey{Kind: kind.Address, Name: "c"}),
+			AddressesUpdated: sets.New("10.0.0.1"),
+			WaypointsUpdated: sets.New(WaypointReference{Namespace: "ns", Hostname: "waypoint"}),
+			Reason:           NewReasonStats(ConfigUpdate),
+			Forced:           true,
+		}
+	}
+
+	a, b, c := newReqs()
+	want := a.CopyMerge(b).CopyMerge(c)
+
+	a, b, c = newReqs()
+	got := a.CopyMerge(b).CopyMergeInPlace(c)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+
+	// Further CopyMergeInPlace calls must not change the shared input c.
+	got.CopyMergeInPlace(&PushRequest{
+		ConfigsUpdated:   sets.New(ConfigKey{Kind: kind.Endpoints, Name: "d"}),
+		AddressesUpdated: sets.New("10.0.0.2"),
+		WaypointsUpdated: sets.New(WaypointReference{Namespace: "ns", Hostname: "other"}),
+		Reason:           NewReasonStats(EndpointUpdate),
+	})
+	_, _, cOrig := newReqs()
+	if !reflect.DeepEqual(c, cOrig) {
+		t.Fatalf("merged-in request was modified: %v", c)
+	}
+
+	// CopyMergeInPlace must allocate missing maps rather than share c's maps.
+	empty := &PushRequest{}
+	_, _, c = newReqs()
+	empty.CopyMergeInPlace(c)
+	empty.ConfigsUpdated.Insert(ConfigKey{Kind: kind.Endpoints, Name: "e"})
+	empty.AddressesUpdated.Insert("10.0.0.3")
+	empty.WaypointsUpdated.Insert(WaypointReference{Namespace: "ns", Hostname: "another"})
+	empty.Reason.Add(EndpointUpdate)
+	if !reflect.DeepEqual(c, cOrig) {
+		t.Fatalf("merged-in request was modified: %v", c)
+	}
+}
+
 func TestConcurrentMerge(t *testing.T) {
 	reqA := &PushRequest{Reason: make(ReasonStats)}
 	reqB := &PushRequest{Reason: NewReasonStats(ServiceUpdate, ProxyUpdate)}

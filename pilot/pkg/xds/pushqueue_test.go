@@ -203,6 +203,180 @@ func TestProxyQueue(t *testing.T) {
 		}
 	})
 
+	t.Run("merging does not mutate shared requests", func(t *testing.T) {
+		t.Parallel()
+		p := NewPushQueue()
+		defer p.ShutDown()
+
+		key := func(name string) model.ConfigKey { return model.ConfigKey{Kind: kind.Endpoints, Name: name} }
+		newReq := func(name string) *model.PushRequest {
+			return &model.PushRequest{ConfigsUpdated: sets.New(key(name)), Reason: model.NewReasonStats(model.EndpointUpdate)}
+		}
+		// Requests are shared across connections, as StartPush does.
+		a, b, c, d := newReq("a"), newReq("b"), newReq("c"), newReq("d")
+		for _, req := range []*model.PushRequest{a, b, c} {
+			p.Enqueue(proxies[0], req)
+			p.Enqueue(proxies[1], req)
+		}
+		for _, con := range []*Connection{proxies[0], proxies[1]} {
+			got, req, _ := p.Dequeue()
+			if got != con {
+				t.Fatalf("expected %v, got %v", con.ID(), got.ID())
+			}
+			if !req.ConfigsUpdated.Equals(sets.New(key("a"), key("b"), key("c"))) {
+				t.Fatalf("unexpected configs %v", req.ConfigsUpdated)
+			}
+			if req.Reason.Count() != 3 {
+				t.Fatalf("unexpected reasons %v", req.Reason)
+			}
+		}
+
+		// Shared inputs must stay unchanged during processing and after MarkDone requeues updates.
+		p.Enqueue(proxies[0], c)
+		p.Enqueue(proxies[0], d)
+		p.MarkDone(proxies[0])
+		p.Enqueue(proxies[0], a)
+		_, req, _ := p.Dequeue()
+		if !req.ConfigsUpdated.Equals(sets.New(key("a"), key("c"), key("d"))) {
+			t.Fatalf("unexpected configs %v", req.ConfigsUpdated)
+		}
+
+		for name, req := range map[string]*model.PushRequest{"a": a, "b": b, "c": c, "d": d} {
+			if !req.ConfigsUpdated.Equals(sets.New(key(name))) || req.Reason.Count() != 1 {
+				t.Fatalf("shared request %v was modified: %v", name, req)
+			}
+		}
+	})
+
+	t.Run("concurrent merges with concurrent readers", func(t *testing.T) {
+		t.Parallel()
+		p := NewPushQueue()
+		defer p.ShutDown()
+
+		const (
+			conns     = 20
+			producers = 4
+			perProd   = 100
+			total     = producers * perProd
+		)
+		cons := make([]*Connection, 0, conns)
+		for i := range conns {
+			con := newConnection("", nil)
+			con.SetID(fmt.Sprintf("stress-%d", i))
+			cons = append(cons, con)
+		}
+		// Share requests across connections, as StartPush does. Missing ConfigsUpdated also exercises
+		// map allocation in CopyMergeInPlace.
+		newReq := func(prod, i int) *model.PushRequest {
+			id := fmt.Sprintf("%d-%d", prod, i)
+			req := &model.PushRequest{
+				AddressesUpdated: sets.New(id),
+				WaypointsUpdated: sets.New(model.WaypointReference{Namespace: "ns", Hostname: id}),
+				Reason:           model.NewReasonStats(model.EndpointUpdate),
+			}
+			if i%7 != 0 {
+				req.ConfigsUpdated = sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: id})
+			}
+			return req
+		}
+		reqs := make([][]*model.PushRequest, producers)
+		for prod := range producers {
+			for i := range perProd {
+				reqs[prod] = append(reqs[prod], newReq(prod, i))
+			}
+		}
+
+		var mu sync.Mutex
+		received := map[*Connection]map[string]int{}
+		reasons := map[*Connection]int{}
+		var delivered sync.WaitGroup
+		delivered.Add(conns * total)
+		read := func(req *model.PushRequest) int {
+			// Read shared maps through a shallow copy, as filterRelevantUpdates does.
+			cp := *req
+			n := cp.Reason.Count()
+			for range cp.ConfigsUpdated {
+				n++
+			}
+			for range cp.WaypointsUpdated {
+				n++
+			}
+			return n
+		}
+		go func() {
+			sem := make(chan struct{}, 8)
+			for {
+				sem <- struct{}{}
+				con, req, shutdown := p.Dequeue()
+				if shutdown {
+					return
+				}
+				go func() {
+					defer func() { <-sem }()
+					read(req)
+					mu.Lock()
+					if received[con] == nil {
+						received[con] = map[string]int{}
+					}
+					for addr := range req.AddressesUpdated {
+						received[con][addr]++
+					}
+					reasons[con] += req.Reason.Count()
+					mu.Unlock()
+					for range req.AddressesUpdated {
+						delivered.Done()
+					}
+					time.Sleep(time.Duration(len(req.AddressesUpdated)) * time.Microsecond)
+					p.MarkDone(con)
+				}()
+			}
+		}()
+
+		var produced sync.WaitGroup
+		for prod := range producers {
+			produced.Add(1)
+			go func() {
+				defer produced.Done()
+				for _, req := range reqs[prod] {
+					for _, con := range cons {
+						p.Enqueue(con, req)
+					}
+					// Other goroutines read shared requests concurrently, like other connections' pushes.
+					read(req)
+				}
+			}()
+		}
+		produced.Wait()
+		if !wgDoneOrTimeout(&delivered, 10*time.Second) {
+			t.Fatal("timed out waiting for all updates to be delivered")
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+		for _, con := range cons {
+			if len(received[con]) != total {
+				t.Fatalf("%v: got %d distinct updates, want %d", con.ID(), len(received[con]), total)
+			}
+			for addr, n := range received[con] {
+				if n != 1 {
+					t.Fatalf("%v: update %v delivered %d times", con.ID(), addr, n)
+				}
+			}
+			if reasons[con] != total {
+				t.Fatalf("%v: got %d reasons, want %d", con.ID(), reasons[con], total)
+			}
+		}
+		for prod := range producers {
+			for i, req := range reqs[prod] {
+				want := newReq(prod, i)
+				if !req.ConfigsUpdated.Equals(want.ConfigsUpdated) || !req.AddressesUpdated.Equals(want.AddressesUpdated) ||
+					!req.WaypointsUpdated.Equals(want.WaypointsUpdated) || req.Reason.Count() != 1 {
+					t.Fatalf("shared request %d-%d was modified: %v", prod, i, req)
+				}
+			}
+		}
+	})
+
 	t.Run("two removes, one should block one should return", func(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
@@ -367,4 +541,65 @@ func TestProxyQueue(t *testing.T) {
 			t.Fatalf("expected order %v, but got %v", expected, processed)
 		}
 	})
+}
+
+// BenchmarkPushQueueEndpointFanout fans shared endpoint updates out to 1,000 connections before draining
+// a fresh queue, exercising CopyMerge and CopyMergeInPlace as requests accumulate.
+func BenchmarkPushQueueEndpointFanout(b *testing.B) {
+	const connections = 1000
+	cons := make([]*Connection, 0, connections)
+	for i := range connections {
+		con := newConnection("", nil)
+		con.SetID(fmt.Sprintf("proxy-%d", i))
+		cons = append(cons, con)
+	}
+	cases := []struct {
+		updates  int
+		services int
+	}{
+		{updates: 1, services: 1},
+		{updates: 2, services: 100},
+		{updates: 1, services: 100},
+		{updates: 10, services: 10},
+		{updates: 100, services: 100},
+		// Repeated updates to the same service.
+		{updates: 100, services: 1},
+	}
+	for _, tt := range cases {
+		reqs := make([]*model.PushRequest, 0, tt.updates)
+		// Batch services when there are fewer requests than services; otherwise repeat service keys.
+		servicesPerUpdate := max(1, (tt.services+tt.updates-1)/tt.updates)
+		for i := range tt.updates {
+			configs := sets.NewWithLength[model.ConfigKey](servicesPerUpdate)
+			for j := range servicesPerUpdate {
+				configs.Insert(model.ConfigKey{
+					Kind:      kind.Endpoints,
+					Name:      fmt.Sprintf("svc-%d", (i*servicesPerUpdate+j)%tt.services),
+					Namespace: "ns",
+				})
+			}
+			reqs = append(reqs, &model.PushRequest{
+				ConfigsUpdated: configs,
+				Reason:         model.NewReasonStats(model.EndpointUpdate),
+			})
+		}
+		b.Run(fmt.Sprintf("updates=%d/services=%d", tt.updates, tt.services), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				p := NewPushQueue()
+				for _, req := range reqs {
+					for _, con := range cons {
+						p.Enqueue(con, req)
+					}
+				}
+				for range cons {
+					con, req, _ := p.Dequeue()
+					if len(req.ConfigsUpdated) != tt.services {
+						b.Fatalf("expected %d merged updates, got %d", tt.services, len(req.ConfigsUpdated))
+					}
+					p.MarkDone(con)
+				}
+			}
+		})
+	}
 }
