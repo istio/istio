@@ -361,8 +361,13 @@ func insertCNIConfigMap(istioPlugin []byte, existingMap map[string]any) (map[str
 		plugins[0] = existingMap
 		plugins[1] = istioMap
 
+		networkName, ok := existingMap["name"].(string)
+		if !ok || networkName == "" {
+			networkName = "k8s-pod-network"
+		}
+
 		return map[string]any{
-			"name":       "k8s-pod-network",
+			"name":       networkName,
 			"cniVersion": "0.3.1",
 			"plugins":    plugins,
 		}, nil
