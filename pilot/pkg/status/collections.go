@@ -118,6 +118,7 @@ func enqueueStatus[T any](sw Queue, obj controllers.Object, ws T) {
 		GroupVersionResource: schematypes.GvrFromObject(obj),
 		Namespace:            obj.GetNamespace(),
 		Name:                 obj.GetName(),
+		UID:                  string(obj.GetUID()),
 		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
 	}
 	sw.EnqueueStatusUpdateResource(ws, res)
