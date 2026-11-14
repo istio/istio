@@ -88,6 +88,9 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 	if err != nil {
 		return "", err
 	}
+	if useIstioOwnedCNIConfig(cfg) && isMultusWrapperConfig(cniConfigFilepath) {
+		return "", fmt.Errorf("Multus wrapper %s cannot be the primary CNI config", cniConfigFilepath)
+	}
 
 	var cleanup func() error
 
