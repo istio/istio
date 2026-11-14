@@ -163,6 +163,17 @@ func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {
 	return gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(hostname)][namespace]
 }
 
+// HostnameVisible reports whether a service with hostname, in any namespace, is exported to namespace.
+// A proxy in namespace can route only to these services.
+func (gc GatewayContext) HostnameVisible(hostname, namespace string) bool {
+	for _, svc := range gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(hostname)] {
+		if gc.ps.IsServiceVisible(svc, namespace) {
+			return true
+		}
+	}
+	return false
+}
+
 // InstancesEmpty returns true if there are no instances in any port.
 func InstancesEmpty(m map[int][]*model.IstioEndpoint) bool {
 	for _, instances := range m {
