@@ -342,7 +342,6 @@ func handleEvent(s *Server) {
 
 	var newCABundle []byte
 	var err error
-	var updateCRL bool
 
 	fileBundle, err := detectSigningCABundleAndCRL()
 	if err != nil {
@@ -376,40 +375,38 @@ func handleEvent(s *Server) {
 		}
 	}
 
+	// Update the key material independently of the CRL. An invalid CRL must not
+	// prevent certificate rotation.
+	bundle := s.CA.GetCAKeyCertBundle()
+	err = bundle.UpdateVerifiedKeyCertBundleFromFile(
+		fileBundle.SigningCertFile,
+		fileBundle.SigningKeyFile,
+		fileBundle.CertChainFiles,
+		fileBundle.RootCertFile,
+	)
+	if err != nil {
+		log.Errorf("Failed to update new Plug-in CA certs: %v", err)
+		return
+	}
+	if len(bundle.GetRootCertPem()) != 0 {
+		caserver.RecordCertsExpiry(bundle)
+	}
+
 	if features.EnableCACRL {
-		currentCRLData := s.CA.GetCAKeyCertBundle().GetCRLPem()
+		currentCRLData := bundle.GetCRLPem()
 		crlData, crlReadErr := pkiutil.ReadCRLBytesFromFile(fileBundle.CRLFile)
 		if crlReadErr != nil && !os.IsNotExist(crlReadErr) {
 			// handleEvent can be triggered either for key-cert bundle update or
 			// for crl file update. So, even if there is an error in reading crl file,
 			// we should log error and continue with key-cert bundle update.
 			log.Errorf("failed reading crl file: %v", crlReadErr)
-		} else if !bytes.Equal(currentCRLData, crlData) {
-			log.Infof("Updating CRL data")
-			updateCRL = true
+		} else if err := bundle.VerifyAndSetCRL(crlData); err != nil {
+			log.Errorf("Failed to update CRL: %v", err)
+		} else if !bytes.Equal(currentCRLData, bundle.GetCRLPem()) {
+			// notify watcher to replicate new or updated crl data
+			s.istiodCertBundleWatcher.SetAndNotifyCACRL(bundle.GetCRLPem())
+			log.Infof("Istiod has detected the newly added CRL file and updated its CRL accordingly")
 		}
-	}
-
-	// process updated root cert or crl file
-	err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
-		fileBundle.SigningCertFile,
-		fileBundle.SigningKeyFile,
-		fileBundle.CertChainFiles,
-		fileBundle.RootCertFile,
-		fileBundle.CRLFile,
-	)
-	if err != nil {
-		log.Errorf("Failed to update new Plug-in CA certs: %v", err)
-		return
-	}
-	if len(s.CA.GetCAKeyCertBundle().GetRootCertPem()) != 0 {
-		caserver.RecordCertsExpiry(s.CA.GetCAKeyCertBundle())
-	}
-
-	// notify watcher to replicate new or updated crl data
-	if updateCRL {
-		s.istiodCertBundleWatcher.SetAndNotifyCACRL(s.CA.GetCAKeyCertBundle().GetCRLPem())
-		log.Infof("Istiod has detected the newly added CRL file and updated its CRL accordingly")
 	}
 
 	err = s.updateRootCertAndGenKeyCert()
