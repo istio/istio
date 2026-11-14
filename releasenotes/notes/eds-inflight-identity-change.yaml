@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** transient `CERTIFICATE_VERIFY_FAILED` (`SAN matcher`) errors when a Service's endpoints change to
+    workloads with a different service account while a push is in progress. Istiod no longer sends endpoints
+    whose identity is not yet allowed by the cluster's SAN list; the following push sends both together.
