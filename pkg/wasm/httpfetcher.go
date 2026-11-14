@@ -160,6 +160,12 @@ func getFirstFileFromTar(b []byte) []byte {
 		return nil
 	}
 
+	// archive/tar only rejects a negative Size for regular files, so a header-only
+	// entry can declare any size. Bound it before it is used as an allocation size.
+	if h.Size < 0 || h.Size > features.MaxWasmBinarySizeBytes {
+		return nil
+	}
+
 	ret := make([]byte, h.Size)
 	_, err = io.ReadFull(tr, ret)
 	if err != nil {
