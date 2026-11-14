@@ -43,14 +43,45 @@ func init() {
 	otel.SetLogger(log.NewLogrAdapter(monitoringLogger))
 }
 
+// ExporterOption configures RegisterPrometheusExporter.
+type ExporterOption func(*exporterOptions)
+
+type exporterOptions struct {
+	nativeHistograms bool
+}
+
+// WithNativeHistograms records every distribution as a base-2 exponential histogram, which the
+// Prometheus exporter exposes as a native histogram in place of the distribution's explicit
+// buckets. Native histograms are only carried by the protobuf exposition format; a text scrape
+// sees just the _sum and _count series.
+func WithNativeHistograms() ExporterOption {
+	return func(o *exporterOptions) {
+		o.nativeHistograms = true
+	}
+}
+
 // RegisterPrometheusExporter sets the global metrics handler to the provided Prometheus registerer and gatherer.
 // Returned is an HTTP handler that can be used to read metrics from.
-func RegisterPrometheusExporter(reg prometheus.Registerer, gatherer prometheus.Gatherer) (http.Handler, error) {
+func RegisterPrometheusExporter(reg prometheus.Registerer, gatherer prometheus.Gatherer, opts ...ExporterOption) (http.Handler, error) {
 	if reg == nil {
 		reg = prometheus.DefaultRegisterer
 	}
 	if gatherer == nil {
 		gatherer = prometheus.DefaultGatherer
+	}
+	mp, err := newMeterProvider(reg, opts...)
+	if err != nil {
+		return nil, err
+	}
+	otel.SetMeterProvider(mp)
+	handler := promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{})
+	return handler, nil
+}
+
+func newMeterProvider(reg prometheus.Registerer, opts ...ExporterOption) (*metric.MeterProvider, error) {
+	var o exporterOptions
+	for _, opt := range opts {
+		opt(&o)
 	}
 	promOpts := []otelprom.Option{
 		otelprom.WithoutScopeInfo(),
@@ -67,12 +98,9 @@ func RegisterPrometheusExporter(reg prometheus.Registerer, gatherer prometheus.G
 		return nil, err
 	}
 
-	opts := []metric.Option{metric.WithReader(prom)}
-	opts = append(opts, knownMetrics.toHistogramViews()...)
-	mp := metric.NewMeterProvider(opts...)
-	otel.SetMeterProvider(mp)
-	handler := promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{})
-	return handler, nil
+	mopts := []metric.Option{metric.WithReader(prom)}
+	mopts = append(mopts, knownMetrics.toHistogramViews(o.nativeHistograms)...)
+	return metric.NewMeterProvider(mopts...), nil
 }
 
 // A Metric collects numerical observations.
@@ -277,8 +305,8 @@ func (d *metrics) register(def MetricDefinition) {
 }
 
 // toHistogramViews works around https://github.com/open-telemetry/opentelemetry-go/issues/4003; in the future we can define
-// this when we create the histogram.
-func (d *metrics) toHistogramViews() []metric.Option {
+// this when we create the histogram. With nativeHistograms set, every histogram uses exponential aggregation instead.
+func (d *metrics) toHistogramViews(nativeHistograms bool) []metric.Option {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.started = true
@@ -288,11 +316,17 @@ func (d *metrics) toHistogramViews() []metric.Option {
 			continue
 		}
 		// for each histogram metric (i.e. those with bounds), set up a view explicitly defining those buckets.
+		var agg metric.Aggregation = metric.AggregationExplicitBucketHistogram{
+			Boundaries: def.Bounds,
+		}
+		if nativeHistograms {
+			// Prometheus native histograms support schemas up to 8; capping the scale here
+			// spares the exporter a downscale on every collection.
+			agg = metric.AggregationBase2ExponentialHistogram{MaxSize: 160, MaxScale: 8}
+		}
 		v := metric.WithView(metric.NewView(
 			metric.Instrument{Name: name},
-			metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
-				Boundaries: def.Bounds,
-			}},
+			metric.Stream{Aggregation: agg},
 		))
 		opts = append(opts, v)
 	}
