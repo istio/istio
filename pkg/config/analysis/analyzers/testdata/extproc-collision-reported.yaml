@@ -1,0 +1,368 @@
+# EnvoyFilters that add a gRPC ext_proc filter named envoy.filters.http.ext_proc to the pool Gateways in
+# extproc-collision.yaml. Each is reported once for every pool Gateway it applies to.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-bare-insert
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: inference-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: "outbound|9003||example-filter.default.svc.cluster.local"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-status-gateway
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: status-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.cors
+    patch:
+      operation: INSERT_AFTER
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: "outbound|9003||example-filter.default.svc.cluster.local"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-google-grpc-target
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: inference-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            google_grpc:
+              target_uri: 127.0.0.1:9099
+              stat_prefix: example
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-google-camel
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: inference-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpcService:
+            googleGrpc:
+              targetUri: 127.0.0.1:9100
+              statPrefix: example
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-camel-case
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: inference-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpcService:
+            envoyGrpc:
+              clusterName: "outbound|9003||example-filter.default.svc.cluster.local"
+---
+# The type URL counts after its last slash.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-type-url-path
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: inference-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': example.com/types/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: "outbound|9003||example-filter.default.svc.cluster.local"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-typed-struct
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: inference-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          value:
+            grpc_service:
+              envoy_grpc:
+                cluster_name: "outbound|9003||example-filter.default.svc.cluster.local"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-xds-typed-struct
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: inference-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/xds.type.v3.TypedStruct
+          typeUrl: type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          value:
+            grpc_service:
+              envoy_grpc:
+                cluster_name: "outbound|9003||example-filter.default.svc.cluster.local"
+---
+# Reported once per Gateway, at the first matching patch.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-two-patches
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: inference-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc.other
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: other.default
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: first.default
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: second.default
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-target-ref
+  namespace: default
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: inference-gateway
+    namespace: default
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: status-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: "outbound|9003||example-filter.default.svc.cluster.local"
+---
+# targetRefs win over the selector.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-both-refs
+  namespace: default
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: inference-gateway
+  workloadSelector:
+    labels:
+      app: example
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: "outbound|9003||example-filter.default.svc.cluster.local"
+---
+# A selector in a namespace other than the root means a Gateway in that namespace.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-selector-own-ns
+  namespace: routes-ns
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: other-ns-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: "outbound|9003||example-filter.default.svc.cluster.local"
+---
+# In the root namespace, a selector matches the Gateway name in every namespace: default and routes-ns.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-root-selector
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: inference-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: "outbound|9003||example-filter.default.svc.cluster.local"
+---
+# No selector: the pool Gateways in default, which are inference-gateway, cross-ns-gateway and status-gateway.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-namespace-wide
+  namespace: default
+spec:
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: "outbound|9003||example-filter.default.svc.cluster.local"
+---
+# No selector in the root namespace: all six pool Gateways.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: example-root-namespace
+  namespace: istio-system
+spec:
+  configPatches:
+  - applyTo: HTTP_FILTER
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          grpc_service:
+            envoy_grpc:
+              cluster_name: "outbound|9003||example-filter.default.svc.cluster.local"
