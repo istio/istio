@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/grpc"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
@@ -101,7 +102,7 @@ type VirtualHostWrapper struct {
 
 // BuildSidecarVirtualHostWrapper creates virtual hosts from the given set of virtual Services
 // and a list of Services from the service registry. Services are indexed by FQDN hostnames.
-// The list of Services is also passed to allow maintaining consistent ordering.
+// Order inputs from maps because the first virtual host claims each duplicate domain.
 func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
 	virtualServices []*config.Config, listenPort int, mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
@@ -123,7 +124,7 @@ func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, 
 		}
 	}
 
-	for _, svc := range serviceRegistry {
+	for _, svc := range maps.SeqStable(serviceRegistry) {
 		// Filter any aliases out. While we want to be able to use them as the backend to a route, we don't want
 		// to have them build standalone route matches; this is already handled.
 		// Each alias will get a mapping of 'Alias -> Concrete' service when the concrete service is built
@@ -186,6 +187,7 @@ func separateVSHostsAndServices(virtualService config.Config,
 		// foundSvcMatch's only purpose is to make sure we don't add hosts that correspond to services
 		// to the list of non-serviceregistry hosts
 		foundSvcMatch := false
+		start := len(matchingRegistryServices)
 		for svcHost, svc := range serviceRegistry {
 			// First, check if this service matches the VS host.
 			// If it does, then we never want to add it to the nonServiceRegistryHosts list.
@@ -214,6 +216,10 @@ func separateVSHostsAndServices(virtualService config.Config,
 			}
 			matchingRegistryServices = append(matchingRegistryServices, svc)
 		}
+		// Keep explicit host order and sort only the services matched by this wildcard.
+		slices.SortBy(matchingRegistryServices[start:], func(svc *model.Service) host.Name {
+			return svc.Hostname
+		})
 
 		// If we never found a match for this hostname in the service registry, add it to the list of non-service hosts
 		if !foundSvcMatch {
@@ -302,7 +308,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	}
 
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
-	for port, services := range serviceByPort {
+	for port, services := range maps.SeqStable(serviceByPort) {
 		out = append(out, VirtualHostWrapper{
 			Port:                port,
 			Services:            services,
