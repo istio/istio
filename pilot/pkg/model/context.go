@@ -148,6 +148,10 @@ type Environment struct {
 
 	GatewayAPIController GatewayController
 
+	// ServicesSynced reports whether every service registry has loaded its initial state.
+	// A nil func means they have.
+	ServicesSynced func() bool
+
 	// AgentgatewayController is the controller for agentgateway.
 	AgentgatewayController AgentgatewayController
 
