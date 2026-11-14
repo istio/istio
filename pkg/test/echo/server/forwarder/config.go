@@ -94,7 +94,7 @@ func (c *Config) fillDefaults() error {
 	if err != nil {
 		return err
 	}
-	c.secure = c.getClientCertificate != nil
+	c.secure = c.scheme == scheme.GRPCS || c.getClientCertificate != nil
 
 	c.tlsConfig, err = newTLSConfig(c)
 	if err != nil {

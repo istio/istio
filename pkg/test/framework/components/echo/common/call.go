@@ -226,7 +226,7 @@ func getTargetURL(opts echo.CallOptions) string {
 	switch opts.Scheme {
 	case scheme.DNS:
 		return fmt.Sprintf("%s://%s", string(opts.Scheme), opts.Address)
-	case scheme.TCP, scheme.GRPC:
+	case scheme.TCP, scheme.GRPC, scheme.GRPCS:
 		return fmt.Sprintf("%s://%s", string(opts.Scheme), addressAndPort)
 	case scheme.XDS:
 		return fmt.Sprintf("%s:///%s", string(opts.Scheme), addressAndPort)

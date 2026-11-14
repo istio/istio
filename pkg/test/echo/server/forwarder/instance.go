@@ -47,7 +47,9 @@ func New() *Instance {
 	protocolMap[scheme.HTTP] = h
 	protocolMap[scheme.HTTPS] = h
 	protocolMap[scheme.DNS] = add(newDNSProtocol(e))
-	protocolMap[scheme.GRPC] = add(newGRPCProtocol(e))
+	g := add(newGRPCProtocol(e))
+	protocolMap[scheme.GRPC] = g
+	protocolMap[scheme.GRPCS] = g
 	protocolMap[scheme.WebSocket] = add(newWebsocketProtocol(e))
 	protocolMap[scheme.TLS] = add(newTLSProtocol(e))
 	protocolMap[scheme.XDS] = add(newXDSProtocol(e))
