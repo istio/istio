@@ -680,6 +680,72 @@ spec:
 			values: ``,
 		},
 		{
+			name: "daemonset",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Infrastructure: &k8s.GatewayInfrastructure{
+						ParametersRef: &k8s.LocalParametersReference{
+							Group: "",
+							Kind:  "ConfigMap",
+							Name:  "gw-options",
+						},
+					},
+				},
+			},
+			objects: append(slices.Clone(defaultObjects), &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "gw-options", Namespace: "default"},
+				Data: map[string]string{
+					"deployment": `
+kind: DaemonSet
+spec:
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1`,
+				},
+			}),
+			values: ``,
+		},
+		{
+			name: "daemonset-hpa",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Infrastructure: &k8s.GatewayInfrastructure{
+						ParametersRef: &k8s.LocalParametersReference{
+							Group: "",
+							Kind:  "ConfigMap",
+							Name:  "gw-options",
+						},
+					},
+				},
+			},
+			objects: append(slices.Clone(defaultObjects), &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "gw-options", Namespace: "default"},
+				Data: map[string]string{
+					"horizontalPodAutoscaler": `
+spec:
+  minReplicas: 2
+  maxReplicas: 2`,
+					"deployment": `
+kind: DaemonSet
+spec:
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1`,
+				},
+			}),
+			values: ``,
+		},
+		{
 			name: "illegal_customizations",
 			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1638,4 +1704,79 @@ func TestExtractServicePortsUniqueNames(t *testing.T) {
 	if len(ports) != 5 { // status-port + 4 listeners
 		t.Fatalf("expected 5 ports, got %d", len(ports))
 	}
+}
+
+func TestConvertToDaemonSet(t *testing.T) {
+	deployment := `apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: gw
+  namespace: default
+spec:
+  replicas: 2
+  progressDeadlineSeconds: 600
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: gw
+  template:
+    spec:
+      containers:
+      - name: istio-proxy
+        env:
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/gw
+`
+	out, err := convertToDaemonSet(deployment)
+	assert.NoError(t, err)
+	obj := map[string]any{}
+	assert.NoError(t, yaml.Unmarshal([]byte(out), &obj))
+	spec := obj["spec"].(map[string]any)
+	for _, field := range []string{"replicas", "strategy", "progressDeadlineSeconds"} {
+		_, found := spec[field]
+		assert.Equal(t, found, false, field)
+	}
+	assert.Equal(t, spec["revisionHistoryLimit"], any(float64(5)))
+	assert.Equal(t, spec["updateStrategy"], any(map[string]any{
+		"type":          "RollingUpdate",
+		"rollingUpdate": map[string]any{"maxUnavailable": float64(1)},
+	}))
+	env := spec["template"].(map[string]any)["spec"].(map[string]any)["containers"].([]any)[0].(map[string]any)["env"].([]any)
+	assert.Equal(t, env[0].(map[string]any)["value"], any("kubernetes://apis/apps/v1/namespaces/default/daemonsets/gw"))
+
+	// A Deployment is left untouched.
+	unchanged := strings.Replace(deployment, "kind: DaemonSet", "kind: Deployment", 1)
+	out, err = convertToDaemonSet(unchanged)
+	assert.NoError(t, err)
+	assert.Equal(t, out, unchanged)
+}
+
+func TestRemoveReplacedWorkload(t *testing.T) {
+	managed := map[string]string{label.GatewayManaged.Name: "istio.io-gateway-controller"}
+	client := kube.NewFakeClient(
+		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: "default", Labels: managed}},
+		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "unmanaged", Namespace: "default"}},
+		&appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: "default", Labels: managed}},
+	)
+	d := &DeploymentController{
+		deployments: kclient.New[*appsv1.Deployment](client),
+		daemonSets:  kclient.New[*appsv1.DaemonSet](client),
+	}
+	stop := test.NewStop(t)
+	client.RunAndWait(stop)
+
+	// Switching to a DaemonSet removes the managed Deployment, but never one we don't manage.
+	assert.NoError(t, d.removeReplacedWorkload(gvk.DaemonSet.Kind, "managed", "default"))
+	assert.NoError(t, d.removeReplacedWorkload(gvk.DaemonSet.Kind, "unmanaged", "default"))
+	assert.EventuallyEqual(t, func() bool { return d.deployments.Get("managed", "default") == nil }, true)
+	assert.Equal(t, d.deployments.Get("unmanaged", "default") != nil, true)
+	assert.Equal(t, d.daemonSets.Get("managed", "default") != nil, true)
+
+	// Switching back removes the managed DaemonSet.
+	assert.NoError(t, d.removeReplacedWorkload(gvk.Deployment.Kind, "managed", "default"))
+	assert.EventuallyEqual(t, func() bool { return d.daemonSets.Get("managed", "default") == nil }, true)
 }

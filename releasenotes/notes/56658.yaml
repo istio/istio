@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issues:
+- 56658
+releaseNotes:
+- |
+  **Added** support for deploying Gateway API gateways as a `DaemonSet`. Set `kind: DaemonSet` in the `deployment` customization of the
+  GatewayClass defaults or `parametersRef` ConfigMap. A `RollingUpdate` `strategy` is carried over to the DaemonSet `updateStrategy`,
+  and the existing Deployment is replaced when a gateway switches kind. A `horizontalPodAutoscaler` customization can not be combined
+  with a DaemonSet.
