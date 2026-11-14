@@ -104,6 +104,12 @@ func MetadataListValueMatcherForJWTClaims(claims []string, value *matcherpb.Valu
 	return matcher.MetadataListValueMatcher(filters.EnvoyJwtFilterName, append([]string{filters.EnvoyJwtFilterPayload}, claims...), value, true)
 }
 
+// MetadataListValueMatcherForJWTPayload for Envoy JWT, the first element of path is the
+// metadata key of the payload (see JWTRule.outputPayloadToMetadata) and the rest are the claims.
+func MetadataListValueMatcherForJWTPayload(path []string, value *matcherpb.ValueMatcher) *matcherpb.MetadataMatcher {
+	return matcher.MetadataListValueMatcher(filters.EnvoyJwtFilterName, path, value, true)
+}
+
 // MetadataMatcherForJWTClaims is a convenient method for generating metadata matcher for JWT claims.
 func MetadataMatcherForJWTClaims(claims []string, value *matcherpb.StringMatcher) *matcherpb.MetadataMatcher {
 	return matcher.MetadataListMatcher(filters.EnvoyJwtFilterName, append([]string{filters.EnvoyJwtFilterPayload}, claims...), value, true)
