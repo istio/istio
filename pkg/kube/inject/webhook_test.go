@@ -35,6 +35,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,6 +47,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	v1beta12 "istio.io/api/networking/v1beta1"
+	typev1beta1 "istio.io/api/type/v1beta1"
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
@@ -61,6 +63,7 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const yamlSeparator = "\n---"
@@ -1703,4 +1706,127 @@ func TestApplySecurePrometheusAnnotation(t *testing.T) {
 			t.Error("expected no annotation without istio-proxy container")
 		}
 	})
+}
+
+func TestWebhookProxyConfigResources(t *testing.T) {
+	sidecarTemplate, valuesConfig, mc := getInjectionSettings(t, nil, "")
+	store := model.NewFakeStore()
+	go store.Run(test.NewStop(t))
+	store.Create(newProxyConfig("sizing", "ns-a", &v1beta12.ProxyConfig{
+		Resources: &v1beta12.ProxyResources{
+			Requests: map[string]string{"cpu": "50m", "memory": "64Mi"},
+			Limits:   map[string]string{"cpu": "200m", "memory": "128Mi"},
+		},
+	}))
+	store.Create(newProxyConfig("sizing", "ns-b", &v1beta12.ProxyConfig{
+		Resources: &v1beta12.ProxyResources{
+			Requests: map[string]string{"cpu": "300m", "memory": "256Mi"},
+			Limits:   map[string]string{"cpu": "1", "memory": "512Mi"},
+		},
+	}))
+	store.Create(newProxyConfig("big", "ns-b", &v1beta12.ProxyConfig{
+		Selector: &typev1beta1.WorkloadSelector{MatchLabels: map[string]string{"app": "big"}},
+		Resources: &v1beta12.ProxyResources{
+			Limits: map[string]string{"memory": "1Gi"},
+		},
+	}))
+	env := &model.Environment{}
+	env.SetPushContext(&model.PushContext{
+		ProxyConfigs: model.GetProxyConfigs(store, mc),
+	})
+	wh := &Webhook{
+		Config:       sidecarTemplate,
+		meshConfig:   mc,
+		env:          env,
+		valuesConfig: valuesConfig,
+		revision:     "default",
+	}
+
+	resources := func(requestsCPU, requestsMemory, limitsCPU, limitsMemory string) corev1.ResourceRequirements {
+		return corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(requestsCPU),
+				corev1.ResourceMemory: resource.MustParse(requestsMemory),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(limitsCPU),
+				corev1.ResourceMemory: resource.MustParse(limitsMemory),
+			},
+		}
+	}
+	cases := []struct {
+		name        string
+		namespace   string
+		labels      map[string]string
+		annotations map[string]string
+		want        corev1.ResourceRequirements
+	}{
+		{
+			name:      "namespace a",
+			namespace: "ns-a",
+			want:      resources("50m", "64Mi", "200m", "128Mi"),
+		},
+		{
+			name:      "namespace b",
+			namespace: "ns-b",
+			want:      resources("300m", "256Mi", "1", "512Mi"),
+		},
+		{
+			name:      "workload selector overrides one key",
+			namespace: "ns-b",
+			labels:    map[string]string{"app": "big"},
+			want:      resources("300m", "256Mi", "1", "1Gi"),
+		},
+		{
+			name:      "pod annotations win",
+			namespace: "ns-a",
+			annotations: map[string]string{
+				annotation.SidecarProxyCPU.Name:         "75m",
+				annotation.SidecarProxyMemoryLimit.Name: "96Mi",
+			},
+			want: resources("75m", "64Mi", "200m", "96Mi"),
+		},
+		{
+			name:      "no ProxyConfig keeps the installation default",
+			namespace: "ns-c",
+			want:      resources("100m", "128Mi", "2", "1Gi"),
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "app",
+					Namespace:   tc.namespace,
+					Labels:      tc.labels,
+					Annotations: tc.annotations,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "app", Image: "fake"}},
+				},
+			}
+			podJSON := convertToJSON(pod, t)
+			got := wh.inject(&kube.AdmissionReview{
+				Request: &kube.AdmissionRequest{
+					Object:    runtime.RawExtension{Raw: podJSON},
+					Namespace: tc.namespace,
+				},
+			}, "")
+			if got.Patch == nil {
+				t.Fatalf("no patch returned: %v", got.Result)
+			}
+			injected := &corev1.Pod{}
+			if err := json.Unmarshal(applyJSONPatch(podJSON, got.Patch, t), injected); err != nil {
+				t.Fatal(err)
+			}
+			proxy := FindContainerFromPod(ProxyContainerName, injected)
+			if proxy == nil {
+				t.Fatal("istio-proxy container not injected")
+			}
+			assert.Equal(t, proxy.Resources.Requests.Cpu().String(), tc.want.Requests.Cpu().String())
+			assert.Equal(t, proxy.Resources.Requests.Memory().String(), tc.want.Requests.Memory().String())
+			assert.Equal(t, proxy.Resources.Limits.Cpu().String(), tc.want.Limits.Cpu().String())
+			assert.Equal(t, proxy.Resources.Limits.Memory().String(), tc.want.Limits.Memory().String())
+		})
+	}
 }

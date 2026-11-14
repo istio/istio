@@ -1796,6 +1796,31 @@ spec:
                                     minimum: 0
                                     type: integer
                                 type: object
+                              retryBudget:
+                                description: Specifies a limit on concurrent retries
+                                  in relation to the number of active requests.
+                                properties:
+                                  budgetInterval:
+                                    description: Specifies the duration in which requests
+                                      will be considered when calculating the budget
+                                      for retries.
+                                    type: string
+                                  minRetryConcurrency:
+                                    description: Specifies the minimum retry concurrency
+                                      allowed for the retry budget.
+                                    maximum: 4294967295
+                                    minimum: 0
+                                    type: integer
+                                  percent:
+                                    description: Specifies the limit on concurrent
+                                      retries as a percentage of the sum of active
+                                      requests and active pending requests.
+                                    format: double
+                                    maximum: 100
+                                    minimum: 0
+                                    nullable: true
+                                    type: number
+                                type: object
                               tls:
                                 description: TLS related settings for connections
                                   to the upstream service.
@@ -2950,6 +2975,31 @@ spec:
                               maximum: 4294967295
                               minimum: 0
                               type: integer
+                          type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
                           type: object
                         tls:
                           description: TLS related settings for connections to the
@@ -4282,6 +4332,31 @@ spec:
                                     minimum: 0
                                     type: integer
                                 type: object
+                              retryBudget:
+                                description: Specifies a limit on concurrent retries
+                                  in relation to the number of active requests.
+                                properties:
+                                  budgetInterval:
+                                    description: Specifies the duration in which requests
+                                      will be considered when calculating the budget
+                                      for retries.
+                                    type: string
+                                  minRetryConcurrency:
+                                    description: Specifies the minimum retry concurrency
+                                      allowed for the retry budget.
+                                    maximum: 4294967295
+                                    minimum: 0
+                                    type: integer
+                                  percent:
+                                    description: Specifies the limit on concurrent
+                                      retries as a percentage of the sum of active
+                                      requests and active pending requests.
+                                    format: double
+                                    maximum: 100
+                                    minimum: 0
+                                    nullable: true
+                                    type: number
+                                type: object
                               tls:
                                 description: TLS related settings for connections
                                   to the upstream service.
@@ -5436,6 +5511,31 @@ spec:
                               maximum: 4294967295
                               minimum: 0
                               type: integer
+                          type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
                           type: object
                         tls:
                           description: TLS related settings for connections to the
@@ -6768,6 +6868,31 @@ spec:
                                     minimum: 0
                                     type: integer
                                 type: object
+                              retryBudget:
+                                description: Specifies a limit on concurrent retries
+                                  in relation to the number of active requests.
+                                properties:
+                                  budgetInterval:
+                                    description: Specifies the duration in which requests
+                                      will be considered when calculating the budget
+                                      for retries.
+                                    type: string
+                                  minRetryConcurrency:
+                                    description: Specifies the minimum retry concurrency
+                                      allowed for the retry budget.
+                                    maximum: 4294967295
+                                    minimum: 0
+                                    type: integer
+                                  percent:
+                                    description: Specifies the limit on concurrent
+                                      retries as a percentage of the sum of active
+                                      requests and active pending requests.
+                                    format: double
+                                    maximum: 100
+                                    minimum: 0
+                                    nullable: true
+                                    type: number
+                                type: object
                               tls:
                                 description: TLS related settings for connections
                                   to the upstream service.
@@ -7922,6 +8047,31 @@ spec:
                               maximum: 4294967295
                               minimum: 0
                               type: integer
+                          type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
                           type: object
                         tls:
                           description: TLS related settings for connections to the
@@ -9618,6 +9768,26 @@ spec:
                   imageType:
                     description: The image type of the image.
                     type: string
+                type: object
+              resources:
+                description: Compute resources for the injected `istio-proxy` container.
+                properties:
+                  limits:
+                    additionalProperties:
+                      maxLength: 64
+                      type: string
+                    description: Maximum amount of compute resources allowed for the
+                      proxy container.
+                    maxProperties: 3
+                    type: object
+                  requests:
+                    additionalProperties:
+                      maxLength: 64
+                      type: string
+                    description: Minimum amount of compute resources requested by
+                      the proxy container.
+                    maxProperties: 3
+                    type: object
                 type: object
               selector:
                 description: Optional.
@@ -18406,6 +18576,11 @@ spec:
                         minLength: 1
                         type: string
                       type: array
+                    failedStatusMetadataKey:
+                      description: If set, a verification failure is written to the
+                        filter's dynamic metadata under this key, such that failures
+                        are always observable regardless of the `presence` value.
+                      type: string
                     forwardOriginalToken:
                       description: If set to true, the original token will be kept
                         for the upstream request.
@@ -18487,14 +18662,22 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    outputPayloadToMetadata:
+                      description: This field specifies the key under which the payload
+                        of a successfully verified JWT is stored in the request's
+                        dynamic metadata.
+                      maxLength: 64
+                      pattern: ^[-_A-Za-z0-9]+$
+                      type: string
                     presence:
                       description: |-
-                        Configures whether the JWT token must be present in the request.
+                        Configures how strictly the JWT token is required.
 
-                        Valid Options: OPTIONAL, REQUIRED
+                        Valid Options: OPTIONAL, REQUIRED, PERMISSIVE
                       enum:
                       - OPTIONAL
                       - REQUIRED
+                      - PERMISSIVE
                       type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated
@@ -18704,6 +18887,11 @@ spec:
                         minLength: 1
                         type: string
                       type: array
+                    failedStatusMetadataKey:
+                      description: If set, a verification failure is written to the
+                        filter's dynamic metadata under this key, such that failures
+                        are always observable regardless of the `presence` value.
+                      type: string
                     forwardOriginalToken:
                       description: If set to true, the original token will be kept
                         for the upstream request.
@@ -18785,14 +18973,22 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    outputPayloadToMetadata:
+                      description: This field specifies the key under which the payload
+                        of a successfully verified JWT is stored in the request's
+                        dynamic metadata.
+                      maxLength: 64
+                      pattern: ^[-_A-Za-z0-9]+$
+                      type: string
                     presence:
                       description: |-
-                        Configures whether the JWT token must be present in the request.
+                        Configures how strictly the JWT token is required.
 
-                        Valid Options: OPTIONAL, REQUIRED
+                        Valid Options: OPTIONAL, REQUIRED, PERMISSIVE
                       enum:
                       - OPTIONAL
                       - REQUIRED
+                      - PERMISSIVE
                       type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated

@@ -8274,6 +8274,43 @@ func TestValidateProxyConfig(t *testing.T) {
 		{name: "invalid concurrency", in: &networkingv1beta1.ProxyConfig{
 			Concurrency: &wrapperspb.Int32Value{Value: -1},
 		}, out: "concurrency must be greater than or equal to 0"},
+		{name: "valid resources", in: &networkingv1beta1.ProxyConfig{
+			Resources: &networkingv1beta1.ProxyResources{
+				Requests: map[string]string{"cpu": "50m", "memory": "64Mi", "ephemeral-storage": "1Gi"},
+				Limits:   map[string]string{"cpu": "200m", "memory": "128Mi"},
+			},
+		}},
+		{name: "requests only", in: &networkingv1beta1.ProxyConfig{
+			Resources: &networkingv1beta1.ProxyResources{
+				Requests: map[string]string{"cpu": "4"},
+			},
+		}},
+		{name: "invalid quantity", in: &networkingv1beta1.ProxyConfig{
+			Resources: &networkingv1beta1.ProxyResources{
+				Requests: map[string]string{"cpu": "lots"},
+			},
+		}, out: `resources.requests.cpu: invalid quantity "lots"`},
+		{name: "multiline quantity", in: &networkingv1beta1.ProxyConfig{
+			Resources: &networkingv1beta1.ProxyResources{
+				Limits: map[string]string{"memory": "1Gi\n  - name: injected"},
+			},
+		}, out: "resources.limits.memory: invalid quantity"},
+		{name: "negative quantity", in: &networkingv1beta1.ProxyConfig{
+			Resources: &networkingv1beta1.ProxyResources{
+				Limits: map[string]string{"memory": "-1Gi"},
+			},
+		}, out: `resources.limits.memory: quantity "-1Gi" must not be negative`},
+		{name: "unsupported resource", in: &networkingv1beta1.ProxyConfig{
+			Resources: &networkingv1beta1.ProxyResources{
+				Requests: map[string]string{"nvidia.com/gpu": "1"},
+			},
+		}, out: `resources.requests: unsupported resource "nvidia.com/gpu"`},
+		{name: "request above limit", in: &networkingv1beta1.ProxyConfig{
+			Resources: &networkingv1beta1.ProxyResources{
+				Requests: map[string]string{"cpu": "500m"},
+				Limits:   map[string]string{"cpu": "200m"},
+			},
+		}, out: "resources.requests.cpu (500m) must be less than or equal to resources.limits.cpu (200m)"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

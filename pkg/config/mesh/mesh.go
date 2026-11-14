@@ -26,6 +26,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1beta1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/log"
@@ -146,12 +147,14 @@ func ApplyProxyConfig(yaml string, meshConfig *meshconfig.MeshConfig) (*meshconf
 func MergeProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshconfig.ProxyConfig, error) {
 	origMetadata := proxyConfig.ProxyMetadata
 	origProxyHeaders := proxyConfig.ProxyHeaders
+	origResources := protomarshal.Clone(proxyConfig.Resources)
 	if err := protomarshal.ApplyYAML(yaml, proxyConfig); err != nil {
 		return nil, fmt.Errorf("could not parse proxy config: %v", err)
 	}
 	newMetadata := proxyConfig.ProxyMetadata
 	proxyConfig.ProxyMetadata = mergeMap(origMetadata, newMetadata)
 	correctProxyHeaders(proxyConfig, origProxyHeaders)
+	proxyConfig.Resources = mergeProxyResources(origResources, proxyConfig.Resources)
 	return proxyConfig, nil
 }
 
@@ -260,6 +263,19 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 	}
 
 	return defaultConfig, nil
+}
+
+func mergeProxyResources(original, merger *networking.ProxyResources) *networking.ProxyResources {
+	if original == nil {
+		return merger
+	}
+	if merger == nil {
+		return original
+	}
+	return &networking.ProxyResources{
+		Requests: mergeMap(original.Requests, merger.Requests),
+		Limits:   mergeMap(original.Limits, merger.Limits),
+	}
 }
 
 func mergeMap(original map[string]string, merger map[string]string) map[string]string {

@@ -30,6 +30,7 @@ import (
 	kstrings "k8s.io/utils/strings"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/log"
@@ -66,6 +67,7 @@ func createInjectionFuncmap() template.FuncMap {
 		"mergeMaps":              mergeMaps,
 		"omitNil":                omitNil,
 		"otelResourceAttributes": otelResourceAttributes,
+		"proxyResources":         proxyResources,
 	}
 }
 
@@ -560,4 +562,58 @@ func omitNilInternal(v any) (any, bool) {
 	default:
 		return v, false
 	}
+}
+
+func proxyResources(pc *meshconfig.ProxyConfig, annotations map[string]string, values map[string]any) map[string]any {
+	resources := pc.GetResources()
+	if len(resources.GetRequests()) == 0 && len(resources.GetLimits()) == 0 {
+		return nil
+	}
+	global, _ := values["global"].(map[string]any)
+	proxy, _ := global["proxy"].(map[string]any)
+	defaultsMap, _ := omitNil(proxy["resources"]).(map[string]any)
+	requests := resourceListFromValues(defaultsMap["requests"])
+	limits := resourceListFromValues(defaultsMap["limits"])
+	for k, v := range resources.GetRequests() {
+		requests[k] = v
+	}
+	for k, v := range resources.GetLimits() {
+		limits[k] = v
+	}
+	overrides := []struct {
+		annotation string
+		list       map[string]any
+		resource   string
+	}{
+		{annotation.SidecarProxyCPU.Name, requests, "cpu"},
+		{annotation.SidecarProxyMemory.Name, requests, "memory"},
+		{annotation.SidecarProxyCPULimit.Name, limits, "cpu"},
+		{annotation.SidecarProxyMemoryLimit.Name, limits, "memory"},
+	}
+	for _, o := range overrides {
+		if v, ok := annotations[o.annotation]; ok {
+			o.list[o.resource] = v
+		}
+	}
+	out := map[string]any{}
+	if len(requests) > 0 {
+		out["requests"] = requests
+	}
+	if len(limits) > 0 {
+		out["limits"] = limits
+	}
+	return out
+}
+
+func resourceListFromValues(v any) map[string]any {
+	out := map[string]any{}
+	m, _ := v.(map[string]any)
+	for k, val := range m {
+		if f, ok := val.(float64); ok {
+			out[k] = strconv.FormatFloat(f, 'f', -1, 64)
+			continue
+		}
+		out[k] = fmt.Sprint(val)
+	}
+	return out
 }

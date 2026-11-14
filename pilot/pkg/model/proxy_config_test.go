@@ -68,6 +68,21 @@ func TestConvertToMeshConfigProxyConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "resources",
+			pc: &v1beta1.ProxyConfig{
+				Resources: &v1beta1.ProxyResources{
+					Requests: map[string]string{"cpu": "50m"},
+					Limits:   map[string]string{"memory": "128Mi"},
+				},
+			},
+			expected: &meshconfig.ProxyConfig{
+				Resources: &v1beta1.ProxyResources{
+					Requests: map[string]string{"cpu": "50m"},
+					Limits:   map[string]string{"memory": "128Mi"},
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -276,6 +291,62 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				Concurrency: v(3),
 				Image: &v1beta1.ProxyImage{
 					ImageType: "debug",
+				},
+			},
+		},
+		{
+			name: "resources merge per key from root namespace, namespace and workload",
+			configs: []config.Config{
+				newProxyConfig("global", istioRootNamespace,
+					&v1beta1.ProxyConfig{
+						Resources: &v1beta1.ProxyResources{
+							Requests: map[string]string{"cpu": "10m", "memory": "32Mi"},
+							Limits:   map[string]string{"cpu": "1", "memory": "1Gi"},
+						},
+					}),
+				newProxyConfig("ns", "test-ns",
+					&v1beta1.ProxyConfig{
+						Resources: &v1beta1.ProxyResources{
+							Requests: map[string]string{"cpu": "50m", "memory": "64Mi"},
+							Limits:   map[string]string{"cpu": "200m"},
+						},
+					}),
+				newProxyConfig("workload", "test-ns",
+					&v1beta1.ProxyConfig{
+						Selector: selector(map[string]string{"app": "big"}),
+						Resources: &v1beta1.ProxyResources{
+							Limits: map[string]string{"memory": "512Mi"},
+						},
+					}),
+			},
+			proxy: newMeta("test-ns", map[string]string{"app": "big"}, nil),
+			expected: &meshconfig.ProxyConfig{
+				Resources: &v1beta1.ProxyResources{
+					Requests: map[string]string{"cpu": "50m", "memory": "64Mi"},
+					Limits:   map[string]string{"cpu": "200m", "memory": "512Mi"},
+				},
+			},
+		},
+		{
+			name: "resources from another namespace do not apply",
+			configs: []config.Config{
+				newProxyConfig("ns-a", "ns-a",
+					&v1beta1.ProxyConfig{
+						Resources: &v1beta1.ProxyResources{
+							Requests: map[string]string{"cpu": "50m"},
+						},
+					}),
+				newProxyConfig("ns-b", "ns-b",
+					&v1beta1.ProxyConfig{
+						Resources: &v1beta1.ProxyResources{
+							Requests: map[string]string{"cpu": "300m"},
+						},
+					}),
+			},
+			proxy: newMeta("ns-b", nil, nil),
+			expected: &meshconfig.ProxyConfig{
+				Resources: &v1beta1.ProxyResources{
+					Requests: map[string]string{"cpu": "300m"},
 				},
 			},
 		},
