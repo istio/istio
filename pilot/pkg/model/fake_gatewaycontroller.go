@@ -25,6 +25,7 @@ import (
 type FakeController struct {
 	ConfigStoreController
 	GatewaysWithInferencePools sets.Set[types.NamespacedName]
+	BackendClientCredentials   map[types.NamespacedName]string
 }
 
 func (f FakeController) HasInferencePool(gw types.NamespacedName) bool {
@@ -40,4 +41,8 @@ func (f FakeController) SecretAllowed(_ config.GroupVersionKind, resourceName st
 		return false
 	}
 	return parse.Namespace == "allowed-ns"
+}
+
+func (f FakeController) GetGatewayBackendClientCredentialName(gateway types.NamespacedName) string {
+	return f.BackendClientCredentials[gateway]
 }

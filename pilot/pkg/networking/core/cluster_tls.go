@@ -144,6 +144,28 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		}
 	}
 
+	// Compose Gateway identity here, after buildUpstreamTLSSettings has preserved SIMPLE policy settings.
+	// Promoting to MUTUAL before that normalization would allow metadata certificates to replace the selected identity.
+	if cb.proxyType == model.Router && opts.gatewayBackendClientCredential != "" && tls.Mode == networking.ClientTLSSettings_SIMPLE {
+		// The presence of gatewayBackendClientCredential indicates mutual TLS and
+		// a an explicit Secret reference to be used as the client certificate when
+		// the gateway connects to backends.
+		tls = tls.DeepCopy()
+		if tls.CaCertCredentialName == "" {
+			// TODO(ericdbishop): Should we change how the backend CA is stored for
+			// BackendTLSPolicy now that ClientTLSSettings has a CaCertCredentialName field?
+			// The original tls.CredentialName holds backend CA trust.
+			// Preserve backend CA trust in this copy without changing shared policy.
+			tls.CaCertCredentialName = tls.CredentialName
+		}
+		tls.Mode = networking.ClientTLSSettings_MUTUAL
+		tls.CredentialName = opts.gatewayBackendClientCredential
+		// tls.CredentialName no longer is used as the CA trust.
+		updatedOpts := *opts
+		updatedOpts.credentialNameForClientOnly = true
+		opts = &updatedOpts
+	}
+
 	c := opts.mutable
 	var tlsContext *tlsv3.UpstreamTlsContext
 	var err error
@@ -235,7 +257,7 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		return nil
 	}
 
-	if tls.CredentialName != "" || tls.CaCertCredentialName != "" {
+	if (tls.CredentialName != "" && !opts.credentialNameForClientOnly) || tls.CaCertCredentialName != "" {
 		// If credential name is specified at Destination Rule config and originating node is egress gateway, create
 		// SDS config for egress gateway to fetch key/cert at gateway agent.
 		if mutual && tls.CredentialName == "" {
@@ -251,9 +273,14 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		res := security.SdsCertificateConfig{
 			CaCertificatePath: ptr.NonEmptyOrDefault(tls.CaCertificates, "system"),
 		}
-		// If CredentialName is not set fallback to file based approach
+		// Use the independent Gateway client credential when configured; otherwise,
+		// fall back to file-based client certificates while retaining file/system CA trust.
 		if mutual {
-			if err := applyFileClientCertificate(); err != nil {
+			if opts.credentialNameForClientOnly {
+				tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*tlsv3.SdsSecretConfig{
+					sec_model.ConstructSdsSecretConfigForCredential(tls.CredentialName, opts.credentialSocketExist, nil),
+				}
+			} else if err := applyFileClientCertificate(); err != nil {
 				return nil, err
 			}
 		}

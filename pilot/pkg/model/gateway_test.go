@@ -19,8 +19,10 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -30,6 +32,131 @@ const (
 	AllowedNamespace    = "allowed-ns"
 	NotAllowedNamespace = "not-allowed-ns"
 )
+
+func TestGatewayBackendClientCredentialSelection(t *testing.T) {
+	const client = "kubernetes-gateway://ns/client"
+	gateway := func(parent, credential string) gatewayWithInstances {
+		return gatewayWithInstances{
+			gateway: config.Config{
+				Meta: config.Meta{Namespace: "ns", Annotations: map[string]string{constants.InternalParentNames: parent}},
+				Spec: &networking.Gateway{},
+			},
+			clientCertificateRef: credential,
+		}
+	}
+	a := gateway("Gateway/edge/http.ns", client)
+	b := gateway("Gateway/edge/https.ns", client)
+	listenerSet := gateway("ListenerSet/listeners/http.tenant", client)
+	listenerSet.gateway.Namespace = "tenant"
+	listenerSet.gateway.Annotations[constants.InternalGatewayParent] = "ns/edge"
+	listenerSet.gateway.Annotations[constants.InternalParentNamespace] = "ns"
+	for _, tt := range []struct {
+		name     string
+		gateways []gatewayWithInstances
+		want     string
+	}{
+		{"no Gateways", nil, ""},
+		{"no credential requested", []gatewayWithInstances{gateway("Gateway/edge/http.ns", ""), gateway("", "")}, ""},
+		{"one parent with multiple listeners and ListenerSet", []gatewayWithInstances{a, b, listenerSet}, client},
+		{"different parents sharing a Secret", []gatewayWithInstances{a, gateway("Gateway/other/http.ns", client)}, credentials.InvalidSecretTypeURI},
+		{"same parent name in another namespace", []gatewayWithInstances{a, gateway("Gateway/edge/http.other", client)}, credentials.InvalidSecretTypeURI},
+		{"inconsistent credentials", []gatewayWithInstances{a, gateway("Gateway/edge/https.ns", "kubernetes-gateway://ns/other")}, credentials.InvalidSecretTypeURI},
+		{"credential followed by none", []gatewayWithInstances{a, gateway("Gateway/edge/https.ns", "")}, credentials.InvalidSecretTypeURI},
+		{"none followed by credential", []gatewayWithInstances{gateway("Gateway/edge/https.ns", ""), a}, credentials.InvalidSecretTypeURI},
+		{"native Gateway mixed in", []gatewayWithInstances{a, gateway("", "")}, credentials.InvalidSecretTypeURI},
+		{"invalid reference retained", []gatewayWithInstances{gateway("Gateway/edge/http.ns", credentials.InvalidSecretTypeURI)}, credentials.InvalidSecretTypeURI},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			merged := mergeGateways(tt.gateways, &Proxy{
+				Type: Router, VerifiedIdentity: &spiffe.Identity{Namespace: "ns", ServiceAccount: "sa"},
+			}, makePushContext())
+			assert.Equal(t, merged.BackendClientCredential, tt.want)
+			wantReferences := sets.New[string]()
+			if tt.want == client {
+				wantReferences.Insert(client)
+			}
+			assert.Equal(t, merged.VerifiedCertificateReferences, wantReferences)
+		})
+	}
+}
+
+type backendClientGrantController struct {
+	FakeController
+	secretAllowed func(config.GroupVersionKind, string, string) bool
+}
+
+func (c backendClientGrantController) SecretAllowed(kind config.GroupVersionKind, resource, namespace string) bool {
+	return c.secretAllowed(kind, resource, namespace)
+}
+
+func TestGatewayBackendClientCredentialAuthorization(t *testing.T) {
+	const (
+		local  = "kubernetes-gateway://ns/client"
+		remote = "kubernetes-gateway://certs/client"
+	)
+	identity := &spiffe.Identity{Namespace: "ns", ServiceAccount: "sa"}
+	for _, tt := range []struct {
+		name        string
+		credential  string
+		identity    *spiffe.Identity
+		unmanaged   bool
+		listenerSet bool
+		parent      string
+		grant       bool
+		wantAllowed bool
+		wantGrant   bool
+	}{
+		{name: "same namespace", credential: local, identity: identity, wantAllowed: true},
+		{name: "unverified proxy", credential: local},
+		{name: "wrong service account", credential: local, identity: &spiffe.Identity{Namespace: "ns", ServiceAccount: "other"}},
+		{name: "wrong proxy namespace", credential: remote, identity: &spiffe.Identity{Namespace: "other", ServiceAccount: "sa"}, grant: true},
+		{name: "unmanaged Gateway", credential: local, identity: &spiffe.Identity{Namespace: "ns", ServiceAccount: "other"}, unmanaged: true, wantAllowed: true},
+		{name: "parent namespace differs from proxy", credential: remote, identity: identity, parent: "other/edge", grant: true},
+		{name: "cross namespace allowed", credential: remote, identity: identity, grant: true, wantAllowed: true, wantGrant: true},
+		{name: "cross namespace denied", credential: remote, identity: identity, wantGrant: true},
+		{name: "ListenerSet uses parent namespace", credential: local, identity: identity, listenerSet: true, wantAllowed: true},
+		{name: "ListenerSet grant uses Gateway parent", credential: remote, identity: identity, listenerSet: true, grant: true, wantAllowed: true, wantGrant: true},
+		{name: "invalid reference", credential: credentials.InvalidSecretTypeURI, identity: identity},
+		{name: "unsupported credential type", credential: "kubernetes://client", identity: identity},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gw := makeConfig("edge", "ns", "*", "http", "HTTP", 80, "gateway", "", networking.ServerTLSSettings_SIMPLE, nil, "sa")
+			gw.Spec.(*networking.Gateway).Servers[0].Tls = nil
+			gw.Annotations[constants.InternalParentNames] = "Gateway/edge/http.ns"
+			if tt.unmanaged {
+				gw.Annotations[constants.InternalServiceAccount] = ""
+			}
+			if tt.listenerSet {
+				gw.Namespace = "tenant"
+				gw.Annotations[constants.InternalParentNames] = "ListenerSet/listeners/http.tenant"
+				gw.Annotations[constants.InternalParentNamespace] = "ns"
+				gw.Annotations[constants.InternalGatewayParent] = "ns/edge"
+			}
+			if tt.parent != "" {
+				gw.Annotations[constants.InternalGatewayParent] = tt.parent
+			}
+			grantChecked := false
+			push := &PushContext{GatewayAPIController: backendClientGrantController{
+				secretAllowed: func(kind config.GroupVersionKind, resource, namespace string) bool {
+					grantChecked = true
+					assert.Equal(t, kind, gvk.KubernetesGateway)
+					assert.Equal(t, namespace, "ns")
+					assert.Equal(t, resource, remote)
+					return tt.grant
+				},
+			}}
+			merged := mergeGateways([]gatewayWithInstances{{
+				gateway: gw, legacyGatewaySelector: true, clientCertificateRef: tt.credential,
+			}}, &Proxy{Type: Router, VerifiedIdentity: tt.identity}, push)
+			want := sets.New[string]()
+			if tt.wantAllowed {
+				want.Insert(tt.credential)
+			}
+			assert.Equal(t, merged.VerifiedCertificateReferences, want)
+			assert.Equal(t, grantChecked, tt.wantGrant)
+		})
+	}
+}
 
 // nolint lll
 func TestMergeGateways(t *testing.T) {
@@ -408,7 +535,7 @@ func TestMergeGateways(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			instances := []gatewayWithInstances{}
 			for _, c := range tt.gwConfig {
-				instances = append(instances, gatewayWithInstances{c, true, nil})
+				instances = append(instances, gatewayWithInstances{c, true, nil, ""})
 			}
 			mgw := mergeGateways(instances, tt.proxy, makePushContext())
 			if len(mgw.MergedServers) != tt.mergedServersNum {
@@ -458,7 +585,7 @@ func TestMergedGatewayNames(t *testing.T) {
 	for _, configs := range [][]config.Config{{z, a, invalid}, {invalid, a, z}} {
 		instances := make([]gatewayWithInstances, 0, len(configs))
 		for _, cfg := range configs {
-			instances = append(instances, gatewayWithInstances{cfg, true, nil})
+			instances = append(instances, gatewayWithInstances{cfg, true, nil, ""})
 		}
 		merged := mergeGateways(instances, &Proxy{}, makePushContext())
 		assert.Equal(t, merged.GatewayNames, []string{"a/z", "z/a"})
@@ -546,7 +673,7 @@ func TestContainsIstioMutualTLSGatewayServer(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			gw := makeConfig("gateway", "istio-system", "*.example.com", "tls", tt.protocol, 443, "egressgateway", "", tt.mode, nil, "sa")
-			mgw := mergeGateways([]gatewayWithInstances{{gw, true, nil}}, &Proxy{}, makePushContext())
+			mgw := mergeGateways([]gatewayWithInstances{{gateway: gw, legacyGatewaySelector: true}}, &Proxy{}, makePushContext())
 			assert.Equal(t, mgw.ContainsIstioMutualTLSGatewayServer, tt.want)
 		})
 	}

@@ -31,6 +31,7 @@ import (
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/cluster"
@@ -125,6 +126,7 @@ type TypedResource struct {
 type Outputs struct {
 	Gateways                krt.Collection[Gateway]
 	GatewayConfigs          krt.Collection[config.Config]
+	GatewayBackendTLS       krt.Collection[BackendTLSSettings]
 	VirtualServices         krt.Collection[config.Config]
 	ReferenceGrants         gatewaycommon.ReferenceGrants
 	DestinationRules        krt.Collection[config.Config]
@@ -277,7 +279,7 @@ func NewController(
 
 	// GatewaysStatus is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
-	GatewaysStatus, Gateways := GatewayCollection(
+	GatewaysStatus, Gateways, GatewayBackendTLS := GatewayCollection(
 		inputs.Gateways,
 		ListenerSets,
 		GatewayListenerConflicts,
@@ -419,6 +421,7 @@ func NewController(
 		ReferenceGrants:         ReferenceGrants,
 		Gateways:                Gateways,
 		GatewayConfigs:          GatewayConfigs,
+		GatewayBackendTLS:       GatewayBackendTLS,
 		VirtualServices:         VirtualServices,
 		DestinationRules:        DestinationRules,
 		InferencePools:          InferencePools,
@@ -442,6 +445,14 @@ func NewController(
 					Kind:      kind.Gateway,
 					Name:      t.Name,
 					Namespace: t.Namespace,
+				}
+			}), false),
+		outputs.GatewayBackendTLS.RegisterBatch(pushXds(xdsUpdater,
+			func(t BackendTLSSettings) model.ConfigKey {
+				return model.ConfigKey{
+					Kind:      kind.Gateway,
+					Name:      t.ParentGateway.Name,
+					Namespace: t.ParentGateway.Namespace,
 				}
 			}), false),
 		outputs.InferencePools.Register(func(e krt.Event[InferencePool]) {
@@ -666,4 +677,26 @@ func (c *Controller) inRevision(obj any) bool {
 		return false
 	}
 	return config.LabelsInRevision(object.GetLabels(), c.revision)
+}
+
+// GetGatewayBackendClientCredentialName returns the backend client credential SDS resource name.
+func (c *Controller) GetGatewayBackendClientCredentialName(gateway types.NamespacedName) string {
+	gatewayTLS := c.outputs.GatewayBackendTLS.GetKey(gateway.String())
+	if gatewayTLS == nil {
+		return ""
+	}
+	if gatewayTLS.Error != nil {
+		return credentials.InvalidSecretTypeURI
+	}
+	if gatewayTLS.BackendTLS == nil || gatewayTLS.BackendTLS.ClientCertificateRef == nil {
+		return ""
+	}
+
+	ref := gatewayTLS.BackendTLS.ClientCertificateRef
+	if ref.Name == "" {
+		return credentials.InvalidSecretTypeURI
+	}
+
+	ns := ptr.OrDefault((*string)(ref.Namespace), gateway.Namespace)
+	return credentials.ToKubernetesGatewayResource(ns, string(ref.Name))
 }

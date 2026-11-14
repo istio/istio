@@ -110,6 +110,10 @@ type MergedGateway struct {
 	// for Gateway API gateways). Secrets in the same namespace that are not referenced by any gateway config are
 	// explicitly excluded to prevent unintended access (e.g., the citadel root key/cert).
 	VerifiedCertificateReferences sets.String
+
+	// BackendClientCredential is the proxy-wide backend client identity for a dedicated
+	// Kubernetes Gateway, or invalid:// when a configured identity cannot be safely selected.
+	BackendClientCredential string
 }
 
 func (g *MergedGateway) HasAutoPassthroughGateways() bool {
@@ -140,13 +144,12 @@ func NewGatewayScopeKey(proxyType NodeType, namespace string, gateways []string)
 	return GatewayScopeKey{ProxyType: proxyType, Namespace: namespace, Gateways: strings.Join(gateways, ",")}
 }
 
-// PrevMergedGateway describes previous state of the gateway.
-// Currently, it only contains information relevant for auto passthrough gateways
-// and gateway names used by CDS.
+// PrevMergedGateway describes previous state of the gateway relevant to CDS and EDS.
 type PrevMergedGateway struct {
 	ContainsAutoPassthroughGateways bool
 	AutoPassthroughSNIHosts         sets.Set[string]
 	GatewayNames                    []string
+	BackendClientCredential         string
 }
 
 func (g *PrevMergedGateway) HasAutoPassthroughGateway() bool {
@@ -213,6 +216,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	gatewayNameForServer := make(map[*networking.Server]string)
 	gatewayNames := sets.New[string]()
 	verifiedCertificateReferences := sets.New[string]()
+	backendClientCredential := selectGatewayBackendClientCredential(gateways, proxy)
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
 	autoPassthrough := false
@@ -225,6 +229,25 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
 		log.Debugf("mergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
 		snames := sets.String{}
+
+		expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
+		expectedNS := ptr.NonEmptyOrDefault(gatewayConfig.Annotations[constants.InternalParentNamespace], gatewayConfig.Namespace)
+		identityVerified := proxy.VerifiedIdentity != nil &&
+			proxy.VerifiedIdentity.Namespace == expectedNS &&
+			(proxy.VerifiedIdentity.ServiceAccount == expectedSA || expectedSA == "")
+
+		if identityVerified && backendClientCredential != "" {
+			// Backend client identity belongs to the parent Gateway, not a ListenerSet.
+			parent, hasParent := kubernetesGatewayParent(gatewayConfig)
+			if hasParent && parent.Namespace == proxy.VerifiedIdentity.Namespace {
+				ref, err := credentials.ParseResourceName(backendClientCredential, parent.Namespace, "", "")
+				if err == nil && ref.ResourceType == credentials.KubernetesGatewaySecretType &&
+					(ref.Namespace == parent.Namespace || ps.SecretAllowed(gvk.KubernetesGateway, backendClientCredential, parent.Namespace)) {
+					verifiedCertificateReferences.Insert(backendClientCredential)
+				}
+			}
+		}
+
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
 				if snames.InsertContains(s.Name) {
@@ -242,12 +265,6 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			gatewayNameForServer[s] = gatewayName
 			gatewayNames.Insert(gatewayName)
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
-
-			expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
-			expectedNS := ptr.NonEmptyOrDefault(gatewayConfig.Annotations[constants.InternalParentNamespace], gatewayConfig.Namespace)
-			identityVerified := proxy.VerifiedIdentity != nil &&
-				proxy.VerifiedIdentity.Namespace == expectedNS &&
-				(proxy.VerifiedIdentity.ServiceAccount == expectedSA || expectedSA == "")
 
 			cns := s.GetTls().GetCredentialNames()
 			if len(cns) == 0 {
@@ -511,7 +528,37 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		AutoPassthroughSNIHosts:             autoPassthroughSNIHosts,
 		PortMap:                             getTargetPortMap(serversByRouteName),
 		VerifiedCertificateReferences:       verifiedCertificateReferences,
+		BackendClientCredential:             backendClientCredential,
 	}
+}
+
+func selectGatewayBackendClientCredential(gateways []gatewayWithInstances, proxy *Proxy) string {
+	if proxy.Type != Router {
+		return ""
+	}
+	var credential string
+	for _, gw := range gateways {
+		if gw.clientCertificateRef != "" {
+			credential = gw.clientCertificateRef
+			break
+		}
+	}
+	if credential == "" {
+		return ""
+	}
+
+	parent, hasParent := kubernetesGatewayParent(gateways[0].gateway)
+	// Check every selected config, including Gateways with no client credential.
+	// ListenerSet and listener-derived configs may share the same Kubernetes parent.
+	for _, gw := range gateways {
+		otherParent, ok := kubernetesGatewayParent(gw.gateway)
+		if !hasParent || !ok || otherParent != parent || gw.clientCertificateRef != credential {
+			log.Warnf("proxy %s: Gateway backend client certificates require a dedicated Kubernetes Gateway; "+
+				"use separate proxy deployments for different Gateways. Blocking SIMPLE TLS backend connections", proxy.ID)
+			return credentials.InvalidSecretTypeURI
+		}
+	}
+	return credential
 }
 
 func (g *MergedGateway) GetAutoPassthroughGatewaySNIHosts() sets.Set[string] {
