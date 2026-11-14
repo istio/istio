@@ -814,6 +814,11 @@ func TestManifestGeneratePilot(t *testing.T) {
 			fileSelect:  []string{"templates/networkpolicy.yaml"},
 			chartSource: liveCharts,
 		},
+		{
+			desc:        "pilot_cluster_trust_bundle",
+			diffSelect:  "Deployment:*:istiod,DaemonSet:*:ztunnel",
+			chartSource: liveCharts,
+		},
 	})
 }
 

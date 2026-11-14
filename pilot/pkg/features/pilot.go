@@ -319,6 +319,11 @@ var (
 	EnableClusterTrustBundles = env.Register("ENABLE_CLUSTER_TRUST_BUNDLE_API", false,
 		"If enabled, uses the ClusterTrustBundle API instead of ConfigMaps to store the root certificate in the cluster.").Get()
 
+	ClusterTrustBundleName = env.Register("PILOT_CLUSTER_TRUST_BUNDLE_NAME", "istio.io:istiod-ca:root-cert",
+		"The name of the ClusterTrustBundle resource that stores Istio's root certificate. "+
+			"Derived from global.trustBundleName and should not be set directly; it must match the name "+
+			"referenced by injected workloads.").Get()
+
 	// EnableAbsoluteFqdnVhostDomain controls whether the absolute FQDN (hostname followed by a dot,)
 	// e.g. my-service.my-ns.svc.cluster.local. / google.com. is added to the VirtualHost domains list.
 	// Setting this to false disables the addition.
