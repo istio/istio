@@ -28,11 +28,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 var fakeCACert = []byte("fake-CA-cert")
@@ -213,14 +216,38 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	testCases := map[string]map[string]string{
+	testCases := map[string]struct {
+		internalIP string
+		ingressIP  string
+		extraArgs  []string
+	}{
 		"ipv4": {
-			"internalIP": "10.10.10.10",
-			"ingressIP":  "10.10.10.11",
+			internalIP: "10.10.10.10",
+			ingressIP:  "10.10.10.11",
 		},
 		"ipv6": {
-			"internalIP": "fd00:10:96::1",
-			"ingressIP":  "fd00:10:96::2",
+			internalIP: "fd00:10:96::1",
+			ingressIP:  "fd00:10:96::2",
+		},
+		"overrides": {
+			internalIP: "10.10.10.10",
+			ingressIP:  "10.10.10.11",
+			extraArgs: []string{
+				// adds a field that is not in the generated mesh.yaml
+				"--overrideConfig", "defaultConfig.binaryPath=/usr/bin/envoy",
+				// adds a field that is not in the generated mesh.yaml and is not a string
+				"--overrideConfig", "defaultConfig.concurrency=4",
+				// overrides a proxy metadata entry inherited from the mesh config,
+				// which has to be reflected in cluster.env as well
+				"--overrideConfig", "defaultConfig.proxyMetadata.PROXY_CONFIG_XDS_AGENT=true",
+				// adds a proxy metadata entry that is in neither the generated mesh.yaml nor cluster.env,
+				// and whose value has to remain a string
+				"--overrideConfig", "defaultConfig.proxyMetadata.DNS_FORWARD_PARALLEL=true",
+				// overrides an entry that the command generates from the revision
+				"--overrideEnv", "CA_ADDR=istiod.istio-system.svc.test.com:443",
+				// overrides a generated entry with a value containing commas
+				"--overrideEnv", "ISTIO_LOCAL_EXCLUDE_PORTS=22,15090,15021,15020,9000",
+			},
 		},
 	}
 	for _, dir := range files {
@@ -257,15 +284,18 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 				}, metav1.CreateOptions{})
 			}
 
+			tc := testCases[dir.Name()]
+
 			cmdWithClusterID := []string{
 				"entry", "configure",
 				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
-				"--internalIP", testCases[dir.Name()]["internalIP"],
-				"--ingressIP", testCases[dir.Name()]["ingressIP"],
+				"--internalIP", tc.internalIP,
+				"--ingressIP", tc.ingressIP,
 				"--clusterID", constants.DefaultClusterName,
 				"--revision", "rev-1",
 				"-o", testdir,
 			}
+			cmdWithClusterID = append(cmdWithClusterID, tc.extraArgs...)
 			if _, err := runTestCmd(t, createClientFunc, "rev-1", cmdWithClusterID); err != nil {
 				t.Fatal(err)
 			}
@@ -273,10 +303,11 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 			cmdNoClusterID := []string{
 				"entry", "configure",
 				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
-				"--internalIP", testCases[dir.Name()]["internalIP"],
+				"--internalIP", tc.internalIP,
 				"--revision", "rev-1",
 				"-o", testdir,
 			}
+			cmdNoClusterID = append(cmdNoClusterID, tc.extraArgs...)
 			if output, err := runTestCmd(t, createClientFunc, "rev-1", cmdNoClusterID); err != nil {
 				if !strings.Contains(output, noClusterID) {
 					t.Fatal(err)
@@ -455,6 +486,218 @@ func TestConvertToMap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := convertToStringMap(tt.arg); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("convertToStringMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseEnvOverrides(t *testing.T) {
+	tests := []struct {
+		name      string
+		overrides []string
+		want      map[string]string
+		wantErr   string
+	}{
+		{
+			name:      "empty",
+			overrides: nil,
+			want:      map[string]string{},
+		},
+		{
+			name:      "multiple entries",
+			overrides: []string{"CA_ADDR=istiod.istio-system.svc.test.com:443", "ISTIO_SVC_IP=10.10.10.10"},
+			want: map[string]string{
+				"CA_ADDR":      "istiod.istio-system.svc.test.com:443",
+				"ISTIO_SVC_IP": "10.10.10.10",
+			},
+		},
+		{
+			name:      "value with commas is not split",
+			overrides: []string{"ISTIO_LOCAL_EXCLUDE_PORTS=22,15090"},
+			want:      map[string]string{"ISTIO_LOCAL_EXCLUDE_PORTS": "22,15090"},
+		},
+		{
+			name:      "empty value",
+			overrides: []string{"CA_ADDR="},
+			want:      map[string]string{"CA_ADDR": ""},
+		},
+		{
+			name:      "missing value",
+			overrides: []string{"CA_ADDR"},
+			wantErr:   "expected the <name>=<value> format",
+		},
+		{
+			name:      "missing name",
+			overrides: []string{"=foo"},
+			wantErr:   "is not a valid environment variable name",
+		},
+		{
+			name:      "invalid name",
+			overrides: []string{"CA ADDR=foo"},
+			wantErr:   "is not a valid environment variable name",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseEnvOverrides(tt.overrides)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("expected an error containing %q, but got: %v", tt.wantErr, err)
+				}
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, got, tt.want)
+		})
+	}
+}
+
+func TestApplyConfigOverrides(t *testing.T) {
+	tests := []struct {
+		name      string
+		overrides []string
+		want      string
+		wantErr   string
+	}{
+		{
+			name:      "set a string field",
+			overrides: []string{"defaultConfig.binaryPath=/usr/bin/envoy"},
+			want: `defaultConfig:
+  binaryPath: /usr/bin/envoy
+  concurrency: 2
+  proxyMetadata:
+    POD_NAMESPACE: bar
+`,
+		},
+		{
+			name:      "set an integer field",
+			overrides: []string{"defaultConfig.concurrency=4"},
+			want: `defaultConfig:
+  concurrency: 4
+  proxyMetadata:
+    POD_NAMESPACE: bar
+`,
+		},
+		{
+			name:      "proxy metadata values are kept as strings",
+			overrides: []string{"defaultConfig.proxyMetadata.ISTIO_META_DNS_CAPTURE=true", "defaultConfig.proxyMetadata.BOOTSTRAP_XDS_AGENT=15020"},
+			want: `defaultConfig:
+  concurrency: 2
+  proxyMetadata:
+    BOOTSTRAP_XDS_AGENT: "15020"
+    ISTIO_META_DNS_CAPTURE: "true"
+    POD_NAMESPACE: bar
+`,
+		},
+		{
+			name:      "set a field whose parents are not in the generated config",
+			overrides: []string{"defaultConfig.proxyHeaders.server.disabled=true"},
+			want: `defaultConfig:
+  concurrency: 2
+  proxyHeaders:
+    server:
+      disabled: true
+  proxyMetadata:
+    POD_NAMESPACE: bar
+`,
+		},
+		{
+			name:      "value with equal signs and commas",
+			overrides: []string{"defaultConfig.proxyMetadata.OTEL_RESOURCE_ATTRIBUTES=k8s.namespace.name=bar,k8s.pod.name=foo"},
+			want: `defaultConfig:
+  concurrency: 2
+  proxyMetadata:
+    OTEL_RESOURCE_ATTRIBUTES: k8s.namespace.name=bar,k8s.pod.name=foo
+    POD_NAMESPACE: bar
+`,
+		},
+		{
+			name:      "missing value",
+			overrides: []string{"defaultConfig.binaryPath"},
+			wantErr:   "expected the <path>=<value> format",
+		},
+		{
+			name:      "missing path",
+			overrides: []string{"=/usr/bin/envoy"},
+			wantErr:   "the path must not be empty",
+		},
+		{
+			name:      "path traversing a scalar value",
+			overrides: []string{"defaultConfig.concurrency.foo=1"},
+			wantErr:   "failed to apply --overrideConfig",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			meshConfig := values.Map{
+				"defaultConfig": map[string]any{
+					"concurrency":   2,
+					"proxyMetadata": map[string]any{"POD_NAMESPACE": "bar"},
+				},
+			}
+			parsed, err := parseConfigOverrides(tt.overrides)
+			if err == nil {
+				err = applyConfigOverrides(meshConfig, parsed)
+			}
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("expected an error containing %q, but got: %v", tt.wantErr, err)
+				}
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, meshConfig.YAML(), tt.want)
+			// the result must still be a valid mesh config
+			assert.NoError(t, protomarshal.ApplyJSONStrict(meshConfig.JSON(), &meshconfig.MeshConfig{}))
+		})
+	}
+}
+
+// TestWorkloadEntryConfigureInvalidOverrides verifies that invalid overrides are rejected
+// instead of being written to the generated files.
+func TestWorkloadEntryConfigureInvalidOverrides(t *testing.T) {
+	testdir := t.TempDir()
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr string
+	}{
+		{
+			name:    "unknown mesh config field",
+			args:    []string{"--overrideConfig", "defaultConfig.binarypath=/usr/bin/envoy"},
+			wantErr: `unknown field "binarypath"`,
+		},
+		{
+			name:    "malformed config override",
+			args:    []string{"--overrideConfig", "defaultConfig.binaryPath"},
+			wantErr: "expected the <path>=<value> format",
+		},
+		{
+			name:    "malformed env override",
+			args:    []string{"--overrideEnv", "CA_ADDR"},
+			wantErr: "expected the <name>=<value> format",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := append([]string{
+				"entry", "configure",
+				"-f", "testdata/vmconfig/ipv4/workloadgroup.yaml",
+				"--internalIP", "10.10.10.10",
+				"--clusterID", constants.DefaultClusterName,
+				"--revision", "rev-1",
+				"-o", testdir,
+			}, tt.args...)
+			_, err := runTestCmd(t, func(client kube.CLIClient) {
+				client.Kube().CoreV1().ConfigMaps("istio-system").Create(context.Background(), &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
+					Data: map[string]string{
+						"mesh": string(util.ReadFile(t, "testdata/vmconfig/ipv4/meshconfig.yaml")),
+					},
+				}, metav1.CreateOptions{})
+			}, "rev-1", args)
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected an error containing %q, but got: %v", tt.wantErr, err)
 			}
 		})
 	}

@@ -1,0 +1,8 @@
+defaultConfig:
+  proxyMetadata:
+    # should be overridden by the command
+    ISTIO_META_DNS_CAPTURE: "false"
+    # should be overridden by the annotation on the WorkloadGroup
+    ISTIO_META_CERT_SIGNER: "mesh-config-signer"
+    # should be overridden by --overrideConfig
+    PROXY_CONFIG_XDS_AGENT: "false"
