@@ -1728,7 +1728,7 @@ func TestL7JWT(t *testing.T) {
 					opt := opt.DeepCopy()
 					opt.HTTP.Path = "/"
 					opt.HTTP.Headers = headers.New().
-						WithAuthz(jwt.TokenExpired).
+						WithAuthz(jwt.TokenIssuer1Expired).
 						Build()
 					opt.Check = check.Status(http.StatusUnauthorized)
 					src.CallOrFail(t, opt)
