@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58514
+releaseNotes:
+- |
+  **Fixed** premature connection readiness during HBONE establishment that could
+  prevent configured `connect-failure` retries from handling connection refusals
+  during ambient workload rollouts. Set `ISTIO_META_ENABLE_HBONE_CONNECT_WAIT: "true"`
+  in `proxyMetadata` to delay application connection readiness until CONNECT acceptance.
+  This fix supports single HBONE on sidecars, waypoints, and ingress gateways, and
+  native double-HBONE origination on waypoints and ingress gateways.
+  CONNECT 4xx responses return the same status to HTTP clients without retries,
+  except CONNECT 401 returns 403 while retaining 401 in diagnostics.
