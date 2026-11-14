@@ -68,11 +68,15 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 			cb.proxyType, cb.proxyID, enableSelfDiscovery,
 		)
 		if opts.clusterMode != SniDnatClusterMode {
+			headlessHBONE := cb.shouldSendHeadlessHBONE(service, &opts, tls, proxyProtocol)
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 			tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
 				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 			cb.applyUpstreamProxyProtocol(&opts, proxyProtocol)
+			if headlessHBONE {
+				applyHeadlessHBONE(opts.mutable.cluster)
+			}
 		}
 	}
 
