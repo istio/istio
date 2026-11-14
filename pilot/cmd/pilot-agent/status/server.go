@@ -862,11 +862,15 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 // invariant the text path relies on, which keeps log analyzers and grafana dashboards
 // happy when format negotiation flips back and forth.
 //
-// Memory safety: each external upstream Reader (Envoy and single-target app) is wrapped
-// in a body-cap LimitReader bounded by s.maxAppBodyBytes. Reading past the cap is
-// detected (we read cap+1 bytes) and surfaced as a per-upstream drop, mirroring the
-// multi-target text path's pre-existing cap in scrapeMultipleApps. The agent path
-// reads directly from the in-process registry and needs no cap.
+// Memory safety: the single-target app Reader is wrapped in a body-cap LimitReader
+// bounded by s.maxAppBodyBytes. Reading past the cap is detected (we read cap+1 bytes)
+// and surfaced as a scrape error, mirroring the multi-target path's pre-existing cap in
+// scrapeMultipleApps. Envoy is not capped, matching the text fast path's uncapped
+// io.Copy: gateway-sized Envoy stats routinely exceed the app cap, and capping them here
+// would truncate Envoy metrics only for protobuf scrapers. Envoy is instead streamed one
+// MetricFamily at a time (see transcodeFamilies), so memory is bounded by the largest
+// family rather than the body. The agent path reads directly from the in-process
+// registry and needs no cap.
 //
 // appBodyFormats is the per-body negotiated format for the multi-target case; the
 // merger decodes each buffered body in its own format so a binary proto body and a
@@ -908,19 +912,17 @@ func (s *Server) writeMergedProtoPath(
 		counted := &countingReader{R: io.LimitReader(r, bodyCap+1)}
 		mfs, err := decodeAll(counted, format)
 		if counted.N > bodyCap {
-			return mfs, fmt.Errorf("upstream body exceeds %d bytes; dropping", s.maxAppBodyBytes)
+			return mfs, fmt.Errorf("upstream body exceeds %d bytes; truncated", s.maxAppBodyBytes)
 		}
 		return mfs, err
 	}
 
-	// Envoy first.
+	// Envoy first, streamed and uncapped (see the memory-safety note above).
 	if envoy != nil {
-		mfs, err := decodeCapped(envoy, envoyFormat)
-		if err != nil {
-			log.Errorf("failed decoding envoy metrics (format=%q): %v", envoyFormat, err)
+		if err := transcodeFamilies(enc, envoy, envoyFormat); err != nil {
+			log.Errorf("failed merging envoy metrics (format=%q): %v", envoyFormat, err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
-		encodeAll(mfs, "envoy", metrics.EnvoyScrapeErrors)
 	}
 
 	// Agent self-metrics: native MetricFamily values from the gatherer; no parse step.
@@ -1223,6 +1225,36 @@ func decodeAll(body io.Reader, format expfmt.Format) ([]*dto.MetricFamily, error
 			return mfs, err
 		}
 		mfs = append(mfs, &mf)
+	}
+}
+
+// transcodeFamilies decodes body as `format` and re-encodes each MetricFamily into enc
+// as soon as it is decoded, so a protobuf body is never held in memory as a whole.
+// Families decoded before an error are kept, matching decodeAll's partial-success
+// behavior. OpenMetrics bodies go through decodeAll (see its comment) and are therefore
+// buffered; the expfmt text decoder buffers internally as well.
+func transcodeFamilies(enc expfmt.Encoder, body io.Reader, format expfmt.Format) error {
+	if format.FormatType() == expfmt.TypeOpenMetrics {
+		mfs, err := decodeAll(body, format)
+		for _, mf := range mfs {
+			if encErr := enc.Encode(mf); encErr != nil {
+				return encErr
+			}
+		}
+		return err
+	}
+	dec := expfmt.NewDecoder(body, format)
+	for {
+		var mf dto.MetricFamily
+		if err := dec.Decode(&mf); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+		if err := enc.Encode(&mf); err != nil {
+			return err
+		}
 	}
 }
 
