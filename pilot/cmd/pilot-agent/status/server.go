@@ -172,6 +172,10 @@ type Server struct {
 	// and incremented on AppScrapeErrors. Defaults to defaultMaxAppMetricsBodyBytes;
 	// tests may override via the struct literal.
 	maxAppBodyBytes int
+
+	// appScrapeLogTimes tracks the last failure log per application target.
+	// It is protected by mutex because Prometheus scrapes may overlap.
+	appScrapeLogTimes map[ScrapeTarget]time.Time
 }
 
 const defaultMaxAppMetricsBodyBytes = 10 * 1024 * 1024 // 10 MiB
@@ -694,9 +698,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		} else {
 			var contentType string
 			if application, appCancel, contentType, err = s.scrape(appMetricsURL(s.prometheus.Port, s.prometheus.Path), r.Header); err != nil {
-				log.Errorf("failed scraping application metrics: %v", err)
+				if s.shouldLogAppScrapeFailure(ScrapeTarget{Port: s.prometheus.Port, Path: s.prometheus.Path}, true) {
+					log.Errorf("failed scraping application metrics: %v", err)
+				}
 				metrics.AppScrapeErrors.Increment()
 			} else {
+				s.shouldLogAppScrapeFailure(ScrapeTarget{Port: s.prometheus.Port, Path: s.prometheus.Path}, false)
 				appFormat = negotiateMetricsFormat(contentType)
 			}
 		}
@@ -1010,11 +1017,15 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte, [
 			// Path is %q-quoted to neutralize CWE-117 log injection via newline-containing
 			// annotation values (the path comes from prometheus.istio.io/scrape-targets).
 			failErr := func(format string, args ...any) {
-				log.Errorf("scrape target %q:%q: "+format, append([]any{tgt.Port, tgt.Path}, args...)...)
+				if s.shouldLogAppScrapeFailure(tgt, true) {
+					log.Errorf("scrape target %q:%q: "+format, append([]any{tgt.Port, tgt.Path}, args...)...)
+				}
 				metrics.AppScrapeErrors.Increment()
 			}
 			failWarn := func(format string, args ...any) {
-				log.Warnf("scrape target %q:%q: "+format, append([]any{tgt.Port, tgt.Path}, args...)...)
+				if s.shouldLogAppScrapeFailure(tgt, true) {
+					log.Warnf("scrape target %q:%q: "+format, append([]any{tgt.Port, tgt.Path}, args...)...)
+				}
 				metrics.AppScrapeErrors.Increment()
 			}
 			body, cancel, contentType, err := s.scrape(appMetricsURL(tgt.Port, tgt.Path), r.Header)
@@ -1038,6 +1049,7 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte, [
 				failWarn("response exceeds %d bytes; dropping target", s.maxAppBodyBytes)
 				return
 			}
+			s.shouldLogAppScrapeFailure(tgt, false)
 			bodies[idx] = buf.Bytes()
 			contentTypes[idx] = contentType
 		}(i, t)
@@ -1071,6 +1083,28 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte, [
 		format = FmtText
 	}
 	return format, bodies, bodyFormats
+}
+
+// shouldLogAppScrapeFailure allows the first failure log after recovery, then at most
+// once every five minutes per target. Scraping and failure counters are unaffected.
+// Application probe results are not cached here; lastProbeSuccessful describes
+// Envoy readiness and must not be used to infer application health.
+func (s *Server) shouldLogAppScrapeFailure(target ScrapeTarget, failed bool) bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if !failed {
+		delete(s.appScrapeLogTimes, target)
+		return false
+	}
+	now := time.Now()
+	if last, ok := s.appScrapeLogTimes[target]; ok && now.Sub(last) < 5*time.Minute {
+		return false
+	}
+	if s.appScrapeLogTimes == nil {
+		s.appScrapeLogTimes = make(map[ScrapeTarget]time.Time)
+	}
+	s.appScrapeLogTimes[target] = now
+	return true
 }
 
 func appMetricsURL(port, path string) string {
