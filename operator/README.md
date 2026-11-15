@@ -25,7 +25,7 @@ K8s settings like resources, auto scaling, pod disruption budgets and others def
 [KubernetesResourceSpec](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto#L217-L271)
 for Istio core and addon components.
 - The legacy
-[Helm installation API](https://github.com/istio/istio/blob/master/operator/pkg/apis/istio/v1alpha1/values_types.proto) for backwards
+[Helm installation API](pkg/apis/values_types.proto) for backwards
 compatibility.
 
 Some parameters will temporarily exist both the component configuration and legacy Helm APIs - for example, K8s
