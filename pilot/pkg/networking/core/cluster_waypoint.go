@@ -547,6 +547,16 @@ func (cb *ClusterBuilder) getHBONEIdleTimeout() *durationpb.Duration {
 	return durationpb.New(3600 * time.Second)
 }
 
+// hboneConnectionKeepalive makes Envoy send HTTP/2 PINGs on outbound HBONE connections, so a
+// peer that disappeared without a FIN/RST is detected even while traffic keeps flowing.
+// Values match ztunnel and the waypoint's inbound listener.
+func hboneConnectionKeepalive() *core.KeepaliveSettings {
+	return &core.KeepaliveSettings{
+		Interval: durationpb.New(h2KeepaliveInterval),
+		Timeout:  durationpb.New(h2KeepaliveTimeout),
+	}
+}
+
 func (cb *ClusterBuilder) h2connectUpgrade() map[string]*anypb.Any {
 	return map[string]*anypb.Any{
 		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
@@ -557,6 +567,7 @@ func (cb *ClusterBuilder) h2connectUpgrade() map[string]*anypb.Any {
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{
 						AllowConnect:                true,
+						ConnectionKeepalive:         hboneConnectionKeepalive(),
 						InitialStreamWindowSize:     features.HBONEInitialStreamWindowSize,
 						InitialConnectionWindowSize: features.HBONEInitialConnectionWindowSize,
 					},
@@ -586,6 +597,7 @@ func (cb *ClusterBuilder) h2connectUpgradeWithNoPooling() map[string]*anypb.Any 
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{
 						AllowConnect:                true,
+						ConnectionKeepalive:         hboneConnectionKeepalive(),
 						InitialStreamWindowSize:     features.HBONEInitialStreamWindowSize,
 						InitialConnectionWindowSize: features.HBONEInitialConnectionWindowSize,
 					},
