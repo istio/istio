@@ -786,6 +786,20 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		// istiod picks TLS routes for each port on its own, so an exact-host match on one port does not hide
+		// ignored matches on another port.
+		name: "wildcardSNIWaypointPerPort",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-waypoint-ports.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb-p/split-ports"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb-p/any-port-narrow"},
+		},
+	},
+	{
 		// serviceEntryVisibility may refuse cross-namespace waypoints, so only same-namespace ones are checked.
 		name:           "wildcardSNIWaypointServiceEntryVisibility",
 		meshConfigFile: "testdata/wildcard-sni-mesh-se-visibility.yaml",
@@ -1640,4 +1654,60 @@ func prettyPrintMessages(msgs diag.Messages) string {
 		fmt.Fprintf(&sb, "\t%s\n", m.String())
 	}
 	return sb.String()
+}
+
+// TestWaypointWildcardSNIIgnoredPorts checks that IST0180 names the ports where the waypoint ignores the rule, since
+// istiod picks TLS routes for each port on its own.
+func TestWaypointWildcardSNIIgnoredPorts(t *testing.T) {
+	cases := []struct {
+		name       string
+		inputFiles []string
+		want       map[string]string
+	}{
+		{
+			name:       "VirtualService",
+			inputFiles: []string{"testdata/wildcard-sni-istiod-on.yaml", "testdata/wildcard-sni-waypoint-ports.yaml"},
+			want: map[string]string{
+				"VirtualService amb-p/split-ports":     "ignores TLS rule 0 on ports [8443].",
+				"VirtualService amb-p/any-port-narrow": "ignores TLS rule 0 on ports [8443].",
+			},
+		},
+		{
+			name:       "TLSRoute",
+			inputFiles: []string{"testdata/wildcard-sni-istiod-on.yaml", "testdata/wildcard-sni-tlsroute-waypoint.yaml"},
+			want: map[string]string{
+				"TLSRoute amb-t/w-narrow": "on ports [443].",
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sa, err := setupAnalyzerForCase(testCase{
+				name:       tc.name,
+				inputFiles: tc.inputFiles,
+				analyzer:   &virtualservice.WildcardSNIWaypointAnalyzer{},
+			}, func(config.GroupVersionKind) {})
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := runAnalyzer(sa)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for origin, want := range tc.want {
+				found := false
+				for _, m := range result.Messages {
+					if m.Resource != nil && m.Resource.Origin.FriendlyName() == origin {
+						found = true
+						if !strings.Contains(m.String(), want) {
+							t.Errorf("%s: message %q does not contain %q", origin, m.String(), want)
+						}
+					}
+				}
+				if !found {
+					t.Errorf("%s: no message", origin)
+				}
+			}
+		})
+	}
 }

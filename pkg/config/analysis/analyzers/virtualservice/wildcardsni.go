@@ -212,18 +212,19 @@ func (a *WildcardSNIWaypointAnalyzer) Analyze(c analysis.Context) {
 					}) {
 					continue
 				}
-				// listener_waypoint.go, getTLSRouteMatch: the waypoint uses the whole rule when one match that applies has
-				// sniHosts == [<ServiceEntry host>]; otherwise every match of the rule is ignored.
+				// listener_waypoint.go, getTLSRouteMatch: for each port, the waypoint uses the whole rule when one match
+				// that applies on that port has sniHosts == [<ServiceEntry host>]; otherwise every match of the rule is
+				// ignored on that port. istiod picks routes for each port on its own, so track the used ports.
 				var ignored []int
-				used := false
+				usedPorts := sets.New[uint32]()
 				for j, match := range tls.Match {
 					if (len(match.Gateways) > 0 && !slices.Contains(match.Gateways, util.MeshGateway)) ||
 						(match.Port != 0 && !s.tlsPorts.Contains(match.Port)) {
 						continue
 					}
 					if len(match.SniHosts) == 1 && match.SniHosts[0] == s.host {
-						used = true
-						break
+						usedPorts.Merge(s.matchPorts(match))
+						continue
 					}
 					// SNI hosts with their own ServiceEntry go to that service, not through the wildcard one.
 					if len(match.SniHosts) > 0 && !slices.ContainsFunc(match.SniHosts, func(h string) bool { return len(serviceEntries.byHost[h]) == 0 }) {
@@ -231,11 +232,14 @@ func (a *WildcardSNIWaypointAnalyzer) Analyze(c analysis.Context) {
 					}
 					ignored = append(ignored, j)
 				}
-				if used {
-					continue
-				}
 				for _, j := range ignored {
-					m := msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, s.host, fmt.Sprint(tls.Match[j].SniHosts))
+					// Only the ports where no exact-host match makes the waypoint use the rule.
+					ports := s.matchPorts(tls.Match[j]).Difference(usedPorts)
+					if ports.IsEmpty() {
+						continue
+					}
+					m := msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, portList(ports), s.host,
+						fmt.Sprint(tls.Match[j].SniHosts))
 					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSTLSMatchSNIHost, i, j)); ok {
 						m.Line = line
 					}
@@ -245,6 +249,19 @@ func (a *WildcardSNIWaypointAnalyzer) Analyze(c analysis.Context) {
 		}
 		return true
 	})
+}
+
+// matchPorts returns the ServiceEntry TLS ports a match applies to: its own port, or every TLS port when it sets none.
+func (s waypointServiceEntry) matchPorts(match *v1alpha3.TLSMatchAttributes) sets.Set[uint32] {
+	if match.Port != 0 {
+		return sets.New(match.Port)
+	}
+	return s.tlsPorts
+}
+
+// portList formats ports in ascending order, like [443 8443].
+func portList(ports sets.Set[uint32]) string {
+	return fmt.Sprint(sets.SortedList(ports))
 }
 
 // istiodFlags holds the istiod settings that change what these analyzers expect.
@@ -826,8 +843,12 @@ func analyzeWaypointTLSRoutes(c analysis.Context, bound map[string][]waypointSer
 				if s.r.Metadata.FullName.Namespace.String() != seNs || string(s.r.Metadata.FullName.Name) != string(ref.Name) {
 					continue
 				}
-				if ref.Port != nil && !s.tlsPorts.Contains(uint32(*ref.Port)) {
-					continue
+				ports := s.tlsPorts
+				if ref.Port != nil {
+					if !s.tlsPorts.Contains(uint32(*ref.Port)) {
+						continue
+					}
+					ports = sets.New(uint32(*ref.Port))
 				}
 				if len(route.Hostnames) == 0 {
 					// istiod replaces "*" with the ServiceEntry hosts (augmentTLSPortMatch), so the waypoint uses the rule.
@@ -845,7 +866,8 @@ func analyzeWaypointTLSRoutes(c analysis.Context, bound map[string][]waypointSer
 					if !slices.ContainsFunc(rule.BackendRefs, func(b gatewayv1.BackendRef) bool { return b.Weight == nil || *b.Weight != 0 }) {
 						continue
 					}
-					c.Report(gvk.TLSRoute, msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, s.host, fmt.Sprint(sniHosts)))
+					c.Report(gvk.TLSRoute, msg.NewWaypointWildcardSNIMatchIgnored(r, s.r.Metadata.FullName.String(), i, portList(ports), s.host,
+						fmt.Sprint(sniHosts)))
 				}
 			}
 		}

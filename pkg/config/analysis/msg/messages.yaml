@@ -765,12 +765,14 @@ messages:
     code: IST0180
     level: Warning
     description: "A waypoint ignores a TLS route for a wildcard DYNAMIC_DNS ServiceEntry unless its SNI hosts are exactly the ServiceEntry host."
-    template: "The waypoint for ServiceEntry %s ignores TLS rule %d. A waypoint applies a rule to all of %s or to none, and this rule covers only %s. To route only these hosts, give them their own ServiceEntry."
+    template: "The waypoint for ServiceEntry %s ignores TLS rule %d on ports %s. On each port, a waypoint applies a rule to all of %s or to none, and this rule covers only %s. To route only these hosts, give them their own ServiceEntry."
     args:
       - name: serviceEntry
         type: string
       - name: rule
         type: int
+      - name: ports
+        type: string
       - name: host
         type: string
       - name: sniHosts

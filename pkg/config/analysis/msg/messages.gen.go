@@ -290,7 +290,7 @@ var (
 
 	// WaypointWildcardSNIMatchIgnored defines a diag.MessageType for message "WaypointWildcardSNIMatchIgnored".
 	// Description: A waypoint ignores a TLS route for a wildcard DYNAMIC_DNS ServiceEntry unless its SNI hosts are exactly the ServiceEntry host.
-	WaypointWildcardSNIMatchIgnored = diag.NewMessageType(diag.Warning, "IST0180", "The waypoint for ServiceEntry %s ignores TLS rule %d. A waypoint applies a rule to all of %s or to none, and this rule covers only %s. To route only these hosts, give them their own ServiceEntry.")
+	WaypointWildcardSNIMatchIgnored = diag.NewMessageType(diag.Warning, "IST0180", "The waypoint for ServiceEntry %s ignores TLS rule %d on ports %s. On each port, a waypoint applies a rule to all of %s or to none, and this rule covers only %s. To route only these hosts, give them their own ServiceEntry.")
 )
 
 // All returns a list of all known message types.
@@ -1063,12 +1063,13 @@ func NewGatewayWildcardSNIHostsNotUnderHost(r *resource.Instance, gateway string
 }
 
 // NewWaypointWildcardSNIMatchIgnored returns a new diag.Message based on WaypointWildcardSNIMatchIgnored.
-func NewWaypointWildcardSNIMatchIgnored(r *resource.Instance, serviceEntry string, rule int, host string, sniHosts string) diag.Message {
+func NewWaypointWildcardSNIMatchIgnored(r *resource.Instance, serviceEntry string, rule int, ports string, host string, sniHosts string) diag.Message {
 	return diag.NewMessage(
 		WaypointWildcardSNIMatchIgnored,
 		r,
 		serviceEntry,
 		rule,
+		ports,
 		host,
 		sniHosts,
 	)
