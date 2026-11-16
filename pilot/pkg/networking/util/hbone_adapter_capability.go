@@ -21,7 +21,7 @@ import (
 )
 
 // Proxy extensions HBONE CONNECT wait requires.
-var HBONEConnectWaitExtensions = sets.New(HBONEOriginationAdapterTransport, HBONERejectionPool)
+var HBONEConnectWaitExtensions = sets.New(HBONEOriginationAdapterTransport, HBONEConnectWaitPool)
 
 func NodeSupportsHBONEConnectWait(node *core.Node) bool {
 	foundExtensions := sets.New[string]()

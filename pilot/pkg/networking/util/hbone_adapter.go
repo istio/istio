@@ -25,13 +25,13 @@ import (
 )
 
 const (
-	HBONERejectionPool                        = "envoy.upstreams.istio_hbone"
-	HBONERejectionPoolType                    = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.ConnectionPoolConfig"
-	HBONEOuterOriginationAdapterListener      = "outer_connect_originate_hbone_adapter"
-	HBONEOriginationAdapterListener           = "connect_originate_hbone_adapter"
-	HBONEInnerOriginationAdapterListener      = "inner_connect_originate_hbone_adapter"
-	HBONEOriginationAdapterTransport          = "envoy.transport_sockets.istio_hbone"
-	HBONEOriginationAdapterUpstreamConfigType = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.UpstreamConfig"
+	HBONEConnectWaitPool                   = "envoy.upstreams.istio_hbone"
+	HBONEConnectWaitPoolTypeURL            = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.ConnectionPoolConfig"
+	HBONEOuterOriginationAdapterListener   = "outer_connect_originate_hbone_adapter"
+	HBONEOriginationAdapterListener        = "connect_originate_hbone_adapter"
+	HBONEInnerOriginationAdapterListener   = "inner_connect_originate_hbone_adapter"
+	HBONEOriginationAdapterTransport       = "envoy.transport_sockets.istio_hbone"
+	HBONEConnectWaitTransportSocketTypeURL = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.UpstreamConfig"
 )
 
 // HBONEConnectWaitEnabled opts a proxy into the complete HBONE CONNECT wait configuration.
@@ -83,7 +83,7 @@ func HBONEOriginationAdapterTransportSocket(metadata []*internalupstream.Interna
 	return &core.TransportSocket{
 		Name: HBONEOriginationAdapterTransport,
 		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.TypedStructWithFields(
-			HBONEOriginationAdapterUpstreamConfigType, map[string]any{"passthrough_metadata": passthrough},
+			HBONEConnectWaitTransportSocketTypeURL, map[string]any{"passthrough_metadata": passthrough},
 		)},
 	}
 }

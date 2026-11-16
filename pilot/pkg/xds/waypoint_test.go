@@ -327,7 +327,7 @@ func TestHBONEConnectWaitWaypointEndpoints(t *testing.T) {
 					if c == nil {
 						t.Fatal("missing service cluster")
 					}
-					assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, enabled)
+					assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONEConnectWaitPool, enabled)
 					listenerName := "connect_originate"
 					if enabled {
 						listenerName = util.HBONEOriginationAdapterListener
@@ -713,7 +713,7 @@ func TestIngressUseWaypoint(t *testing.T) {
 				}
 			}
 			assert.Equal(t, found, true)
-			assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, adapter)
+			assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONEConnectWaitPool, adapter)
 			assert.Equal(t, c.LoadBalancingPolicy == nil, true)
 			listeners := d.Listeners(ingressProxy)
 			assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationAdapterListener, listeners) != nil, adapter)

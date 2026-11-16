@@ -35,7 +35,7 @@ func TestInitProxyMetadataGatesHBONEConnectWait(t *testing.T) {
 		{name: "flag set, extensions reported", flag: true, extensions: util.HBONEConnectWaitExtensions.UnsortedList(), want: true},
 		{name: "flag set, no extensions", flag: true},
 		{name: "flag set, transport only", flag: true, extensions: []string{util.HBONEOriginationAdapterTransport}},
-		{name: "flag set, pool only", flag: true, extensions: []string{util.HBONERejectionPool}},
+		{name: "flag set, pool only", flag: true, extensions: []string{util.HBONEConnectWaitPool}},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
