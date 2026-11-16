@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
@@ -189,7 +190,7 @@ outboundTrafficPolicy:
 				Service:   "external-tls",
 				Namespace: externalNS,
 				Subsets: []echo.SubsetConfig{{
-					Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+					Labels: map[string]string{label.SidecarInject.Name: "false"},
 				}},
 				Ports: []echo.Port{
 					{

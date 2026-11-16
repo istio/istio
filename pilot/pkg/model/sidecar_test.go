@@ -1978,11 +1978,19 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 		},
 		{
-			"virtual-service-destinations-matching-ports",
+			"virtual-service-destinations-with-unspecified-ports",
 			configs15,
 			services17,
 			virtualServices1,
 			[]*Service{
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7442,
+					Attributes: ServiceAttributes{
+						Name:      "baz",
+						Namespace: "ns3",
+					},
+				},
 				{
 					Hostname: "foo.svc.cluster.local",
 					Ports:    port7443,

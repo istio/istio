@@ -177,7 +177,7 @@ func ApplyRetries(rule *gatewayv1.HTTPRouteRule, route *api.Route) error {
 		}
 	}
 	if rule.Retry.Attempts != nil {
-		tpRetry.Attempts = int32(*rule.Retry.Attempts) //nolint:gosec // G115: kubebuilder validation ensures 0 <= value, safe for int32
+		tpRetry.Attempts = ptr.Of(int32(*rule.Retry.Attempts)) //nolint:gosec // G115: kubebuilder validation ensures 0 <= value, safe for int32
 	}
 	route.TrafficPolicies = append(route.TrafficPolicies, &api.TrafficPolicySpec{
 		Kind: &api.TrafficPolicySpec_Retry{

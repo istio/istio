@@ -25,10 +25,10 @@ spec:
     kind: Service
     name: echo
   sessionPersistence:
-    sessionName: foo
     absoluteTimeout: 1h
     type: Cookie
-    cookieConfig:
+    cookie:
+      name: foo
       lifetimeType: Permanent
 ---
 # Active sibling targeting the same Service. Should translate to a

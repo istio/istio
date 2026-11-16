@@ -3108,6 +3108,35 @@ func TestMatchServiceScope(t *testing.T) {
 			svc:  svcLocalLabel,
 			want: model.Local,
 		},
+		{
+			name: "kubernetes.default is always local",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: metav1.NamespaceDefault,
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubernetes",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeClusterIP,
+				},
+			},
+			want: model.Local,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -19,7 +19,7 @@ package security
 import (
 	"testing"
 
-	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
@@ -66,13 +66,13 @@ func TestReachability(t *testing.T) {
 				Subsets: []echo.SubsetConfig{
 					{
 						// Istio deployment, with sidecar.
-						Version:     migrationVersionIstio,
-						Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
+						Version: migrationVersionIstio,
+						Labels:  map[string]string{label.SidecarInject.Name: "true"},
 					},
 					{
 						// Legacy (non-Istio) deployment subset, does not have sidecar injected.
-						Version:     migrationVersionNonIstio,
-						Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+						Version: migrationVersionNonIstio,
+						Labels:  map[string]string{label.SidecarInject.Name: "false"},
 					},
 				},
 			}).BuildOrFail(t)

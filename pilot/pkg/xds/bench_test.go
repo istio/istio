@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
@@ -197,6 +198,105 @@ func BenchmarkRouteGeneration(b *testing.B) {
 	runBenchmark(b, v3.RouteType, testCases)
 }
 
+// BenchmarkDeltaRouteGeneration measures the cost of computing a Delta RDS update against the cost
+// of a full RDS rebuild, across both proxy shapes that can have multiple RouteConfigurations (Sidecar
+// egress listeners and Gateway servers), a range of listener/route counts, and a range of how much of
+// the config update actually affects routes (a single route, half of them, or all of them). Each
+// fixture config has a 1:1 mapping between VirtualService and RouteConfiguration, so updating N
+// VirtualServices should affect exactly N of the `routes` watched RouteConfigurations.
+func BenchmarkDeltaRouteGeneration(b *testing.B) {
+	configureBenchmark(b)
+
+	routeCounts := []int{1, 5, 20, 100, 500}
+	affectedFractions := []struct {
+		name string
+		frac func(routes int) int
+	}{
+		{"1", func(routes int) int { return 1 }},
+		{"half", func(routes int) int { return max(1, routes/2) }},
+		{"all", func(routes int) int { return routes }},
+	}
+	proxyShapes := []struct {
+		name          string
+		createConfigs func(routes int) []config.Config
+		newProxy      func() *model.Proxy
+	}{
+		{
+			name:          "Sidecar",
+			createConfigs: createDeltaRDSBenchmarkConfig,
+			newProxy: func() *model.Proxy {
+				return &model.Proxy{
+					Type:            model.SidecarProxy,
+					IPAddresses:     []string{"1.1.1.1"},
+					ID:              "delta-rds.default",
+					ConfigNamespace: "default",
+					Metadata:        &model.NodeMetadata{},
+				}
+			},
+		},
+		{
+			name:          "Gateway",
+			createConfigs: createDeltaGatewayRDSBenchmarkConfig,
+			newProxy: func() *model.Proxy {
+				gatewayLabels := map[string]string{"istio": "ingressgateway"}
+				return &model.Proxy{
+					Type:            model.Router,
+					IPAddresses:     []string{"1.1.1.1"},
+					ID:              "delta-rds-gw.default",
+					ConfigNamespace: "default",
+					Labels:          gatewayLabels,
+					Metadata:        &model.NodeMetadata{Labels: gatewayLabels},
+				}
+			},
+		},
+	}
+
+	for _, shape := range proxyShapes {
+		for _, routes := range routeCounts {
+			for _, af := range affectedFractions {
+				affected := af.frac(routes)
+				cfgsUpdated := sets.New[model.ConfigKey]()
+				for i := 0; i < affected; i++ {
+					cfgsUpdated.Insert(model.ConfigKey{Kind: kind.VirtualService, Name: fmt.Sprintf("vs-%d", i), Namespace: "default"})
+				}
+
+				for _, delta := range []bool{true, false} {
+					deltaLabel := "off"
+					if delta {
+						deltaLabel = "on"
+					}
+					name := fmt.Sprintf("%s/routes=%d/affected=%s/delta=%s", shape.name, routes, af.name, deltaLabel)
+					b.Run(name, func(b *testing.B) {
+						test.SetForTest(b, &features.EnableDeltaRDS, delta)
+						s := xds.NewFakeDiscoveryServer(b, xds.FakeOptions{Configs: shape.createConfigs(routes)})
+						proxy := shape.newProxy()
+						proxy.DiscoverIPMode()
+						initPushContext(s.Env(), proxy)
+						watched := getWatchedResources(v3.RouteType, ConfigInput{}, s, proxy)
+						gen, ok := s.Discovery.Generators[v3.RouteType].(model.XdsDeltaResourceGenerator)
+						if !ok {
+							b.Fatal("RDS generator does not implement delta generation")
+						}
+						req := &model.PushRequest{Push: s.PushContext(), ConfigsUpdated: cfgsUpdated}
+
+						var resources model.Resources
+						b.ReportAllocs()
+						b.ResetTimer()
+						for range b.N {
+							var err error
+							resources, _, _, _, err = gen.GenerateDeltas(proxy, req, watched)
+							if err != nil {
+								b.Fatal(err)
+							}
+						}
+						logDebug(b, resources)
+					})
+				}
+			}
+		}
+	}
+}
+
 // BenchmarkRouteGenerationSharedMetadata measures cold route generation for a gateway VirtualService whose
 // matches expand into many routes, isolating the allocation savings from sharing route metadata
 // (RouteOptions.ConfigMetadata) across every route generated from the same VirtualService instead of
@@ -293,6 +393,49 @@ func BenchmarkListenerGeneration(b *testing.B) {
 
 func TestListenerGeneration(t *testing.T) {
 	testBenchmark(t, v3.ListenerType, testCases)
+}
+
+// BenchmarkGatewayWildcardTLS measures a gateway with one ISTIO_MUTUAL server per wildcard DYNAMIC_DNS host: a delta
+// CDS push for a ServiceEntry no gateway route uses, and a full LDS generation.
+func BenchmarkGatewayWildcardTLS(b *testing.B) {
+	configureBenchmark(b)
+	unrelated := sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "unrelated.example", Namespace: "default"})
+	for _, enabled := range []bool{false, true} {
+		for _, servers := range []int{10, 100, 1000} {
+			name := fmt.Sprintf("flag=%v/servers=%d", enabled, servers)
+			tt := ConfigInput{Name: "gateway-wildcard-tls", Services: servers, ProxyType: model.Router}
+			b.Run("cds-delta/"+name, func(b *testing.B) {
+				test.SetForTest(b, &features.EnableWildcardHostServiceEntriesForTLS, enabled)
+				s, proxy := setupAndInitializeTest(b, tt)
+				gen := s.Discovery.Generators[v3.ClusterType].(model.XdsDeltaResourceGenerator)
+				full, _, _ := gen.Generate(proxy, nil, &model.PushRequest{Push: s.PushContext(), Forced: true})
+				w := &model.WatchedResource{
+					TypeUrl:       v3.ClusterType,
+					ResourceNames: sets.New(slices.Map(full, func(r *discovery.Resource) string { return r.Name })...),
+				}
+				req := &model.PushRequest{Push: s.PushContext(), ConfigsUpdated: unrelated}
+				b.ReportMetric(float64(len(full)), "clusters")
+				b.ResetTimer()
+				for range b.N {
+					if _, _, _, usedDelta, err := gen.GenerateDeltas(proxy, req, w); err != nil || !usedDelta {
+						b.Fatalf("delta CDS not used: %v", err)
+					}
+				}
+			})
+			b.Run("lds/"+name, func(b *testing.B) {
+				test.SetForTest(b, &features.EnableWildcardHostServiceEntriesForTLS, enabled)
+				s, proxy := setupAndInitializeTest(b, tt)
+				gen := s.Discovery.Generators[v3.ListenerType]
+				pr := &model.PushRequest{Push: s.PushContext(), Forced: true}
+				b.ResetTimer()
+				for range b.N {
+					if l, _, _ := gen.Generate(proxy, nil, pr); len(l) == 0 {
+						b.Fatal("no listeners")
+					}
+				}
+			})
+		}
+	}
 }
 
 // NDS isn't really impacted by anything beyond number of services, so just run these separately
@@ -750,6 +893,86 @@ func createEndpointsConfig(numEndpoints, numServices, numNetworks int) []config.
 			},
 		})
 	return result
+}
+
+func createDeltaRDSBenchmarkConfig(routes int) []config.Config {
+	configs := make([]config.Config, 0, 1+2*routes)
+	egress := make([]*networking.IstioEgressListener, 0, routes)
+	for i := 0; i < routes; i++ {
+		hostname := fmt.Sprintf("svc-%d.default.svc.cluster.local", i)
+		port := 10000 + i
+		egress = append(egress, &networking.IstioEgressListener{
+			Port:  &networking.SidecarPort{Number: uint32(port), Name: fmt.Sprintf("http-%d", i), Protocol: "HTTP"},
+			Hosts: []string{"default/" + hostname},
+		})
+		configs = append(configs,
+			config.Config{
+				Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Name: fmt.Sprintf("svc-%d", i), Namespace: "default"},
+				Spec: &networking.ServiceEntry{
+					Hosts:      []string{hostname},
+					Ports:      []*networking.ServicePort{{Number: uint32(port), Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			config.Config{
+				Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: fmt.Sprintf("vs-%d", i), Namespace: "default"},
+				Spec: &networking.VirtualService{
+					Hosts: []string{hostname},
+					Http: []*networking.HTTPRoute{{Route: []*networking.HTTPRouteDestination{{
+						Destination: &networking.Destination{Host: hostname},
+					}}}},
+				},
+			},
+		)
+	}
+	configs = append(configs, config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Name: "benchmark", Namespace: "default"},
+		Spec: &networking.Sidecar{Egress: egress},
+	})
+	return configs
+}
+
+// createDeltaGatewayRDSBenchmarkConfig is the gateway-proxy analog of createDeltaRDSBenchmarkConfig:
+// it creates `routes` independent Gateway+VirtualService+ServiceEntry triples, each with its own
+// port, so a single Gateway/VirtualService/ServiceEntry update should affect exactly one route.
+func createDeltaGatewayRDSBenchmarkConfig(routes int) []config.Config {
+	configs := make([]config.Config, 0, 3*routes)
+	for i := 0; i < routes; i++ {
+		hostname := fmt.Sprintf("svc-%d.default.svc.cluster.local", i)
+		gatewayName := fmt.Sprintf("gw-%d", i)
+		port := 10000 + i
+		configs = append(configs,
+			config.Config{
+				Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Name: fmt.Sprintf("svc-%d", i), Namespace: "default"},
+				Spec: &networking.ServiceEntry{
+					Hosts:      []string{hostname},
+					Ports:      []*networking.ServicePort{{Number: uint32(port), Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			config.Config{
+				Meta: config.Meta{GroupVersionKind: gvk.Gateway, Name: gatewayName, Namespace: "default"},
+				Spec: &networking.Gateway{
+					Selector: map[string]string{"istio": "ingressgateway"},
+					Servers: []*networking.Server{{
+						Hosts: []string{hostname},
+						Port:  &networking.Port{Number: uint32(port), Name: fmt.Sprintf("http-%d", i), Protocol: "HTTP"},
+					}},
+				},
+			},
+			config.Config{
+				Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: fmt.Sprintf("vs-%d", i), Namespace: "default"},
+				Spec: &networking.VirtualService{
+					Hosts:    []string{hostname},
+					Gateways: []string{gatewayName},
+					Http: []*networking.HTTPRoute{{Route: []*networking.HTTPRouteDestination{{
+						Destination: &networking.Destination{Host: hostname},
+					}}}},
+				},
+			},
+		)
+	}
+	return configs
 }
 
 func makeCacheKey(n int) model.XdsCacheEntry {

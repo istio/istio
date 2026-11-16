@@ -23,6 +23,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
@@ -162,4 +163,66 @@ func TestWaypointInteropCanary(t *testing.T) {
 		map[string]string{annotation.IoIstioUseWaypointCanaryWeight.Name: "50"},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.2")
 	s.assertEvent(t, addressUpdate("svc1"), edsUpdate("svc1"))
+}
+
+func TestWaypointAddressSharedByTwoServices(t *testing.T) {
+	const collideHost = "collide.istio.io"
+
+	bindServiceToWaypoint := func(t *testing.T, alsoReportHostname bool) *ambientTestServer {
+		t.Helper()
+		s := newAmbientTestServer(t, testC, testNW, "")
+		waypointHostname := ""
+		if alsoReportHostname {
+			waypointHostname = s.hostnameForService("wp-svc")
+		}
+		s.addWaypointSpecificAddress(t, "10.0.0.1", waypointHostname, "wp-svc", constants.AllTraffic, true)
+		s.addService(t, "wp-svc",
+			map[string]string{},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
+		s.assertEvent(t, s.svcXdsName("wp-svc"))
+
+		s.addService(t, "svc1",
+			map[string]string{
+				label.IoIstioUseWaypoint.Name:   "wp-svc",
+				"istio.io/ingress-use-waypoint": "true",
+			},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "a"}, "10.0.0.2")
+		s.assertEvent(t, s.svcXdsName("svc1"), s.hostnameForService("svc1"))
+
+		s.addPods(t, "127.0.0.4", "wp-pod1", "wp-sa", map[string]string{"app": "waypoint"}, nil, true, corev1.PodRunning)
+		s.assertEvent(t, s.podXdsName("wp-pod1"), s.hostnameForService("svc1"))
+		return s
+	}
+
+	t.Run("waypoint addressed by IP only", func(t *testing.T) {
+		s := bindServiceToWaypoint(t, false)
+
+		s.addServiceEntry(t, collideHost, []string{"10.0.0.1"}, "collide", testNS,
+			map[string]string{"app": "collide"}, nil)
+		s.assertEvent(t, s.xdsNamespacedHostname(collideHost), s.hostnameForService("svc1"))
+
+		s.addPods(t, "127.0.0.5", "wp-pod2", "wp-sa", map[string]string{"app": "waypoint"}, nil, true, corev1.PodRunning)
+		s.fx.StrictMatchOrFail(t, xdsfake.Event{Type: "xds", ID: s.podXdsName("wp-pod2")})
+		s.assertNoMatchingEvent(t, s.hostnameForService("svc1"))
+
+		s.deleteServiceEntry(t, "collide")
+		s.assertEvent(t, s.xdsNamespacedHostname(collideHost), s.hostnameForService("svc1"))
+
+		s.addPods(t, "127.0.0.6", "wp-pod3", "wp-sa", map[string]string{"app": "waypoint"}, nil, true, corev1.PodRunning)
+		s.assertEvent(t, s.podXdsName("wp-pod3"), s.hostnameForService("svc1"))
+	})
+
+	t.Run("waypoint also reporting hostname", func(t *testing.T) {
+		s := bindServiceToWaypoint(t, true)
+
+		s.addServiceEntry(t, collideHost, []string{"10.0.0.1"}, "collide", testNS,
+			map[string]string{"app": "collide"}, nil)
+		s.fx.StrictMatchOrFail(t, xdsfake.Event{Type: "xds", ID: s.xdsNamespacedHostname(collideHost)})
+		s.assertNoMatchingEvent(t, s.hostnameForService("svc1"))
+
+		s.addPods(t, "127.0.0.5", "wp-pod2", "wp-sa", map[string]string{"app": "waypoint"}, nil, true, corev1.PodRunning)
+		s.assertEvent(t, s.podXdsName("wp-pod2"), s.hostnameForService("svc1"))
+	})
 }

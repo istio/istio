@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** the `InferencePool` ext_proc gRPC call sending the Envoy cluster name
+  (`outbound|9002||<epp>.<ns>.svc.cluster.local`) as the `:authority` header. Endpoint
+  pickers that validate `:authority` per RFC 9113 (for example HTTP/2 servers built on
+  `h2`) rejected every request with `PROTOCOL_ERROR`, causing all requests through the
+  pool to fail with 500. The gateway now sends the endpoint picker service FQDN.

@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"istio.io/api/annotation"
-	"istio.io/api/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
@@ -69,9 +68,7 @@ func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
 	})
 }
 
-var deprecationExtraMessages = map[string]string{
-	annotation.SidecarInject.Name: ` in favor of the "sidecar.istio.io/inject" label`,
-}
+var deprecationExtraMessages = map[string]string{}
 
 func (*K8sAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, kind string, collectionType config.GroupVersionKind) {
 	if len(r.Metadata.Annotations) == 0 {
@@ -99,16 +96,10 @@ outer:
 		}
 
 		if annotationDef.Deprecated {
-			if _, f := r.Metadata.Labels[label.SidecarInject.Name]; f && ann == annotation.SidecarInject.Name {
-				// Skip to avoid noise; the user has the deprecated annotation but they also have the replacement
-				// This means they are likely aware its deprecated, but are keeping both variants around for maximum
-				// compatibility
-			} else {
-				m := msg.NewDeprecatedAnnotation(r, ann, deprecationExtraMessages[annotationDef.Name])
-				util.AddLineNumber(r, ann, m)
+			m := msg.NewDeprecatedAnnotation(r, ann, deprecationExtraMessages[annotationDef.Name])
+			util.AddLineNumber(r, ann, m)
 
-				ctx.Report(collectionType, m)
-			}
+			ctx.Report(collectionType, m)
 		}
 
 		// If the annotation def attaches to Any, exit early

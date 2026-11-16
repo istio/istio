@@ -15,7 +15,7 @@
 package match
 
 import (
-	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -208,7 +208,7 @@ var MultiVersion Matcher = func(i echo.Instance) bool {
 	for _, s := range i.Config().Subsets {
 		if s.Version == "vistio" {
 			matchIstio = true
-		} else if s.Version == "vlegacy" && s.Annotations[annotation.SidecarInject.Name] == "false" {
+		} else if s.Version == "vlegacy" && s.Labels[label.SidecarInject.Name] == "false" {
 			matchLegacy = true
 		}
 	}

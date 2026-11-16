@@ -1243,6 +1243,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 		Client:          s.kubeClient,
 		ClusterID:       s.clusterID,
 		SystemNamespace: args.Namespace,
+		Revision:        args.Revision,
 		MeshConfig:      s.environment.Watcher,
 		ConfigOverrides: []func(*rest.Config){
 			func(r *rest.Config) {

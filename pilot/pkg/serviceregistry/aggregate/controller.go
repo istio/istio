@@ -296,7 +296,7 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 
 // mergeService only merges two clusters' k8s services
 func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance) {
-	if !src.Ports.Equals(dst.Ports) {
+	if !src.Ports.EqualsIgnoringTargetPorts(dst.Ports) {
 		log.Debugf("service %s defined from cluster %s is different from others", src.Hostname, srcRegistry.Cluster())
 	}
 	// Prefer the k8s HostVIPs where possible

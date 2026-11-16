@@ -91,6 +91,8 @@ type ControllerOptions struct {
 	Client          kube.Client
 	ClusterID       cluster.ID
 	SystemNamespace string
+	// Revision selects the remote mesh ConfigMap (istio or istio-<revision>).
+	Revision        string
 	MeshConfig      meshwatcher.WatcherCollection
 	ClientBuilder   ClientBuilder
 	ConfigOverrides []func(*rest.Config)
@@ -112,10 +114,11 @@ type Controller struct {
 
 	cs *ClusterStore
 
-	meshWatcher meshwatcher.WatcherCollection
-	debugger    *krt.DebugHandler
-	stop        chan struct{}
-	handlers    []handler
+	meshWatcher       meshwatcher.WatcherCollection
+	meshConfigMapName string
+	debugger          *krt.DebugHandler
+	stop              chan struct{}
+	handlers          []handler
 
 	clusters krt.Collection[*Cluster]
 }
@@ -172,12 +175,13 @@ func NewController(opts ControllerOptions) *Controller {
 			initialSyncTimeout:       atomic.NewBool(false),
 			remoteClusterCollections: atomic.NewPointer[remoteClusterCollections](nil),
 		},
-		cs:              NewClustersStore(),
-		source:          source,
-		configOverrides: opts.ConfigOverrides,
-		meshWatcher:     opts.MeshConfig,
-		debugger:        opts.Debugger,
-		stop:            make(chan struct{}),
+		cs:                NewClustersStore(),
+		source:            source,
+		configOverrides:   opts.ConfigOverrides,
+		meshWatcher:       opts.MeshConfig,
+		meshConfigMapName: meshConfigMapName(opts.Revision),
+		debugger:          opts.Debugger,
+		stop:              make(chan struct{}),
 	}
 
 	if opts.ClientBuilder != nil {
@@ -205,7 +209,7 @@ func NewController(opts ControllerOptions) *Controller {
 	// The client's ObjectFilter is already set by the caller (server.go / fake.go).
 	clusterOpts := krt.NewOptionsBuilder(controller.stop, fmt.Sprintf("cluster[%s]", opts.ClusterID), opts.Debugger)
 	controller.configCluster.remoteClusterCollections.Store(
-		buildClusterCollections(opts.Client, opts.ClusterID, clusterOpts),
+		buildClusterCollections(opts.Client, opts.ClusterID, meshwatcher.NewRestrictedCollection(opts.MeshConfig, nil, 0, clusterOpts), clusterOpts),
 	)
 
 	return controller
@@ -399,6 +403,8 @@ func (c *Controller) createRemoteCluster(secretKey types.NamespacedName, kubeCon
 		ID:                       cluster.ID(clusterID),
 		Client:                   clients,
 		SourceSecret:             secretKey,
+		systemNamespace:          c.namespace,
+		meshConfigMapName:        c.meshConfigMapName,
 		stop:                     make(chan struct{}),
 		initialSync:              atomic.NewBool(false),
 		initialSyncTimeout:       atomic.NewBool(false),
@@ -542,4 +548,12 @@ func (c *Controller) ListClusters() []cluster.ID {
 	return slices.Map(sets.SortedList(c.cs.clusters), func(e string) cluster.ID {
 		return cluster.ID(e)
 	})
+}
+
+// meshConfigMapName resolves the revision-specific remote mesh ConfigMap.
+func meshConfigMapName(revision string) string {
+	if revision == "" || revision == "default" {
+		return "istio"
+	}
+	return "istio-" + revision
 }

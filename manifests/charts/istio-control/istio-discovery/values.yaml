@@ -598,3 +598,8 @@ _internal_defaults_do_not_set:
     # -- Eviction policy for unhealthy pods guarded by PodDisruptionBudget.
     # Ref: https://kubernetes.io/blog/2023/01/06/unhealthy-pod-eviction-policy-for-pdbs/
     unhealthyPodEvictionPolicy: ""
+    # -- Additional labels to apply to the istiod PodDisruptionBudget.
+    # For example:
+    # labels:
+    #   team: devops
+    labels: {}

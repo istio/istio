@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** a panic in `istioctl tag set` and `istioctl tag generate` when the revision's Service exists but its MutatingWebhookConfiguration does not.

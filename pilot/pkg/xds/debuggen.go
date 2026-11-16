@@ -145,7 +145,10 @@ func validateProxyAuthentication(proxy *model.Proxy, w *model.WatchedResource) e
 
 func parseAndValidateDebugRequest(proxy *model.Proxy, w *model.WatchedResource, dg *DebugGen) (string, error) {
 	resourceName := w.ResourceNames.UnsortedList()[0]
-	u, _ := url.Parse(resourceName)
+	u, err := url.Parse(resourceName)
+	if err != nil {
+		return "", status.Errorf(codes.InvalidArgument, "invalid debug request %q: %v", resourceName, err)
+	}
 	debugType := u.Path
 	identity := proxy.VerifiedIdentity
 	if identity.Namespace != dg.SystemNamespace {
@@ -160,7 +163,10 @@ func processDebugRequest(dg *DebugGen, resourceName string, callerNamespace stri
 	var buffer bytes.Buffer
 	debugURL := "/debug/" + resourceName
 	ctx := context.WithValue(context.Background(), CallerNamespaceKey{}, callerNamespace)
-	hreq, _ := http.NewRequestWithContext(ctx, http.MethodGet, debugURL, nil)
+	hreq, err := http.NewRequestWithContext(ctx, http.MethodGet, debugURL, nil)
+	if err != nil {
+		return buffer
+	}
 	handler, _ := dg.DebugMux.Handler(hreq)
 	response := NewResponseCapture()
 	handler.ServeHTTP(response, hreq)

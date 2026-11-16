@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
 	pkgmodel "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
@@ -149,8 +150,8 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 			nodes := kclient.New[*v1.Node](fc)
 			fc.RunAndWait(test.NewStop(t))
 			cc := &Controller{
-				nodes:       nodes,
-				meshWatcher: meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig()),
+				nodes:      nodes,
+				meshConfig: krt.NewStatic(&meshwatcher.RestrictedMeshConfig{TrustDomain: mesh.DefaultMeshConfig().TrustDomain}, true),
 				networkManager: &networkManager{
 					clusterID: c.ctl.cluster,
 					network:   c.ctl.network,

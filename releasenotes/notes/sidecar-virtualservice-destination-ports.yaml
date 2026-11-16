@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where Sidecar egress listeners with explicit ports could omit
+  clusters required by VirtualService routes to different destination ports.

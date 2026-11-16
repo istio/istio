@@ -156,6 +156,47 @@ func (srcIPGenerator) principal(_, value string, _ bool, _ bool) (*rbacpb.Princi
 	return principalDirectRemoteIP(cidr), nil
 }
 
+// filterStatePrincipals generates the principals of a source IP rule for listeners that read the downstream peer from
+// filter state instead of the connection, which are Envoy internal listeners behind an Istio terminating listener.
+// On these listeners the direct remote address is an internal Envoy address, so direct_remote_ip never matches.
+// The terminating listener stores the direct remote IP of its own downstream connection in filter state, and the
+// rule matches that IP instead.
+//
+// Like direct_remote_ip, the IP is not affected by the PROXY protocol or X-Forwarded-For. If the filter state value
+// is missing, the principals fail closed: they never match in an ALLOW policy, and always match otherwise.
+func (srcIPGenerator) filterStatePrincipals(r rule, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
+	ranges, err := r.cidrRanges(r.values, action)
+	if err != nil {
+		return nil, err
+	}
+	notRanges, err := r.cidrRanges(r.notValues, action)
+	if err != nil {
+		return nil, err
+	}
+
+	// A filter state address matcher does not match a missing value, even if inverted, so the result for a missing
+	// value depends only on whether the matcher is negated.
+	matchMissing := action != rbacpb.RBAC_ALLOW
+	var principals []*rbacpb.Principal
+	if len(ranges) > 0 {
+		if matchMissing {
+			// Not (present and outside the ranges).
+			principals = append(principals, principalNot(principalPeerDirectRemoteIP(ranges, true)))
+		} else {
+			principals = append(principals, principalPeerDirectRemoteIP(ranges, false))
+		}
+	}
+	if len(notRanges) > 0 {
+		if matchMissing {
+			// Not (present and inside the ranges).
+			principals = append(principals, principalNot(principalPeerDirectRemoteIP(notRanges, false)))
+		} else {
+			principals = append(principals, principalPeerDirectRemoteIP(notRanges, true))
+		}
+	}
+	return principals, nil
+}
+
 type remoteIPGenerator struct{}
 
 func (remoteIPGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
@@ -361,7 +402,14 @@ func (requestHeaderGenerator) principal(key, value string, forTCP bool, _ bool) 
 	if err != nil {
 		return nil, err
 	}
-	m := matcher.HeaderMatcher(header, value)
+	headerMatcher := matcher.HeaderMatcher
+	if strings.EqualFold(header, methodHeader) {
+		headerMatcher = matcher.MethodMatcher
+	} else if strings.EqualFold(header, hostHeader) || strings.EqualFold(header, "host") {
+		// envoy maps the host header to :authority, both need the same case handling as hosts
+		headerMatcher = matcher.HostMatcher
+	}
+	m := headerMatcher(header, value)
 	return principalHeader(m), nil
 }
 
@@ -425,7 +473,7 @@ func (methodGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permi
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
-	m := matcher.HeaderMatcher(methodHeader, value)
+	m := matcher.MethodMatcher(methodHeader, value)
 	return permissionHeader(m), nil
 }
 

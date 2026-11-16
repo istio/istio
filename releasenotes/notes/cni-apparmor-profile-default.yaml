@@ -1,0 +1,23 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+issue:
+  - 62435
+  - 54721
+
+releaseNotes:
+- |
+  **Updated** the default value of `useAppArmorAnnotation` in the `istio-cni` Helm chart to `false`.
+  The `istio-cni-node` DaemonSet now sets the AppArmor profile via `securityContext.appArmorProfile`
+  instead of the `container.apparmor.security.beta.kubernetes.io/install-cni` annotation, which is
+  deprecated since Kubernetes 1.30. Set `useAppArmorAnnotation: true` to restore the previous behavior
+  on Kubernetes 1.29 and earlier.
+
+upgradeNotes:
+- title: istio-cni now uses `securityContext.appArmorProfile` by default
+  content: |
+    The `istio-cni` Helm chart no longer sets the deprecated `container.apparmor.security.beta.kubernetes.io/install-cni`
+    annotation by default. The AppArmor profile is set via the `appArmorProfile` field in the container
+    `securityContext` instead, which is supported since Kubernetes 1.30. If you still run Kubernetes 1.29 or
+    earlier, set `useAppArmorAnnotation: true` to keep using the annotation.

@@ -20,8 +20,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 )
 
-var _ mesh.RestrictedConfigWatcher = &TestWatcher{}
-
 // TestWatcher provides an interface that takes a static MeshConfig which can be updated explicitly.
 // It is intended for tests
 type TestWatcher struct {
@@ -31,14 +29,6 @@ type TestWatcher struct {
 
 func (w TestWatcher) Set(n *meshconfig.MeshConfig) {
 	w.col.Set(&MeshConfigResource{n})
-}
-
-func (w TestWatcher) TrustDomain() string {
-	return w.Mesh().GetTrustDomain()
-}
-
-func (w TestWatcher) ServiceScopeConfigs() []*meshconfig.MeshConfig_ServiceScopeConfigs {
-	return w.Mesh().GetServiceScopeConfigs()
 }
 
 // NewTestWatcher creates a new Watcher that always returns the given mesh config.

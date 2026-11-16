@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where istio-cni skipped cleanup for an ambient pod deleted together with its namespace, leaving its ztunnel proxy and host probe ipset entry behind.

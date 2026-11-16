@@ -54,5 +54,9 @@ func getPodLevelTrafficOverrides(pod *corev1.Pod) config.PodLevelOverrides {
 		}
 	}
 
+	if rc := pod.Spec.RuntimeClassName; rc != nil && KataRuntimeClassNames.Contains(*rc) {
+		podCfg.Kata = true
+	}
+
 	return podCfg
 }

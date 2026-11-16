@@ -1,0 +1,9 @@
+spec:
+  values:
+    selectorLabels:
+      custom-label: base-value
+      common-key: from-selector-labels
+    service:
+      selectorLabels:
+        custom-label: service-override-value
+        service-only: service-val

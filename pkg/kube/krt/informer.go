@@ -88,6 +88,11 @@ func (i *informer[I]) uid() collectionUID {
 	return i.id
 }
 
+// ListFiltered returns objects accepted by filter. A nil filter returns all objects.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
 func (i *informer[I]) ListFiltered(filter func(I) bool) []I {
 	res := i.inf.List(metav1.NamespaceAll, klabels.Everything())
 	if filter == nil {
@@ -149,10 +154,24 @@ type informerIndex[I any] struct {
 }
 
 // nolint: unused // (not true)
-func (ii *informerIndex[I]) Lookup(key string) []I {
-	return slices.Map(ii.idx.Lookup(key), func(i any) I {
-		return i.(I)
-	})
+// LookupFiltered returns objects matching the key and filter. A nil filter returns all objects for the key.
+//
+// The filter may be evaluated while a collection's read lock is held. It must not access or modify the
+// collection, its indexes, or its objects: attempting to acquire the read lock again can deadlock. Filters must be
+// short-lived and non-blocking, since they can delay collection updates.
+func (ii *informerIndex[I]) LookupFiltered(key string, filter func(I) bool) []I {
+	objects := ii.idx.Lookup(key)
+	var res []I
+	if filter == nil {
+		res = make([]I, 0, len(objects))
+	}
+	for _, obj := range objects {
+		v := obj.(I)
+		if filter == nil || filter(v) {
+			res = append(res, v)
+		}
+	}
+	return res
 }
 
 // nolint: unused // (not true)

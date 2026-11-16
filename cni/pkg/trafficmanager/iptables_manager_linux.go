@@ -82,11 +82,11 @@ func (m *IptablesTrafficManager) CreateInpodRules(log *istiolog.Scope, podOverri
 }
 
 // DeleteInpodRules removes iptables rules from a pod's network namespace
-func (m *IptablesTrafficManager) DeleteInpodRules(log *istiolog.Scope) error {
+func (m *IptablesTrafficManager) DeleteInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
 	if m.podIptables == nil {
 		return fmt.Errorf("pod iptables configurator not available (this is likely a host-only traffic manager)")
 	}
-	return m.podIptables.DeleteInpodRules(log)
+	return m.podIptables.DeleteInpodRules(log, podOverrides)
 }
 
 // CreateHostRulesForHealthChecks creates host-level iptables rules for health check handling

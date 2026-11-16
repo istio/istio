@@ -114,6 +114,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		Metrics:               &model.Environment{},
 		MeshNetworksWatcher:   opts.NetworksWatcher,
 		MeshWatcher:           opts.MeshWatcher,
+		MeshConfig:            meshwatcher.NewRestrictedCollection(opts.MeshWatcher, nil, 0, krt.NewOptionsBuilder(stop, "kube", nil)),
 		ClusterID:             opts.ClusterID,
 		MeshServiceController: meshServiceController,
 		ConfigCluster:         opts.ConfigCluster,

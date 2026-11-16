@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+- 61191
+
+releaseNotes:
+- |
+  **Fixed** an issue where a `GRPCRoute` was not programmed when an `HTTPRoute` with the same name and
+  namespace was attached to the same `Gateway` and hostname.

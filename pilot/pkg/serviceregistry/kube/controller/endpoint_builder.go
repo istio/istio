@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	kubeUtil "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 )
 
 // EndpointBuilder is a stateful IstioEndpoint builder with metadata used to build IstioEndpoint
@@ -58,7 +59,7 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 	var capturedByZtunnel bool
 	if pod != nil {
 		locality = c.getPodLocality(pod)
-		sa = kube.SecureNamingSAN(pod, c.meshWatcher.TrustDomain())
+		sa = kube.SecureNamingSAN(pod, ptr.OrEmpty(c.meshConfig.Get()).TrustDomain)
 		podLabels = pod.Labels
 		namespace = pod.Namespace
 		subdomain = pod.Spec.Subdomain

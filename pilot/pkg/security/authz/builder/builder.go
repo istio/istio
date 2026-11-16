@@ -48,7 +48,10 @@ var rbacPolicyMatchNever = &rbacpb.Policy{
 // General setting to control behavior
 type Option struct {
 	IsCustomBuilder bool
-	UseFilterState  bool
+	// UseFilterState reads the downstream peer principal and source IP from the filter state set by an Istio
+	// terminating listener, instead of the connection. Set it only for Envoy internal listeners behind such a
+	// listener, where the connection peer is an internal Envoy address.
+	UseFilterState bool
 	// NamedAllowFilter emits the ALLOW filter under RBACFilterNameAllow instead of the well-known
 	// name so per-route config can address it. Only set for proxies that support per-route
 	// AuthorizationPolicy; everything else stays on the well-known name.
@@ -113,7 +116,7 @@ func (b Builder) BuildHTTP() []*hcm.HttpFilter {
 // the well-known name, so a route can address ALLOW alone.
 const (
 	RBACFilterNameAllow     = "istio.authorization.allow"
-	RBACRouteAnchorNameDeny = "istio.authorization.route.deny"
+	RBACFilterNameRouteDeny = "istio.authorization.route.deny"
 )
 
 // PerRouteFilterName returns the filter instance name to key per-route RBAC config by, or ""
@@ -123,7 +126,7 @@ func PerRouteFilterName(action rbacpb.RBAC_Action) string {
 	case rbacpb.RBAC_ALLOW:
 		return RBACFilterNameAllow
 	case rbacpb.RBAC_DENY:
-		return RBACRouteAnchorNameDeny
+		return RBACFilterNameRouteDeny
 	default:
 		return ""
 	}

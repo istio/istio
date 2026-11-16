@@ -8,16 +8,45 @@
 
 {{- define "gateway.labels" -}}
 {{ include "gateway.selectorLabels" . }}
+{{- $selectorLabels := .Values.selectorLabels | default (dict) -}}
 {{- range $key, $val := .Values.labels }}
-{{- if and (ne $key "app") (ne $key "istio") }}
+{{- if and (ne $key "app") (ne $key "istio") (not (hasKey $selectorLabels $key)) }}
 {{ $key | quote }}: {{ $val | quote }}
 {{- end }}
 {{- end }}
 {{- end }}
 
+{{- define "gateway.serviceSelectorLabels" -}}
+{{- $app := dig "app" nil (.Values.service.selectorLabels | default (dict)) | default (dig "app" nil (.Values.selectorLabels | default (dict))) | default .Values.labels.app -}}
+{{- $istio := dig "istio" nil (.Values.service.selectorLabels | default (dict)) | default (dig "istio" nil (.Values.selectorLabels | default (dict))) | default .Values.labels.istio -}}
+app: {{ ($app | quote) | default (include "gateway.name" .) }}
+istio: {{ ($istio | quote) | default (include "gateway.name" . | trimPrefix "istio-") }}
+{{- $extraServiceLabels := dict -}}
+{{- range $key, $val := .Values.selectorLabels }}
+{{- if and (ne $key "app") (ne $key "istio") }}
+{{- $_ := set $extraServiceLabels $key $val -}}
+{{- end }}
+{{- end }}
+{{- range $key, $val := .Values.service.selectorLabels }}
+{{- if and (ne $key "app") (ne $key "istio") }}
+{{- $_ := set $extraServiceLabels $key $val -}}
+{{- end }}
+{{- end }}
+{{- with $extraServiceLabels }}
+{{ toYaml . }}
+{{- end }}
+{{- end }}
+
 {{- define "gateway.selectorLabels" -}}
-app: {{ (.Values.labels.app | quote) | default (include "gateway.name" .) }}
-istio: {{ (.Values.labels.istio | quote) | default (include "gateway.name" . | trimPrefix "istio-") }}
+{{- $app := dig "app" nil (.Values.selectorLabels | default (dict)) | default .Values.labels.app -}}
+{{- $istio := dig "istio" nil (.Values.selectorLabels | default (dict)) | default .Values.labels.istio -}}
+app: {{ ($app | quote) | default (include "gateway.name" .) }}
+istio: {{ ($istio | quote) | default (include "gateway.name" . | trimPrefix "istio-") }}
+{{- range $key, $val := .Values.selectorLabels }}
+{{- if and (ne $key "app") (ne $key "istio") }}
+{{ $key | quote }}: {{ $val | quote }}
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{/*

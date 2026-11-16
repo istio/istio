@@ -16,6 +16,7 @@ package chiron
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -199,7 +200,7 @@ func TestSubmitCSR(t *testing.T) {
 				cert.UsageServerAuth,
 				cert.UsageClientAuth,
 			}
-			r, err := submitCSR(client, []byte("test-pem"), "test-signer",
+			r, err := submitCSR(context.Background(), client, []byte("test-pem"), "test-signer",
 				usages, DefaulCertTTL)
 			if tc.expectFail {
 				assert.Error(t, err)
@@ -274,7 +275,7 @@ func TestReadSignedCertificate(t *testing.T) {
 			client := initFakeKubeClient(t, tc.certificateData)
 
 			// 4. Read the signed certificate
-			_, _, err := SignCSRK8s(client.Kube(), createFakeCsr(t), "fake-signer", []cert.KeyUsage{cert.UsageAny}, "fake.com",
+			_, _, err := SignCSRK8s(context.Background(), client.Kube(), createFakeCsr(t), "fake-signer", []cert.KeyUsage{cert.UsageAny}, "fake.com",
 				tc.k8sCaCertFile, true, true, 1*time.Second)
 
 			if tc.expectFail {

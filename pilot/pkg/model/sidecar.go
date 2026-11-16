@@ -270,6 +270,12 @@ type IstioEgressListenerWrapper struct {
 	// An index of hostname to the namespaced name of the VirtualService containing the most
 	// specific host match.
 	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName
+
+	// configDependencies is the set of VirtualService dependency hashes for just this listener,
+	// mirroring SidecarScope.configDependencies but scoped per listener. It lets a config update be
+	// checked against this listener's imports via an O(1) hash lookup per update instead of
+	// scanning the (potentially large) virtualServices list on every push.
+	configDependencies sets.Set[ConfigHash]
 }
 
 const defaultSidecar = "default-sidecar"
@@ -325,9 +331,11 @@ func gatewaySidecarScope(ps *PushContext, base *SidecarScope, gateways []string)
 func DefaultSidecarScopeForWaypoint(ps *PushContext, configNamespace string) *SidecarScope {
 	out := DefaultSidecarScopeForGateway(ps, configNamespace)
 
-	out.EgressListeners = []*IstioEgressListenerWrapper{{
+	waypointEgressListener := &IstioEgressListenerWrapper{
 		virtualServices: ps.virtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
-	}}
+	}
+	waypointEgressListener.configDependencies = buildEgressListenerConfigDependencies(waypointEgressListener.virtualServices)
+	out.EgressListeners = []*IstioEgressListenerWrapper{waypointEgressListener}
 
 	return out
 }
@@ -402,13 +410,6 @@ func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope
 }
 
 func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace string) {
-	serviceMatchingPort := func(s *Service, ilw *IstioEgressListenerWrapper, ports sets.Set[int]) *Service {
-		if ilw.matchPort {
-			return serviceMatchingListenerPort(s, ilw)
-		}
-		return serviceMatchingVirtualServicePorts(s, ports)
-	}
-
 	imported := 0
 	for _, ilw := range sc.EgressListeners {
 		imported += len(ilw.services)
@@ -424,24 +425,21 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 			sc.appendSidecarServices(servicesAdded, s)
 		}
 
-		// Infer more possible destinations from virtual services
+		// Infer more possible destinations from virtual services. These are CDS dependencies,
+		// so select their ports using the route destinations, which may differ from the listener port.
 		// Services chosen here will not override services explicitly requested in ilw.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range ilw.virtualServices {
-			// we don't need to add dependencies on delegate virtual services because they are handled by the virtual service controller
-			sc.AddConfigDependencies(ConfigKey{
-				Kind:      kind.VirtualService,
-				Namespace: vs.Namespace,
-				Name:      vs.Name,
-			}.HashCode())
+			// VirtualService dependency is answered by DependsOnConfig delegating to each
+			// EgressListener's own configDependencies, so it isn't tracked again here.
 			v := vs.Spec.(*networking.VirtualService)
 			for h, ports := range virtualServiceDestinationsFilteredBySourceNamespace(v, configNamespace) {
 				byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
 				// Default to this hostname in our config namespace
 				if s, ok := byNamespace[configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					if matchedSvc := serviceMatchingPort(s, ilw, ports); matchedSvc != nil {
+					if matchedSvc := serviceMatchingVirtualServicePorts(s, ports); matchedSvc != nil {
 						sc.appendSidecarServices(servicesAdded, matchedSvc)
 					}
 				} else {
@@ -459,7 +457,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 						pickNamespace = pickBestVisibleNamespace
 					}
 					if ns := pickNamespace(ps, byNamespace, configNamespace); ns != "" {
-						if matchedSvc := serviceMatchingPort(byNamespace[ns], ilw, ports); matchedSvc != nil {
+						if matchedSvc := serviceMatchingVirtualServicePorts(byNamespace[ns], ports); matchedSvc != nil {
 							sc.appendSidecarServices(servicesAdded, matchedSvc)
 						}
 					}
@@ -576,8 +574,19 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
 	out.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(out.virtualServices, out.services)
+	out.configDependencies = buildEgressListenerConfigDependencies(out.virtualServices)
 
 	return out
+}
+
+// buildEgressListenerConfigDependencies computes the per-listener config dependency hashes (see
+// IstioEgressListenerWrapper.configDependencies) for the given listener's imported VirtualServices.
+func buildEgressListenerConfigDependencies(virtualServices []*config.Config) sets.Set[ConfigHash] {
+	deps := sets.New[ConfigHash]()
+	for _, vs := range virtualServices {
+		deps.Insert(ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}.HashCode())
+	}
+	return deps
 }
 
 // servicesForExactHosts resolves the candidate services for an egress listener whose hosts are all exact
@@ -693,6 +702,13 @@ func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardVirtualServiceIndex()
 	return ilw.mostSpecificWildcardVsIndex
 }
 
+// DependsOnConfig determines if this egress listener's built content depends on the given
+// VirtualService, via an O(1) lookup against the hashes precomputed in configDependencies rather
+// than scanning VirtualServices().
+func (ilw *IstioEgressListenerWrapper) DependsOnConfig(key ConfigKey) bool {
+	return ilw.configDependencies.Contains(key.HashCode())
+}
+
 // DependsOnConfig determines if the proxy depends on the given config.
 // Returns whether depends on this config or this kind of config is not scoped(unknown to be depended) here.
 // Gateway-specific scopes also depend on the VirtualServices bound to their gateways.
@@ -720,6 +736,14 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	case kind.DestinationRule:
 		if _, f := sc.destinationRulesByNames[types.NamespacedName{Name: config.Name, Namespace: config.Namespace}]; f {
 			return true
+		}
+	case kind.VirtualService:
+		// Not tracked in configDependencies to avoid duplicating what each EgressListener
+		// already tracks in its own configDependencies; ask them directly instead.
+		for _, ilw := range sc.EgressListeners {
+			if ilw.DependsOnConfig(config) {
+				return true
+			}
 		}
 	}
 
@@ -961,13 +985,8 @@ func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapp
 			}
 			// when there are multiple ports, construct service with listener port
 			sc := service.ShallowCopy()
-			sc.Ports = []*Port{
-				{
-					Name:     port.Name,
-					Port:     port.Port,
-					Protocol: port.Protocol,
-				},
-			}
+			p := *port
+			sc.Ports = PortList{&p}
 			return sc
 		}
 	}
@@ -1002,9 +1021,7 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[i
 	// If the service has more than one port, and the Virtual Service only
 	// specifies destination ports not found in the service, we'll simply
 	// not add the service to the sidecar as an optimization, because
-	// traffic will not route properly anyway. This matches the above
-	// behavior in serviceMatchingListenerPort for ports specified on the
-	// sidecar egress listener.
+	// traffic will not route properly anyway.
 	log.Warnf("Failed to find any VirtualService destination ports %v exposed by Service %s", vsDestPorts, service.Hostname)
 	return nil
 }
@@ -1103,7 +1120,7 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 		}
 
 		// if both services have the same ports, no need to merge and we save a deepcopy
-		if existing.Ports.Equals(s.Ports) {
+		if existing.Ports.EqualsIgnoringTargetPorts(s.Ports) {
 			log.Debugf("Service %s/%s from registry %s ignored as it has the same ports as %s/%s/%s", s.Attributes.Namespace, s.Hostname,
 				s.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
 			return

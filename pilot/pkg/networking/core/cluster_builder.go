@@ -34,6 +34,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -42,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -347,6 +349,24 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	return subsetCluster.build()
 }
 
+// buildDFPSubsetCluster builds the DFP cluster of a subset. A DFP cluster has no endpoints to select, so the subset
+// only applies its traffic policy. It shares the DNS cache of the host.
+func (cb *ClusterBuilder) buildDFPSubsetCluster(
+	opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
+) *cluster.Cluster {
+	subsetCluster := cb.buildDFPCluster(
+		model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port), service, opts.port)
+	opts.mutable = subsetCluster
+	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, subset.GetTrafficPolicy(), service, opts.port)
+	opts.policy = util.MergeSubsetTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
+	cb.applyTrafficPolicy(service, opts)
+	cb.applyMetadataExchange(subsetCluster.cluster)
+	subsetCluster.cluster.Metadata = util.AddConfigInfoMetadata(subsetCluster.cluster.Metadata, destRule.Meta)
+	util.AddSubsetToMetadata(subsetCluster.cluster.Metadata, subset.Name)
+	subsetCluster.cluster.Metadata = util.AddALPNOverrideToMetadata(subsetCluster.cluster.Metadata, opts.policy.GetTls().GetMode())
+	return subsetCluster.build()
+}
+
 // applyDestinationRule applies the destination rule if it exists for the Service.
 // It returns the subset clusters if any created as it applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode ClusterMode, service *model.Service,
@@ -415,9 +435,16 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		mc.cluster.Metadata = util.AddALPNOverrideToMetadata(mc.cluster.Metadata, opts.policy.GetTls().GetMode())
 	}
 
-	// DFP clusters don't support subsets - skip subset cluster creation
 	if service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
-		return nil
+		// DFP clusters only support subsets for TLS on gateways, as on waypoints.
+		if cb.proxyType != model.Router || !features.EnableWildcardHostServiceEntriesForTLS || !port.Protocol.IsTLS() {
+			return nil
+		}
+		subsetClusters := make([]*cluster.Cluster, 0, len(destinationRule.GetSubsets()))
+		for _, subset := range destinationRule.GetSubsets() {
+			subsetClusters = append(subsetClusters, cb.buildDFPSubsetCluster(opts, destRule, subset, service))
+		}
+		return subsetClusters
 	}
 
 	subsetClusters := make([]*cluster.Cluster, 0)
@@ -531,10 +558,12 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 			Endpoints:   localityLbEndpoints,
 		}
 	case cluster.Cluster_ORIGINAL_DST:
-		if override, f := service.Attributes.PassthroughTargetPorts[uint32(port.Port)]; f {
+		// Only ServiceEntries with NONE resolution declare an original destination port override.
+		if service.Attributes.ServiceRegistry == provider.External && service.Resolution == model.Passthrough &&
+			port.TargetPort.Type == intstr.Int && port.TargetPort.IntVal > 0 {
 			c.LbConfig = &cluster.Cluster_OriginalDstLbConfig_{
 				OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
-					UpstreamPortOverride: wrappers.UInt32(override),
+					UpstreamPortOverride: wrappers.UInt32(uint32(port.TargetPort.IntVal)),
 				},
 			}
 		}

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+releaseNotes:
+  - |
+    **Updated** the `distroless` images to a `cgr.dev/chainguard/static` base with the latest CA bundle, which removes `emSign ECC Root CA - G3` following the compromise of eMudhra intermediate CA keys.

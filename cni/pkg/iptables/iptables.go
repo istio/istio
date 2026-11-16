@@ -116,31 +116,39 @@ func NewIptablesConfigurator(
 	return configurator, inPodConfigurator, nil
 }
 
-func (cfg *IptablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
+func (cfg *IptablesConfigurator) DeleteInpodRules(
+	log *istiolog.Scope,
+	podOverrides config.PodLevelOverrides,
+) error {
 	var inpodErrs []error
 
 	log.Debug("deleting iptables rules")
-	cfg.executeDeleteCommands(log)
+	cfg.executeDeleteCommands(log, podOverrides.Kata)
 	inpodErrs = append(inpodErrs, cfg.delInpodMarkIPRule(), cfg.delLoopbackRoute())
 	return errors.Join(inpodErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
-	deleteCmds := [][]string{
+func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope, kata bool) {
+	deleteJumpsCmds := [][]string{
 		{"-t", "mangle", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
 		{"-t", "mangle", "-D", "OUTPUT", "-j", ChainInpodOutput},
 		{"-t", "nat", "-D", "OUTPUT", "-j", ChainInpodOutput},
 		{"-t", "raw", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
 		{"-t", "raw", "-D", "OUTPUT", "-j", ChainInpodOutput},
 		{"-t", "nat", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
-		// flush-then-delete our created chains
-		// these sometimes fail due to "Device or resource busy" or because they are optional given the iptables cfg
+	}
+	// Flush, then delete, our created chains. These sometimes fail due to
+	// "Device or resource busy" or because they are optional given the iptables config.
+	deleteFlushCmds := [][]string{
 		{"-t", "mangle", "-F", ChainInpodPrerouting},
 		{"-t", "mangle", "-F", ChainInpodOutput},
 		{"-t", "nat", "-F", ChainInpodPrerouting},
 		{"-t", "nat", "-F", ChainInpodOutput},
 		{"-t", "raw", "-F", ChainInpodPrerouting},
 		{"-t", "raw", "-F", ChainInpodOutput},
+	}
+
+	deleteCmds := [][]string{
 		{"-t", "mangle", "-X", ChainInpodPrerouting},
 		{"-t", "mangle", "-X", ChainInpodOutput},
 		{"-t", "nat", "-X", ChainInpodPrerouting},
@@ -149,15 +157,30 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 		{"-t", "raw", "-X", ChainInpodOutput},
 	}
 
+	// Usually, ISTIO_POSTRT exists only on the host netns, but in Kata, we also place it in the pod netns, so we need to delete it there too.
+	if kata {
+		deleteJumpsCmds = append(deleteJumpsCmds,
+			[]string{"-t", "nat", "-D", "POSTROUTING", "-j", ChainHostPostrouting},
+		)
+		deleteFlushCmds = append(deleteFlushCmds,
+			[]string{"-t", "nat", "-F", ChainHostPostrouting},
+		)
+		deleteCmds = append(deleteCmds,
+			[]string{"-t", "nat", "-X", ChainHostPostrouting},
+		)
+	}
+
 	iptablesVariant := []dep.IptablesVersion{}
 	iptablesVariant = append(iptablesVariant, cfg.iptV)
 
-	if cfg.cfg.EnableIPv6 {
+	if cfg.cfg.EnableIPv6 && !kata {
 		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
 	}
 
+	cmds := append(deleteJumpsCmds, append(deleteFlushCmds, deleteCmds...)...)
+
 	for _, iptVer := range iptablesVariant {
-		for _, cmd := range deleteCmds {
+		for _, cmd := range cmds {
 			_, _ = cfg.ext.Run(log, true, iptablesconstants.IPTables, &iptVer, nil, cmd...)
 		}
 	}
@@ -166,6 +189,11 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
 func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
+	// Kata pods take a completely separate path -- see iptables_kata.go.
+	if podOverrides.Kata {
+		return cfg.createInpodRulesKata(log, podOverrides)
+	}
+
 	// Append our rules here
 	builder := cfg.AppendInpodRules(podOverrides)
 

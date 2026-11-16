@@ -13,10 +13,9 @@ spec:
       istio.io/test-vm-version: {{ $subset.Version }}
   template:
     metadata:
-      annotations:
+      labels:
         # Sidecar is inside the pod to simulate VMs - do not inject
         sidecar.istio.io/inject: "false"
-      labels:
         # Label should not be selected. We will create a workload entry instead
         istio.io/test-vm: {{ $.Service }}
         istio.io/test-vm-version: {{ $subset.Version }}

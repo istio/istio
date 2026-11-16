@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where a metadata-only update to an `EndpointSlice`, such as a GitOps tool writing an annotation,
+  triggered an EDS push, and for headless `Services` with non-HTTP ports a push to every proxy, even though the
+  endpoints were unchanged.

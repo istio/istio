@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** `targetPort` handling when merging `ServiceEntry` resources with the same
+    hostname and namespace and `resolution: NONE`. Ports contributed by later resources
+    now honor their declared numeric target ports.
+upgradeNotes:
+  - title: Target ports for merged ServiceEntries
+    content: |
+      When `ServiceEntry` resources with `resolution: NONE` are merged for the same
+      hostname and namespace, traffic to ports contributed by later resources now uses
+      the configured `targetPort` instead of the service port. For example, a later
+      resource declaring port 81 with `targetPort: 8181` now forwards traffic to port
+      8181 rather than port 81, preserving the destination IP. Ensure these target
+      ports match the intended backend listeners before upgrading.

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** a crash in istiod when the address of an IP-addressed waypoint was also claimed by another service
+    (for example, a `ServiceEntry` in a different namespace). Colliding addresses are now skipped with a warning
+    instead of panicking, which previously allowed a low-privileged tenant to crash the control plane. 
+    See [GHSA-7p2q-4xvg-vxc6](https://github.com/istio/istio/security/advisories/GHSA-7p2q-4xvg-vxc6).
+    Reported by [@yshch](https://github.com/yshch).

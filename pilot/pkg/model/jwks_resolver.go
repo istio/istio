@@ -292,8 +292,12 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.
 		timeout:           timeout,
 	})
 	if err != nil {
-		// fetching the public key in the background
-		jwksuriChannel <- key
+		// Fetch the public key in the background.
+		select {
+		case jwksuriChannel <- key:
+		default:
+			log.Debugf("JWKS background fetch queue is full, deferring fetch of %q to the periodic refresh", jwksURI)
+		}
 	}
 	return pubKey, err
 }
@@ -541,6 +545,11 @@ func (r *JwksResolver) refresh(jwksURIBackgroundChannel bool) bool {
 				k.jwksURI = jwksURI
 			}
 			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow, e.timeout)
+			if err == nil {
+				// Reject a response that is not a JWKS so an SSRF-controlled jwksURI cannot get an
+				// arbitrary fetched body embedded verbatim as an inline JWKS and read back via config_dump.
+				err = validateJWKSFormat(resp)
+			}
 			if err != nil {
 				hasErrors.Store(true)
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)

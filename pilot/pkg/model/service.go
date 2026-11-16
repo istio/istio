@@ -38,6 +38,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -138,6 +139,10 @@ func (s *Service) UseInferenceSemantics() bool {
 
 func (s *Service) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: s.Attributes.Name, Namespace: s.Attributes.Namespace}
+}
+
+func (s *Service) GetLabelSelector() map[string]string {
+	return s.Attributes.LabelSelectors
 }
 
 func (s *Service) ResourceName() string {
@@ -286,6 +291,11 @@ type Port struct {
 	// service.
 	Port int `json:"port"`
 
+	// TargetPort is the declared target port number or name, or zero if unspecified.
+	// Named ports are resolved per workload, and workload port mappings may override the declaration.
+	// The resolved port is stored in IstioEndpoint.EndpointPort.
+	TargetPort intstr.IntOrString `json:"targetPort,omitzero"`
+
 	// Protocol to be used for the port.
 	Protocol protocol.Instance `json:"protocol,omitempty"`
 }
@@ -305,6 +315,8 @@ const (
 	TrafficDirectionInbound TrafficDirection = "inbound"
 	// TrafficDirectionInboundVIP indicates inbound traffic for vip
 	TrafficDirectionInboundVIP TrafficDirection = "inbound-vip"
+	// TrafficDirectionOutboundWildcardTLS indicates the internal filter chain of a gateway wildcard TLS destination
+	TrafficDirectionOutboundWildcardTLS TrafficDirection = "outbound-wildcard-tls"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
 
@@ -367,8 +379,8 @@ type ServiceTarget struct {
 
 type (
 	ServicePort = *Port
-	// ServiceInstancePort defines a port that has both a port and targetPort (which distinguishes it from model.Port)
-	// Note: ServiceInstancePort only makes sense in the context of a specific ServiceInstance, because TargetPort depends on a specific instance.
+	// ServiceInstancePort combines a service port with the resolved target port for a specific instance.
+	// The resolved TargetPort may differ from the declaration in model.Port.
 	ServiceInstancePort struct {
 		ServicePort
 		TargetPort uint32
@@ -397,9 +409,10 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 		Service:  instance.Service.DeepCopy(),
 		Endpoint: instance.Endpoint.DeepCopy(),
 		ServicePort: &Port{
-			Name:     instance.ServicePort.Name,
-			Port:     instance.ServicePort.Port,
-			Protocol: instance.ServicePort.Protocol,
+			Name:       instance.ServicePort.Name,
+			Port:       instance.ServicePort.Port,
+			TargetPort: instance.ServicePort.TargetPort,
+			Protocol:   instance.ServicePort.Protocol,
 		},
 	}
 }
@@ -436,7 +449,7 @@ type WorkloadInstance struct {
 }
 
 func (instance *WorkloadInstance) ResourceName() string {
-	return instance.Namespace + "/" + instance.Name
+	return instance.Kind.String() + "/" + instance.Namespace + "/" + instance.Name
 }
 
 func (instance *WorkloadInstance) GetLabels() map[string]string {
@@ -793,8 +806,6 @@ type ServiceAttributes struct {
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
 
-	PassthroughTargetPorts map[uint32]uint32
-
 	K8sAttributes
 }
 
@@ -925,7 +936,6 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	}
 
 	out.Aliases = slices.Clone(s.Aliases)
-	out.PassthroughTargetPorts = maps.Clone(out.PassthroughTargetPorts)
 
 	return out
 }
@@ -975,7 +985,7 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 		}
 	}
 
-	return maps.Equal(s.PassthroughTargetPorts, other.PassthroughTargetPorts)
+	return true
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -1852,12 +1862,21 @@ func (ports PortList) GetByPort(num int) (*Port, bool) {
 }
 
 func (p *Port) Equals(other *Port) bool {
-	return p.Name == other.Name && p.Port == other.Port && p.Protocol == other.Protocol
+	return p.Name == other.Name && p.Port == other.Port && p.Protocol == other.Protocol &&
+		p.TargetPort == other.TargetPort
 }
 
 func (ports PortList) Equals(other PortList) bool {
 	return slices.EqualFunc(ports, other, func(a, b *Port) bool {
 		return a.Equals(b)
+	})
+}
+
+// EqualsIgnoringTargetPorts compares the exposed service ports for merging service declarations.
+// Target ports may differ between workloads or clusters without changing the exposed ports.
+func (ports PortList) EqualsIgnoringTargetPorts(other PortList) bool {
+	return slices.EqualFunc(ports, other, func(a, b *Port) bool {
+		return a.Name == b.Name && a.Port == b.Port && a.Protocol == b.Protocol
 	})
 }
 
@@ -2121,9 +2140,10 @@ func (s *Service) DeepCopy() *Service {
 		for i, port := range s.Ports {
 			if port != nil {
 				out.Ports[i] = &Port{
-					Name:     port.Name,
-					Port:     port.Port,
-					Protocol: port.Protocol,
+					Name:       port.Name,
+					Port:       port.Port,
+					TargetPort: port.TargetPort,
+					Protocol:   port.Protocol,
 				}
 			} else {
 				out.Ports[i] = nil
@@ -2138,6 +2158,9 @@ func (s *Service) DeepCopy() *Service {
 
 // Equals compares two service objects.
 func (s *Service) Equals(other *Service) bool {
+	if s == other {
+		return true
+	}
 	eql := s.DefaultAddress == other.DefaultAddress && s.AutoAllocatedIPv4Address == other.AutoAllocatedIPv4Address &&
 		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname &&
 		s.Resolution == other.Resolution && s.MeshExternal == other.MeshExternal
@@ -2189,6 +2212,9 @@ func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
 
 // Equals checks whether the attributes are equal from the passed in service.
 func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
+	if ep == other {
+		return true
+	}
 	// Check things we can directly compare...
 	eq := ep.ServicePortName == other.ServicePortName &&
 		ep.LegacyClusterPortKey == other.LegacyClusterPortKey &&
@@ -2204,6 +2230,7 @@ func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
 		ep.SubDomain == other.SubDomain &&
 		ep.HealthStatus == other.HealthStatus &&
 		ep.SendUnhealthyEndpoints == other.SendUnhealthyEndpoints &&
+		ep.CapturedByZtunnel == other.CapturedByZtunnel &&
 		ep.NodeName == other.NodeName
 	if !eq {
 		return false

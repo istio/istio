@@ -23,40 +23,20 @@ import (
 
 // HeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
 func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
-	// We must check "*" first to make sure we'll generate a non empty value in the prefix/suffix case.
-	// Empty prefix/suffix value is invalid in HeaderMatcher.
-	if v == "*" {
-		return &routepb.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{
-				PresentMatch: true,
-			},
-		}
-	} else if strings.HasPrefix(v, "*") {
-		return &routepb.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: StringMatcherSuffix(v[1:], false),
-			},
-		}
-	} else if strings.HasSuffix(v, "*") {
-		return &routepb.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: StringMatcherPrefix(v[:len(v)-1], false),
-			},
-		}
-	}
-	return &routepb.HeaderMatcher{
-		Name: k,
-		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-			StringMatch: StringMatcherExact(v, false),
-		},
-	}
+	return headerMatcher(k, v, false)
 }
 
 // HostMatcher creates a host matcher for a host.
 func HostMatcher(k, v string) *routepb.HeaderMatcher {
+	return headerMatcher(k, v, true)
+}
+
+// MethodMatcher creates a case-insensitive matcher for :method.
+func MethodMatcher(k, v string) *routepb.HeaderMatcher {
+	return headerMatcher(k, v, true)
+}
+
+func headerMatcher(k, v string, ignoreCase bool) *routepb.HeaderMatcher {
 	// We must check "*" first to make sure we'll generate a non empty value in the prefix/suffix case.
 	// Empty prefix/suffix value is invalid in HeaderMatcher.
 	if v == "*" {
@@ -70,21 +50,21 @@ func HostMatcher(k, v string) *routepb.HeaderMatcher {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: StringMatcherSuffix(v[1:], true),
+				StringMatch: StringMatcherSuffix(v[1:], ignoreCase),
 			},
 		}
 	} else if strings.HasSuffix(v, "*") {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: StringMatcherPrefix(v[:len(v)-1], true),
+				StringMatch: StringMatcherPrefix(v[:len(v)-1], ignoreCase),
 			},
 		}
 	}
 	return &routepb.HeaderMatcher{
 		Name: k,
 		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-			StringMatch: StringMatcherExact(v, true),
+			StringMatch: StringMatcherExact(v, ignoreCase),
 		},
 	}
 }

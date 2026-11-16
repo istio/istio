@@ -523,6 +523,27 @@ func VerifyPodReady(ctx framework.TestContext, cs cluster.Cluster, ns, label str
 	}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
 }
 
+// VerifyDaemonSetRolledOut waits until every pod of the DaemonSet runs the latest spec and is available.
+func VerifyDaemonSetRolledOut(ctx framework.TestContext, cs cluster.Cluster, ns, name string) {
+	ctx.Helper()
+	retry.UntilSuccessOrFail(ctx, func() error {
+		ds, err := cs.Kube().AppsV1().DaemonSets(ns).Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		st := ds.Status
+		if st.ObservedGeneration < ds.Generation {
+			return fmt.Errorf("daemonset %s/%s generation %d not observed yet (%d)", ns, name, ds.Generation, st.ObservedGeneration)
+		}
+		if st.UpdatedNumberScheduled != st.DesiredNumberScheduled || st.NumberAvailable != st.DesiredNumberScheduled ||
+			st.NumberUnavailable != 0 {
+			return fmt.Errorf("daemonset %s/%s not rolled out: desired=%d updated=%d available=%d",
+				ns, name, st.DesiredNumberScheduled, st.UpdatedNumberScheduled, st.NumberAvailable)
+		}
+		return nil
+	}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
+}
+
 // VerifyInstallation verify that the Helm installation is successful
 func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, nsConfig NamespaceConfig, verifyGateway bool, verifyAmbient bool, revision string) {
 	scopes.Framework.Infof("=== verifying istio installation === ")

@@ -50,6 +50,10 @@ type IstioRAOptions struct {
 	DefaultCertTTL time.Duration
 	// MaxCertTTL: Maximum Certificate TTL that can be requested
 	MaxCertTTL time.Duration
+	// MaxRAWorkloadCertTTL: Upper bound on the TTL a workload may request via CreateCertificate
+	// when the RA (Kubernetes CSR API) integration is enabled. The effective max is
+	// min(MaxCertTTL, MaxRAWorkloadCertTTL). Defaults to 48h when unset.
+	MaxRAWorkloadCertTTL time.Duration
 	// CaCertFile : File containing PEM encoded CA root certificate of external CA
 	CaCertFile string
 	// CaSigner : To indicate custom CA Signer name when using external K8s CA
@@ -70,6 +74,10 @@ const (
 
 	// DefaultExtCACertDir : Location of external CA certificate
 	DefaultExtCACertDir string = "./etc/external-ca-cert"
+
+	// defaultMaxRAWorkloadCertTTL is the fallback cap when MaxRAWorkloadCertTTL is not set.
+	// Keep in sync with the MAX_RA_WORKLOAD_CERT_TTL default in pilot/pkg/bootstrap/istio_ca.go.
+	defaultMaxRAWorkloadCertTTL = 48 * time.Hour
 )
 
 // ValidateCSR : Validate all SAN extensions in csrPEM match authenticated identities and
@@ -195,10 +203,20 @@ func preSign(raOpts *IstioRAOptions, csrPEM []byte, subjectIDs []string, request
 	if requestedLifetime.Seconds() <= 0 {
 		lifetime = raOpts.DefaultCertTTL
 	}
-	// If the requested TTL is greater than maxCertTTL, return an error
-	if requestedLifetime.Seconds() > raOpts.MaxCertTTL.Seconds() {
+	// For client-initiated requests on the Kubernetes RA path, apply a tighter TTL cap than
+	// MAX_WORKLOAD_CERT_TTL to limit the window a stolen istio-token can be exploited.
+	clientCap := raOpts.MaxRAWorkloadCertTTL
+	if clientCap <= 0 {
+		clientCap = defaultMaxRAWorkloadCertTTL
+	}
+	effectiveMaxTTL := raOpts.MaxCertTTL
+	if effectiveMaxTTL > clientCap {
+		effectiveMaxTTL = clientCap
+	}
+	// If the requested TTL is greater than the effective cap, return an error
+	if requestedLifetime.Seconds() > effectiveMaxTTL.Seconds() {
 		return lifetime, raerror.NewError(raerror.TTLError, fmt.Errorf(
-			"requested TTL %s is greater than the max allowed TTL %s", requestedLifetime, raOpts.MaxCertTTL))
+			"requested TTL %s is greater than the max allowed TTL %s", requestedLifetime, effectiveMaxTTL))
 	}
 	return lifetime, nil
 }

@@ -1,0 +1,23 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+
+releaseNotes:
+  - |
+    **Fixed** `CreateCertificate` returning raw Kubernetes API error text to callers on the
+    experimental Kubernetes CSR RA path (`EXTERNAL_CA=ISTIOD_RA_KUBERNETES_API`), which leaked
+    CSR names, signer names, and istiod's identity. The full error is now logged server-side only.
+    Reported by Juno Im.
+  - |
+    **Fixed** the Kubernetes CSR watch loop using an abandoned `time.After` timer that could
+    leave a goroutine running past request completion on the experimental Kubernetes CSR RA path
+    (`EXTERNAL_CA=ISTIOD_RA_KUBERNETES_API`). The loop is now bounded by a properly scoped
+    `context.WithTimeout` and is reliably torn down on timeout or cancellation.
+    Reported by Juno Im.
+  - |
+    **Fixed** client-requested `ValidityDuration` being accepted up to `MAX_WORKLOAD_CERT_TTL`
+    (default 90d) on the experimental Kubernetes CSR RA path (`EXTERNAL_CA=ISTIOD_RA_KUBERNETES_API`).
+    A new `MAX_RA_WORKLOAD_CERT_TTL` environment variable (default `48h`) now caps the TTL,
+    limiting the blast radius of a stolen istio-token. Deployments that legitimately requested
+    certificates with TTL > 48h via this path should raise `MAX_RA_WORKLOAD_CERT_TTL` after upgrade.
+    Reported by Juno Im.

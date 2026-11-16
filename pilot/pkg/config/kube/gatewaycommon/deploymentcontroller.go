@@ -98,7 +98,7 @@ type DeploymentController struct {
 	listenerSets        kclient.Informer[*gateway.ListenerSet]
 	listenerSetByParent kclient.Index[types.NamespacedName, *gateway.ListenerSet]
 
-	clients         map[schema.GroupVersionResource]getter
+	clients         map[schema.GroupVersionResource]Getter
 	injectConfig    func() inject.WebhookConfig
 	deployments     kclient.Client[*appsv1.Deployment]
 	services        kclient.Client[*corev1.Service]
@@ -133,7 +133,7 @@ func NewDeploymentController(
 	dc := &DeploymentController{
 		client:    client,
 		clusterID: clusterID,
-		clients:   map[schema.GroupVersionResource]getter{},
+		clients:   map[schema.GroupVersionResource]Getter{},
 		env:       env,
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
@@ -980,11 +980,11 @@ func sanitizeListenerNameForPort(s string) string {
 type UntypedWrapper[T controllers.ComparableObject] struct {
 	reader kclient.Reader[T]
 }
-type getter interface {
+type Getter interface {
 	Get(name, namespace string) controllers.Object
 }
 
-func NewUntypedWrapper[T controllers.ComparableObject](c kclient.Client[T]) getter {
+func NewUntypedWrapper[T controllers.ComparableObject](c kclient.Client[T]) Getter {
 	return UntypedWrapper[T]{c}
 }
 
@@ -997,7 +997,7 @@ func (u UntypedWrapper[T]) Get(name, namespace string) controllers.Object {
 	return res
 }
 
-var _ getter = UntypedWrapper[*corev1.Service]{}
+var _ Getter = UntypedWrapper[*corev1.Service]{}
 
 // strategicMergePatchYAML is a small fork of strategicpatch.StrategicMergePatch to allow YAML patches
 // This avoids expensive conversion from YAML to JSON

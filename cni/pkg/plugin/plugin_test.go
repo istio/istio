@@ -469,21 +469,11 @@ func TestIsCNIPod(t *testing.T) {
 	}
 }
 
-func TestCmdAddTwoContainersWithAnnotation(t *testing.T) {
-	pod, ns := buildFakePodAndNSForClient()
-
-	pod.Spec.Containers[0].Name = "mockContainer"
-	pod.Spec.Containers[1].Name = "istio-proxy"
-	pod.ObjectMeta.Annotations[injectAnnotationKey] = "false"
-
-	testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
-}
-
 func TestCmdAddTwoContainersWithLabel(t *testing.T) {
 	pod, ns := buildFakePodAndNSForClient()
 	pod.Spec.Containers[0].Name = "mockContainer"
 	pod.Spec.Containers[1].Name = "istio-proxy"
-	pod.ObjectMeta.Annotations[label.SidecarInject.Name] = "false"
+	pod.ObjectMeta.Labels = map[string]string{label.SidecarInject.Name: "false"}
 
 	testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
 }

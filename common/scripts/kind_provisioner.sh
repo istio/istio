@@ -307,8 +307,8 @@ EOF
 
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 
-    # Create the clusters.
-    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true" "false"
+    # Create the clusters. Retry to handle port-allocation races when creating clusters in parallel.
+    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster_retry "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true" "false"
 
     # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
     # its much simpler if we have a single kubeconfig that can be used internally and externally.

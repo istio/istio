@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 61538
+releaseNotes:
+  - |
+    **Fixed** a regression where a `Telemetry` resource in a waypoint's own namespace, selected by
+    `targetRefs` or `selector`, was not applied when the waypoint served a Service in a different
+    namespace. Access logging, metrics and tracing configured this way were silently dropped for
+    every cross-namespace Service the waypoint handled.

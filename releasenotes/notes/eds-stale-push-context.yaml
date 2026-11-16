@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: []
+releaseNotes:
+  - |
+    **Fixed** an issue where merging push requests could keep an older push context, so a proxy's configuration was
+    rebuilt from stale config. Merged push requests now always keep the most recent push context.
+    For example, with `PILOT_ENABLE_EDS_DEBOUNCE=false`, a gateway could keep a `DestinationRule` from before a subset
+    change and cache stale EDS that was served to all gateways on that istiod sharing the cache key, including
+    empty endpoints once the old pods were removed.

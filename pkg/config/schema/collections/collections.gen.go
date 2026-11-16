@@ -1018,7 +1018,6 @@ var (
 			MustAdd(TLSRoute).
 			MustAdd(Telemetry).
 			MustAdd(TrafficExtension).
-			MustAdd(UDPRoute).
 			MustAdd(VirtualService).
 			MustAdd(WasmPlugin).
 			MustAdd(WorkloadEntry).

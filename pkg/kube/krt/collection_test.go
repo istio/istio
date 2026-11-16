@@ -266,6 +266,26 @@ func TestCollectionSimple(t *testing.T) {
 	tt.WaitUnordered("delete/namespace/name")
 }
 
+func TestFetchSorted(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	source := krt.NewStaticCollection(nil, []Named{
+		{Namespace: "namespace", Name: "c"},
+		{Namespace: "namespace", Name: "a"},
+		{Namespace: "namespace", Name: "b"},
+	}, opts.WithName("Source")...)
+
+	result := krt.NewSingleton(func(ctx krt.HandlerContext) *Static {
+		fromFunction := krt.FetchSorted(ctx, source)
+		fromMethod := source.FetchSorted(ctx)
+		return &Static{Value: fmt.Sprintf("%v|%v", fromFunction, fromMethod)}
+	}, opts.WithName("Result")...)
+	result.AsCollection().WaitUntilSynced(stop)
+
+	want := "[{namespace a} {namespace b} {namespace c}]|[{namespace a} {namespace b} {namespace c}]"
+	assert.Equal(t, result.Get(), &Static{Value: want})
+}
+
 func TestCollectionInitialState(t *testing.T) {
 	stop := test.NewStop(t)
 	opts := testOptions(t)

@@ -1,0 +1,18 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** an issue where a new inbound connection reusing the 4-tuple of a torn-down connection
+    could bypass the sidecar proxy by matching a stale conntrack `ESTABLISHED` entry. A SYN-only
+    rule is now evaluated ahead of the `ESTABLISHED` divert rule in both iptables and nftables modes.
+
+securityNotes:
+  - |
+    __[GHSA-cxwg-46mx-q8hf](https://github.com/istio/istio/security/advisories/GHSA-cxwg-46mx-q8hf)__:
+    a new inbound connection reusing the 4-tuple of a torn-down connection could bypass the sidecar
+    proxy by matching a stale conntrack `ESTABLISHED` entry. A SYN-only rule is now evaluated ahead
+    of the `ESTABLISHED` divert rule in both iptables and nftables modes.
+    - CVSS Score: 7.4 [AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N&version=3.1)
+    
+    **Credit**: This vulnerability was discovered and reported by Ramarao Chavali (https://github.com/ramaraochavali), akshayreddyb (https://github.com/akshayreddyb), Pawan Bishnoi (https://github.com/Pawan-Bishnoi) and deveshkandpal1224 (https://github.com/deveshkandpal1224).

@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
@@ -330,6 +331,10 @@ func typedServiceServiceBuilder(
 }
 
 func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namespace], s *v1.Service) model.ServiceScope {
+	// The kubernetes API server service is always cluster-local; each cluster has its own API server.
+	if s.Namespace == metav1.NamespaceDefault && s.Name == "kubernetes" {
+		return model.Local
+	}
 	// Apply label selectors from the MeshConfig's servieScopeConfig to determine the scope of the service based on the namespace
 	// or service label matches
 	// Check if the service matches any label selectors defined in the meshConfig's serviceScopeConfig.

@@ -25,7 +25,7 @@ import (
 // implementations without changing the higher-level logic.
 type TrafficRuleManager interface {
 	CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error
-	DeleteInpodRules(log *istiolog.Scope) error
+	DeleteInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error
 	CreateHostRulesForHealthChecks() error
 	DeleteHostRules()
 	ReconcileModeEnabled() bool

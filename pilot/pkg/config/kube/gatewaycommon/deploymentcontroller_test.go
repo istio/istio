@@ -1399,7 +1399,7 @@ func TestApplySafeguards(t *testing.T) {
 	stop := test.NewStop(t)
 	c.RunAndWait(stop)
 	d := &DeploymentController{
-		clients:     map[schema.GroupVersionResource]getter{},
+		clients:     map[schema.GroupVersionResource]Getter{},
 		deployments: kclient.New[*appsv1.Deployment](c),
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			return nil // mock patcher

@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/util/shellescape"
 )
 
 //go:embed readme.tpl
@@ -144,19 +145,23 @@ func ManifestTranslate(kubeClient kube.CLIClient, mgArgs *ManifestTranslateArgs,
 			return err
 		}
 		for _, m := range info.Manifest {
-			gk := m.GetObjectKind().GroupVersionKind().GroupKind().String()
+			gk := shellescape.Quote(m.GetObjectKind().GroupVersionKind().GroupKind().String())
+			resourceName := shellescape.Quote(m.GetName())
 			nsFlag := ""
 			if m.GetNamespace() != "" {
-				nsFlag = " --namespace=" + m.GetNamespace()
+				nsFlag = " --namespace=" + shellescape.Quote(m.GetNamespace())
 			}
 			commands = append(commands,
-				fmt.Sprintf("kubectl annotate %s%s %s meta.helm.sh/release-name=%s", gk, nsFlag, m.GetName(), name),
-				fmt.Sprintf("kubectl annotate %s%s %s meta.helm.sh/release-namespace=%s", gk, nsFlag, m.GetName(), ns),
-				fmt.Sprintf("kubectl label %s%s %s app.kubernetes.io/managed-by=Helm", gk, nsFlag, m.GetName()))
+				fmt.Sprintf("kubectl annotate %s%s %s %s", gk, nsFlag, resourceName,
+					shellescape.Quote("meta.helm.sh/release-name="+name)),
+				fmt.Sprintf("kubectl annotate %s%s %s %s", gk, nsFlag, resourceName,
+					shellescape.Quote("meta.helm.sh/release-namespace="+ns)),
+				fmt.Sprintf("kubectl label %s%s %s app.kubernetes.io/managed-by=Helm", gk, nsFlag, resourceName))
 		}
 		commands = append(commands, "\n", "# Run the actual Helm install operation",
-			fmt.Sprintf("helm upgrade --install %s --namespace %s -f %s oci://ghcr.io/istio/release/charts/%s",
-				name, ns, valuesName, info.Component.ReleaseName))
+			fmt.Sprintf("helm upgrade --install %s --namespace %s -f %s %s",
+				shellescape.Quote(name), shellescape.Quote(ns), shellescape.Quote(valuesName),
+				shellescape.Quote("oci://ghcr.io/istio/release/charts/"+info.Component.ReleaseName)))
 
 		if err := write(fmt.Sprintf("install-%s.sh", name), strings.Join(commands, "\n")+"\n"); err != nil {
 			return err

@@ -138,6 +138,14 @@ func (cfg *NftablesConfigurator) handleInboundTProxyMode() {
 					"tcp dport", port, constants.Counter, "return")
 			}
 		}
+		// A SYN with no ACK can only be a brand-new connection attempt. Route it to TPROXY
+		// unconditionally, ahead of the conntrack established check below: a stale conntrack
+		// entry from a torn-down connection reusing the same 4-tuple would otherwise match
+		// established and bypass Envoy via the loopback interface.
+		cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
+			"meta l4proto tcp",
+			"tcp flags & (syn | ack) == syn", constants.Counter,
+			"jump", constants.IstioTproxyChain)
 		// If an inbound packet belongs to an established socket, route it to the loopback interface.
 		cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
 			"meta l4proto tcp",
@@ -150,6 +158,11 @@ func (cfg *NftablesConfigurator) handleInboundTProxyMode() {
 	} else {
 		// User has specified a non-empty list of ports to be redirected to Envoy.
 		for _, port := range config.Split(cfg.cfg.InboundPortsInclude) {
+			cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
+				"meta l4proto tcp",
+				"tcp flags & (syn | ack) == syn",
+				"tcp dport", port, constants.Counter,
+				"jump", constants.IstioTproxyChain)
 			cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
 				"meta l4proto tcp",
 				"ct state", "related,established",

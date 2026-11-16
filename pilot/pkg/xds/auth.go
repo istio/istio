@@ -23,20 +23,21 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
 
 // authenticate authenticates the ADS request using the configured authenticators.
-// Returns the validated principals or an error.
+// Returns the validated principals and the cluster the credential was validated against (if known), or an error.
 // If no authenticators are configured, or if the request is on a non-secure
 // stream ( 15010 ) - returns an empty list of principals and no errors.
-func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
+func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, cluster.ID, error) {
 	c, err := security.Authenticate(ctx, s.Authenticators)
 	if c != nil {
-		return c.Identities, nil
+		return c.Identities, c.ClusterID, nil
 	}
-	return nil, err
+	return nil, "", err
 }
 
 func (s *DiscoveryServer) authorize(con *Connection, identities []string) error {
@@ -51,7 +52,23 @@ func (s *DiscoveryServer) authorize(con *Connection, identities []string) error 
 			log.Warnf("Unauthorized XDS: %v with identity %v: %v", con.Peer(), identities, err)
 			return status.Newf(codes.PermissionDenied, "authorization failed: %v", err).Err()
 		}
+		// The cluster in node metadata is client supplied; it must match the cluster the credential was validated against.
+		if err := checkConnectionCluster(con.proxy, con.authClusterID); err != nil {
+			log.Warnf("Unauthorized XDS: %v with identity %v: %v", con.Peer(), identities, err)
+			return status.Newf(codes.PermissionDenied, "authorization failed: %v", err).Err()
+		}
 		con.proxy.VerifiedIdentity = id
+	}
+	return nil
+}
+
+func checkConnectionCluster(proxy *model.Proxy, authClusterID cluster.ID) error {
+	if authClusterID == "" || proxy.Metadata.ClusterID == "" {
+		// Credential does not carry a cluster (e.g. certificate auth), or the proxy did not claim one.
+		return nil
+	}
+	if proxy.Metadata.ClusterID != authClusterID {
+		return fmt.Errorf("proxy cluster %q does not match authenticated cluster %q", proxy.Metadata.ClusterID, authClusterID)
 	}
 	return nil
 }

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 62681
+releaseNotes:
+  - |
+    **Fixed** the `downloadIstio` and `downloadIstioctl` scripts failing to find the latest Istio version, and failing when `TARGET_OS` is set in lowercase. Also added support for Git Bash, MSYS and Cygwin on Windows.
