@@ -68,6 +68,15 @@ type EndpointShards struct {
 	// Due to the larger time, it is still possible that connection errors will occur while
 	// CDS is updated.
 	ServiceAccounts sets.String
+
+	// mtlsPorts is the last set of ports UpdateInferredMTLS saw with endpoints, none of them with TLS disabled.
+	mtlsPorts sets.Set[endpointPortKey]
+}
+
+// endpointPortKey identifies a service port the way CopyEndpoints groups endpoints.
+type endpointPortKey struct {
+	name   string
+	legacy int
 }
 
 // Keys gives a sorted list of keys for EndpointShards.Shards.
@@ -125,6 +134,7 @@ func (es *EndpointShards) DeepCopy() *EndpointShards {
 	res := &EndpointShards{
 		Shards:          make(map[ShardKey][]*IstioEndpoint, len(es.Shards)),
 		ServiceAccounts: es.ServiceAccounts.Copy(),
+		mtlsPorts:       es.mtlsPorts.Copy(),
 	}
 	for k, v := range es.Shards {
 		res.Shards[k] = make([]*IstioEndpoint, 0, len(v))
@@ -441,6 +451,36 @@ func endpointUpdateRequiresPush(oldIstioEndpoints []*IstioEndpoint, incomingEndp
 	}
 
 	return newIstioEndpoints, needPush
+}
+
+// UpdateInferredMTLS records which ports of the service would be inferred as mTLS by
+// PushContext.BestEffortInferServiceMTLSMode for passthrough traffic, across all shards,
+// and reports whether that changed since the last call.
+func (e *EndpointIndex) UpdateInferredMTLS(hostname, namespace string) bool {
+	shards, ok := e.ShardsForService(hostname, namespace)
+	if !ok {
+		return false
+	}
+	shards.Lock()
+	defer shards.Unlock()
+	ports := sets.New[endpointPortKey]()
+	disabled := sets.New[endpointPortKey]()
+	for _, eps := range shards.Shards {
+		for _, ep := range eps {
+			k := endpointPortKey{name: ep.ServicePortName, legacy: ep.LegacyClusterPortKey}
+			if ep.TLSMode == DisabledTLSModeLabel {
+				disabled.Insert(k)
+			} else {
+				ports.Insert(k)
+			}
+		}
+	}
+	ports.DeleteAllSet(disabled)
+	if ports.Equals(shards.mtlsPorts) {
+		return false
+	}
+	shards.mtlsPorts = ports
+	return true
 }
 
 // updateShardServiceAccount updates the service endpoints' sa when service/endpoint event happens.

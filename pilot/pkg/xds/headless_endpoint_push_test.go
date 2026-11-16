@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
@@ -116,6 +117,28 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			expectCDS: true, // ServiceUpdate means service definition changed
 			expectRDS: true, // ServiceUpdate means service definition changed
 		},
+		{
+			name:      "Sidecar with EndpointMTLSChange should push CDS but not RDS",
+			proxyType: model.SidecarProxy,
+			reason:    model.NewReasonStats(model.HeadlessEndpointUpdate, model.EndpointMTLSChange),
+			configUpdates: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "my-service", Namespace: "default"},
+			),
+			expectLDS: true,
+			expectCDS: true, // clients infer auto-mTLS for the service from its endpoints
+			expectRDS: false,
+		},
+		{
+			name:      "Router with EndpointMTLSChange should push CDS only",
+			proxyType: model.Router,
+			reason:    model.NewReasonStats(model.HeadlessEndpointUpdate, model.EndpointMTLSChange),
+			configUpdates: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "my-service", Namespace: "default"},
+			),
+			expectLDS: false,
+			expectCDS: true,
+			expectRDS: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -176,5 +199,57 @@ func TestRdsNeedsPushCoalescedHeadlessUpdate(t *testing.T) {
 	}
 	if updated.ConfigsUpdated.Contains(model.ConfigKey{Kind: kind.Endpoints, Name: "svc", Namespace: "default"}) {
 		t.Fatalf("endpoint-only update was not filtered: %v", updated.ConfigsUpdated)
+	}
+}
+
+func TestEDSUpdateInferredMTLSChangeAcrossClusters(t *testing.T) {
+	env := model.NewEnvironment()
+	push := model.NewPushContext()
+	for name, resolution := range map[string]model.Resolution{"headless.default.svc": model.Passthrough, "clusterip.default.svc": model.ClientSideLB} {
+		push.ServiceIndex.HostnameAndNamespace[host.Name(name)] = map[string]*model.Service{
+			"default": {Hostname: host.Name(name), Resolution: resolution, Attributes: model.ServiceAttributes{Namespace: "default"}},
+		}
+	}
+	env.SetPushContext(push)
+	s := NewDiscoveryServer(env, nil, nil)
+	defer s.Shutdown()
+
+	local := model.ShardKey{Cluster: "local"}
+	remote := model.ShardKey{Cluster: "remote"}
+	endpoint := func(ip, tlsMode string) *model.IstioEndpoint {
+		return &model.IstioEndpoint{Addresses: []string{ip}, ServicePortName: "tcp", TLSMode: tlsMode, HealthStatus: model.Healthy}
+	}
+	mtlsChange := func() bool {
+		changed := false
+		for {
+			select {
+			case req := <-s.pushChannel:
+				changed = changed || req.Reason.Has(model.EndpointMTLSChange)
+			default:
+				return changed
+			}
+		}
+	}
+
+	steps := []struct {
+		name  string
+		svc   string
+		shard model.ShardKey
+		eps   []*model.IstioEndpoint
+		want  bool
+	}{
+		{"remote mTLS endpoint appears", "headless.default.svc", remote, []*model.IstioEndpoint{endpoint("10.0.0.1", model.IstioMutualTLSModeLabel)}, true},
+		{"local plaintext endpoint appears", "headless.default.svc", local, []*model.IstioEndpoint{endpoint("10.0.1.1", model.DisabledTLSModeLabel)}, true},
+		{"local plaintext endpoint goes away", "headless.default.svc", local, nil, true},
+		{"local mTLS endpoint appears", "headless.default.svc", local, []*model.IstioEndpoint{endpoint("10.0.1.1", model.IstioMutualTLSModeLabel)}, false},
+		{"remote endpoint goes away", "headless.default.svc", remote, nil, false},
+		{"last endpoint goes away", "headless.default.svc", local, nil, true},
+		{"not passthrough", "clusterip.default.svc", local, []*model.IstioEndpoint{endpoint("10.0.2.1", model.IstioMutualTLSModeLabel)}, false},
+	}
+	for _, st := range steps {
+		s.EDSUpdate(st.shard, st.svc, "default", st.eps)
+		if got := mtlsChange(); got != st.want {
+			t.Fatalf("%s: EndpointMTLSChange = %v, want %v", st.name, got, st.want)
+		}
 	}
 }

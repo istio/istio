@@ -68,6 +68,12 @@ func (s *DiscoveryServer) EDSReplace(shard model.ShardKey, serviceName string, n
 }
 
 func (s *DiscoveryServer) edsPush(pushType model.PushType, serviceName string, namespace string) {
+	reason := model.NewReasonStats(model.EndpointUpdate)
+	// Endpoints are stored even when no push is needed, and they can still flip the inferred mode.
+	if s.infersMTLSFromEndpoints(serviceName, namespace) && s.Env.EndpointIndex.UpdateInferredMTLS(serviceName, namespace) {
+		pushType = model.FullPush
+		reason.Add(model.EndpointMTLSChange)
+	}
 	if pushType != model.NoPush {
 		configKind := kind.Endpoints
 		if pushType == model.FullPush {
@@ -76,9 +82,15 @@ func (s *DiscoveryServer) edsPush(pushType model.PushType, serviceName string, n
 		// Trigger a push
 		s.ConfigUpdate(&model.PushRequest{
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: configKind, Name: serviceName, Namespace: namespace}),
-			Reason:         model.NewReasonStats(model.EndpointUpdate),
+			Reason:         reason,
 		})
 	}
+}
+
+// infersMTLSFromEndpoints mirrors the passthrough check in PushContext.BestEffortInferServiceMTLSMode.
+func (s *DiscoveryServer) infersMTLSFromEndpoints(serviceName, namespace string) bool {
+	svc := s.globalPushContext().ServiceIndex.HostnameAndNamespace[host.Name(serviceName)][namespace]
+	return svc != nil && !svc.MeshExternal && svc.Resolution == model.Passthrough
 }
 
 // EDSCacheUpdate computes destination address membership across all clusters and networks.
