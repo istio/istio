@@ -220,6 +220,9 @@ func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {
 		cw.cluster.GetCommonLbConfig().LocalityConfigSpecifier = nil
 	}
 
+	// `lb_subset_config` is not compatible with `load_balancing_policy` either.
+	cw.cluster.LbSubsetConfig = nil
+
 	// `LOAD_BALANCING_POLICY_CONFIG` is technically deprecated, but `lb_policy`
 	// is an Enum, with `ROUND_ROBIN` as the default value, so to avoid any
 	// confusion, we're explicitly setting it.

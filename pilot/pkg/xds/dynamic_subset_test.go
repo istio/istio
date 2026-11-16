@@ -17,13 +17,16 @@ package xds_test
 import (
 	"testing"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestDynamicSubsetEndpointMetadata(t *testing.T) {
+func TestDynamicSubset(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: `
 apiVersion: networking.istio.io/v1
@@ -187,6 +190,25 @@ ports:
 `,
 	})
 	proxy := s.SetupProxy(&model.Proxy{ConfigNamespace: "default"})
+
+	clusters := s.Clusters(proxy)
+	c := xdstest.ExtractCluster("outbound|80||app.default.svc.cluster.local", clusters)
+	if c == nil {
+		t.Fatal("cluster not found")
+	}
+	assert.Equal(t, c.GetLbSubsetConfig(), &cluster.Cluster_LbSubsetConfig{
+		FallbackPolicy: cluster.Cluster_LbSubsetConfig_ANY_ENDPOINT,
+		SubsetSelectors: []*cluster.Cluster_LbSubsetConfig_LbSubsetSelector{
+			{Keys: []string{"stage", "version"}},
+			{Keys: []string{constants.DynamicSubsetIPKey}, SingleHostPerSubset: true},
+			{Keys: []string{constants.DynamicSubsetHostnameKey}, SingleHostPerSubset: true},
+		},
+	})
+	other := xdstest.ExtractCluster("outbound|80||other.default.svc.cluster.local", clusters)
+	if other == nil {
+		t.Fatal("cluster not found")
+	}
+	assert.Equal(t, other.GetLbSubsetConfig(), nil)
 
 	// address -> envoy.lb metadata, per cluster
 	got := map[string]map[string]map[string]string{}

@@ -15,7 +15,12 @@
 package loadbalancer
 
 import (
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	"google.golang.org/protobuf/types/known/structpb"
+
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -39,4 +44,51 @@ func DynamicSubsetKeys(ds *networking.DynamicSubsetLB) []string {
 		}
 	}
 	return slices.Sort(keys)
+}
+
+// ApplyDynamicSubset configures Envoy's subset load balancer on the cluster from the dynamic subset
+// settings. Endpoints expose the selector keys as `envoy.lb` metadata (see DynamicSubsetKeys), and a
+// request selects a subset by carrying `envoy.lb` metadata matching all keys of one selector.
+//
+// Only EDS clusters are supported, as the metadata is only attached to endpoints sent over EDS.
+// Envoy rejects `lb_subset_config` together with `load_balancing_policy`, so clusters using a typed
+// load balancing policy are left unchanged.
+func ApplyDynamicSubset(c *cluster.Cluster, ds *networking.DynamicSubsetLB) {
+	if ds == nil || len(ds.GetSubsetSelectors()) == 0 {
+		return
+	}
+	if c.GetType() != cluster.Cluster_EDS || c.GetLoadBalancingPolicy() != nil || c.GetLbSubsetConfig() != nil {
+		return
+	}
+	cfg := &cluster.Cluster_LbSubsetConfig{
+		// Keep honoring locality weights within a subset, if the cluster uses them.
+		LocalityWeightAware: c.GetCommonLbConfig().GetLocalityWeightedLbConfig() != nil,
+		SubsetSelectors:     make([]*cluster.Cluster_LbSubsetConfig_LbSubsetSelector, 0, len(ds.GetSubsetSelectors())),
+	}
+	for _, s := range ds.GetSubsetSelectors() {
+		keys := slices.Sort(slices.Clone(s.GetKeys()))
+		cfg.SubsetSelectors = append(cfg.SubsetSelectors, &cluster.Cluster_LbSubsetConfig_LbSubsetSelector{
+			Keys: keys,
+			// A built-in key identifies one endpoint, which allows Envoy to use a cheaper host lookup.
+			SingleHostPerSubset: len(keys) == 1 && isBuiltinDynamicSubsetKey(keys[0]),
+		})
+	}
+	switch ds.GetFallbackPolicy() {
+	case networking.DynamicSubsetLB_NO_FALLBACK:
+		cfg.FallbackPolicy = cluster.Cluster_LbSubsetConfig_NO_FALLBACK
+	case networking.DynamicSubsetLB_DEFAULT_SUBSET:
+		cfg.FallbackPolicy = cluster.Cluster_LbSubsetConfig_DEFAULT_SUBSET
+		fields := make(map[string]*structpb.Value, len(ds.GetDefaultSubset()))
+		for _, k := range slices.Sort(maps.Keys(ds.GetDefaultSubset())) {
+			fields[k] = structpb.NewStringValue(ds.GetDefaultSubset()[k])
+		}
+		cfg.DefaultSubset = &structpb.Struct{Fields: fields}
+	default:
+		cfg.FallbackPolicy = cluster.Cluster_LbSubsetConfig_ANY_ENDPOINT
+	}
+	c.LbSubsetConfig = cfg
+}
+
+func isBuiltinDynamicSubsetKey(k string) bool {
+	return k == constants.DynamicSubsetIPKey || k == constants.DynamicSubsetHostnameKey
 }
