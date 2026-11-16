@@ -328,15 +328,11 @@ func TestHBONEConnectWaitWaypointEndpoints(t *testing.T) {
 						t.Fatal("missing service cluster")
 					}
 					assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONEConnectWaitPool, enabled)
-					listenerName := "connect_originate"
-					if enabled {
-						listenerName = util.HBONEOriginationAdapterListener
-					}
 					assignments := d.Endpoints(proxy)
 					assert.Equal(t, slices.Sort(xdstest.ExtractLoadAssignments(assignments)[name]), []string{
 						"1.1.1.3:80,[2001:20::3]:80",
-						listenerName + ";1.1.1.1:80",
-						listenerName + ";1.1.1.2:80",
+						"connect_originate;1.1.1.1:80",
+						"connect_originate;1.1.1.2:80",
 					})
 					for _, locality := range xdstest.ExtractLocalityLbEndpoints(assignments)[name] {
 						for _, ep := range locality.LbEndpoints {
@@ -691,15 +687,13 @@ func TestIngressUseWaypoint(t *testing.T) {
 					EnableHBONEConnectWait: model.StringBool(adapter),
 				},
 			})
-			listenerName := "connect_originate"
 			transportName := "envoy.transport_sockets.internal_upstream"
 			if adapter {
-				listenerName = util.HBONEOriginationAdapterListener
 				transportName = util.HBONEOriginationAdapterTransport
 			}
 			eps := slices.Sort(xdstest.ExtractLoadAssignments(d.Endpoints(ingressProxy))["outbound|80||app.com"])
 			// Preserve the service VIP as CONNECT authority and the waypoint as outer peer.
-			assert.Equal(t, eps, []string{listenerName + ";1.2.3.4:80;3.0.0.1:15008"})
+			assert.Equal(t, eps, []string{"connect_originate;1.2.3.4:80;3.0.0.1:15008"})
 			clusters := xdstest.ExtractClusters(d.Clusters(ingressProxy))
 			c := clusters["outbound|80||app.com"]
 			if c == nil || clusters["connect_originate"] == nil {
@@ -716,7 +710,6 @@ func TestIngressUseWaypoint(t *testing.T) {
 			assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONEConnectWaitPool, adapter)
 			assert.Equal(t, c.LoadBalancingPolicy == nil, true)
 			listeners := d.Listeners(ingressProxy)
-			assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationAdapterListener, listeners) != nil, adapter)
 			assert.Equal(t, xdstest.ExtractListener("connect_originate", listeners) != nil, true)
 		})
 	}

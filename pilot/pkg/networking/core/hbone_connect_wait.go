@@ -25,7 +25,7 @@ import (
 // Required on both application clusters using the adapter transport and their HBONE
 // origination clusters. The pool signals CONNECT readiness from tunneling callbacks
 // and handles permanent rejections for HTTP and TCP application consumers. Shared
-// HBONE clusters pass callers without CONNECT-wait state through to the stock pool.
+// HBONE listeners and clusters pass callers without CONNECT-wait state through to the stock pool.
 func applyHBONEConnectWaitPool(c *cluster.Cluster) {
 	// The router resolves this config for every upstream request attempt. Use a
 	// direct, empty Any to avoid converting a TypedStruct on each attempt.

@@ -248,10 +248,6 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 				addr := net.JoinHostPort(gwAddr, strconv.Itoa(gwPort))
 				svcPort := b.servicePort(b.port)
-				listenerName := innerConnectOriginate
-				if b.hboneConnectWait {
-					listenerName = util.HBONEInnerOriginationAdapterListener
-				}
 
 				gwEp = &endpoint.LbEndpoint{
 					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -259,7 +255,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 							// We need to redirect to an internal listener that will tunnel the data through
 							// a double-HBONE, we still use the E/W gateway address though for the endpoint
 							// id.
-							Address: util.BuildInternalAddressWithIdentifier(listenerName, addr),
+							Address: util.BuildInternalAddressWithIdentifier(innerConnectOriginate, addr),
 						},
 					},
 					LoadBalancingWeight: &wrappers.UInt32Value{

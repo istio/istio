@@ -116,7 +116,7 @@ func TestHBONEConnectWaitOptInAndCacheIsolation(t *testing.T) {
 					assert.Equal(t, cache.Key() != stockCDS, tt.want)
 					assert.Equal(t, eb.Key() != stockEDS, tt.want)
 					listeners := cg.Listeners(proxy)
-					assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationAdapterListener, listeners) != nil, tt.want)
+					assert.Equal(t, xdstest.ExtractListener(ConnectOriginate, listeners) != nil, true)
 				})
 			}
 		}
@@ -134,17 +134,18 @@ func TestHBONEConnectWaitNestedPairing(t *testing.T) {
 				c := cb.buildInnerConnectOriginateCluster(proxy, cg.PushContext())
 				assertHBONEConnectWaitPool(t, c, enabled)
 				assertHBONEConnectWaitPool(t, cb.buildOuterConnectOriginateCluster(proxy, cg.PushContext()), enabled)
-				outer := xdstest.ExtractListener(util.HBONEOuterOriginationAdapterListener, cg.Listeners(proxy))
-				assert.Equal(t, outer != nil, enabled)
+				outer := xdstest.ExtractListener(DoubleHBONEOuterConnectOriginate, cg.Listeners(proxy))
+				if outer == nil {
+					t.Fatal("missing outer HBONE listener")
+				}
 				endpoint := c.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetEnvoyInternalAddress()
+				assert.Equal(t, endpoint.GetServerListenerName(), outer.Name)
+				assert.Equal(t, outer.FilterChains[0].Filters[0].Name, wellknown.TCPProxy)
 				if !enabled {
 					assert.Equal(t, c.TransportSocket.Name, "internal_upstream_with_tls")
-					assert.Equal(t, endpoint.GetServerListenerName(), DoubleHBONEOuterConnectOriginate)
 					return
 				}
 				assert.Equal(t, c.TransportSocket.Name, util.HBONEOriginationAdapterTransport)
-				assert.Equal(t, endpoint.GetServerListenerName(), outer.Name)
-				assert.Equal(t, outer.FilterChains[0].Filters[0].Name, wellknown.TCPProxy)
 				wrapped := &udpa.TypedStruct{}
 				assert.NoError(t, c.TransportSocket.GetTypedConfig().UnmarshalTo(wrapped))
 				socket := &core.TransportSocket{}

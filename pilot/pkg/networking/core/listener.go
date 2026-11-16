@@ -129,33 +129,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	builder.patchListeners()
 	l := builder.getListeners()
 	if features.EnableHBONESend && !builder.node.IsWaypointProxy() {
-		class := istionetworking.ListenerClassSidecarOutbound
-		if node.Type == model.Router {
-			class = istionetworking.ListenerClassGateway
-		}
-		l = append(l, buildConnectOriginateListener(push, node, class))
-	}
-
-	if util.HBONEConnectWaitEnabled(node) {
-		class := istionetworking.ListenerClassSidecarOutbound
-		if node.IsWaypointProxy() {
-			class = istionetworking.ListenerClassSidecarInbound
-		}
-		if node.Type == model.Router {
-			class = istionetworking.ListenerClassGateway
-		}
-		// The HBONE cluster's pool signals CONNECT readiness. Keep stock TCP proxy
-		// and the adapter listener names recognized by the peer-metadata filter.
-		adapter := buildConnectOriginateListener(push, node, class)
-		adapter.Name = util.HBONEOriginationAdapterListener
-		l = append(l, adapter)
-		if model.ShouldCreateDoubleHBONEResources(node) {
-			outer := buildOuterConnectOriginateListener(push, node)
-			outer.Name = util.HBONEOuterOriginationAdapterListener
-			inner := buildInnerConnectOriginateListener(push, node)
-			inner.Name = util.HBONEInnerOriginationAdapterListener
-			l = append(l, outer, inner)
-		}
+		l = append(l, buildConnectOriginateListener(push, node, hboneOriginationListenerClass(node)))
 	}
 	return l
 }
