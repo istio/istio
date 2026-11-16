@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -65,6 +66,11 @@ type ListenerBuilder struct {
 	virtualInboundListener  *listener.Listener
 
 	envoyFilterWrapper *model.MergedEnvoyFilterWrapper
+
+	// gatewayWildcardTLSTargets are the wildcard DYNAMIC_DNS destinations of the ISTIO_MUTUAL gateway chains built so
+	// far, by key. They become the filter chains of the gateway wildcard TLS internal listener.
+	gatewayWildcardTLSTargets    []gatewayWildcardTLSTarget
+	gatewayWildcardTLSTargetKeys sets.String
 
 	// connectionSettings caches the resolved ProxyConfig ConnectionSettings for this proxy,
 	// with EDGE profile defaults applied for Router proxies. Computed once in NewListenerBuilder.

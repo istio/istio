@@ -822,3 +822,36 @@ func TestWritePreviousIstioOwnedMarkerOnlyWhenChanged(t *testing.T) {
 		t.Error("marker was not rewritten although changed")
 	}
 }
+
+func TestBinDirMissingChainPlugins(t *testing.T) {
+	const chain = `{"cniVersion":"0.3.1","name":"k8s-pod-network","plugins":[` +
+		`{"type":"flannel"},{"type":"portmap"},{"type":"istio-cni"}]}`
+	cases := []struct {
+		name    string
+		chained bool
+		binDir  []string
+		want    []string
+	}{
+		{name: "primary plugins present", chained: true, binDir: []string{"flannel", "portmap", "istio-cni"}},
+		{name: "one primary plugin present", chained: true, binDir: []string{"portmap", "istio-cni"}},
+		{name: "only istio-cni present", chained: true, binDir: []string{"istio-cni"}, want: []string{"flannel", "portmap"}},
+		{name: "not chained", chained: false, binDir: []string{"istio-cni"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			netDir := t.TempDir()
+			binDir := t.TempDir()
+			cfgPath := filepath.Join(netDir, "10-flannel.conflist")
+			if err := os.WriteFile(cfgPath, []byte(chain), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			for _, b := range c.binDir {
+				if err := os.WriteFile(filepath.Join(binDir, b), nil, 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cfg := &config.InstallConfig{ChainedCNIPlugin: c.chained, CNIBinTargetDirs: []string{binDir}}
+			assert.Equal(t, binDirMissingChainPlugins(cfg, cfgPath), c.want)
+		})
+	}
+}

@@ -87,6 +87,9 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 
 	// Each condition in the when needs to be consolidated into either permission or principal.
 	for _, when := range r.When {
+		if when == nil {
+			continue
+		}
 		k := when.Key
 		switch {
 		case k == attrDestIP:
@@ -128,7 +131,7 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 
 	for _, from := range r.From {
 		merged := basePrincipal.copy()
-		if s := from.Source; s != nil {
+		if s := from.GetSource(); s != nil {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
 			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
@@ -145,7 +148,7 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 
 	for _, to := range r.To {
 		merged := basePermission.copy()
-		if o := to.Operation; o != nil {
+		if o := to.GetOperation(); o != nil {
 			merged.insertFront(destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts)
 			merged.insertFront(pathGenerator{}, pathMatcher, o.Paths, o.NotPaths)
 			merged.insertFront(methodGenerator{}, methodHeader, o.Methods, o.NotMethods)

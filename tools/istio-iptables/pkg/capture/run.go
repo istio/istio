@@ -127,6 +127,16 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			}
 			// Redirect remaining inbound traffic to Envoy.
 			if cfg.cfg.InboundInterceptionMode == "TPROXY" {
+				// A SYN with no ACK can only be a brand-new connection attempt, never a
+				// mid-flow packet. Route it to TPROXY unconditionally, ahead of the
+				// conntrack ESTABLISHED check below: conntrack retains a torn-down
+				// connection's entry as ESTABLISHED for its state timeout (e.g.
+				// nf_conntrack_tcp_timeout_close/time_wait), so a new connection that
+				// reuses the same 4-tuple while that stale entry still exists would
+				// otherwise match ESTABLISHED and get diverted straight to the
+				// loopback interface, bypassing Envoy entirely.
+				cfg.ruleBuilder.AppendRule(constants.ISTIOINBOUND, "mangle", "-p", "tcp",
+					"--syn", "-j", constants.ISTIOTPROXY)
 				// If an inbound packet belongs to an established socket, route it to the
 				// loopback interface.
 				cfg.ruleBuilder.AppendRule(constants.ISTIOINBOUND, "mangle", "-p", "tcp",
@@ -142,6 +152,12 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			// User has specified a non-empty list of ports to be redirected to Envoy.
 			for _, port := range config.Split(cfg.cfg.InboundPortsInclude) {
 				if cfg.cfg.InboundInterceptionMode == "TPROXY" {
+					// See the comment on the equivalent "--syn" rule above: a new
+					// connection's SYN must never be matched by the ctstate
+					// ESTABLISHED rule below due to a stale conntrack entry left
+					// over from a torn-down connection that reused the same 4-tuple.
+					cfg.ruleBuilder.AppendRule(constants.ISTIOINBOUND, "mangle", "-p", "tcp",
+						"--dport", port, "--syn", "-j", constants.ISTIOTPROXY)
 					cfg.ruleBuilder.AppendRule(constants.ISTIOINBOUND, "mangle", "-p", "tcp",
 						"--dport", port, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", constants.ISTIODIVERT)
 					cfg.ruleBuilder.AppendRule(
