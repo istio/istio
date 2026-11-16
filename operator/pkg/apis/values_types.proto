@@ -1075,6 +1075,9 @@ message PilotConfig {
   // Traffic distribution preference for the istiod service.
   // See https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
   string trafficDistribution = 72;
+
+  // The terminationMessagePolicy of the discovery container.
+  string terminationMessagePolicy = 73;
 }
 
 // Configuration for the istiod PodDisruptionBudget.
@@ -1578,6 +1581,10 @@ message Values {
 
   // Configuration for Gateway Classes
   google.protobuf.Value gatewayClasses = 45;
+
+  // Specifies the platform the charts are installed on, selecting a platform profile.
+  // See manifests/helm-profiles/platform-*.yaml for the supported platforms.
+  string platform = 46;
 }
 
 // ExperimentalConfig is a placeholder for experimental installation features.
