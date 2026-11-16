@@ -111,6 +111,8 @@ func (esc *endpointSliceController) onEventInternal(old, ep *v1.EndpointSlice, e
 	// As for gateways, the cluster discovery type is `EDS` for headless service.
 	namespacedName := getServiceNamespacedName(ep)
 	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
+	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
+	plaintextBefore := esc.headlessPlaintext(hostnames)
 	if event == model.EventDelete {
 		esc.deleteEndpointSlice(ep)
 	} else {
@@ -130,13 +132,19 @@ func (esc *endpointSliceController) onEventInternal(old, ep *v1.EndpointSlice, e
 		return
 	}
 
-	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
 	log.Debugf("triggering EDS push for %s in namespace %s", hostnames, namespacedName.Namespace)
 	// Trigger EDS push for all hostnames.
 	esc.pushEDS(hostnames, namespacedName.Namespace)
 
 	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone || svc.Spec.Type == corev1.ServiceTypeExternalName {
 		return
+	}
+
+	// Clients infer auto-mTLS for headless services from the endpoints, so a flip needs a CDS push.
+	plaintextChanged := plaintextBefore != esc.headlessPlaintext(hostnames)
+	reason := model.NewReasonStats(model.HeadlessEndpointUpdate)
+	if plaintextChanged {
+		reason.Add(model.HeadlessEndpointMTLSChange)
 	}
 
 	configsUpdated := sets.New[model.ConfigKey]()
@@ -148,7 +156,7 @@ func (esc *endpointSliceController) onEventInternal(old, ep *v1.EndpointSlice, e
 				break
 			}
 		}
-		if supportsOnlyHTTP {
+		if supportsOnlyHTTP && !plaintextChanged {
 			// pure HTTP headless services should not need a full push since they do not
 			// require a Listener based on IP: https://github.com/istio/istio/issues/48207
 			configsUpdated.Insert(model.ConfigKey{Kind: kind.DNSName, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
@@ -160,9 +168,25 @@ func (esc *endpointSliceController) onEventInternal(old, ep *v1.EndpointSlice, e
 	if len(configsUpdated) > 0 {
 		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			ConfigsUpdated: configsUpdated,
-			Reason:         model.NewReasonStats(model.HeadlessEndpointUpdate),
+			Reason:         reason,
 		})
 	}
+}
+
+// headlessPlaintext mirrors the endpoint check in PushContext.BestEffortInferServiceMTLSMode.
+func (esc *endpointSliceController) headlessPlaintext(hostnames []host.Name) bool {
+	for _, h := range hostnames {
+		eps := esc.endpointCache.Get(h)
+		if len(eps) == 0 {
+			return true
+		}
+		for _, ep := range eps {
+			if ep.TLSMode == model.DisabledTLSModeLabel {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func serviceNeedsPush(svc *corev1.Service) bool {
