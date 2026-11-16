@@ -1359,8 +1359,14 @@ func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
 				return
 			}
 
-			if t.Settings().AmbientMultiNetwork && src.Config().Cluster != dst.Config().Cluster {
-				t.Skip("skipping cross-cluster test")
+			if t.Settings().AmbientMultiNetwork && src.Config().Cluster != dst.Config().Cluster &&
+				!dst.Config().HasServiceAddressedWaypointProxy() {
+				// Only the service-addressed waypoint is reachable cross-network here: its service and
+				// waypoint proxy are labeled global by maybeSetupMultiCluster, so east-west routing
+				// reaches it. Traffic to a workload-addressed waypoint on a remote network does not work,
+				// and non-waypoint destinations have no cross-cluster L7 policy to enforce,
+				// so only the service-addressed waypoint path is exercised cross-cluster.
+				t.Skip("cross-cluster is only supported through the service-addressed waypoint")
 			}
 
 			opt.NewConnectionPerRequest = true
@@ -1439,8 +1445,14 @@ func TestAuthorizationL7(t *testing.T) {
 				return
 			}
 
-			if t.Settings().AmbientMultiNetwork && src.Config().Cluster != dst.Config().Cluster {
-				t.Skip("skipping cross-cluster test")
+			if t.Settings().AmbientMultiNetwork && src.Config().Cluster != dst.Config().Cluster &&
+				!dst.Config().HasServiceAddressedWaypointProxy() {
+				// Only the service-addressed waypoint is reachable cross-network here: its service and
+				// waypoint proxy are labeled global by maybeSetupMultiCluster, so east-west routing
+				// reaches it. Traffic to a workload-addressed waypoint on a remote network does not work,
+				// and non-waypoint destinations have no cross-cluster L7 policy to enforce,
+				// so only the service-addressed waypoint path is exercised cross-cluster.
+				t.Skip("cross-cluster is only supported through the service-addressed waypoint")
 			}
 
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
@@ -1665,10 +1677,6 @@ func TestL7JWT(t *testing.T) {
 				// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 				// due to draining.
 				opt.NewConnectionPerRequest = true
-
-				if t.Settings().AmbientMultiNetwork && src.Config().Cluster != dst.Config().Cluster {
-					t.Skip("skipping cross-cluster test")
-				}
 
 				switch {
 				case dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy():
