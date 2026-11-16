@@ -12,4 +12,7 @@ releaseNotes:
   This fix supports single HBONE on sidecars, waypoints, and ingress gateways, and
   native double-HBONE origination on waypoints and ingress gateways.
   CONNECT 4xx responses return the same status to HTTP clients without retries,
-  except CONNECT 401 returns 403 while retaining 401 in diagnostics.
+  except CONNECT 401 returns 403 while retaining 401 in diagnostics. This setting
+  requires a proxy built with the `envoy.transport_sockets.istio_hbone` and
+  `envoy.upstreams.istio_hbone` extensions. istiod ignores the setting, and logs a
+  warning, for proxies that do not report both extensions.
