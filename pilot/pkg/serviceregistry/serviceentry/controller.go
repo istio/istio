@@ -546,8 +546,9 @@ func (s *Controller) pushProxyUpdates(events []krt.Event[*WorkloadServiceInstanc
 			// Instance UIDs start with the workload kind, namespace, and name.
 			kind, _, _ := strings.Cut(si.UID, "/")
 			namespacedName := si.Namespace + "/" + si.Name
-			if s.outputs.AllWorkloads.GetKey(kind+"/"+namespacedName) == nil {
-				// this workload no longer exists, we don't need to update any proxy
+			if kind != model.PodKind.String() && s.outputs.AllWorkloads.GetKey(kind+"/"+namespacedName) == nil {
+				// A removed WorkloadEntry has no proxy left to update. Pods are also removed
+				// when they become unready, while their proxies can remain connected.
 				continue
 			}
 			push(proxyKeyForEndpoint(si.Endpoint))

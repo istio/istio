@@ -1730,7 +1730,8 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: len(instances)},
-			Event{Type: "xds", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"},
+			Event{Type: "proxy", ID: "4.4.4.4"})
 	})
 
 	t.Run("full push on delete workload instance with multiple addresses", func(t *testing.T) {
@@ -1752,7 +1753,8 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: len(instances)},
-			Event{Type: "xds", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"},
+			Event{Type: "proxy", ID: "3.3.3.3"})
 	})
 }
 
@@ -1904,7 +1906,9 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectProxyInstances(t, sd, instances[:2], []string{"2.2.2.2"})
 		expectProxyInstances(t, sd, instances[2:], []string{"4.4.4.4", "2001:1::1"})
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 4})
+		expectEvents(t, events,
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 4},
+			Event{Type: "proxy", ID: "3.3.3.3"})
 
 		// Delete the instance with multiple addresses, it should be gone
 		callInstanceHandlers([]*model.WorkloadInstance{fi4}, sd, model.EventDelete, t)
@@ -1916,7 +1920,9 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, []string{"2.2.2.2"})
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
+		expectEvents(t, events,
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
+			Event{Type: "proxy", ID: "4.4.4.4"})
 
 		// Validate we have exactly 1 instance for selector host in outputs
 		countForSelector := 0
@@ -1943,7 +1949,9 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		instances = []*WorkloadServiceInstance{}
 		expectProxyInstances(t, sd, instances, []string{"2.2.2.2"})
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0})
+		expectEvents(t, events,
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0},
+			Event{Type: "proxy", ID: "2.2.2.2"})
 
 		// After deletions, ensure we have zero instances for selector host
 		countForSelector = 0
@@ -2294,6 +2302,43 @@ func TestPodEndpointForcesOwnProxyPush(t *testing.T) {
 	}
 }
 
+// The kube pod cache sends EventDelete when a running pod becomes unready. The
+// pod's proxy can stay connected, so it must drop its stale ServiceTargets too.
+func TestUnreadyPodForcesOwnProxyPush(t *testing.T) {
+	store, sd, events := initServiceDiscovery(t)
+	createConfigs([]*config.Config{selector}, store, t)
+	expectEvents(t, events,
+		Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
+		Event{Type: "xds", ID: "selector.com"})
+
+	pod := &model.WorkloadInstance{
+		Name: "pod-1", Namespace: selector.Namespace, Kind: model.PodKind,
+		Endpoint: &model.IstioEndpoint{
+			Addresses:    []string{"2.2.2.2"},
+			Labels:       map[string]string{"app": "wle"},
+			HealthStatus: model.Healthy,
+		},
+	}
+	proxy := &model.Proxy{IPAddresses: pod.Endpoint.Addresses, Metadata: &model.NodeMetadata{}}
+	for range 2 {
+		sd.WorkloadInstanceHandler(pod, model.EventAdd)
+		expectEvents(t, events,
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
+			Event{Type: "proxy", ID: "2.2.2.2"})
+		assert.Equal(t, len(sd.GetProxyServiceTargets(proxy)), 2)
+
+		unready := pod.DeepCopy()
+		unready.Endpoint.HealthStatus = model.UnHealthy
+		sd.WorkloadInstanceHandler(unready, model.EventDelete)
+		assert.EventuallyEqual(t, func() int { return len(sd.GetProxyServiceTargets(proxy)) }, 0)
+		// One proxy update covers both removed service ports, even though the pod
+		// has already disappeared from AllWorkloads by the time instances vanish.
+		expectEvents(t, events,
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0},
+			Event{Type: "proxy", ID: "2.2.2.2"})
+	}
+}
+
 // The push is scoped to pods, and a WorkloadEntry from a non-config cluster lands in
 // ExternalWorkloads alongside them. model.PodKind is the zero value of workloadKind, so without the
 // explicit Kind check the scoping would hold only by accident.
@@ -2435,10 +2480,9 @@ func TestWorkloadEntryAddressChangeForcesProxyPush(t *testing.T) {
 	}, retry.Timeout(5*time.Second))
 }
 
-// Removing a workload entirely - rather than just unselecting it - must not push its own proxy:
-// there is no useful recomputation left to trigger, since the workload (and its proxy connection,
-// if any) is going away. Covers both a WorkloadEntry config deletion and an external (pod) deletion.
-func TestWorkloadRemovalSkipsOwnProxyPush(t *testing.T) {
+// Removing a WorkloadEntry config needs no own-proxy push. A pod removal can also
+// mean readiness loss, so its proxy must recompute even after the workload is gone.
+func TestWorkloadRemovalOwnProxyPush(t *testing.T) {
 	t.Run("WorkloadEntry deleted", func(t *testing.T) {
 		store, _, events := initServiceDiscovery(t)
 
@@ -2462,6 +2506,7 @@ func TestWorkloadRemovalSkipsOwnProxyPush(t *testing.T) {
 		// Only the EDS teardown is expected - no proxy push, since the WorkloadEntry is gone, not
 		// just unselected.
 		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0})
+		events.AssertEmpty(t, 50*time.Millisecond)
 	})
 
 	t.Run("pod deleted", func(t *testing.T) {
@@ -2487,7 +2532,10 @@ func TestWorkloadRemovalSkipsOwnProxyPush(t *testing.T) {
 			Event{Type: "proxy", ID: "2.2.2.2"})
 
 		callInstanceHandlers([]*model.WorkloadInstance{pod}, sd, model.EventDelete, t)
-		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0})
+		expectEvents(t, events,
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0},
+			Event{Type: "proxy", ID: "2.2.2.2"})
+		events.AssertEmpty(t, 50*time.Millisecond)
 	})
 }
 

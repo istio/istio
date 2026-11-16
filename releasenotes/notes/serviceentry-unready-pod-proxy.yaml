@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61200
+releaseNotes:
+  - |
+    **Fixed** stale inbound service configuration on pod proxies when readiness loss removes
+    the pod from a ServiceEntry's endpoints.
