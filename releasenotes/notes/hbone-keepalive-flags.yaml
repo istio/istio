@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 62334
+releaseNotes:
+  - |
+    **Added** the `PILOT_HBONE_KEEPALIVE_INTERVAL`, `PILOT_HBONE_KEEPALIVE_TIMEOUT` and `PILOT_HBONE_KEEPALIVE_CONNECTION_IDLE_INTERVAL` environment variables to istiod to tune or disable the HTTP/2 keepalive pings that ambient waypoints and gateways send on outbound HBONE connections. The defaults keep the existing 10s interval and 20s timeout.

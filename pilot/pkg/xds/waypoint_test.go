@@ -22,12 +22,14 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	rbactcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/types/known/durationpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -1538,20 +1540,72 @@ spec:
 }
 
 func TestWaypointConnectOriginateHasHTTP2Keepalive(t *testing.T) {
-	g := NewWithT(t)
-	d, p := setupWaypointTest(t, waypointGateway, waypointSvc, waypointInstance)
+	cases := []struct {
+		name         string
+		interval     time.Duration
+		timeout      time.Duration
+		idleInterval time.Duration
+		want         *core.KeepaliveSettings
+	}{
+		{
+			name:     "defaults",
+			interval: 10 * time.Second,
+			timeout:  20 * time.Second,
+			want: &core.KeepaliveSettings{
+				Interval: durationpb.New(10 * time.Second),
+				Timeout:  durationpb.New(20 * time.Second),
+			},
+		},
+		{
+			name:         "custom",
+			interval:     5 * time.Second,
+			timeout:      3 * time.Second,
+			idleInterval: 2 * time.Second,
+			want: &core.KeepaliveSettings{
+				Interval:               durationpb.New(5 * time.Second),
+				Timeout:                durationpb.New(3 * time.Second),
+				ConnectionIdleInterval: durationpb.New(2 * time.Second),
+			},
+		},
+		{
+			name:         "idle interval only",
+			timeout:      20 * time.Second,
+			idleInterval: 2 * time.Second,
+			want: &core.KeepaliveSettings{
+				Timeout:                durationpb.New(20 * time.Second),
+				ConnectionIdleInterval: durationpb.New(2 * time.Second),
+			},
+		},
+		{
+			name:    "no interval disables keepalive",
+			timeout: 20 * time.Second,
+			want:    nil,
+		},
+		{
+			name:     "no timeout disables keepalive",
+			interval: 10 * time.Second,
+			want:     nil,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			test.SetForTest(t, &features.HBONEKeepaliveInterval, tt.interval)
+			test.SetForTest(t, &features.HBONEKeepaliveTimeout, tt.timeout)
+			test.SetForTest(t, &features.HBONEKeepaliveConnectionIdleInterval, tt.idleInterval)
+			d, p := setupWaypointTest(t, waypointGateway, waypointSvc, waypointInstance)
 
-	clusters := xdstest.ExtractClusters(d.Clusters(p))
-	c := clusters["connect_originate"]
-	g.Expect(c).NotTo(BeNil())
+			clusters := xdstest.ExtractClusters(d.Clusters(p))
+			c := clusters["connect_originate"]
+			g.Expect(c).NotTo(BeNil())
 
-	po := c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
-	g.Expect(po).NotTo(BeNil())
-	var httpOptions upstream.HttpProtocolOptions
-	g.Expect(po.UnmarshalTo(&httpOptions)).To(Succeed())
+			po := c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
+			g.Expect(po).NotTo(BeNil())
+			var httpOptions upstream.HttpProtocolOptions
+			g.Expect(po.UnmarshalTo(&httpOptions)).To(Succeed())
 
-	keepalive := httpOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions().GetConnectionKeepalive()
-	g.Expect(keepalive).NotTo(BeNil(), "connect_originate must send HTTP/2 PINGs to detect dead peers")
-	g.Expect(keepalive.GetInterval().AsDuration()).To(Equal(10 * time.Second))
-	g.Expect(keepalive.GetTimeout().AsDuration()).To(Equal(20 * time.Second))
+			keepalive := httpOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions().GetConnectionKeepalive()
+			assert.Equal(t, keepalive, tt.want)
+		})
+	}
 }

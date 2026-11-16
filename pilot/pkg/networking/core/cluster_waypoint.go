@@ -549,12 +549,25 @@ func (cb *ClusterBuilder) getHBONEIdleTimeout() *durationpb.Duration {
 
 // hboneConnectionKeepalive makes Envoy send HTTP/2 PINGs on outbound HBONE connections, so a
 // peer that disappeared without a FIN/RST is detected even while traffic keeps flowing.
-// Values match ztunnel and the waypoint's inbound listener.
+// The defaults match ztunnel and the waypoint's inbound listener.
 func hboneConnectionKeepalive() *core.KeepaliveSettings {
-	return &core.KeepaliveSettings{
-		Interval: durationpb.New(h2KeepaliveInterval),
-		Timeout:  durationpb.New(h2KeepaliveTimeout),
+	interval := features.HBONEKeepaliveInterval
+	timeout := features.HBONEKeepaliveTimeout
+	idleInterval := features.HBONEKeepaliveConnectionIdleInterval
+	// Envoy requires a timeout, and without an interval or an idle interval it never sends a PING.
+	if timeout <= 0 || (interval <= 0 && idleInterval <= 0) {
+		return nil
 	}
+	k := &core.KeepaliveSettings{
+		Timeout: durationpb.New(timeout),
+	}
+	if interval > 0 {
+		k.Interval = durationpb.New(interval)
+	}
+	if idleInterval > 0 {
+		k.ConnectionIdleInterval = durationpb.New(idleInterval)
+	}
+	return k
 }
 
 func (cb *ClusterBuilder) h2connectUpgrade() map[string]*anypb.Any {
