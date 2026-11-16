@@ -1369,6 +1369,16 @@ func TestAppendMultusNetwork(t *testing.T) {
 			want: `[{"name": "macvlan-conf-1"}, {"name": "istio-cni"}]`,
 		},
 		{
+			name: "json-empty",
+			in:   `[]`,
+			want: `[{"name": "istio-cni"}]`,
+		},
+		{
+			name: "json-empty-with-spaces",
+			in:   `[ ]`,
+			want: `[ {"name": "istio-cni"}]`,
+		},
+		{
 			name: "json-multiple",
 			in:   `[{"name": "macvlan-conf-1"}, {"name": "macvlan-conf-2"}]`,
 			want: `[{"name": "macvlan-conf-1"}, {"name": "macvlan-conf-2"}, {"name": "istio-cni"}]`,

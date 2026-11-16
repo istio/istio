@@ -212,9 +212,12 @@ func appendMultusNetwork(existingValue, istioCniNetwork string) string {
 		}
 		var istioCniNetworkJSON string
 		if istioCniNetworkNs == "" {
-			istioCniNetworkJSON = fmt.Sprintf(`, {"name": "%s"}`, istioCniNetworkName)
+			istioCniNetworkJSON = fmt.Sprintf(`{"name": "%s"}`, istioCniNetworkName)
 		} else {
-			istioCniNetworkJSON = fmt.Sprintf(`, {"name": "%s", "namespace": "%s"}`, istioCniNetworkName, istioCniNetworkNs)
+			istioCniNetworkJSON = fmt.Sprintf(`{"name": "%s", "namespace": "%s"}`, istioCniNetworkName, istioCniNetworkNs)
+		}
+		if len(networks) > 0 {
+			istioCniNetworkJSON = ", " + istioCniNetworkJSON
 		}
 		return existingValue[0:i] + istioCniNetworkJSON + existingValue[i:]
 	}
