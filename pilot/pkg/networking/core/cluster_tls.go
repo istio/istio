@@ -152,10 +152,11 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		// the gateway connects to backends.
 		tls = tls.DeepCopy()
 		if tls.CaCertCredentialName == "" {
-			// TODO(ericdbishop): Should we change how the backend CA is stored for
-			// BackendTLSPolicy now that ClientTLSSettings has a CaCertCredentialName field?
-			// The original tls.CredentialName holds backend CA trust.
-			// Preserve backend CA trust in this copy without changing shared policy.
+			// TODO(https://github.com/istio/istio/issues/62837): Should we change
+			// how the backend CA is stored for BackendTLSPolicy now that
+			// ClientTLSSettings has a CaCertCredentialName field? The original
+			// tls.CredentialName holds backend CA trust. Preserve backend CA trust
+			// in this copy without changing shared policy.
 			tls.CaCertCredentialName = tls.CredentialName
 		}
 		tls.Mode = networking.ClientTLSSettings_MUTUAL
