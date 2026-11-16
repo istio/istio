@@ -48,7 +48,7 @@ type clusterCache struct {
 	metadataCerts           *metadataCerts // metadata certificates of proxy
 	endpointBuilder         *endpoints.EndpointBuilder
 
-	gatewayBackendClientCredential string
+	gatewayClientCredential string
 
 	// service attributes
 	http2              bool // http2 identifies if the cluster is for an http2 service
@@ -103,7 +103,7 @@ func (t *clusterCache) Key() any {
 	}
 	h.Write(Separator)
 
-	h.WriteString(t.gatewayBackendClientCredential)
+	h.WriteString(t.gatewayClientCredential)
 	h.Write(Separator)
 
 	if t.service != nil {
@@ -200,25 +200,25 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		)
 	}
 	return clusterCache{
-		gatewayBackendClientCredential: cb.gatewayBackendClientCredential,
-		clusterName:                    clusterName,
-		proxyVersion:                   cb.proxyVersion.String(),
-		locality:                       cb.locality,
-		preserveHTTP1HeaderCase:        shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push),
-		proxyClusterID:                 cb.clusterID,
-		proxyType:                      cb.proxyType,
-		proxyView:                      cb.proxyView,
-		hbone:                          cb.sendHbone,
-		http2:                          port.Protocol.IsHTTP2(),
-		downstreamAuto:                 cb.sidecarProxy() && port.Protocol.IsUnsupported(),
-		supportsIPv4:                   cb.supportsIPv4,
-		clusterBufferLimit:             cb.connectionSettings.GetClusterPerConnectionBufferLimitBytes().GetValue(),
-		service:                        service,
-		destinationRule:                dr,
-		envoyFilterKeys:                efKeys,
-		metadataCerts:                  cb.metadataCerts,
-		peerAuthVersion:                cb.sidecarScope.AuthnPolicies.GetVersion(),
-		serviceAccounts:                cb.req.Push.ServiceAccounts(service.Hostname, service.Attributes.Namespace),
-		endpointBuilder:                eb,
+		gatewayClientCredential: cb.gatewayClientCredential,
+		clusterName:             clusterName,
+		proxyVersion:            cb.proxyVersion.String(),
+		locality:                cb.locality,
+		preserveHTTP1HeaderCase: shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push),
+		proxyClusterID:          cb.clusterID,
+		proxyType:               cb.proxyType,
+		proxyView:               cb.proxyView,
+		hbone:                   cb.sendHbone,
+		http2:                   port.Protocol.IsHTTP2(),
+		downstreamAuto:          cb.sidecarProxy() && port.Protocol.IsUnsupported(),
+		supportsIPv4:            cb.supportsIPv4,
+		clusterBufferLimit:      cb.connectionSettings.GetClusterPerConnectionBufferLimitBytes().GetValue(),
+		service:                 service,
+		destinationRule:         dr,
+		envoyFilterKeys:         efKeys,
+		metadataCerts:           cb.metadataCerts,
+		peerAuthVersion:         cb.sidecarScope.AuthnPolicies.GetVersion(),
+		serviceAccounts:         cb.req.Push.ServiceAccounts(service.Hostname, service.Attributes.Namespace),
+		endpointBuilder:         eb,
 	}
 }

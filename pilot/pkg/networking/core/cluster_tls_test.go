@@ -1897,7 +1897,7 @@ func TestGatewayBackendClientTLSContext(t *testing.T) {
 			want.CommonTlsContext.GetCombinedValidationContext().ValidationContextSdsSecretConfig.Name = tt.wantCAResource
 
 			got, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{
-				mutable: newTestCluster(), gatewayBackendClientCredential: tt.gatewayCredential,
+				mutable: newTestCluster(), gatewayClientCredential: tt.gatewayCredential,
 			}, settings)
 			assert.NoError(t, err)
 			assert.Equal(t, got, want)
@@ -1937,7 +1937,7 @@ func TestGatewayBackendClientTLSDoesNotOverrideOtherPolicies(t *testing.T) {
 			want, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{mutable: newTestCluster()}, tt.settings)
 			assert.NoError(t, err)
 			got, err := cb.buildUpstreamClusterTLSContext(&buildClusterOpts{
-				mutable: newTestCluster(), gatewayBackendClientCredential: "kubernetes-gateway://gateway/client",
+				mutable: newTestCluster(), gatewayClientCredential: "kubernetes-gateway://gateway/client",
 			}, tt.settings)
 			assert.NoError(t, err)
 			assert.Equal(t, got, want)

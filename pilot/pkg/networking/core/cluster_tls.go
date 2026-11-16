@@ -146,8 +146,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 	// Compose Gateway identity here, after buildUpstreamTLSSettings has preserved SIMPLE policy settings.
 	// Promoting to MUTUAL before that normalization would allow metadata certificates to replace the selected identity.
-	if cb.proxyType == model.Router && opts.gatewayBackendClientCredential != "" && tls.Mode == networking.ClientTLSSettings_SIMPLE {
-		// The presence of gatewayBackendClientCredential indicates mutual TLS and
+	if cb.proxyType == model.Router && opts.gatewayClientCredential != "" && tls.Mode == networking.ClientTLSSettings_SIMPLE {
+		// The presence of gatewayClientCredential indicates mutual TLS and
 		// a an explicit Secret reference to be used as the client certificate when
 		// the gateway connects to backends.
 		tls = tls.DeepCopy()
@@ -159,7 +159,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tls.CaCertCredentialName = tls.CredentialName
 		}
 		tls.Mode = networking.ClientTLSSettings_MUTUAL
-		tls.CredentialName = opts.gatewayBackendClientCredential
+		tls.CredentialName = opts.gatewayClientCredential
 		// tls.CredentialName no longer is used as the CA trust.
 		updatedOpts := *opts
 		updatedOpts.credentialNameForClientOnly = true
