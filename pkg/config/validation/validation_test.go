@@ -1944,6 +1944,48 @@ func TestValidateHTTPRoute(t *testing.T) {
 				Destination: nil,
 			}},
 		}, valid: false},
+		{name: "dynamic subset keys", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{
+				{Header: "x-version", Key: "version", DefaultValue: "v1"},
+				{Header: "x-endpoint-ip", Key: "%ip%"},
+			},
+		}, valid: true},
+		{name: "dynamic subset key without header", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{{Key: "version"}},
+		}, valid: false},
+		{name: "dynamic subset key with invalid header", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{{Header: "x version", Key: "version"}},
+		}, valid: false},
+		{name: "dynamic subset key without key", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{{Header: "x-version"}},
+		}, valid: false},
+		{name: "dynamic subset key with unknown built-in key", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{{Header: "x-zone", Key: "%zone%"}},
+		}, valid: false},
+		{name: "dynamic subset duplicate key", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{
+				{Header: "x-version", Key: "version"},
+				{Header: "x-other", Key: "version"},
+			},
+		}, valid: false},
 		{name: "weighted", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
