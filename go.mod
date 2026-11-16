@@ -5,7 +5,7 @@ go 1.26.9
 require (
 	cloud.google.com/go/compute/metadata v0.9.1
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
-	github.com/KimMachineGun/automemlimit v1.0.1
+	github.com/KimMachineGun/automemlimit v1.0.2
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/agentgateway/agentgateway/api v0.0.0-20260506232448-6ae4ab07bb06
@@ -19,7 +19,7 @@ require (
 	github.com/containernetworking/plugins v1.9.1
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/cli v29.9.3+incompatible
+	github.com/docker/cli v29.10.0+incompatible
 	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20260409083702-98966259b99a
 	github.com/envoyproxy/go-control-plane/envoy v1.39.1-0.20260819172001-e6e3fd93e4be
 	github.com/evanphx/json-patch/v5 v5.9.11
