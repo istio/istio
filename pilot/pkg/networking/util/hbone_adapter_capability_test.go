@@ -40,10 +40,10 @@ func TestNodeSupportsHBONEConnectWait(t *testing.T) {
 		{name: "no extensions", node: nodeWithExtensions()},
 		{name: "unrelated extensions", node: nodeWithExtensions("envoy.transport_sockets.tls", "envoy.upstreams.tcp.generic")},
 		{name: "transport only", node: nodeWithExtensions(HBONEOriginationAdapterTransport)},
-		{name: "pool only", node: nodeWithExtensions(HBONERejectionPool)},
+		{name: "pool only", node: nodeWithExtensions(HBONEConnectWaitPool)},
 		{
 			name: "both",
-			node: nodeWithExtensions("envoy.transport_sockets.tls", HBONEOriginationAdapterTransport, HBONERejectionPool),
+			node: nodeWithExtensions("envoy.transport_sockets.tls", HBONEOriginationAdapterTransport, HBONEConnectWaitPool),
 			want: true,
 		},
 	}

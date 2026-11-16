@@ -30,7 +30,7 @@ func applyHBONEConnectWaitPool(c *cluster.Cluster) {
 	// The router resolves this config for every upstream request attempt. Use a
 	// direct, empty Any to avoid converting a TypedStruct on each attempt.
 	c.UpstreamConfig = &core.TypedExtensionConfig{
-		Name:        util.HBONERejectionPool,
-		TypedConfig: &anypb.Any{TypeUrl: util.HBONERejectionPoolType},
+		Name:        util.HBONEConnectWaitPool,
+		TypedConfig: &anypb.Any{TypeUrl: util.HBONEConnectWaitPoolTypeURL},
 	}
 }

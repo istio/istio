@@ -47,8 +47,8 @@ func assertHBONEConnectWaitPool(t *testing.T, c *cluster.Cluster, enabled bool) 
 		assert.Equal(t, c.UpstreamConfig == nil, true)
 		return
 	}
-	assert.Equal(t, c.GetUpstreamConfig().GetName(), util.HBONERejectionPool)
-	assert.Equal(t, c.GetUpstreamConfig().GetTypedConfig().GetTypeUrl(), util.HBONERejectionPoolType)
+	assert.Equal(t, c.GetUpstreamConfig().GetName(), util.HBONEConnectWaitPool)
+	assert.Equal(t, c.GetUpstreamConfig().GetTypedConfig().GetTypeUrl(), util.HBONEConnectWaitPoolTypeURL)
 	assert.Equal(t, len(c.GetUpstreamConfig().GetTypedConfig().GetValue()), 0)
 }
 

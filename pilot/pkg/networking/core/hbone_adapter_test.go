@@ -248,7 +248,7 @@ func TestHBONEOriginationAdapterMetadata(t *testing.T) {
 			assert.NoError(t, pair[0].GetTypedConfig().UnmarshalTo(original))
 			wrapped := &udpa.TypedStruct{}
 			assert.NoError(t, pair[1].GetTypedConfig().UnmarshalTo(wrapped))
-			assert.Equal(t, wrapped.TypeUrl, util.HBONEOriginationAdapterUpstreamConfigType)
+			assert.Equal(t, wrapped.TypeUrl, util.HBONEConnectWaitTransportSocketTypeURL)
 			decoded := &internalupstream.InternalUpstreamTransport{}
 			assert.NoError(t, protomarshal.StructToMessageSlow(wrapped.Value, decoded))
 			assert.Equal(t, decoded.PassthroughMetadata, original.PassthroughMetadata)

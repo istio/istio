@@ -233,7 +233,7 @@ func TestHBONEDoubleAdapterPairing(t *testing.T) {
 						}
 						wantAdapter := enabled && tt.adapter
 						assert.Equal(t, transport.Name == util.HBONEOriginationAdapterTransport, wantAdapter)
-						assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONERejectionPool, wantAdapter)
+						assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONEConnectWaitPool, wantAdapter)
 						if !enabled {
 							stockService = c
 						}

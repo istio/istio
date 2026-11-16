@@ -77,7 +77,7 @@ func TestHBONEOriginationAdapterOutbound(t *testing.T) {
 					t.Fatal("missing service or outer HBONE cluster")
 				}
 				assert.Equal(t, c.GetType(), cluster.Cluster_EDS)
-				assert.Equal(t, c.GetUpstreamConfig().GetName(), util.HBONERejectionPool)
+				assert.Equal(t, c.GetUpstreamConfig().GetName(), util.HBONEConnectWaitPool)
 				assert.Equal(t, stock.UpstreamConfig == nil, true)
 				assert.Equal(t, len(c.TransportSocketMatches), len(stock.TransportSocketMatches))
 				found := false

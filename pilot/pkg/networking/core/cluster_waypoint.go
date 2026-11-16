@@ -426,7 +426,7 @@ func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, 
 			c.TransportSocket = &core.TransportSocket{
 				Name: util.HBONEOriginationAdapterTransport,
 				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.TypedStructWithFields(
-					util.HBONEOriginationAdapterUpstreamConfigType, map[string]any{"transport_socket": wrapped},
+					util.HBONEConnectWaitTransportSocketTypeURL, map[string]any{"transport_socket": wrapped},
 				)},
 			}
 			c.LoadAssignment.Endpoints = util.BuildInternalEndpoint(util.HBONEOuterOriginationAdapterListener, nil)
