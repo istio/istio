@@ -27,9 +27,6 @@ import (
 const (
 	HBONEConnectWaitPool                   = "envoy.upstreams.istio_hbone"
 	HBONEConnectWaitPoolTypeURL            = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.ConnectionPoolConfig"
-	HBONEOuterOriginationAdapterListener   = "outer_connect_originate_hbone_adapter"
-	HBONEOriginationAdapterListener        = "connect_originate_hbone_adapter"
-	HBONEInnerOriginationAdapterListener   = "inner_connect_originate_hbone_adapter"
 	HBONEOriginationAdapterTransport       = "envoy.transport_sockets.istio_hbone"
 	HBONEConnectWaitTransportSocketTypeURL = "type.googleapis.com/envoy.extensions.filters.network.istio_hbone.v3alpha.UpstreamConfig"
 )
@@ -51,8 +48,8 @@ func HBONEConnectWaitEnabled(proxy *model.Proxy) bool {
 		((proxy.Type == model.SidecarProxy || proxy.Type == model.Router) && features.EnableHBONESend)
 }
 
-// UseHBONEConnectWait must be applied to both CDS and EDS. Unsupported traffic keeps
-// the original internal transport and listener; it must never be paired with half of the adapter.
+// UseHBONEConnectWait must be applied to both CDS and EDS to select the adapter transport.
+// Unsupported traffic keeps the original internal transport and shares the HBONE listeners.
 // Restrict CONNECT wait to EDS services without application TLS or PROXY protocol origination.
 func UseHBONEConnectWait(enabled bool, service *model.Service, policy *networking.TrafficPolicy) bool {
 	if !enabled || service == nil || service.Resolution != model.ClientSideLB || policy.GetProxyProtocol() != nil {

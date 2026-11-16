@@ -99,7 +99,6 @@ func TestHBONEOriginationAdapterOutbound(t *testing.T) {
 				withoutPool.UpstreamConfig = nil
 				assert.Equal(t, withoutPool, stockClusters[ConnectOriginate])
 				listeners := cg.Listeners(proxy)
-				assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationAdapterListener, listeners) != nil, true)
 				assert.Equal(t, xdstest.ExtractListener(ConnectOriginate, listeners) != nil, true)
 				builder := endpoints.NewEndpointBuilder(name, proxy, cg.PushContext())
 				localities := builder.FromServiceEndpoints()
@@ -110,7 +109,7 @@ func TestHBONEOriginationAdapterOutbound(t *testing.T) {
 					original := stockEndpoints[0].LbEndpoints[i]
 					if addr := ep.GetEndpoint().Address.GetEnvoyInternalAddress(); addr != nil {
 						hboneEndpoints++
-						assert.Equal(t, addr.GetServerListenerName(), util.HBONEOriginationAdapterListener)
+						assert.Equal(t, addr.GetServerListenerName(), ConnectOriginate)
 						assert.Equal(t, addr.GetEndpointId(), "10.0.0.2:8080")
 						assert.Equal(t, ep.Metadata, original.Metadata)
 						assert.Equal(t, ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[model.TunnelLabelShortName].GetStringValue(), model.TunnelHTTP)

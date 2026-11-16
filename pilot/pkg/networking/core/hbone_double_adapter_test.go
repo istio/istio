@@ -99,44 +99,43 @@ func enableDoubleAdapterTest(t *testing.T) {
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 }
 
-func TestHBONEDoubleAdapterListeners(t *testing.T) {
+func TestHBONEConnectWaitSharedDoubleHBONEListeners(t *testing.T) {
 	enableDoubleAdapterTest(t)
 	for _, kind := range []model.NodeType{model.Waypoint, model.Router} {
 		for _, baggage := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/baggage=%t", kind, baggage), func(t *testing.T) {
 				test.SetForTest(t, &features.EnableAmbientBaggage, baggage)
 				cg := NewConfigGenTest(t, TestOptions{ConfigString: doubleAdapterGateway})
+				stockListeners := cg.Listeners(doubleAdapterProxy(cg, kind, false))
 				for _, enabled := range []bool{false, true} {
 					proxy := doubleAdapterProxy(cg, kind, enabled)
 					listeners := cg.Listeners(proxy)
+					assert.Equal(t, listeners, stockListeners)
 					inner := xdstest.ExtractListener(DoubleHBONEInnerConnectOriginate, listeners)
 					outer := xdstest.ExtractListener(DoubleHBONEOuterConnectOriginate, listeners)
-					adapter := xdstest.ExtractListener(util.HBONEInnerOriginationAdapterListener, listeners)
 					if inner == nil || outer == nil {
 						t.Fatal("missing native nested listeners")
 					}
-					assert.Equal(t, adapter != nil, enabled)
-					assert.Equal(t, xdstest.ExtractListener(util.HBONEOuterOriginationAdapterListener, listeners) != nil, enabled)
-					assert.Equal(t, xdstest.ExtractListener(util.HBONEOriginationAdapterListener, listeners) != nil, enabled)
 					assert.Equal(t, outer.FilterChains[0].Filters[0].Name, wellknown.TCPProxy)
-					if !enabled {
-						continue
-					}
-					// Both adapter listeners use the native TCP proxy configuration unchanged.
-					for _, pair := range [][2]string{
-						{util.HBONEInnerOriginationAdapterListener, DoubleHBONEInnerConnectOriginate},
-						{util.HBONEOuterOriginationAdapterListener, DoubleHBONEOuterConnectOriginate},
-					} {
-						got := protomarshal.Clone(xdstest.ExtractListener(pair[0], listeners))
-						got.Name = pair[1]
-						assert.Equal(t, got, xdstest.ExtractListener(pair[1], listeners))
+					for _, name := range []string{ConnectOriginate, DoubleHBONEInnerConnectOriginate, DoubleHBONEOuterConnectOriginate} {
+						found := 0
+						for _, l := range listeners {
+							if l.Name == name {
+								found++
+							}
+						}
+						assert.Equal(t, found, 1)
+						got := xdstest.ExtractListener(name, listeners)
+						if got == nil {
+							t.Fatalf("missing HBONE listener %s", name)
+						}
 						filters := got.FilterChains[0].Filters
 						tcpProxy := &tcp.TcpProxy{}
 						assert.NoError(t, filters[len(filters)-1].GetTypedConfig().UnmarshalTo(tcpProxy))
 						assert.Equal(t, tcpProxy.GetUpstreamConnectMode(), tcp.UpstreamConnectMode_IMMEDIATE)
 						assert.Equal(t, tcpProxy.GetTunnelingConfig().GetUsePost(), false)
 					}
-					terminal := adapter.FilterChains[0].Filters[len(adapter.FilterChains[0].Filters)-1]
+					terminal := inner.FilterChains[0].Filters[len(inner.FilterChains[0].Filters)-1]
 					assert.Equal(t, terminal.Name, wellknown.TCPProxy)
 					tcpProxy := &tcp.TcpProxy{}
 					assert.NoError(t, terminal.GetTypedConfig().UnmarshalTo(tcpProxy))
@@ -250,6 +249,7 @@ func TestHBONEDoubleAdapterPairing(t *testing.T) {
 							t.Fatal("adapter and stock share a cache key")
 						}
 						localities := eb.FromServiceEndpoints()
+						listeners := cg.Listeners(proxy)
 						assert.Equal(t, len(localities), 1)
 						if len(localities) != 1 {
 							return
@@ -268,13 +268,8 @@ func TestHBONEDoubleAdapterPairing(t *testing.T) {
 							if local {
 								wantListener = ConnectOriginate
 							}
-							if wantAdapter {
-								wantListener = util.HBONEInnerOriginationAdapterListener
-								if local {
-									wantListener = util.HBONEOriginationAdapterListener
-								}
-							}
 							assert.Equal(t, addr.GetServerListenerName(), wantListener)
+							assert.Equal(t, xdstest.ExtractListener(wantListener, listeners) != nil, true)
 							assert.Equal(t, ep.GetLoadBalancingWeight().GetValue(), uint32(2))
 							if !local {
 								assert.Equal(t, ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey].Fields["local"].GetStringValue(), addr.EndpointId)
@@ -291,16 +286,16 @@ func TestHBONEDoubleAdapterPairing(t *testing.T) {
 							t.Fatal("missing nested H2 clusters")
 						}
 						innerEndpoint := inner.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetEnvoyInternalAddress()
+						assert.Equal(t, innerEndpoint.GetServerListenerName(), DoubleHBONEOuterConnectOriginate)
+						assert.Equal(t, xdstest.ExtractListener(DoubleHBONEOuterConnectOriginate, listeners) != nil, true)
 						var innerTLS *core.TransportSocket
 						if enabled {
-							assert.Equal(t, innerEndpoint.GetServerListenerName(), util.HBONEOuterOriginationAdapterListener)
 							assert.Equal(t, inner.TransportSocket.Name, util.HBONEOriginationAdapterTransport)
 							wrapped := &udpa.TypedStruct{}
 							assert.NoError(t, inner.TransportSocket.GetTypedConfig().UnmarshalTo(wrapped))
 							innerTLS = &core.TransportSocket{}
 							assert.NoError(t, protomarshal.StructToMessageSlow(wrapped.Value.Fields["transport_socket"].GetStructValue(), innerTLS))
 						} else {
-							assert.Equal(t, innerEndpoint.GetServerListenerName(), DoubleHBONEOuterConnectOriginate)
 							socket := &internal.InternalUpstreamTransport{}
 							assert.NoError(t, inner.TransportSocket.GetTypedConfig().UnmarshalTo(socket))
 							innerTLS = socket.TransportSocket

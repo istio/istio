@@ -30,6 +30,7 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -48,7 +49,7 @@ func adapterTestProxy(cg *ConfigGenTest, kind model.NodeType, enabled bool) *mod
 	})
 }
 
-func TestHBONEOriginationAdapterListener(t *testing.T) {
+func TestHBONEConnectWaitSharedListener(t *testing.T) {
 	test.SetForTest(t, &features.EnableHBONESend, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
 	test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, false)
@@ -73,6 +74,7 @@ spec:
     disabled: true
 `})
 		for _, kind := range []model.NodeType{model.Waypoint, model.Router, model.SidecarProxy} {
+			stockListeners := cg.Listeners(adapterTestProxy(cg, kind, false))
 			for _, enabled := range []bool{false, true} {
 				proxy := adapterTestProxy(cg, kind, enabled)
 				class := istionetworking.ListenerClassSidecarOutbound
@@ -82,29 +84,23 @@ spec:
 				if kind == model.Router {
 					class = istionetworking.ListenerClassGateway
 				}
-				legacy := buildConnectOriginateListener(cg.PushContext(), proxy, class)
-				found, foundLegacy := false, false
-				for _, l := range cg.Listeners(proxy) {
-					if l.Name == ConnectOriginate {
-						foundLegacy = true
-					}
-					if l.Name != util.HBONEOriginationAdapterListener {
+				want := buildConnectOriginateListener(cg.PushContext(), proxy, class)
+				listeners := cg.Listeners(proxy)
+				// CONNECT wait is configured on the clusters and transports, so enabling
+				// it must not add listeners or change their filters, telemetry, or names.
+				assert.Equal(t, listeners, stockListeners)
+				found := 0
+				for _, l := range listeners {
+					if l.Name != ConnectOriginate {
 						continue
 					}
-					found = true
-					assert.Equal(t, l.GetInternalListener(), legacy.GetInternalListener())
-					assert.Equal(t, l.ListenerFilters, legacy.ListenerFilters)
-					assert.Equal(t, l.AccessLog, legacy.AccessLog)
+					found++
+					assert.Equal(t, l, want)
 					filters := l.FilterChains[0].Filters
-					original := legacy.FilterChains[0].Filters
-					assert.Equal(t, filters[:len(filters)-1], original[:len(original)-1])
 					terminal := filters[len(filters)-1]
 					assert.Equal(t, terminal.Name, wellknown.TCPProxy)
 					tcpProxy := &tcp.TcpProxy{}
 					assert.NoError(t, terminal.GetTypedConfig().UnmarshalTo(tcpProxy))
-					wantTCP := &tcp.TcpProxy{}
-					assert.NoError(t, original[len(original)-1].GetTypedConfig().UnmarshalTo(wantTCP))
-					assert.Equal(t, tcpProxy, wantTCP)
 					if kind == model.SidecarProxy {
 						assert.Equal(t, len(tcpProxy.AccessLog), 1)
 					}
@@ -113,8 +109,7 @@ spec:
 					assert.Equal(t, tcpProxy.GetUpstreamConnectMode(), tcp.UpstreamConnectMode_IMMEDIATE)
 					assert.Equal(t, tcpProxy.GetTunnelingConfig().GetUsePost(), false)
 				}
-				assert.Equal(t, found, enabled)
-				assert.Equal(t, foundLegacy, true)
+				assert.Equal(t, found, 1)
 			}
 		}
 	}
@@ -216,11 +211,8 @@ func TestHBONEOriginationAdapterPairing(t *testing.T) {
 						t.Fatalf("unexpected endpoints: %v", localities)
 					}
 					ep := localities[0].LbEndpoints[0].GetEndpoint()
-					wantListener := ConnectOriginate
-					if wantAdapter {
-						wantListener = util.HBONEOriginationAdapterListener
-					}
-					assert.Equal(t, ep.Address.GetEnvoyInternalAddress().GetServerListenerName(), wantListener)
+					assert.Equal(t, ep.Address.GetEnvoyInternalAddress().GetServerListenerName(), ConnectOriginate)
+					assert.Equal(t, xdstest.ExtractListener(ConnectOriginate, cg.Listeners(proxy)) != nil, true)
 					assert.Equal(t, ep.Address.GetEnvoyInternalAddress().GetEndpointId(), "10.0.0.2:8080")
 					// Ineligible services share the HBONE cluster, whose pool passes through
 					// callers without CONNECT-wait state.

@@ -871,9 +871,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		// Setup tunnel metadata so requests will go through the tunnel
 		target := ptr.NonEmptyOrDefault(waypoint, net.JoinHostPort(address, strconv.Itoa(port)))
 		innerAddressName := connectOriginate
-		if b.hboneConnectWait {
-			innerAddressName = util.HBONEOriginationAdapterListener
-		}
 		if isEastWestGateway(b.proxy) {
 			innerAddressName = forwardInnerConnect
 		}

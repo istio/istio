@@ -429,7 +429,6 @@ func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, 
 					util.HBONEConnectWaitTransportSocketTypeURL, map[string]any{"transport_socket": wrapped},
 				)},
 			}
-			c.LoadAssignment.Endpoints = util.BuildInternalEndpoint(util.HBONEOuterOriginationAdapterListener, nil)
 		}
 	}
 	c.AltStatName = util.DelimitedStatsPrefix(DoubleHBONEInnerConnectOriginate)
