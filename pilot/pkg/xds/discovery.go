@@ -434,7 +434,8 @@ func debounce(
 				debouncedEvents = 0
 			}
 		} else {
-			timeChan = time.After(opts.DebounceAfter - quietTime)
+			// Wake up at the maximum deadline even if events keep extending the quiet period.
+			timeChan = time.After(min(opts.DebounceAfter-quietTime, opts.debounceMax-eventDelay))
 		}
 	}
 
@@ -459,7 +460,7 @@ func debounce(
 
 			lastConfigUpdateTime = time.Now()
 			if debouncedEvents == 0 {
-				timeChan = time.After(opts.DebounceAfter)
+				timeChan = time.After(min(opts.DebounceAfter, opts.debounceMax))
 				startDebounce = lastConfigUpdateTime
 			}
 			debouncedEvents++
