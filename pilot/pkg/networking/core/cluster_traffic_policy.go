@@ -544,10 +544,11 @@ func applyOutlierDetection(service *model.Service, c *cluster.Cluster, outlier *
 		out.EnforcingConsecutiveGatewayFailure = &wrapperspb.UInt32Value{Value: v}
 	}
 
-	if outlier.Interval != nil {
+	// Leave invalid durations unset so Envoy uses its defaults rather than rejecting the cluster.
+	if outlier.Interval != nil && outlier.Interval.AsDuration() > 0 {
 		out.Interval = outlier.Interval
 	}
-	if outlier.BaseEjectionTime != nil {
+	if outlier.BaseEjectionTime != nil && outlier.BaseEjectionTime.AsDuration() > 0 {
 		out.BaseEjectionTime = outlier.BaseEjectionTime
 	}
 	if outlier.MaxEjectionPercent > 0 {

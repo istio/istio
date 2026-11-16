@@ -59,6 +59,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -1471,6 +1472,47 @@ func TestApplyOutlierDetection(t *testing.T) {
 					},
 				}))
 			g.Expect(c.OutlierDetection).To(Equal(tt.o))
+		})
+	}
+}
+
+// TestOutlierDetectionDurations exercises cluster generation with durations loaded
+// from configuration, including invalid values that may bypass admission validation.
+func TestOutlierDetectionDurations(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		value string
+		want  *durationpb.Duration
+	}{
+		{name: "unset"},
+		{name: "zero", value: "0s"},
+		{name: "negative", value: "-1s"},
+		{name: "positive", value: "10s", want: durationpb.New(10 * time.Second)},
+		{name: "subsecond", value: "0.001s", want: durationpb.New(time.Millisecond)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, field := range []string{"interval", "baseEjectionTime"} {
+				t.Run(field, func(t *testing.T) {
+					dr := &networking.DestinationRule{}
+					yml := "host: '*.example.org'\ntrafficPolicy:\n  outlierDetection:\n    consecutive5xxErrors: 5\n"
+					if tt.value != "" {
+						yml += fmt.Sprintf("    %s: %s\n", field, tt.value)
+					}
+					if err := protomarshal.ApplyYAML(yml, dr); err != nil {
+						t.Fatal(err)
+					}
+					c := xdstest.ExtractCluster("outbound|8080||*.example.org", buildTestClusters(clusterTest{
+						t: t, serviceHostname: "*.example.org", serviceResolution: model.ClientSideLB,
+						nodeType: model.SidecarProxy, locality: &core.Locality{}, mesh: testMesh(), destRule: dr,
+					}))
+					got := c.OutlierDetection.Interval
+					if field == "baseEjectionTime" {
+						got = c.OutlierDetection.BaseEjectionTime
+					}
+					assert.Equal(t, got, tt.want)
+					assert.Equal(t, c.OutlierDetection.Consecutive_5Xx.GetValue(), uint32(5))
+				})
+			}
 		})
 	}
 }
