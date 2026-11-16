@@ -1215,6 +1215,67 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 	return errs
 }
 
+// validateDynamicSubsetKey checks a single dynamic subset key, which is either a workload label name
+// or one of the built-in keys.
+func validateDynamicSubsetKey(key string) error {
+	if strings.HasPrefix(key, "%") {
+		if key != constants.DynamicSubsetIPKey && key != constants.DynamicSubsetHostnameKey {
+			return fmt.Errorf("dynamicSubset: unknown built-in key %q, only %q and %q are supported",
+				key, constants.DynamicSubsetIPKey, constants.DynamicSubsetHostnameKey)
+		}
+		return nil
+	}
+	if err := (labels.Instance{key: ""}).Validate(); err != nil {
+		return fmt.Errorf("dynamicSubset: key %q is not a valid label name: %v", key, err)
+	}
+	return nil
+}
+
+func validateDynamicSubset(settings *networking.LoadBalancerSettings) (errs Validation) {
+	ds := settings.GetDynamicSubset()
+	if ds == nil {
+		return errs
+	}
+	if len(ds.GetSubsetSelectors()) == 0 {
+		errs = AppendValidation(errs, fmt.Errorf("dynamicSubset: at least one subset selector is required"))
+	}
+	seen := sets.New[string]()
+	for _, selector := range ds.GetSubsetSelectors() {
+		keys := selector.GetKeys()
+		if len(keys) == 0 {
+			errs = AppendValidation(errs, fmt.Errorf("dynamicSubset: a subset selector requires at least one key"))
+			continue
+		}
+		unique := sets.New(keys...)
+		if unique.Len() != len(keys) {
+			errs = AppendValidation(errs, fmt.Errorf("dynamicSubset: subset selector %v has duplicate keys", keys))
+		}
+		for _, k := range keys {
+			errs = AppendValidation(errs, validateDynamicSubsetKey(k))
+			if strings.HasPrefix(k, "%") && len(keys) > 1 {
+				errs = AppendValidation(errs, fmt.Errorf("dynamicSubset: built-in key %q cannot be combined with other keys", k))
+			}
+		}
+		id := strings.Join(sets.SortedList(unique), ",")
+		if seen.InsertContains(id) {
+			errs = AppendValidation(errs, fmt.Errorf("dynamicSubset: duplicate subset selector %v", keys))
+		}
+	}
+	for k := range ds.GetDefaultSubset() {
+		errs = AppendValidation(errs, validateDynamicSubsetKey(k))
+	}
+	if ds.GetFallbackPolicy() == networking.DynamicSubsetLB_DEFAULT_SUBSET && len(ds.GetDefaultSubset()) == 0 {
+		errs = AppendValidation(errs, fmt.Errorf("dynamicSubset: defaultSubset is required when fallbackPolicy is DEFAULT_SUBSET"))
+	}
+	// Envoy rejects a cluster combining load_balancing_policy with lb_subset_config.
+	if settings.GetBackendUtilization() != nil {
+		warn := "dynamicSubset is not compatible with backendUtilization and will not be applied"
+		scope.Warnf(warn)
+		errs = AppendValidation(errs, WrapWarning(errors.New(warn)))
+	}
+	return errs
+}
+
 func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *networking.OutlierDetection) (errs Validation) {
 	if settings == nil {
 		return errs
@@ -1298,6 +1359,8 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 	if settings.LocalityLbSetting != nil && settings.ZoneAwareLbSetting != nil {
 		errs = AppendValidation(errs, fmt.Errorf("only one of localityLbSetting and zoneAwareLbSetting can be set"))
 	}
+
+	errs = AppendValidation(errs, validateDynamicSubset(settings))
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
 	errs = AppendValidation(errs, agent.ValidateZoneAwareLbSetting(settings.ZoneAwareLbSetting, outlier))
 

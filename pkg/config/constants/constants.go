@@ -222,6 +222,10 @@ const (
 	NoTraffic = "none"
 	// envoy namespace used for subset selection
 	EnvoySubsetNamespace string = "envoy.lb"
+	// DynamicSubsetIPKey is the built-in dynamic subset key for the address of an endpoint.
+	DynamicSubsetIPKey string = "%ip%"
+	// DynamicSubsetHostnameKey is the built-in dynamic subset key for the hostname of an endpoint.
+	DynamicSubsetHostnameKey string = "%hostname%"
 	// The metadata key used for endpoint selection. This key is set from the InferencePool EPP (Endpoint Picker)
 	GatewayInferenceExtensionEndpointHintKey string = "x-gateway-destination-endpoint"
 	// The metadata key used for reporting the served endpoint to the Inference Pool EPP (Endpoint Picker).
