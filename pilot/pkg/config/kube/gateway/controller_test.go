@@ -99,20 +99,31 @@ func TestBackendClientCertificateGrantUpdates(t *testing.T) {
 		<-updater.updates
 	}
 	parentKey := model.ConfigKey{Kind: kind.Gateway, Namespace: parent.Namespace, Name: parent.Name}
-	for _, revoked := range []bool{true, false} {
-		name, want := "restored", credential
-		if revoked {
-			name, want = "revoked", credentials.InvalidSecretTypeURI
-		}
-		t.Run(name, func(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		revoked bool
+		want    string
+	}{
+		{
+			name:    "revoked",
+			revoked: true,
+			want:    credentials.InvalidSecretTypeURI,
+		},
+		{
+			name:    "restored",
+			revoked: false,
+			want:    credential,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
 			grants := kc.GatewayAPI().GatewayV1beta1().ReferenceGrants("certs")
-			if revoked {
+			if tt.revoked {
 				assert.NoError(t, grants.Delete(context.Background(), grant.Name, metav1.DeleteOptions{}))
 			} else {
 				_, err := grants.Create(context.Background(), grant.DeepCopy(), metav1.CreateOptions{})
 				assert.NoError(t, err)
 			}
-			assert.EventuallyEqual(t, func() string { return ctrl.GetGatewayBackendClientCredentialName(parent) }, want)
+			assert.EventuallyEqual(t, func() string { return ctrl.GetGatewayBackendClientCredentialName(parent) }, tt.want)
 			assert.EventuallyEqual(t, func() bool {
 				select {
 				case req := <-updater.updates:
