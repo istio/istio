@@ -100,7 +100,7 @@ spec:
         env:
         - name: SERVICE_VERSION
           value: ${SERVICE_VERSION}
-        image: registry.istio.io/release/examples-helloworld-v1
+        image: docker.io/istio/examples-helloworld-v1
         resources:
           requests:
             cpu: "100m"

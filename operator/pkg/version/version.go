@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	// releasePrefix is the prefix we used in http://registry.istio.io/release for releases
+	// releasePrefix is the prefix we used on Docker Hub for releases.
 	releasePrefix = "release-"
 )
 
