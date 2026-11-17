@@ -44,6 +44,7 @@ type HostProbeRoutes struct {
 	statePath string
 	linkIndex int
 	added     []netlink.Route
+	removed   []netlink.Route
 }
 
 // HostProbeRoutesRequired checks whether routes need configuration or cleanup.
@@ -99,7 +100,16 @@ func ConfigureHostProbeRoutes(runDir string, ipv4, ipv6 netip.Addr, enabled, ena
 		}
 	}()
 	if !enabled {
-		return nil, p.Close(true)
+		owned, err := ownedHostProbeRoutes(p.linkIndex)
+		if err != nil {
+			return nil, err
+		}
+		for _, route := range owned {
+			if err := p.remove(route); err != nil {
+				return nil, err
+			}
+		}
+		return p, nil
 	}
 
 	// Persist cleanup intent before touching routes, including after a process crash.
@@ -150,7 +160,7 @@ func ConfigureHostProbeRoutes(runDir string, ipv4, ipv6 netip.Addr, enabled, ena
 			}
 		}
 		if !keep {
-			if err := removeHostProbeRoute(route); err != nil {
+			if err := p.remove(route); err != nil {
 				return nil, err
 			}
 		}
@@ -167,8 +177,8 @@ func (p *HostProbeRoutes) Close(remove bool) error {
 	return p.release()
 }
 
-// Rollback removes newly added routes but preserves inherited routes, then releases
-// the shared lock. The caller must enter the host network namespace.
+// Rollback removes newly added routes and restores routes removed during startup,
+// then releases the shared lock. The caller must enter the host network namespace.
 func (p *HostProbeRoutes) Rollback() error {
 	return p.close(true)
 }
@@ -180,7 +190,7 @@ func (p *HostProbeRoutes) close(onlyAdded bool) (retErr error) {
 	defer func() { retErr = errors.Join(retErr, p.release()) }()
 	routes, err := ownedHostProbeRoutes(p.linkIndex)
 	if err != nil {
-		return err
+		retErr = errors.Join(retErr, err)
 	}
 	remaining := len(routes)
 	for _, route := range routes {
@@ -199,12 +209,28 @@ func (p *HostProbeRoutes) close(onlyAdded bool) (retErr error) {
 			}
 		}
 	}
-	if remaining == 0 {
+	if onlyAdded {
+		for _, route := range p.removed {
+			remaining++
+			if err := netlink.RouteAdd(&route); err != nil {
+				retErr = errors.Join(retErr, fmt.Errorf("restore local host probe route %s: %w", route.String(), err))
+			}
+		}
+	}
+	if retErr == nil && remaining == 0 {
 		if err := os.Remove(p.statePath); err != nil && !errors.Is(err, os.ErrNotExist) {
 			retErr = errors.Join(retErr, err)
 		}
 	}
 	return retErr
+}
+
+func (p *HostProbeRoutes) remove(route netlink.Route) error {
+	if err := removeHostProbeRoute(route); err != nil {
+		return err
+	}
+	p.removed = append(p.removed, route)
+	return nil
 }
 
 func (p *HostProbeRoutes) release() error {

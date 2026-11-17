@@ -186,7 +186,7 @@ func TestHostProbeRouteDisableAndAddressChange(t *testing.T) {
 
 		disabled, err := ConfigureHostProbeRoutes(dir, netip.Addr{}, netip.Addr{}, false, false)
 		assert.NoError(t, err)
-		assert.Equal(t, disabled == nil, true)
+		assert.NoError(t, disabled.Close(true))
 		requireProbeRoutes(t, changed, 0)
 		requireCleanupMarker(t, dir, false)
 	})
@@ -361,7 +361,7 @@ func TestHostProbeRoutesDualStackLifecycle(t *testing.T) {
 	assert.NoError(t, last.Close(false))
 	disabled, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, false, false)
 	assert.NoError(t, err)
-	assert.Equal(t, disabled == nil, true)
+	assert.NoError(t, disabled.Close(true))
 	requireProbeRoutes(t, v4, 0)
 	requireProbeRoutes(t, v6, 0)
 	requireCleanupMarker(t, dir, false)
@@ -387,6 +387,92 @@ func TestHostProbeRoutesSharedLock(t *testing.T) {
 	assert.Equal(t, files[0].Name(), hostProbeRoutesStateFile+".lock")
 	next, _ := startProbeRoute(t, dir, "169.254.240.2")
 	assert.NoError(t, next.Close(true))
+}
+
+func TestHostProbeRoutesRollbackRestoresRemoved(t *testing.T) {
+	setup(t)
+	for _, tt := range []struct {
+		name       string
+		ipv4, ipv6 string
+		enabled    bool
+		enableIPv6 bool
+	}{
+		{"ipv4 address change", "169.254.240.2", "fd16::1", true, true},
+		{"ipv6 address change", "169.254.240.1", "fd16::2", true, true},
+		{"disable ipv6", "169.254.240.1", "fd16::1", true, false},
+		{"disable option", "", "", false, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			ipv4, ipv6 := netip.MustParseAddr("169.254.240.1"), netip.MustParseAddr("fd16::1")
+			old, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
+			assert.NoError(t, err)
+			v4, v6 := newHostProbeRoute(ipv4, old.linkIndex), newHostProbeRoute(ipv6, old.linkIndex)
+			// Restoration must preserve the actual route, not reconstruct its defaults.
+			assert.NoError(t, netlink.RouteDel(&v6))
+			v6.Priority = 123
+			assert.NoError(t, netlink.RouteAdd(&v6))
+			assert.NoError(t, old.Close(false))
+
+			desiredV4, desiredV6 := netip.Addr{}, netip.Addr{}
+			if tt.enabled {
+				desiredV4, desiredV6 = netip.MustParseAddr(tt.ipv4), netip.MustParseAddr(tt.ipv6)
+			}
+			next, err := ConfigureHostProbeRoutes(dir, desiredV4, desiredV6, tt.enabled, tt.enableIPv6)
+			assert.NoError(t, err)
+			t.Cleanup(func() { assert.NoError(t, next.Close(true)) })
+			assert.Equal(t, len(next.removed) > 0, true)
+			for _, route := range next.removed {
+				requireProbeRoutes(t, route, 0)
+			}
+			// Simulate failure after route configuration but before agent startup finishes.
+			assert.NoError(t, next.Rollback())
+			for _, want := range []netlink.Route{v4, v6} {
+				actual, err := probeRoutes(&want)
+				assert.NoError(t, err)
+				assert.Equal(t, len(actual), 1)
+				assert.Equal(t, actual[0].Equal(want), true)
+			}
+			for _, route := range next.added {
+				requireProbeRoutes(t, route, 0)
+			}
+			requireCleanupMarker(t, dir, true)
+
+			replacement, err := ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
+			assert.NoError(t, err)
+			t.Cleanup(func() { assert.NoError(t, replacement.Close(true)) })
+			assert.Equal(t, len(replacement.added), 0)
+			assert.NoError(t, replacement.Close(true))
+			requireProbeRoutes(t, v4, 0)
+			requireProbeRoutes(t, v6, 0)
+			requireCleanupMarker(t, dir, false)
+		})
+	}
+}
+
+func TestHostProbeRoutesRollbackRestoreConflict(t *testing.T) {
+	setup(t)
+	dir := t.TempDir()
+	old, original := startProbeRoute(t, dir, "169.254.240.1")
+	assert.NoError(t, old.Close(false))
+	next, changed := startProbeRoute(t, dir, "169.254.240.2")
+	foreign := original
+	foreign.Protocol = unix.RTPROT_STATIC
+	assert.NoError(t, netlink.RouteAdd(&foreign))
+
+	err := next.Rollback()
+	assert.Error(t, err)
+	requireProbeRoutes(t, changed, 0)
+	actual, err := probeRoutes(&foreign)
+	assert.NoError(t, err)
+	assert.Equal(t, len(actual), 1)
+	assert.Equal(t, actual[0].Equal(foreign), true)
+	requireCleanupMarker(t, dir, true)
+
+	assert.NoError(t, netlink.RouteDel(&foreign))
+	replacement, _ := startProbeRoute(t, dir, "169.254.240.1")
+	assert.NoError(t, replacement.Close(true))
+	requireCleanupMarker(t, dir, false)
 }
 
 func TestHostProbeRoutesPartialFailure(t *testing.T) {
@@ -452,8 +538,9 @@ func TestHostProbeRoutesCleanupScope(t *testing.T) {
 			dir := t.TempDir()
 			p, route := startProbeRoute(t, dir, "169.254.240.1")
 			assert.NoError(t, p.Close(false))
-			_, err := ConfigureHostProbeRoutes(dir, netip.Addr{}, netip.Addr{}, false, false)
+			disabled, err := ConfigureHostProbeRoutes(dir, netip.Addr{}, netip.Addr{}, false, false)
 			assert.NoError(t, err)
+			assert.NoError(t, disabled.Close(true))
 			requireProbeRoutes(t, route, 0)
 			actual, err := netlink.RouteListFiltered(other.Family, &other, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_DST)
 			assert.NoError(t, err)
