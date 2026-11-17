@@ -100,7 +100,7 @@ func (s *NetServer) ReconcileEnrollment(ctx context.Context, ambientPods []*core
 		log.Warn("pod is no longer in the network namespace it was enrolled in, re-enrolling it")
 		s.currentPodSnapshot.Take(uid)
 		if err := s.AddPodToMesh(ctx, pod, util.GetPodIPsIfPresent(pod), ""); err != nil {
-			errs = append(errs, fmt.Errorf("failed to re-enroll pod %s/%s: %w", pod.Namespace, pod.Name, err))
+			errs = append(errs, &reEnrollError{pod: pod, inner: err})
 		}
 	}
 	return errors.Join(errs...)

@@ -696,6 +696,34 @@ func TestMeshDataplaneReconcileEnrollmentLeavesHostIPSetAlone(t *testing.T) {
 	fakeIPSetDeps.AssertExpectations(t)
 }
 
+func TestMeshDataplaneReconcileEnrollmentAnnotatesPartialReEnrollment(t *testing.T) {
+	unacknowledged := podWithAnnotation()
+	unacknowledged.Name = "unacknowledged"
+	unredirected := podWithAnnotation()
+	unredirected.Name = "unredirected"
+
+	fakeCtx := context.Background()
+	server := &fakeServer{}
+	server.On("ReconcileEnrollment", fakeCtx, []*corev1.Pod{unacknowledged, unredirected}).Return(errors.Join(
+		&reEnrollError{pod: unacknowledged, inner: errors.New("ztunnel not connected")},
+		&reEnrollError{pod: unredirected, inner: NewErrNonRetryableAdd(errors.New("iptables failed"))},
+	))
+	fakeClientSet := fake.NewClientset(unacknowledged, unredirected)
+	m := getFakeDP(server, fakeClientSet)
+
+	assert.Error(t, m.ReconcileEnrollment(fakeCtx, []*corev1.Pod{unacknowledged, unredirected}))
+	server.AssertExpectations(t)
+
+	for name, redirection := range map[string]string{
+		unacknowledged.Name: constants.AmbientRedirectionPending,
+		unredirected.Name:   constants.AmbientRedirectionEnabled,
+	} {
+		pod, err := fakeClientSet.CoreV1().Pods("test").Get(fakeCtx, name, metav1.GetOptions{})
+		assert.NoError(t, err)
+		assert.Equal(t, pod.Annotations[annotation.AmbientRedirection.Name], redirection)
+	}
+}
+
 func podWithAnnotation() *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

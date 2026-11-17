@@ -56,7 +56,17 @@ func (s *meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.P
 }
 
 func (s *meshDataplane) ReconcileEnrollment(ctx context.Context, ambientPods []*corev1.Pod) error {
-	return s.netServer.ReconcileEnrollment(ctx, ambientPods)
+	err := s.netServer.ReconcileEnrollment(ctx, ambientPods)
+	errs := []error{err}
+	for _, failure := range reEnrollFailures(err) {
+		if errors.Is(failure, ErrNonRetryableAdd) {
+			continue
+		}
+		if err := util.AnnotatePartiallyEnrolledPod(s.kubeClient, &failure.pod.ObjectMeta); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // ConstructInitialSnapshot should always be invoked before this function.
