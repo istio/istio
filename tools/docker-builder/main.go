@@ -64,7 +64,6 @@ func main() {
 var privilegedHubs = sets.New[string](
 	"docker.io/istio",
 	"istio",
-	"registry.istio.io/release",
 	"registry.istio.io/testing",
 )
 

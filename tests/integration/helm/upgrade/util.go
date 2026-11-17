@@ -46,8 +46,7 @@ import (
 
 const (
 	// releaseHub is the hub we pull the images of the version being upgraded from.
-	// It has to be Docker Hub: nothing newer than 1.30 was published to
-	// registry.istio.io/release, and that registry is deleted in December 2026.
+	// It has to be Docker Hub, which has images for every release.
 	releaseHub        = "docker.io/istio"
 	prodTag           = "prod"
 	canaryTag         = "canary"
