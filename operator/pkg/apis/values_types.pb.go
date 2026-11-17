@@ -4247,6 +4247,8 @@ type ProxyConfig struct {
 	ReadinessPeriodSeconds uint32 `protobuf:"varint,21,opt,name=readinessPeriodSeconds,proto3" json:"readinessPeriodSeconds,omitempty"`
 	// Sets the number of successive failed probes before indicating readiness failure.
 	ReadinessFailureThreshold uint32 `protobuf:"varint,22,opt,name=readinessFailureThreshold,proto3" json:"readinessFailureThreshold,omitempty"`
+	// Sets the timeout for readiness probes in seconds.
+	ReadinessTimeoutSeconds uint32 `protobuf:"varint,44,opt,name=readinessTimeoutSeconds,proto3" json:"readinessTimeoutSeconds,omitempty"`
 	// Configures the seccomp profile for the istio-validation and istio-proxy containers.
 	//
 	// See: https://kubernetes.io/docs/tutorials/security/seccomp/
@@ -4409,6 +4411,13 @@ func (x *ProxyConfig) GetReadinessPeriodSeconds() uint32 {
 func (x *ProxyConfig) GetReadinessFailureThreshold() uint32 {
 	if x != nil {
 		return x.ReadinessFailureThreshold
+	}
+	return 0
+}
+
+func (x *ProxyConfig) GetReadinessTimeoutSeconds() uint32 {
+	if x != nil {
+		return x.ReadinessTimeoutSeconds
 	}
 	return 0
 }
@@ -6224,7 +6233,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\n" +
 	"targetPort\x18\x04 \x01(\x05R\n" +
 	"targetPort\x12\x1a\n" +
-	"\bprotocol\x18\x05 \x01(\tR\bprotocol\"\x85\n" +
+	"\bprotocol\x18\x05 \x01(\tR\bprotocol\"\xbf\n" +
 	"\n" +
 	"\vProxyConfig\x12\x1e\n" +
 	"\n" +
@@ -6244,7 +6253,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"privileged\x12B\n" +
 	"\x1creadinessInitialDelaySeconds\x18\x14 \x01(\rR\x1creadinessInitialDelaySeconds\x126\n" +
 	"\x16readinessPeriodSeconds\x18\x15 \x01(\rR\x16readinessPeriodSeconds\x12<\n" +
-	"\x19readinessFailureThreshold\x18\x16 \x01(\rR\x19readinessFailureThreshold\x12?\n" +
+	"\x19readinessFailureThreshold\x18\x16 \x01(\rR\x19readinessFailureThreshold\x128\n" +
+	"\x17readinessTimeoutSeconds\x18, \x01(\rR\x17readinessTimeoutSeconds\x12?\n" +
 	"\x0eseccompProfile\x18+ \x01(\v2\x17.google.protobuf.StructR\x0eseccompProfile\x12I\n" +
 	"\fstartupProbe\x18) \x01(\v2%.istio.operator.v1alpha1.StartupProbeR\fstartupProbe\x12\x1e\n" +
 	"\n" +
