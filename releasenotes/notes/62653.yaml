@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 62653
+releaseNotes:
+  - |
+    **Fixed** sidecar injection producing an invalid `k8s.v1.cni.cncf.io/networks` annotation when the pod already has it set to an empty JSON list (`[]`).
