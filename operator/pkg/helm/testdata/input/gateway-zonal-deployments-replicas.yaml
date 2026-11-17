@@ -1,0 +1,9 @@
+spec:
+  values:
+    autoscaling:
+      enabled: false
+    replicaCount: 2
+    zonalDeployments:
+    - name: zone-a
+    - name: zone-b
+      replicaCount: 3

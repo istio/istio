@@ -1,0 +1,13 @@
+spec:
+  values:
+    revision: canary
+    autoscaleMin: 2
+    autoscaleMax: 10
+    trafficDistribution: PreferSameZone
+    nodeSelector:
+      kubernetes.io/os: linux
+    zonalDeployments:
+    - name: us-east-1a
+    - name: us-east-1b
+      autoscaleMin: 3
+      autoscaleMax: 20

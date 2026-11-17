@@ -1,18 +1,27 @@
+{{- range $index, $zone := include "gateway.zones" . | fromJsonArray }}
+{{- with $ }}
+{{- if $index }}
+---
+{{- end }}
 apiVersion: apps/v1
 kind: {{ .Values.kind | default "Deployment" }}
 metadata:
-  name: {{ include "gateway.name" . }}
+  name: {{ include "gateway.name" . }}{{- with $zone.name }}-{{ . }}{{- end }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
     app.kubernetes.io/name: {{ include "gateway.name" . }}
     {{- include "istio.labels" . | nindent 4}}
     {{- include "gateway.labels" . | nindent 4}}
+    {{- with $zone.name }}
+    zone: {{ . | quote }}
+    {{- end }}
   annotations:
     {{- .Values.annotations | toYaml | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
-  {{- if and (hasKey .Values "replicaCount") (ne .Values.replicaCount nil) }}
-  replicas: {{ .Values.replicaCount }}
+  {{- $replicaCount := hasKey $zone "replicaCount" | ternary $zone.replicaCount .Values.replicaCount }}
+  {{- if ne $replicaCount nil }}
+  replicas: {{ $replicaCount }}
   {{- end }}
   {{- end }}
   {{- with .Values.updateStrategy }}
@@ -29,6 +38,9 @@ spec:
   selector:
     matchLabels:
       {{- include "gateway.selectorLabels" . | nindent 6 }}
+      {{- with $zone.name }}
+      zone: {{ . | quote }}
+      {{- end }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -38,6 +50,9 @@ spec:
       labels:
         {{- include "gateway.sidecarInjectionLabels" . | nindent 8 }}
         {{- include "gateway.selectorLabels" . | nindent 8 }}
+        {{- with $zone.name }}
+        zone: {{ . | quote }}
+        {{- end }}
         app.kubernetes.io/name: {{ include "gateway.name" . }}
         {{- include "istio.labels" .  | nindent 8}}
         {{- $selectorLabels := .Values.selectorLabels | default (dict) }}
@@ -124,7 +139,11 @@ spec:
       {{- with .Values.additionalContainers }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.nodeSelector }}
+      {{- $nodeSelector := .Values.nodeSelector }}
+      {{- with $zone.name }}
+      {{- $nodeSelector = merge (dict $.Values.zonalDeploymentsTopologyKey .) (deepCopy ($.Values.nodeSelector | default dict)) }}
+      {{- end }}
+      {{- with $nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -154,3 +173,5 @@ spec:
       {{- with .Values.priorityClassName }}
       priorityClassName: {{ . }}
       {{- end }}
+{{- end }}
+{{- end }}
