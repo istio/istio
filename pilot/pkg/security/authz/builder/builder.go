@@ -495,6 +495,11 @@ func (b Builder) buildHTTP(rule *builtRule, logger *AuthzLogger) []*hcm.HttpFilt
 				Name:       wellknown.HTTPRoleBasedAccessControl,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
+		)
+		if b.option.UseFilterState && extauthz.http.GetGrpcService() != nil {
+			filters = append(filters, buildExtAuthzPeerPrincipalFilter())
+		}
+		filters = append(filters,
 			&hcm.HttpFilter{
 				Name:       wellknown.HTTPExternalAuthorization,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.http)},
