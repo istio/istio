@@ -50,7 +50,7 @@ export VERSION
 
 # Base version of Istio image to use
 BASE_VERSION ?= 1.30-2026-11-13T19-01-27
-ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
+ISTIO_BASE_REGISTRY ?= docker.io/istio
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
