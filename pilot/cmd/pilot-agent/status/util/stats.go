@@ -41,9 +41,10 @@ const (
 
 // readinessTimeout is the timeout for the HTTP requests issued against the Envoy admin
 // endpoint while probing readiness (both config-status and server-state checks). The default
-// is set the same in helm charts and can be overridden via the PROXY_READINESS_PROBE_TIMEOUT env var.
-var readinessTimeout = env.Register("PROXY_READINESS_PROBE_TIMEOUT", time.Second*3,
-	"The timeout for each HTTP request the readiness probe issues against the Envoy admin endpoint.").Get()
+// is set the same in helm charts and can be overridden via the PROXY_READINESS_PROBE_TIMEOUT_SECONDS env var.
+var readinessTimeout = time.Duration(env.Register("PROXY_READINESS_PROBE_TIMEOUT_SECONDS", 3,
+	"The timeout in seconds for each HTTP request the readiness probe issues against the Envoy admin "+
+		"endpoint, applied to both the config-status and server-state checks.").Get()) * time.Second
 
 type stat struct {
 	name  string

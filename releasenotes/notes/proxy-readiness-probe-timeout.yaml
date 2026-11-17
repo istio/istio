@@ -5,7 +5,7 @@ releaseNotes:
 - |
     **Added** the `global.proxy.readinessTimeoutSeconds` Helm value and the
     `readiness.status.sidecar.istio.io/timeoutSeconds` annotation to configure the proxy readiness
-    probe timeout. The injected probe `timeoutSeconds` and the `PROXY_READINESS_PROBE_TIMEOUT`
+    probe timeout. The injected probe `timeoutSeconds` and the `PROXY_READINESS_PROBE_TIMEOUT_SECONDS`
     environment variable of the proxy are both set from it, so the timeout of the readiness checks
     the pilot-agent issues against the Envoy admin endpoint stays aligned with the Kubernetes probe.
     This timeout now applies uniformly to both the config-status and server-state checks. The

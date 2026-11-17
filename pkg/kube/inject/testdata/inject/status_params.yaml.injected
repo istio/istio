@@ -121,8 +121,8 @@ spec:
             ]
         - name: ISTIO_META_APP_CONTAINERS
           value: status
-        - name: PROXY_READINESS_PROBE_TIMEOUT
-          value: 5s
+        - name: PROXY_READINESS_PROBE_TIMEOUT_SECONDS
+          value: "5"
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:

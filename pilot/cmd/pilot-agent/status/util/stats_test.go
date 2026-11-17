@@ -92,7 +92,7 @@ func TestGetUpdateStatusStats(t *testing.T) {
 }
 
 // TestReadinessTimeout verifies that both readiness helpers honor the configurable
-// readinessTimeout, which is overridable via the PROXY_READINESS_PROBE_TIMEOUT env var.
+// readinessTimeout, which is overridable via the PROXY_READINESS_PROBE_TIMEOUT_SECONDS env var.
 func TestReadinessTimeout(t *testing.T) {
 	// Shrink the timeout well below the server delay so the request is guaranteed to time out.
 	test.SetForTest(t, &readinessTimeout, 50*time.Millisecond)
