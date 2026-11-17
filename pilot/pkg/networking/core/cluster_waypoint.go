@@ -271,8 +271,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 
 	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
 	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
-	if localCluster.cluster.GetType() == cluster.Cluster_EDS &&
-		util.UseHBONEConnectWait(cb.hboneConnectWait, svc, policy) {
+	if cb.hboneConnectWait && localCluster.cluster.GetType() == cluster.Cluster_EDS &&
+		util.HBONEConnectWaitEligible(svc, policy) {
 		// Only HBONE endpoints use internal listeners. Preserve the native transport
 		// for ordinary socket endpoints in mixed services.
 		localCluster.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{

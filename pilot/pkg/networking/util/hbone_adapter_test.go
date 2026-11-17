@@ -71,13 +71,12 @@ func TestHBONEConnectWaitOptIn(t *testing.T) {
 }
 
 func TestHBONEConnectWaitUnsupportedServices(t *testing.T) {
-	assert.Equal(t, UseHBONEConnectWait(true, nil, nil), false)
-	assert.Equal(t, UseHBONEConnectWait(false, &model.Service{}, nil), false)
+	assert.Equal(t, HBONEConnectWaitEligible(nil, nil), false)
 	for _, resolution := range []model.Resolution{model.DNSLB, model.DNSRoundRobinLB, model.Passthrough, model.DynamicDNS} {
-		assert.Equal(t, UseHBONEConnectWait(true, &model.Service{Resolution: resolution}, nil), false)
+		assert.Equal(t, HBONEConnectWaitEligible(&model.Service{Resolution: resolution}, nil), false)
 	}
 	// Unknown future TLS modes must not silently lose application encryption.
-	assert.Equal(t, UseHBONEConnectWait(true, &model.Service{}, &networking.TrafficPolicy{
+	assert.Equal(t, HBONEConnectWaitEligible(&model.Service{}, &networking.TrafficPolicy{
 		Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_TLSmode(99)},
 	}), false)
 }
