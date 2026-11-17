@@ -370,6 +370,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/cgroup_memory/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/cpu_utilization/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/downstream_connections/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/dynamic_modules/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/fixed_heap/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/injected_resource/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/omit_canary_hosts/v3"

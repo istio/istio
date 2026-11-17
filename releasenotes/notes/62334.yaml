@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62334
+releaseNotes:
+  - |
+    **Fixed** an issue where ambient waypoints and gateways could keep sending requests over dead HBONE connections to pods that disappeared without closing the connection. HTTP/2 keepalive pings are now sent on these outbound connections.
