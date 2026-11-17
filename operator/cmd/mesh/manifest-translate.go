@@ -161,7 +161,7 @@ func ManifestTranslate(kubeClient kube.CLIClient, mgArgs *ManifestTranslateArgs,
 		commands = append(commands, "\n", "# Run the actual Helm install operation",
 			fmt.Sprintf("helm upgrade --install %s --namespace %s -f %s %s",
 				shellescape.Quote(name), shellescape.Quote(ns), shellescape.Quote(valuesName),
-				shellescape.Quote("oci://registry.istio.io/release/charts/"+info.Component.ReleaseName)))
+				shellescape.Quote("oci://ghcr.io/istio/release/charts/"+info.Component.ReleaseName)))
 
 		if err := write(fmt.Sprintf("install-%s.sh", name), strings.Join(commands, "\n")+"\n"); err != nil {
 			return err

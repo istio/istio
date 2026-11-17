@@ -1481,14 +1481,14 @@ func TestProxyImage(t *testing.T) {
 	}{
 		{
 			desc: "vals-only-int-tag",
-			v:    val("registry.istio.io/release", 11),
-			want: "registry.istio.io/release/proxyv2:11",
+			v:    val("docker.io/istio", 11),
+			want: "docker.io/istio/proxyv2:11",
 		},
 		{
 			desc: "pc overrides imageType - float tag",
-			v:    val("registry.istio.io/release", 1.12),
+			v:    val("docker.io/istio", 1.12),
 			pc:   pc("distroless"),
-			want: "registry.istio.io/release/proxyv2:1.12-distroless",
+			want: "docker.io/istio/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "annotation overrides imageType",
@@ -1524,15 +1524,15 @@ func TestProxyImage(t *testing.T) {
 		},
 		{
 			desc: "pc overrides imageType, tag also has image type",
-			v:    val("registry.istio.io/release", "1.12-debug"),
+			v:    val("docker.io/istio", "1.12-debug"),
 			pc:   pc("distroless"),
-			want: "registry.istio.io/release/proxyv2:1.12-distroless",
+			want: "docker.io/istio/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "annotation overrides imageType, tag also has the same image type",
-			v:    val("registry.istio.io/release", "1.12-distroless"),
+			v:    val("docker.io/istio", "1.12-distroless"),
 			ann:  ann("distroless"),
-			want: "registry.istio.io/release/proxyv2:1.12-distroless",
+			want: "docker.io/istio/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "unusual tag should work",
