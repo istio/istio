@@ -176,13 +176,18 @@ func (b *EndpointBuilder) WithSubset(subset string) *EndpointBuilder {
 }
 
 func (b *EndpointBuilder) populateHBONEConnectWait() {
+	if !util.HBONEConnectWaitEnabled(b.proxy) {
+		b.hboneConnectWait = false
+		return
+	}
+
 	var policy *v1alpha3.TrafficPolicy
 	if dr := b.DestinationRule(); dr != nil {
 		policy = getSubsetTrafficPolicy(dr, &model.Port{Port: b.port}, b.subsetName)
 	}
 	b.hboneConnectWait = !model.IsDNSSrvSubsetKey(b.clusterName) &&
 		(b.dir == model.TrafficDirectionOutbound || b.dir == model.TrafficDirectionInboundVIP) &&
-		util.UseHBONEConnectWait(util.HBONEConnectWaitEnabled(b.proxy), b.service, policy)
+		util.HBONEConnectWaitEligible(b.service, policy)
 }
 
 func (b *EndpointBuilder) populateSubsetInfo() {
