@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue: []
+releaseNotes:
+  - |
+    **Fixed** the default registry for Istio release images to use `docker.io/istio` and OCI Helm charts to use `ghcr.io/istio/release`. Testing and development image registries are unchanged.
