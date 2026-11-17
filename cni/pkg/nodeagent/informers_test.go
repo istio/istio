@@ -1435,8 +1435,9 @@ func TestInformerEnrolledPodEnrollmentReconciledWhenIPChanges(t *testing.T) {
 	fs.AssertExpectations(t)
 }
 
-// The periodic enrollment check covers every enrolled pod on the node. A failed check is left to
-// the next one rather than retried by the queue.
+// The periodic enrollment check covers every enrolled pod on the node that should stay enrolled:
+// a pod opted out of the mesh may still carry the annotation right after its removal. A failed
+// check is left to the next one rather than retried by the queue.
 func TestInformerEnrollmentCheckReconcilesEnrolledPods(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
@@ -1460,6 +1461,16 @@ func TestInformerEnrollmentCheckReconcilesEnrolledPods(t *testing.T) {
 		Spec:   corev1.PodSpec{NodeName: NodeName},
 		Status: corev1.PodStatus{PodIP: "11.1.1.13"},
 	}
+	optedOut := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "opted-out",
+			Namespace:   "test",
+			Labels:      map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone},
+			Annotations: map[string]string{annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled},
+		},
+		Spec:   corev1.PodSpec{NodeName: NodeName},
+		Status: corev1.PodStatus{PodIP: "11.1.1.14"},
+	}
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test",
@@ -1467,7 +1478,7 @@ func TestInformerEnrollmentCheckReconcilesEnrolledPods(t *testing.T) {
 		},
 	}
 
-	client := kube.NewFakeClient(ns, enrolled, notEnrolled)
+	client := kube.NewFakeClient(ns, enrolled, notEnrolled, optedOut)
 	fs := &fakeServer{}
 	fs.On("ReconcileEnrollment", mock.Anything, mock.MatchedBy(func(pods []*corev1.Pod) bool {
 		return len(pods) == 1 && pods[0].Name == enrolled.Name

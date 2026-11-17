@@ -218,6 +218,13 @@ func (s *InformerHandlers) isNamespaceExcluded(namespace string) bool {
 // alongside the informer adding a pod to the mesh or removing one from it.
 type enrollmentCheck struct{}
 
+func (s *InformerHandlers) podsToKeepEnrolled() []*corev1.Pod {
+	return slices.Filter(s.GetActiveAmbientPodSnapshot(), func(pod *corev1.Pod) bool {
+		ns := s.namespaces.Get(pod.Namespace, "")
+		return ns != nil && s.enablementSelector.Matches(pod, ns.Labels) && !s.isNamespaceExcluded(pod.Namespace)
+	})
+}
+
 func (s *InformerHandlers) enqueueEnrollmentChecks(interval time.Duration) {
 	log.Infof("checking ambient enrollment every %s", interval)
 	ticker := time.NewTicker(interval)
@@ -235,7 +242,7 @@ func (s *InformerHandlers) enqueueEnrollmentChecks(interval time.Duration) {
 func (s *InformerHandlers) reconcile(input any) error {
 	if _, ok := input.(enrollmentCheck); ok {
 		// Not returned for a retry: the next check covers whatever this one could not fix.
-		if err := s.dataplane.ReconcileEnrollment(s.ctx, s.GetActiveAmbientPodSnapshot()); err != nil {
+		if err := s.dataplane.ReconcileEnrollment(s.ctx, s.podsToKeepEnrolled()); err != nil {
 			log.Errorf("failed to reconcile ambient enrollment: %v", err)
 		}
 		return nil
