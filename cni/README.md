@@ -98,8 +98,8 @@ does not enter the host network namespace.
   including routes for previous probe addresses.
 - Disabling ambient IPv6 removes only its managed routes on agent restart.
 - Normal cleanup removes managed routes and the marker.
-- Failed startup removes newly added routes but keeps inherited routes and any
-  marker still needed for cleanup.
+- Failed startup removes newly added routes, restores routes removed during
+  startup, and keeps any marker still needed for cleanup.
 
 Keep the run directory unchanged across upgrades. Restart the agent after changing
 its environment settings. Routes are checked only at startup, not continuously.
