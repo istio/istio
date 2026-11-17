@@ -29,6 +29,9 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -38,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -107,11 +111,11 @@ func (a *WildcardSNIGatewayAnalyzer) Analyze(c analysis.Context) {
 	if !istiod.wildcardTLS || !istiod.gatewayWildcardTLS {
 		return
 	}
-	serviceEntries := indexServiceEntries(c)
+	mesh := fetchMeshConfig(c)
+	serviceEntries := indexServiceEntries(c, mesh)
 	if !serviceEntries.hasWildcard {
 		return
 	}
-	mesh := fetchMeshConfig(c)
 	proxyNamespaces := gatewayProxyNamespaces(c, istiod)
 
 	c.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
@@ -138,7 +142,11 @@ func (a *WildcardSNIGatewayAnalyzer) Analyze(c analysis.Context) {
 					continue
 				}
 				for _, server := range gw.Servers {
-					if server.GetTls().GetMode() != v1alpha3.ServerTLSSettings_PASSTHROUGH || !serverBindsVirtualService(server, gwNs, vs, vsNs) {
+					// An HTTP server with httpsRedirect has mode PASSTHROUGH (the default), but istiod builds an HTTP
+					// filter chain for it (gateway.go, buildGatewayTCPBasedFilterChains), as gateway.IsTLSServer. A server
+					// without a port (only in files; the CRD requires it) is not configured.
+					if server.GetPort() == nil || server.GetTls().GetMode() != v1alpha3.ServerTLSSettings_PASSTHROUGH ||
+						protocol.Parse(server.Port.Protocol).IsHTTP() || !serverBindsVirtualService(server, gwNs, vs, vsNs) {
 						continue
 					}
 					for i, tls := range vs.Tls {
@@ -146,7 +154,7 @@ func (a *WildcardSNIGatewayAnalyzer) Analyze(c analysis.Context) {
 							continue
 						}
 						seHost := tls.Route[0].GetDestination().GetHost()
-						if serviceEntries.wildcardDynamicDNS(seHost, proxyNs, mesh.GetDefaultServiceExportTo()) == nil {
+						if serviceEntries.wildcardDynamicDNS(seHost, proxyNs) == nil {
 							continue
 						}
 						for j, match := range tls.Match {
@@ -178,16 +186,16 @@ func (a *WildcardSNIWaypointAnalyzer) Analyze(c analysis.Context) {
 	if !istiod.wildcardTLS {
 		return
 	}
-	serviceEntries := indexServiceEntries(c)
+	mesh := fetchMeshConfig(c)
+	serviceEntries := indexServiceEntries(c, mesh)
 	if !serviceEntries.hasWildcard {
 		return
 	}
-	mesh := fetchMeshConfig(c)
 	bound := waypointBoundServiceEntries(c, serviceEntries, mesh, istiod.revisions)
 	if len(bound) == 0 {
 		return
 	}
-	analyzeWaypointTLSRoutes(c, bound)
+	analyzeWaypointTLSRoutes(c, bound, serviceEntries, mesh)
 
 	c.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
 		vs := r.Message.(*v1alpha3.VirtualService)
@@ -223,11 +231,17 @@ func (a *WildcardSNIWaypointAnalyzer) Analyze(c analysis.Context) {
 						continue
 					}
 					if len(match.SniHosts) == 1 && match.SniHosts[0] == s.host {
-						usedPorts.Merge(s.matchPorts(match))
+						// matchTLS gets no source labels and no source namespace (tls.go), so a match that sets either one
+						// is not used. It names the ServiceEntry host, so it is not a narrower match to warn about.
+						if len(match.SourceLabels) == 0 && match.SourceNamespace == "" {
+							usedPorts.Merge(s.matchPorts(match))
+						}
 						continue
 					}
-					// SNI hosts with their own ServiceEntry go to that service, not through the wildcard one.
-					if len(match.SniHosts) > 0 && !slices.ContainsFunc(match.SniHosts, func(h string) bool { return len(serviceEntries.byHost[h]) == 0 }) {
+					// SNI hosts with their own ServiceEntry in ambient go to that service, not through the wildcard one.
+					if len(match.SniHosts) > 0 && !slices.ContainsFunc(match.SniHosts, func(h string) bool {
+						return host.Name(s.host).SubsetOf(host.Name(h)) || !serviceEntries.inAmbient(h)
+					}) {
 						continue
 					}
 					ignored = append(ignored, j)
@@ -293,11 +307,14 @@ func readIstiodFlags(c analysis.Context) istiodFlags {
 		d := r.Message.(*appsv1.DeploymentSpec)
 		allWildcardTLS = allWildcardTLS && deploymentEnvTrue(d, wildcardTLSFlag)
 		anyScope = anyScope || deploymentEnvTrue(d, scopeGatewayToNamespaceFlag)
+		// Without a discovery container the version is unknown.
+		supported := false
 		for _, container := range d.Template.Spec.Containers {
 			if container.Name == "discovery" {
-				gatewaySupport = gatewaySupport && imageVersionAtLeast(container.Image, 1, 33)
+				supported = imageVersionAtLeast(container.Image, 1, 33)
 			}
 		}
+		gatewaySupport = gatewaySupport && supported
 		return true
 	})
 	// Revision tags point to a revision through the istio.io/tag and istio.io/rev labels of their injection webhook.
@@ -345,6 +362,27 @@ func revisionOf(labels map[string]string) string {
 	return "default"
 }
 
+// namespaceLabels returns the labels of the namespace, or nil if it is not known.
+func namespaceLabels(c analysis.Context, namespace string) map[string]string {
+	if ns := c.Find(gvk.Namespace, resource.NewFullName("", resource.LocalName(namespace))); ns != nil {
+		return ns.Metadata.Labels
+	}
+	return nil
+}
+
+// gatewayServedByRevision mirrors tagWatcher.IsMine (pkg/revisions/tag_watcher.go), which picks the istiod revision
+// that deploys a Gateway: the istio.io/rev label of the Gateway, or else of its namespace. Without a Namespace object
+// (for example, in files) the namespace label is unknown, so only the Gateway labels count.
+func gatewayServedByRevision(c analysis.Context, gw *resource.Instance, revisions sets.Set[string]) bool {
+	labels := gw.Metadata.Labels
+	if _, ok := labels[label.IoIstioRev.Name]; !ok {
+		if ns := c.Find(gvk.Namespace, resource.NewFullName("", resource.LocalName(gw.Metadata.FullName.Namespace))); ns != nil {
+			labels = ns.Metadata.Labels
+		}
+	}
+	return revisions.Contains(revisionOf(labels))
+}
+
 func deploymentEnvTrue(d *appsv1.DeploymentSpec, name string) bool {
 	for _, container := range d.Template.Spec.Containers {
 		for _, e := range container.Env {
@@ -368,12 +406,23 @@ func fetchMeshConfig(c analysis.Context) *meshconfig.MeshConfig {
 
 // serviceEntryIndex holds every ServiceEntry by exact host.
 type serviceEntryIndex struct {
-	byHost      map[string][]*resource.Instance
-	hasWildcard bool
+	byHost          map[string][]*resource.Instance
+	hasWildcard     bool
+	defaultExportTo []string
+	// visibility holds the serviceEntryVisibility result of each ServiceEntry. Ambient always applies it; sidecars and
+	// gateways only when applyToSidecars is set.
+	visibility      map[*resource.Instance]model.ServiceVisibility
+	applyToSidecars bool
 }
 
-func indexServiceEntries(c analysis.Context) serviceEntryIndex {
-	idx := serviceEntryIndex{byHost: map[string][]*resource.Instance{}}
+func indexServiceEntries(c analysis.Context, mesh *meshconfig.MeshConfig) serviceEntryIndex {
+	idx := serviceEntryIndex{
+		byHost:          map[string][]*resource.Instance{},
+		defaultExportTo: mesh.GetDefaultServiceExportTo(),
+		visibility:      map[*resource.Instance]model.ServiceVisibility{},
+		applyToSidecars: mesh.GetServiceEntryVisibility().GetApplyToSidecars(),
+	}
+	matcher, _ := model.CompileServiceEntryVisibility(mesh.GetServiceEntryVisibility())
 	c.ForEach(gvk.ServiceEntry, func(r *resource.Instance) bool {
 		se := r.Message.(*v1alpha3.ServiceEntry)
 		for _, h := range se.Hosts {
@@ -382,18 +431,44 @@ func indexServiceEntries(c analysis.Context) serviceEntryIndex {
 				idx.hasWildcard = true
 			}
 		}
+		idx.visibility[r] = matcher.VisibilityFor(namespaceLabels(c, r.Metadata.FullName.Namespace.String()))
 		return true
 	})
 	return idx
 }
 
+// visibleIn mirrors serviceExportTo (pilot/pkg/model/push_context.go): the ServiceEntry exportTo, or the mesh default,
+// limited by serviceEntryVisibility when applyToSidecars is set.
+func (idx serviceEntryIndex) visibleIn(r *resource.Instance, namespace string) bool {
+	seNs := r.Metadata.FullName.Namespace.String()
+	if !exportedTo(r.Message.(*v1alpha3.ServiceEntry).ExportTo, idx.defaultExportTo, seNs, namespace) {
+		return false
+	}
+	if !idx.applyToSidecars {
+		return true
+	}
+	switch idx.visibility[r] {
+	case model.ServiceVisibilityNone:
+		return false
+	case model.ServiceVisibilityNamespace:
+		return namespace == seNs
+	}
+	return true
+}
+
+// inAmbient returns true if ztunnel knows a ServiceEntry with exactly the host. Ambient ignores exportTo and drops only
+// visibility NONE (ambient services.go, serviceEntriesInfo).
+func (idx serviceEntryIndex) inAmbient(h string) bool {
+	return slices.ContainsFunc(idx.byHost[h], func(r *resource.Instance) bool { return idx.visibility[r] != model.ServiceVisibilityNone })
+}
+
 // wildcardDynamicDNS returns the wildcard DYNAMIC_DNS ServiceEntry that a destination host resolves to from the
 // namespace. The lookup is exact, as istiod's sidecar scope lookup. If more than one ServiceEntry with the host is
 // visible, istiod picks one by age, so the result is unknown and nil is returned.
-func (idx serviceEntryIndex) wildcardDynamicDNS(h, namespace string, defaultExportTo []string) *resource.Instance {
+func (idx serviceEntryIndex) wildcardDynamicDNS(h, namespace string) *resource.Instance {
 	var found *resource.Instance
 	for _, r := range idx.byHost[h] {
-		if !exportedTo(r.Message.(*v1alpha3.ServiceEntry).ExportTo, defaultExportTo, r.Metadata.FullName.Namespace.String(), namespace) {
+		if !idx.visibleIn(r, namespace) {
 			continue
 		}
 		if found != nil {
@@ -542,7 +617,12 @@ func waypointBoundServiceEntries(
 	out := map[string][]waypointServiceEntry{}
 	c.ForEach(gvk.ServiceEntry, func(r *resource.Instance) bool {
 		se := r.Message.(*v1alpha3.ServiceEntry)
-		if se.Resolution != v1alpha3.ServiceEntry_DYNAMIC_DNS {
+		// istiod skips DYNAMIC_DNS ServiceEntries that are not MESH_EXTERNAL (waypoint.go, findWaypointResources).
+		if se.Resolution != v1alpha3.ServiceEntry_DYNAMIC_DNS || se.Location == v1alpha3.ServiceEntry_MESH_INTERNAL {
+			return true
+		}
+		// istiod does not configure a ServiceEntry with visibility NONE (ambient services.go, serviceEntriesInfo).
+		if idx.visibility[r] == model.ServiceVisibilityNone {
 			return true
 		}
 		tlsPorts := sets.New[uint32]()
@@ -600,8 +680,12 @@ func serviceWaypointNamespace(c analysis.Context, r *resource.Instance, mesh *me
 	if gw == nil {
 		return "", false
 	}
+	// istiod uses a waypoint only after it has addresses (waypoints.go, gatewayToWaypointTransform).
+	if status, ok := gw.Status.(*gatewayv1.GatewayStatus); !ok || status == nil || len(status.Addresses) == 0 {
+		return "", false
+	}
 	spec := gw.Message.(*gatewayv1.GatewaySpec)
-	if string(spec.GatewayClassName) != constants.WaypointGatewayClassName || !revisions.Contains(revisionOf(gw.Metadata.Labels)) {
+	if string(spec.GatewayClassName) != constants.WaypointGatewayClassName || !gatewayServedByRevision(c, gw, revisions) {
 		return "", false
 	}
 	trafficType := constants.ServiceTraffic
@@ -721,6 +805,34 @@ func refIs(group *gatewayv1.Group, kind *gatewayv1.Kind, wantGroup, wantKind str
 	return g == wantGroup && k == wantKind
 }
 
+// tlsRouteDropped mirrors the errors of buildDestination (pilot/pkg/config/kube/gateway/conversion.go) that make
+// istiod drop every rule of the route while the route stays Accepted, for a backend with weight > 0: a Service backend
+// named by a hostname, a Hostname backend with a namespace, or a Service, ServiceImport or Hostname backend without a
+// port. Without a ReferenceGrant some of these give an empty destination instead, so the result is unknown and the
+// route is skipped too.
+func tlsRouteDropped(route *gatewayv1.TLSRouteSpec) bool {
+	for _, rule := range route.Rules {
+		for _, b := range rule.BackendRefs {
+			if b.Weight != nil && *b.Weight == 0 {
+				continue
+			}
+			group, kind := ptr.OrEmpty((*string)(b.Group)), ptr.OrDefault((*string)(b.Kind), gvk.Service.Kind)
+			service := group == gvk.Service.Group && kind == gvk.Service.Kind
+			hostname := group == gvk.ServiceEntry.Group && kind == "Hostname"
+			serviceImport := group == features.MCSAPIGroup && kind == "ServiceImport"
+			switch {
+			case service && strings.Contains(string(b.Name), "."):
+				return true
+			case hostname && b.Namespace != nil:
+				return true
+			case (service || hostname || serviceImport) && b.Port == nil:
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // tlsRouteBackendHost mirrors convertTLSRoute (pilot/pkg/config/kube/gateway/conversion.go) for the one case that
 // can name a wildcard host: a single backend with weight > 0 of kind networking.istio.io/Hostname.
 func tlsRouteBackendHost(rule gatewayv1.TLSRouteRule) (string, bool) {
@@ -738,14 +850,18 @@ func tlsRouteBackendHost(rule gatewayv1.TLSRouteRule) (string, bool) {
 
 // listenerAcceptsRoute mirrors the parts of Gateway API route attachment that select a listener for an accepted
 // parent: sectionName and port of the parentRef, a TLS Passthrough listener, and the listener allowedRoutes.
-func listenerAcceptsRoute(c analysis.Context, l gatewayv1.Listener, ref gatewayv1.ParentReference, gwNs, routeNs string) bool {
+func listenerAcceptsRoute(
+	c analysis.Context, l gatewayv1.Listener, gwLabels map[string]string, ref gatewayv1.ParentReference, gwNs, routeNs string,
+) bool {
 	if ref.SectionName != nil && *ref.SectionName != l.Name {
 		return false
 	}
 	if ref.Port != nil && *ref.Port != l.Port {
 		return false
 	}
-	if l.Protocol != gatewayv1.TLSProtocolType || l.TLS == nil || l.TLS.Mode == nil || *l.TLS.Mode != gatewayv1.TLSModePassthrough {
+	// An AUTO_PASSTHROUGH listener does not use TLS routes (gateway.go, buildGatewayNetworkFiltersFromTLSRoutes).
+	if l.Protocol != gatewayv1.TLSProtocolType || l.TLS == nil || l.TLS.Mode == nil || *l.TLS.Mode != gatewayv1.TLSModePassthrough ||
+		kube.IsAutoPassthrough(gwLabels, l) {
 		return false
 	}
 	if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 && !slices.ContainsFunc(l.AllowedRoutes.Kinds, func(k gatewayv1.RouteGroupKind) bool {
@@ -776,6 +892,9 @@ func listenerAcceptsRoute(c analysis.Context, l gatewayv1.Listener, ref gatewayv
 func analyzeGatewayTLSRoutes(c analysis.Context, serviceEntries serviceEntryIndex, mesh *meshconfig.MeshConfig, revisions sets.Set[string]) {
 	c.ForEach(gvk.TLSRoute, func(r *resource.Instance) bool {
 		route := r.Message.(*gatewayv1.TLSRouteSpec)
+		if tlsRouteDropped(route) {
+			return true
+		}
 		routeNs := r.Metadata.FullName.Namespace.String()
 		reported := sets.New[string]()
 		for _, ref := range acceptedParents(r) {
@@ -786,17 +905,22 @@ func analyzeGatewayTLSRoutes(c analysis.Context, serviceEntries serviceEntryInde
 			if ref.Namespace != nil {
 				gwNs = string(*ref.Namespace)
 			}
+			// istiod creates the route's VirtualService in the route namespace with the mesh default exportTo
+			// (route_collections.go); the gateway pods in the Gateway namespace must see it.
+			if !exportedTo(nil, mesh.GetDefaultVirtualServiceExportTo(), routeNs, gwNs) {
+				continue
+			}
 			gwResource := c.Find(gvk.KubernetesGateway, resource.NewFullName(resource.Namespace(gwNs), resource.LocalName(ref.Name)))
 			if gwResource == nil {
 				continue
 			}
 			gw := gwResource.Message.(*gatewayv1.GatewaySpec)
-			if gw.GatewayClassName != constants.IstioLabel || !revisions.Contains(revisionOf(gwResource.Metadata.Labels)) {
+			if gw.GatewayClassName != constants.IstioLabel || !gatewayServedByRevision(c, gwResource, revisions) {
 				continue
 			}
 			gwFullName := gwNs + "/" + string(ref.Name)
 			for _, l := range gw.Listeners {
-				if !listenerAcceptsRoute(c, l, ref, gwNs, routeNs) {
+				if !listenerAcceptsRoute(c, l, gwResource.Metadata.Labels, ref, gwNs, routeNs) {
 					continue
 				}
 				sniHosts := tlsRouteSNIHosts(route)
@@ -811,7 +935,7 @@ func analyzeGatewayTLSRoutes(c analysis.Context, serviceEntries serviceEntryInde
 				for i, rule := range route.Rules {
 					seHost, ok := tlsRouteBackendHost(rule)
 					// The gateway pods run in the Gateway namespace.
-					if !ok || serviceEntries.wildcardDynamicDNS(seHost, gwNs, mesh.GetDefaultServiceExportTo()) == nil ||
+					if !ok || serviceEntries.wildcardDynamicDNS(seHost, gwNs) == nil ||
 						sniHostsUnder(sniHosts, seHost) || reported.InsertContains(fmt.Sprintf("%s/%d", gwFullName, i)) {
 						continue
 					}
@@ -827,9 +951,14 @@ func analyzeGatewayTLSRoutes(c analysis.Context, serviceEntries serviceEntryInde
 // analyzeWaypointTLSRoutes checks Gateway API TLSRoutes attached to waypoint-bound wildcard DYNAMIC_DNS
 // ServiceEntries. istiod narrows the hostnames to those matching the ServiceEntry host (compatibleRoutesForHost);
 // the waypoint then uses the rule only when they are exactly the ServiceEntry host.
-func analyzeWaypointTLSRoutes(c analysis.Context, bound map[string][]waypointServiceEntry) {
+func analyzeWaypointTLSRoutes(
+	c analysis.Context, bound map[string][]waypointServiceEntry, serviceEntries serviceEntryIndex, mesh *meshconfig.MeshConfig,
+) {
 	c.ForEach(gvk.TLSRoute, func(r *resource.Instance) bool {
 		route := r.Message.(*gatewayv1.TLSRouteSpec)
+		if tlsRouteDropped(route) {
+			return true
+		}
 		routeNs := r.Metadata.FullName.Namespace.String()
 		for _, ref := range acceptedParents(r) {
 			if !refIs(ref.Group, ref.Kind, gvk.ServiceEntry.Group, gvk.ServiceEntry.Kind) {
@@ -840,7 +969,10 @@ func analyzeWaypointTLSRoutes(c analysis.Context, bound map[string][]waypointSer
 				seNs = string(*ref.Namespace)
 			}
 			for _, s := range bound[routeNs] {
-				if s.r.Metadata.FullName.Namespace.String() != seNs || string(s.r.Metadata.FullName.Name) != string(ref.Name) {
+				// istiod creates the route's VirtualService in the route namespace with the mesh default exportTo
+				// (route_collections.go); the waypoint must see it, as for VirtualServices.
+				if s.r.Metadata.FullName.Namespace.String() != seNs || string(s.r.Metadata.FullName.Name) != string(ref.Name) ||
+					!exportedTo(nil, mesh.GetDefaultVirtualServiceExportTo(), routeNs, s.waypointNamespace) {
 					continue
 				}
 				ports := s.tlsPorts
@@ -859,6 +991,12 @@ func analyzeWaypointTLSRoutes(c analysis.Context, bound map[string][]waypointSer
 					sniHosts = slices.FilterInPlace(sniHosts, func(h string) bool { return host.Name(s.host).Matches(host.Name(h)) })
 				}
 				if len(sniHosts) == 1 && sniHosts[0] == s.host {
+					continue
+				}
+				// SNI hosts with their own ServiceEntry in ambient go to that service, as for VirtualServices.
+				if len(sniHosts) > 0 && !slices.ContainsFunc(sniHosts, func(h string) bool {
+					return host.Name(s.host).SubsetOf(host.Name(h)) || !serviceEntries.inAmbient(h)
+				}) {
 					continue
 				}
 				for i, rule := range route.Rules {

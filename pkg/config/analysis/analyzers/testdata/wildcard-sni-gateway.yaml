@@ -328,3 +328,53 @@ spec:
   tls:
   - match: [{port: 443, sniHosts: ["*"]}]
     route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# An HTTP server with httpsRedirect has TLS settings (mode PASSTHROUGH is the default), but istiod builds an HTTP
+# listener for it and does not use TLS routes: no warning.
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: redirect
+  namespace: istio-system
+spec:
+  selector: {istio: egressgateway}
+  servers:
+  - port: {number: 80, name: http, protocol: HTTP}
+    hosts: ["*"]
+    tls: {httpsRedirect: true}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: redirect
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [redirect]
+  tls:
+  - match: [{port: 80, sniHosts: ["www.google.com"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# A server without a port (file input only; the CRD requires it): no crash, no warning.
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: no-port
+  namespace: istio-system
+spec:
+  selector: {istio: egressgateway}
+  servers:
+  - hosts: ["*"]
+    tls: {mode: PASSTHROUGH}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: no-port
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [no-port]
+  tls:
+  - match: [{sniHosts: ["www.google.com"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]

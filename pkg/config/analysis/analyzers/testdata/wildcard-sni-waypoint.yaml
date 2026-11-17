@@ -7,6 +7,8 @@ metadata:
 spec:
   gatewayClassName: istio-waypoint
   listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -16,6 +18,8 @@ metadata:
 spec:
   gatewayClassName: istio-waypoint
   listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
 ---
 apiVersion: v1
 kind: Namespace
@@ -223,6 +227,8 @@ metadata:
 spec:
   gatewayClassName: istio-waypoint
   listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
 ---
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -313,6 +319,8 @@ metadata:
 spec:
   gatewayClassName: istio-waypoint
   listeners: [{name: mesh, port: 15008, protocol: HBONE, allowedRoutes: {namespaces: {from: All}}}]
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
 ---
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -383,6 +391,8 @@ spec:
     port: 15008
     protocol: HBONE
     allowedRoutes: {namespaces: {from: Selector, selector: {matchLabels: {team: a}}}}
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
 ---
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -469,6 +479,8 @@ spec:
   listeners:
   - {name: mesh, port: 15008, protocol: HBONE}
   - {name: proxy, port: 15088, protocol: istio.io/PROXY, allowedRoutes: {namespaces: {from: All}}}
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -482,6 +494,8 @@ spec:
   listeners:
   - {name: mesh, port: 15008, protocol: HBONE, allowedRoutes: {namespaces: {from: All}}}
   - {name: proxy, port: 15088, protocol: istio.io/PROXY}
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
 ---
 # Bound listener allows all namespaces: warning.
 apiVersion: networking.istio.io/v1
@@ -564,6 +578,8 @@ spec:
     port: 15008
     protocol: HBONE
     allowedRoutes: {namespaces: {from: Selector, selector: {matchLabels: {team: z}}}}
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
 ---
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -599,6 +615,8 @@ metadata:
 spec:
   gatewayClassName: istio-waypoint
   listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
 ---
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -637,6 +655,8 @@ spec:
   listeners:
   - {name: mesh, port: 15008, protocol: HBONE}
   - {name: proxy, port: 15088, protocol: istio.io/PROXY, allowedRoutes: {namespaces: {from: All}}}
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
 ---
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -712,3 +732,226 @@ spec:
   tls:
   - match: [{sniHosts: ["fr.wikipedia.org"]}]
     route: [{destination: {host: www.google.com, port: {number: 443}}}]
+---
+# The exact-host match sets sourceLabels, which the waypoint does not support (getTLSRouteMatch), so the rule is not
+# used: the narrower match warns.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: exact-source-labels
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match:
+    - {sniHosts: ["*.wikipedia.org"], sourceLabels: {app: client}}
+    - {sniHosts: ["en.wikipedia.org"]}
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# The same with sourceNamespace: warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: exact-source-namespace
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match:
+    - {sniHosts: ["*.wikipedia.org"], sourceNamespace: amb}
+    - {sniHosts: ["en.wikipedia.org"]}
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# fr.wikipedia.org has its own ServiceEntry, but the wildcard host does not: the match goes through the wildcard
+# ServiceEntry and is ignored, warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: wildcard-and-own
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match: [{sniHosts: ["*.wikipedia.org", "fr.wikipedia.org"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# de.wikipedia.org has its own ServiceEntry. Ambient ignores exportTo (ztunnel gets every ServiceEntry), so its
+# traffic goes to that service: no warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wikipedia-de
+  namespace: other-se
+spec:
+  hosts: ["de.wikipedia.org"]
+  exportTo: ["."]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: own-se-other-namespace
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match: [{sniHosts: ["de.wikipedia.org"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# MESH_INTERNAL with DYNAMIC_DNS: istiod does not add it to the waypoint (waypoint.go, findWaypointResources), no warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: internal
+  namespace: amb
+  labels:
+    istio.io/use-waypoint: egress-waypoint
+spec:
+  hosts: ["*.internal.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  location: MESH_INTERNAL
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: internal
+  namespace: amb
+spec:
+  hosts: ["*.internal.example"]
+  tls:
+  - match: [{sniHosts: ["api.internal.example"]}]
+    route: [{destination: {host: "*.internal.example", port: {number: 443}}}]
+---
+# A waypoint without status addresses is not ready, and istiod does not use it: no warning.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: not-ready
+  namespace: amb
+spec:
+  gatewayClassName: istio-waypoint
+  listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: not-ready
+  namespace: amb
+  labels:
+    istio.io/use-waypoint: not-ready
+spec:
+  hosts: ["*.notready.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: not-ready
+  namespace: amb
+spec:
+  hosts: ["*.notready.example"]
+  tls:
+  - match: [{sniHosts: ["api.notready.example"]}]
+    route: [{destination: {host: "*.notready.example", port: {number: 443}}}]
+---
+# The waypoint has no istio.io/rev label, so the namespace label decides: revision canary, not analyzed, no warning.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rev-ns
+  labels:
+    istio.io/rev: canary
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: wp-ns-rev
+  namespace: rev-ns
+spec:
+  gatewayClassName: istio-waypoint
+  listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: ns-rev
+  namespace: rev-ns
+  labels:
+    istio.io/use-waypoint: wp-ns-rev
+spec:
+  hosts: ["*.nsrev.example"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: ns-rev
+  namespace: rev-ns
+spec:
+  hosts: ["*.nsrev.example"]
+  tls:
+  - match: [{sniHosts: ["api.nsrev.example"]}]
+    route: [{destination: {host: "*.nsrev.example", port: {number: 443}}}]
+---
+# *.org has its own ServiceEntry, but it is broader than the waypoint ServiceEntry host: traffic to *.wikipedia.org
+# names still goes through the wildcard one, and the match is ignored. Warning.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: org
+  namespace: amb
+spec:
+  hosts: ["*.org"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  location: MESH_EXTERNAL
+  resolution: NONE
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: broader-own
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match: [{sniHosts: ["*.org"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
+---
+# es.wikipedia.org has its own ServiceEntry, in a namespace labeled vis=none. With a serviceEntryVisibility policy NONE
+# for that label, ztunnel does not get it, so the traffic goes through the wildcard ServiceEntry: warning (only with
+# testdata/wildcard-sni-mesh-se-visibility-policy.yaml).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: none-se
+  labels:
+    vis: none
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wikipedia-es
+  namespace: none-se
+spec:
+  hosts: ["es.wikipedia.org"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: own-se-none
+  namespace: amb
+spec:
+  hosts: ["*.wikipedia.org"]
+  tls:
+  - match: [{sniHosts: ["es.wikipedia.org"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
