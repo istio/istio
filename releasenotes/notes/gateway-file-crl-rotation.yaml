@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+releaseNotes:
+- |
+  **Enabled** automatic reload of file-backed certificate revocation lists configured with
+  `caCrl` on Istio Gateways using file-backed mutual TLS. The gateway agent watches the CRL
+  and client CA files and delivers updated validation data to Envoy over SDS.

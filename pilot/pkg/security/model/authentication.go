@@ -184,6 +184,22 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 	tlsCertificates []*networking.ServerTLSSettings_TLSCertificate,
 	allowInsecure bool,
 ) {
+	applyToCommonTLSContext(tlsContext, proxy, subjectAltNames, crl, trustDomainAliases, validateClient, tlsCertificates, allowInsecure, false)
+}
+
+// ApplyToCommonTLSContextForGateway configures mounted Gateway certificates, including rotating file CRLs for supported agents.
+func ApplyToCommonTLSContextForGateway(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
+	subjectAltNames []string, crl string, trustDomainAliases []string, validateClient bool,
+	tlsCertificates []*networking.ServerTLSSettings_TLSCertificate, allowInsecure bool,
+) {
+	fileCRL := proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 33})
+	applyToCommonTLSContext(tlsContext, proxy, subjectAltNames, crl, trustDomainAliases, validateClient, tlsCertificates, allowInsecure, fileCRL)
+}
+
+func applyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
+	subjectAltNames []string, crl string, trustDomainAliases []string, validateClient bool,
+	tlsCertificates []*networking.ServerTLSSettings_TLSCertificate, allowInsecure, fileCRL bool,
+) {
 	sdsSecretConfigs := make([]*tls.SdsSecretConfig, 0)
 	customFileSDSServer := proxy.Metadata.Raw[security.CredentialFileMetaDataName] == "true"
 	// Envoy does not support client validation using multiple CA certificates when multiple certificates are provided.
@@ -225,7 +241,8 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 		defaultValidationContext := &tls.CertificateValidationContext{
 			MatchSubjectAltNames: matchSAN,
 		}
-		if crl != "" {
+		crlInSDS := fileCRL && caCert != "" && crl != ""
+		if crl != "" && !crlInSDS {
 			defaultValidationContext.Crl = &core.DataSource{
 				Specifier: &core.DataSource_Filename{
 					Filename: crl,
@@ -237,6 +254,9 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 		}
 		caRes := security.SdsCertificateConfig{
 			CaCertificatePath: caCert,
+		}
+		if crlInSDS {
+			caRes.CRLPath = crl
 		}
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{

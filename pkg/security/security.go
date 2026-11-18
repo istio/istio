@@ -16,6 +16,7 @@ package security
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -307,6 +308,7 @@ type SecretItem struct {
 	PrivateKey       []byte
 
 	RootCert []byte
+	CRL      []byte
 
 	// ResourceName passed from envoy SDS discovery request.
 	// "ROOTCA" for root cert request, "default" for key/cert request.
@@ -528,6 +530,7 @@ type SdsCertificateConfig struct {
 	CertificatePath   string
 	PrivateKeyPath    string
 	CaCertificatePath string
+	CRLPath           string
 }
 
 const (
@@ -545,6 +548,10 @@ func (s SdsCertificateConfig) GetResourceName() string {
 // GetRootResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name for the root
 func (s SdsCertificateConfig) GetRootResourceName() string {
 	if s.IsRootCertificate() {
+		if s.CRLPath != "" {
+			return "file-root-crl:" + base64.RawURLEncoding.EncodeToString([]byte(s.CaCertificatePath)) + ResourceSeparator +
+				base64.RawURLEncoding.EncodeToString([]byte(s.CRLPath))
+		}
 		return "file-root:" + s.CaCertificatePath // Format: file-root:%s
 	}
 	return ""
@@ -563,13 +570,24 @@ func (s SdsCertificateConfig) IsKeyCertificate() bool {
 // SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
 // If the resource name is not valid, false is returned.
 func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
-	if after, ok := strings.CutPrefix(resource, "file-cert:"); ok {
+	if after, ok := strings.CutPrefix(resource, "file-root-crl:"); ok {
+		paths := strings.Split(after, ResourceSeparator)
+		if len(paths) != 2 {
+			return SdsCertificateConfig{}, false
+		}
+		ca, caErr := base64.RawURLEncoding.DecodeString(paths[0])
+		crl, crlErr := base64.RawURLEncoding.DecodeString(paths[1])
+		if caErr != nil || crlErr != nil || len(ca) == 0 || len(crl) == 0 {
+			return SdsCertificateConfig{}, false
+		}
+		return SdsCertificateConfig{CaCertificatePath: string(ca), CRLPath: string(crl)}, true
+	} else if after, ok := strings.CutPrefix(resource, "file-cert:"); ok {
 		filesString := after
 		split := strings.Split(filesString, ResourceSeparator)
 		if len(split) != 2 {
 			return SdsCertificateConfig{}, false
 		}
-		return SdsCertificateConfig{split[0], split[1], ""}, true
+		return SdsCertificateConfig{CertificatePath: split[0], PrivateKeyPath: split[1]}, true
 	} else if after, ok := strings.CutPrefix(resource, "file-root:"); ok {
 		filesString := after
 		split := strings.Split(filesString, ResourceSeparator)
@@ -577,7 +595,7 @@ func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig
 		if len(split) != 1 {
 			return SdsCertificateConfig{}, false
 		}
-		return SdsCertificateConfig{"", "", split[0]}, true
+		return SdsCertificateConfig{CaCertificatePath: split[0]}, true
 	}
 	return SdsCertificateConfig{}, false
 }
@@ -587,5 +605,5 @@ func SdsCertificateConfigFromResourceNameForOSCACert(resource string) (SdsCertif
 	if resource == "" {
 		return SdsCertificateConfig{}, false
 	}
-	return SdsCertificateConfig{"", "", resource}, true
+	return SdsCertificateConfig{CaCertificatePath: resource}, true
 }

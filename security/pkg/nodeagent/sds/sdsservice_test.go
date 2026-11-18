@@ -348,3 +348,16 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 
 	return conn, nil
 }
+
+func TestMountedCRLInlineSecret(t *testing.T) {
+	cfg := ca2.SdsCertificateConfig{CaCertificatePath: "/mounted/ca.pem", CRLPath: "/mounted/crl.pem"}
+	item := &ca2.SecretItem{ResourceName: cfg.GetRootResourceName(), RootCert: []byte("ca bytes"), CRL: []byte("crl bytes")}
+	secret := toEnvoySecret(item, "", nil)
+	ctx := secret.GetValidationContext()
+	if string(ctx.GetTrustedCa().GetInlineBytes()) != "ca bytes" || string(ctx.GetCrl().GetInlineBytes()) != "crl bytes" {
+		t.Fatalf("missing inline CA/CRL bytes: %v", secret)
+	}
+	if ctx.GetCrl().GetFilename() != "" {
+		t.Fatal("mounted CRL must not become an Envoy file reference")
+	}
+}

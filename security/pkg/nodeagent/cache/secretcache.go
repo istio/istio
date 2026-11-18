@@ -19,6 +19,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"math/rand/v2"
 	"os"
@@ -371,11 +373,20 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 		// Already watching, no need to do anything
 		return nil
 	}
+	if cfg, ok := security.SdsCertificateConfigFromResourceName(resourceName); ok && cfg.CRLPath != "" {
+		// A directory watch survives atomic replacement of the mounted file.
+		if err := sc.certWatcher.Add(filepath.Dir(file)); err != nil {
+			return err
+		}
+		sc.fileCerts[key] = struct{}{}
+		return nil
+	}
 	sc.fileCerts[key] = struct{}{}
 	// File is not being watched, start watching now and trigger key push.
 	cacheLog.Infof("adding watcher for file certificate %s", file)
 	if err := sc.certWatcher.Add(file); err != nil {
 		cacheLog.Errorf("%v: error adding watcher for file %v, retrying watches: %v", resourceName, file, err)
+		delete(sc.fileCerts, key)
 		numFileWatcherFailures.Increment()
 		return err
 	}
@@ -698,6 +709,52 @@ func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) 
 	}
 }
 
+func (sc *SecretManagerClient) readCRLWithTimeout(path string) ([]byte, error) {
+	o := backoff.DefaultOption()
+	o.InitialInterval = sc.configOptions.FileDebounceDuration
+	b := backoff.NewExponentialBackOff(o)
+	var crl []byte
+	ctx, cancel := context.WithTimeout(context.Background(), totalTimeout)
+	defer cancel()
+	err := b.RetryWithContext(ctx, func() error {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		remaining := bytes.TrimSpace(data)
+		if len(remaining) == 0 {
+			return fmt.Errorf("CRL file %s is empty", path)
+		}
+		for len(remaining) > 0 {
+			if !bytes.HasPrefix(remaining, []byte("-----BEGIN X509 CRL-----")) {
+				return fmt.Errorf("invalid PEM CRL in %s", path)
+			}
+			endMarker := []byte("-----END X509 CRL-----")
+			end := bytes.Index(remaining, endMarker)
+			if end < 0 {
+				return fmt.Errorf("invalid PEM CRL in %s", path)
+			}
+			end += len(endMarker)
+			if end < len(remaining) && remaining[end] != '\n' && remaining[end] != '\r' {
+				return fmt.Errorf("invalid PEM CRL in %s", path)
+			}
+			encoded := remaining[:end]
+			block, rest := pem.Decode(encoded)
+			if block == nil || block.Type != "X509 CRL" || len(bytes.TrimSpace(rest)) != 0 ||
+				bytes.Count(encoded, []byte("-----BEGIN")) != 1 {
+				return fmt.Errorf("invalid PEM CRL in %s", path)
+			}
+			if _, err := x509.ParseRevocationList(block.Bytes); err != nil {
+				return fmt.Errorf("invalid CRL in %s: %w", path, err)
+			}
+			remaining = bytes.TrimSpace(remaining[end:])
+		}
+		crl = data
+		return nil
+	})
+	return crl, err
+}
+
 func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *security.SecretItem, error) {
 	logPrefix := cacheLogPrefix(resourceName)
 
@@ -748,7 +805,15 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 		sdsFromFile = ok
 		switch {
 		case ok && cfg.IsRootCertificate():
+			if cfg.CRLPath != "" {
+				// Retain watches after invalid updates so fixing either file can recover the resource.
+				sc.addFileWatcher(cfg.CaCertificatePath, resourceName)
+				sc.addFileWatcher(cfg.CRLPath, resourceName)
+			}
 			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, resourceName, false); err == nil {
+				if cfg.CRLPath != "" {
+					sitem.CRL, err = sc.readCRLWithTimeout(cfg.CRLPath)
+				}
 				sc.addFileWatcher(cfg.CaCertificatePath, resourceName)
 			}
 		case ok && cfg.IsKeyCertificate():
@@ -905,7 +970,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 				return
 			}
 			// We only care about updates that change the file content
-			if !(isWrite(event) || isRemove(event) || isCreate(event) || event.Op&fsnotify.Chmod != 0) {
+			if !(isWrite(event) || isRemove(event) || isCreate(event) || event.Op&(fsnotify.Chmod|fsnotify.Rename) != 0) {
 				continue
 			}
 			sc.certMutex.RLock()
@@ -935,14 +1000,37 @@ func (sc *SecretManagerClient) handleFileWatch() {
 // handleFileEvent handles file system events for both symlinks and regular files and returns resources that need updates
 func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources map[FileCert]struct{}) map[string]struct{} {
 	updatedResources := make(map[string]struct{})
+	if isRemove(event) || event.Has(fsnotify.Rename) {
+		sc.certMutex.Lock()
+		removedWatch := false
+		for fc := range sc.fileCerts {
+			if fc.TargetPath == "" && strings.HasPrefix(fc.ResourceName, "file-root-crl:") && filepath.Dir(fc.Filename) == event.Name {
+				if !removedWatch {
+					_ = sc.certWatcher.Remove(event.Name)
+					removedWatch = true
+				}
+				// kqueue can retain internal file watches after removing a renamed directory.
+				_ = sc.certWatcher.Remove(fc.Filename)
+				delete(sc.fileCerts, fc)
+			}
+		}
+		sc.certMutex.Unlock()
+	}
 
 	// Process all file certificates (both symlinks and regular files)
 	for fc := range resources {
+		mountedCRL := strings.HasPrefix(fc.ResourceName, "file-root-crl:")
+		if event.Op == fsnotify.Rename && !mountedCRL {
+			continue
+		}
 		if fc.TargetPath == "" {
 			// Process regular files (those without TargetPath set)
 			// For regular files, trigger on file changes (including REMOVE/CREATE from atomic operations)
 			// But ignore CHMOD events for regular files to avoid duplicate callbacks
-			if fc.Filename == event.Name && !(event.Op&fsnotify.Chmod != 0) {
+			if mountedCRL && filepath.Dir(fc.Filename) == event.Name && (isRemove(event) || event.Has(fsnotify.Rename)) {
+				updatedResources[fc.ResourceName] = struct{}{}
+			}
+			if fc.Filename == event.Name && (event.Op&fsnotify.Chmod == 0 || mountedCRL) {
 				updatedResources[fc.ResourceName] = struct{}{}
 			}
 			continue
@@ -998,6 +1086,9 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 		// Check if the removed path is a directory by checking if any symlinks are inside it
 		removedPaths := make([]FileCert, 0)
 		for fc := range sc.fileCerts {
+			if strings.HasPrefix(fc.ResourceName, "file-root-crl:") && fc.TargetPath == "" && fc.Filename == event.Name {
+				continue
+			}
 			// Remove exact matches (file or symlink removal)
 			if fc.Filename == event.Name {
 				cacheLog.Debugf("removing file %s from file certs", event.Name)

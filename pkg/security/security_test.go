@@ -33,7 +33,7 @@ func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 			"file-cert:cert~key",
 			false,
 			true,
-			SdsCertificateConfig{"cert", "key", ""},
+			SdsCertificateConfig{CertificatePath: "cert", PrivateKeyPath: "key"},
 			"",
 			"file-cert:cert~key",
 		},
@@ -42,7 +42,7 @@ func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 			"file-root:root",
 			true,
 			false,
-			SdsCertificateConfig{"", "", "root"},
+			SdsCertificateConfig{CaCertificatePath: "root"},
 			"file-root:root",
 			"",
 		},
@@ -51,7 +51,7 @@ func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 			"file:root",
 			false,
 			false,
-			SdsCertificateConfig{"", "", ""},
+			SdsCertificateConfig{},
 			"",
 			"",
 		},
@@ -60,7 +60,7 @@ func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 			"file-root:root~extra",
 			false,
 			false,
-			SdsCertificateConfig{"", "", ""},
+			SdsCertificateConfig{},
 			"",
 			"",
 		},
@@ -84,5 +84,29 @@ func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 				t.Fatalf("unexpected GetRootResourceName got %v, expected %v", cert, tt.resourceName)
 			}
 		})
+	}
+}
+
+func TestSdsRootCRLResourceName(t *testing.T) {
+	cfg := SdsCertificateConfig{CaCertificatePath: "/ca~name: with spaces.pem", CRLPath: "/crl~name: with spaces.pem"}
+	resource := cfg.GetRootResourceName()
+	got, ok := SdsCertificateConfigFromResourceName(resource)
+	if !ok || got != cfg {
+		t.Fatalf("round trip %q: got %+v, %v", resource, got, ok)
+	}
+	other := cfg
+	other.CRLPath += ".other"
+	if other.GetRootResourceName() == resource {
+		t.Fatal("CRL path must be part of resource identity")
+	}
+	other = cfg
+	other.CaCertificatePath += ".other"
+	if other.GetRootResourceName() == resource {
+		t.Fatal("CA path must be part of resource identity")
+	}
+	for _, invalid := range []string{"file-root-crl:", "file-root-crl:Y2E", "file-root-crl:Y2E~", "file-root-crl:~Y3Js", "file-root-crl:!~Y3Js", "file-root-crl:Y2E~Y3Js~ZXh0cmE"} {
+		if _, ok := SdsCertificateConfigFromResourceName(invalid); ok {
+			t.Errorf("accepted malformed resource %q", invalid)
+		}
 	}
 }
