@@ -772,6 +772,28 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 	}()
 }
 
+// gracefulStopGRPCServer drains srv via GracefulStop, force-stopping it after s.shutdownDuration.
+func (s *Server) gracefulStopGRPCServer(srv *grpc.Server) {
+	stopped := make(chan struct{})
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				srv.Stop()
+			}
+			close(stopped)
+		}()
+		srv.GracefulStop()
+	}()
+
+	t := time.NewTimer(s.shutdownDuration)
+	select {
+	case <-t.C:
+		srv.Stop()
+	case <-stopped:
+		t.Stop()
+	}
+}
+
 func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	interceptors := []grpc.UnaryServerInterceptor{
 		// setup server prometheus monitoring (as final interceptor in chain)
