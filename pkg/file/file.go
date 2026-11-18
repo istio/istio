@@ -99,7 +99,7 @@ func AtomicWriteReader(path string, data io.Reader, mode os.FileMode) error {
 	}
 
 	n, err := io.Copy(tmpFile, data)
-	if _, err := io.Copy(tmpFile, data); err != nil {
+	if err != nil {
 		if closeErr := tmpFile.Close(); closeErr != nil {
 			err = fmt.Errorf("%s: %w", closeErr.Error(), err)
 		}
