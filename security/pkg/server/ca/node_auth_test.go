@@ -51,30 +51,46 @@ func (p pod) IdentityInTrustDomain(trustDomain string) string {
 	}.String()
 }
 
-func TestSingleClusterNodeAuthorization(t *testing.T) {
-	allowZtunnel := map[types.NamespacedName]struct{}{
-		{Name: "ztunnel", Namespace: "istio-system"}: {},
-	}
+// singleNodeFixture is a trusted ztunnel caller and a workload pod scheduled on the same node.
+type singleNodeFixture struct {
+	trustedAccounts map[types.NamespacedName]struct{}
+	ztunnelCaller   security.KubernetesInfo
+	ztunnelPod      pod
+	podSameNode     pod
+}
+
+func newSingleNodeFixture() singleNodeFixture {
 	ztunnelCaller := security.KubernetesInfo{
 		PodName:           "ztunnel-a",
 		PodNamespace:      "istio-system",
 		PodUID:            "12345",
 		PodServiceAccount: "ztunnel",
 	}
-	ztunnelPod := pod{
-		name:      ztunnelCaller.PodName,
-		namespace: ztunnelCaller.PodNamespace,
-		account:   ztunnelCaller.PodServiceAccount,
-		uid:       ztunnelCaller.PodUID,
-		node:      "zt-node",
+	return singleNodeFixture{
+		trustedAccounts: map[types.NamespacedName]struct{}{
+			{Name: "ztunnel", Namespace: "istio-system"}: {},
+		},
+		ztunnelCaller: ztunnelCaller,
+		ztunnelPod: pod{
+			name:      ztunnelCaller.PodName,
+			namespace: ztunnelCaller.PodNamespace,
+			account:   ztunnelCaller.PodServiceAccount,
+			uid:       ztunnelCaller.PodUID,
+			node:      "zt-node",
+		},
+		podSameNode: pod{
+			name:      "pod-a",
+			namespace: "ns-a",
+			account:   "sa-a",
+			uid:       "1",
+			node:      "zt-node",
+		},
 	}
-	podSameNode := pod{
-		name:      "pod-a",
-		namespace: "ns-a",
-		account:   "sa-a",
-		uid:       "1",
-		node:      "zt-node",
-	}
+}
+
+func TestSingleClusterNodeAuthorization(t *testing.T) {
+	f := newSingleNodeFixture()
+	allowZtunnel, ztunnelCaller, ztunnelPod, podSameNode := f.trustedAccounts, f.ztunnelCaller, f.ztunnelPod, f.podSameNode
 	podOtherNode := pod{
 		name:      "pod-b",
 		namespace: podSameNode.namespace,
@@ -208,39 +224,12 @@ func TestSingleClusterNodeAuthorization(t *testing.T) {
 // TestNodeAuthorizationUsesLiveTrustDomain verifies the trust domain check reads the mesh config
 // fresh on every request rather than a value captured once when the authorizer was constructed.
 func TestNodeAuthorizationUsesLiveTrustDomain(t *testing.T) {
-	allowZtunnel := map[types.NamespacedName]struct{}{
-		{Name: "ztunnel", Namespace: "istio-system"}: {},
-	}
-	ztunnelCaller := security.KubernetesInfo{
-		PodName:           "ztunnel-a",
-		PodNamespace:      "istio-system",
-		PodUID:            "12345",
-		PodServiceAccount: "ztunnel",
-	}
-	ztunnelPod := pod{
-		name:      ztunnelCaller.PodName,
-		namespace: ztunnelCaller.PodNamespace,
-		account:   ztunnelCaller.PodServiceAccount,
-		uid:       ztunnelCaller.PodUID,
-		node:      "zt-node",
-	}
-	podSameNode := pod{
-		name:      "pod-a",
-		namespace: "ns-a",
-		account:   "sa-a",
-		uid:       "1",
-		node:      "zt-node",
-	}
+	f := newSingleNodeFixture()
+	ztunnelCaller, podSameNode := f.ztunnelCaller, f.podSameNode
 
-	c := kube.NewFakeClient(&v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: ztunnelPod.name, Namespace: ztunnelPod.namespace, UID: types.UID(ztunnelPod.uid)},
-		Spec:       v1.PodSpec{ServiceAccountName: ztunnelPod.account, NodeName: ztunnelPod.node},
-	}, &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: podSameNode.name, Namespace: podSameNode.namespace, UID: types.UID(podSameNode.uid)},
-		Spec:       v1.PodSpec{ServiceAccountName: podSameNode.account, NodeName: podSameNode.node},
-	})
+	c := kube.NewFakeClient(toPod(f.ztunnelPod, false), toPod(podSameNode, false))
 	holder := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"})
-	na := NewClusterNodeAuthorizer(c, allowZtunnel, holder)
+	na := NewClusterNodeAuthorizer(c, f.trustedAccounts, holder)
 	c.RunAndWait(test.NewStop(t))
 	kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
 
