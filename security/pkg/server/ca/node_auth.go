@@ -131,7 +131,7 @@ func (na *ClusterNodeAuthorizer) authenticateImpersonation(caller security.Kuber
 	}
 	// Impersonation is only permitted within the CA's own trust domain; otherwise a compromised
 	// trusted node could obtain a CA-signed identity in an attacker-chosen trust domain even though
-	// the namespace/service account/node placement checks below would pass.
+	// the domain does not match the CA's own trust domain.
 	trustDomain := na.meshHolder.Mesh().GetTrustDomain()
 	if requestedIdentity.TrustDomain != trustDomain {
 		return fmt.Errorf("requested identity %v is not in trust domain %q", requestedIdentityString, trustDomain)
