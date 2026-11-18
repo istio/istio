@@ -151,6 +151,22 @@ func TestSingleClusterNodeAuthorization(t *testing.T) {
 			wantErr:                 "not in trust domain",
 		},
 		{
+			name:                    "allowed identities, on node, but empty trust domain",
+			caller:                  ztunnelCaller,
+			trustedAccounts:         allowZtunnel,
+			requestedIdentityString: podSameNode.IdentityInTrustDomain(""),
+			pods:                    []pod{ztunnelPod, podSameNode},
+			wantErr:                 "not in trust domain",
+		},
+		{
+			name:                    "allowed identities, on node, but whitespace trust domain",
+			caller:                  ztunnelCaller,
+			trustedAccounts:         allowZtunnel,
+			requestedIdentityString: podSameNode.IdentityInTrustDomain(" "),
+			pods:                    []pod{ztunnelPod, podSameNode},
+			wantErr:                 "not in trust domain",
+		},
+		{
 			name:                    "invalid requested",
 			caller:                  ztunnelCaller,
 			trustedAccounts:         allowZtunnel,
