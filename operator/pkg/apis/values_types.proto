@@ -1055,7 +1055,7 @@ message PilotConfig {
 
   // Pod disruption budget for istiod.
   // See https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-  google.protobuf.Struct pdb = 66;
+  PodDisruptionBudgetConfig pdb = 66;
 
   // Annotations for the istiod deployment.
   google.protobuf.Struct deploymentAnnotations = 67;
@@ -1066,9 +1066,6 @@ message PilotConfig {
   // The name of the ztunnel that istiod should trust for mTLS.
   string trustedZtunnelName = 69;
 
-  // Additional labels for the istiod PodDisruptionBudget.
-  google.protobuf.Struct pdbLabels = 70;
-
   // Minimum number of seconds a newly created Pilot pod must be ready, without any of its containers crashing,
   // for it to be considered available (see `minReadySeconds` here:
   // https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
@@ -1078,6 +1075,22 @@ message PilotConfig {
   // Traffic distribution preference for the istiod service.
   // See https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
   string trafficDistribution = 72;
+}
+
+// Configuration for the istiod PodDisruptionBudget.
+message PodDisruptionBudgetConfig {
+  // Minimum available pods (integer or percentage string). Ignored if maxUnavailable is set.
+  google.protobuf.Value minAvailable = 1;
+
+  // Maximum unavailable pods (integer or percentage string). Takes precedence over minAvailable.
+  google.protobuf.Value maxUnavailable = 2;
+
+  // Eviction policy for unhealthy pods guarded by the PodDisruptionBudget.
+  // See https://kubernetes.io/blog/2023/01/06/unhealthy-pod-eviction-policy-for-pdbs/
+  string unhealthyPodEvictionPolicy = 3;
+
+  // Additional labels for the istiod PodDisruptionBudget.
+  map<string, string> labels = 4;
 }
 
 message PilotTaintControllerConfig {
