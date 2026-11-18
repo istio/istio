@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: []
+
+releaseNotes:
+- |
+  **Updated** Gateway API version to `1.7.0` from `1.6.1`. In `v1.7.0`, the experimental `XBackend` resource
+  replaced `spec.port.port` with `spec.port.number` and renamed the status `parents` field to `ancestors`.
+  Istio now reads and writes the new fields.
