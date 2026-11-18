@@ -37,11 +37,9 @@ var (
 
 // imageToCheck is the image we probe to find out whether a minor version has been released yet.
 //
-// It has to live on Docker Hub, the only registry that has every release. Since 1.31 it is the
-// only place releases are published to, and it also has the older releases that
-// registry.istio.io/release mirrored. Probing registry.istio.io/release instead would report
-// every 1.31+ release as missing, so the tests would quietly run one minor version further back
-// than their names say.
+// It has to live on Docker Hub, the only registry that has every release.
+// Probing an incomplete mirror could report published releases as missing,
+// causing the tests to run one minor version further back than their names say.
 const imageToCheck = "docker.io/istio/pilot"
 
 func initVersions(ctx resource.Context) error {
