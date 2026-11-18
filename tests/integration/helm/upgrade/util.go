@@ -40,6 +40,7 @@ import (
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/versions"
 	helmtest "istio.io/istio/tests/integration/helm"
 	"istio.io/istio/tests/util/sanitycheck"
 )
@@ -617,7 +618,7 @@ func checkNoPodsFromReleaseLine(t framework.TestContext, namespace, version stri
 	if err != nil {
 		return fmt.Errorf("failed to parse version %q: %v", version, err)
 	}
-	minor := fmt.Sprintf("%d.%d.", v.Major(), v.Minor())
+	minor := versions.MinorPrefix(v)
 
 	fetch := kubetest.NewPodFetch(t.Clusters().Default(), namespace)
 	pods, err := kubetest.CheckPodsAreReady(fetch)
