@@ -1281,8 +1281,8 @@ func (s *Server) initRemoteServicesController(args *PilotArgs) {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.RemoteServicesAddressController, args.Revision, s.kubeClient).
 			AddRunFunction(func(leaderStop <-chan struct{}) {
-				ambient.NewIPAllocator(s.kubeClient, leaderStop, s.multiclusterController, s.environment.Watcher)
-				<-leaderStop
+				allocator := ambient.NewIPAllocator(s.kubeClient, leaderStop, s.multiclusterController, s.environment.Watcher)
+				allocator.Run(leaderStop)
 			}).Run(stop)
 		return nil
 	})

@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -25,6 +26,249 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
+
+func TestIPAllocatorReconcileServiceCIDR(t *testing.T) {
+	ipallocator := &IPAllocator{
+		v4Allocator: allocator{cidrIndex: make(map[netip.Prefix]int)},
+		v6Allocator: allocator{cidrIndex: make(map[netip.Prefix]int)},
+	}
+	initial := &networking.ServiceCIDR{
+		Spec: networking.ServiceCIDRSpec{CIDRs: []string{"10.0.0.0/24", "fd00::/64"}},
+	}
+	updated := &networking.ServiceCIDR{
+		Spec: networking.ServiceCIDRSpec{CIDRs: []string{"10.1.0.0/24", "fd01::/64"}},
+	}
+	for _, tt := range []struct {
+		name   string
+		events []krt.Event[*networking.ServiceCIDR]
+		wantV4 map[netip.Prefix]int
+		wantV6 map[netip.Prefix]int
+	}{
+		{
+			name:   "add",
+			events: []krt.Event[*networking.ServiceCIDR]{{Event: controllers.EventAdd, New: &initial}},
+			wantV4: map[netip.Prefix]int{netip.MustParsePrefix("10.0.0.0/24"): 0},
+			wantV6: map[netip.Prefix]int{netip.MustParsePrefix("fd00::/64"): 0},
+		},
+		{
+			name:   "update",
+			events: []krt.Event[*networking.ServiceCIDR]{{Event: controllers.EventUpdate, Old: &initial, New: &updated}},
+			wantV4: map[netip.Prefix]int{netip.MustParsePrefix("10.1.0.0/24"): 0},
+			wantV6: map[netip.Prefix]int{netip.MustParsePrefix("fd01::/64"): 0},
+		},
+		{
+			name:   "delete",
+			events: []krt.Event[*networking.ServiceCIDR]{{Event: controllers.EventDelete, Old: &updated}},
+			wantV4: map[netip.Prefix]int{},
+			wantV6: map[netip.Prefix]int{},
+		},
+		{
+			name: "batch",
+			events: []krt.Event[*networking.ServiceCIDR]{
+				{Event: controllers.EventAdd, New: &initial},
+				{Event: controllers.EventUpdate, Old: &initial, New: &updated},
+				{Event: controllers.EventDelete, Old: &updated},
+				{Event: controllers.EventAdd, New: &initial},
+			},
+			wantV4: map[netip.Prefix]int{netip.MustParsePrefix("10.0.0.0/24"): 0},
+			wantV6: map[netip.Prefix]int{netip.MustParsePrefix("fd00::/64"): 0},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NoError(t, ipallocator.reconcile(&tt.events))
+			assert.Equal(t, ipallocator.v4Allocator.cidrIndex, tt.wantV4)
+			assert.Equal(t, ipallocator.v6Allocator.cidrIndex, tt.wantV6)
+		})
+	}
+}
+
+func TestIPAllocatorReconcileIPAddress(t *testing.T) {
+	address := &networking.IPAddress{ObjectMeta: metav1.ObjectMeta{Name: "10.0.0.42"}}
+	v6Address := &networking.IPAddress{ObjectMeta: metav1.ObjectMeta{Name: "fd00::42"}}
+	invalid := &networking.IPAddress{ObjectMeta: metav1.ObjectMeta{Name: "invalid"}}
+	v4 := netip.MustParseAddr(address.Name)
+	v6 := netip.MustParseAddr(v6Address.Name)
+	for _, tt := range []struct {
+		name   string
+		events []krt.Event[*networking.IPAddress]
+		used   map[netip.Addr]bool
+		want   map[netip.Addr]bool
+	}{
+		{
+			name:   "add",
+			events: []krt.Event[*networking.IPAddress]{{Event: controllers.EventAdd, New: &address}},
+			want:   map[netip.Addr]bool{v4: true},
+		},
+		{
+			name:   "update",
+			events: []krt.Event[*networking.IPAddress]{{Event: controllers.EventUpdate, Old: &address, New: &address}},
+			want:   map[netip.Addr]bool{v4: true},
+		},
+		{
+			name:   "delete",
+			events: []krt.Event[*networking.IPAddress]{{Event: controllers.EventDelete, Old: &address}},
+			used:   map[netip.Addr]bool{v4: true},
+			want:   map[netip.Addr]bool{},
+		},
+		{
+			name: "invalid addresses do not stop the batch",
+			events: []krt.Event[*networking.IPAddress]{
+				{Event: controllers.EventAdd, New: &invalid},
+				{Event: controllers.EventUpdate, Old: &invalid, New: &invalid},
+				{Event: controllers.EventDelete, Old: &invalid},
+				{Event: controllers.EventAdd, New: &v6Address},
+			},
+			want: map[netip.Addr]bool{v6: true},
+		},
+		{
+			name: "batch",
+			events: []krt.Event[*networking.IPAddress]{
+				{Event: controllers.EventAdd, New: &address},
+				{Event: controllers.EventUpdate, Old: &address, New: &address},
+				{Event: controllers.EventAdd, New: &v6Address},
+				{Event: controllers.EventDelete, Old: &address},
+			},
+			want: map[netip.Addr]bool{v6: true},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ipallocator := &IPAllocator{usedAddresses: make(map[netip.Addr]bool)}
+			for addr, used := range tt.used {
+				ipallocator.usedAddresses[addr] = used
+			}
+			assert.NoError(t, ipallocator.reconcile(&tt.events))
+			assert.Equal(t, ipallocator.usedAddresses, tt.want)
+		})
+	}
+}
+
+func TestIPAllocatorReconcileGlobalService(t *testing.T) {
+	service := GlobalService{
+		service:      types.NamespacedName{Namespace: "default", Name: "httpbin"},
+		network:      "remote-network",
+		serviceScope: model.Global,
+	}
+	localScope := service
+	localScope.serviceScope = model.Local
+	localNetwork := service
+	localNetwork.network = "local-network"
+	otherService := service
+	otherService.service.Name = "other"
+	for _, tt := range []struct {
+		name          string
+		events        []krt.Event[GlobalService]
+		wantAddresses int
+	}{
+		{
+			name:          "add remote global service",
+			events:        []krt.Event[GlobalService]{{Event: controllers.EventAdd, New: &service}},
+			wantAddresses: 1,
+		},
+		{
+			name:   "ignore local scope",
+			events: []krt.Event[GlobalService]{{Event: controllers.EventAdd, New: &localScope}},
+		},
+		{
+			name:   "ignore local network",
+			events: []krt.Event[GlobalService]{{Event: controllers.EventAdd, New: &localNetwork}},
+		},
+		{
+			name:          "update local to global scope",
+			events:        []krt.Event[GlobalService]{{Event: controllers.EventUpdate, Old: &localScope, New: &service}},
+			wantAddresses: 1,
+		},
+		{
+			name:   "update global to local scope",
+			events: []krt.Event[GlobalService]{{Event: controllers.EventUpdate, Old: &service, New: &localScope}},
+		},
+		{
+			name:   "ignore update from local network",
+			events: []krt.Event[GlobalService]{{Event: controllers.EventUpdate, Old: &localNetwork, New: &service}},
+		},
+		{
+			name:   "delete",
+			events: []krt.Event[GlobalService]{{Event: controllers.EventDelete, Old: &service}},
+		},
+		{
+			name: "batch",
+			events: []krt.Event[GlobalService]{
+				{Event: controllers.EventAdd, New: &localNetwork},
+				{Event: controllers.EventAdd, New: &service},
+				{Event: controllers.EventUpdate, Old: &localScope, New: &otherService},
+			},
+			wantAddresses: 2,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			client := kube.NewFakeClient()
+			t.Cleanup(client.Shutdown)
+			stop := test.NewStop(t)
+			addresses := krt.NewStaticCollection[*networking.IPAddress](nil, nil, krt.WithStop(stop))
+			ipallocator := &IPAllocator{
+				ipAddressWriter:     kclient.NewWriteClient[*networking.IPAddress](client),
+				v4Allocator:         allocator{cidrIndex: make(map[netip.Prefix]int)},
+				usedAddresses:       make(map[netip.Addr]bool),
+				localClusterNetwork: krt.NewStatic(&clusterNetwork{network: "local-network"}, true, krt.WithStop(stop)),
+				serviceAddressIndex: krt.NewIndex(addresses, "serviceAddressIndex", func(*networking.IPAddress) []GlobalService {
+					return nil
+				}),
+			}
+			ipallocator.addServiceCIDR(&networking.ServiceCIDR{
+				Spec: networking.ServiceCIDRSpec{CIDRs: []string{"10.0.0.0/24"}},
+			})
+			assert.NoError(t, ipallocator.reconcile(&tt.events))
+			allocated, err := client.Kube().NetworkingV1beta1().IPAddresses().List(context.Background(), metav1.ListOptions{})
+			assert.NoError(t, err)
+			assert.Equal(t, len(allocated.Items), tt.wantAddresses)
+			assert.Equal(t, len(ipallocator.usedAddresses), tt.wantAddresses)
+		})
+	}
+}
+
+func TestIPAllocatorRun(t *testing.T) {
+	stop := make(chan struct{})
+	address := &networking.IPAddress{ObjectMeta: metav1.ObjectMeta{Name: "10.0.0.1"}}
+	client := kube.NewFakeClient(address.DeepCopy())
+	t.Cleanup(client.Shutdown)
+	service := GlobalService{
+		service:      types.NamespacedName{Namespace: "default", Name: "httpbin"},
+		network:      "remote-network",
+		serviceScope: model.Global,
+	}
+	addresses := krt.NewStaticCollection(nil, []*networking.IPAddress{address}, krt.WithStop(stop))
+	ipallocator := &IPAllocator{
+		ipAddressCollection: addresses,
+		ipAddressWriter:     kclient.NewWriteClient[*networking.IPAddress](client),
+		serviceCidrCollection: krt.NewStaticCollection(nil, []*networking.ServiceCIDR{{
+			Spec: networking.ServiceCIDRSpec{CIDRs: []string{"10.0.0.0/24"}},
+		}}, krt.WithStop(stop)),
+		v4Allocator:         allocator{cidrIndex: make(map[netip.Prefix]int)},
+		v6Allocator:         allocator{cidrIndex: make(map[netip.Prefix]int)},
+		usedAddresses:       make(map[netip.Addr]bool),
+		globalServices:      krt.NewStaticCollection(nil, []GlobalService{service}, krt.WithStop(stop)),
+		localClusterNetwork: krt.NewStatic(&clusterNetwork{network: "local-network"}, true, krt.WithStop(stop)),
+		serviceAddressIndex: krt.NewIndex(addresses, "serviceAddressIndex", func(*networking.IPAddress) []GlobalService {
+			return nil
+		}),
+	}
+	ipallocator.queue = controllers.NewQueue("ambient-ipallocator", controllers.WithGenericReconciler(ipallocator.reconcile))
+	events := []krt.Event[GlobalService]{{Event: controllers.EventAdd, New: &service}}
+	ipallocator.queue.Add(&events)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ipallocator.Run(stop)
+	}()
+	t.Cleanup(func() {
+		close(stop)
+		<-done
+	})
+	assert.EventuallyEqual(t, func() bool {
+		_, err := client.Kube().NetworkingV1beta1().IPAddresses().Get(context.Background(), "10.0.0.2", metav1.GetOptions{})
+		return err == nil
+	}, true)
+	assert.EventuallyEqual(t, ipallocator.queue.HasSynced, true)
+}
 
 func TestIPAllocatorRelease(t *testing.T) {
 	address := &networking.IPAddress{ObjectMeta: metav1.ObjectMeta{Name: "10.0.0.42"}}
@@ -176,7 +420,8 @@ func TestIPAllocatorServiceEvents(t *testing.T) {
 			allocator := NewIPAllocator(client, stop, mc, watcher)
 			assert.NoError(t, mc.Run(stop))
 			client.RunAndWait(stop)
-			assert.EventuallyEqual(t, func() int { return len(allocator.v4Allocator.cidrs) }, 1)
+			go allocator.Run(stop)
+			assert.EventuallyEqual(t, allocator.queue.HasSynced, true)
 			assert.EventuallyEqual(t, allocator.globalServices.HasSynced, true)
 			_, err := client.Kube().CoreV1().Secrets("istio-system").Create(context.Background(),
 				makeSecret("istio-system", "remote", clusterCredential{clusterID: "remote", kubeconfig: []byte("remote")}), metav1.CreateOptions{})

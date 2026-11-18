@@ -264,6 +264,7 @@ func (a *allocator) remove(cidr netip.Prefix) {
 }
 
 type IPAllocator struct {
+	queue                 controllers.Queue
 	ipAddressCollection   krt.Collection[*networking.IPAddress]
 	ipAddressWriter       kclient.Writer[*networking.IPAddress]
 	serviceCidrCollection krt.Collection[*networking.ServiceCIDR]
@@ -271,6 +272,7 @@ type IPAllocator struct {
 	v6Allocator           allocator
 	usedAddresses         map[netip.Addr]bool
 	globalServices        krt.Collection[GlobalService]
+	localClusterNetwork   krt.Singleton[clusterNetwork]
 	serviceAddressIndex   krt.Index[GlobalService, *networking.IPAddress]
 }
 
@@ -283,7 +285,7 @@ func NewIPAllocator(client kube.Client, stop <-chan struct{}, mc *multicluster.C
 	localNamespaces := configCluster.Namespaces()
 	localClusterNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *clusterNetwork {
 		return systemNamespaceNetwork(ctx, configCluster.ID(), meshConfig.Get().RootNamespace, localNamespaces)
-	}, krt.WithName("LocalClusterNetwork"))
+	}, krt.WithName("LocalClusterNetwork"), krt.WithStop(stop))
 	clusterNetworks := ClusterNetworksCollection(mc, "istio-system", krt.NewOptionsBuilder(stop, "ClusterNetworks", nil))
 
 	ipallocator := IPAllocator{
@@ -294,70 +296,25 @@ func NewIPAllocator(client kube.Client, stop <-chan struct{}, mc *multicluster.C
 		v6Allocator:           allocator{cidrIndex: make(map[netip.Prefix]int)},
 		usedAddresses:         make(map[netip.Addr]bool),
 		globalServices:        GlobalServicesCollection(mc, meshConfig, clusterNetworks, krt.NewOptionsBuilder(stop, "GlobalServices", nil)),
+		localClusterNetwork:   localClusterNetwork,
 	}
+	ipallocator.queue = controllers.NewQueue("ambient-ipallocator", controllers.WithGenericReconciler(ipallocator.reconcile))
+	ipalog.Debug("IP allocator initialized; queue is awaiting Run")
 
 	ipallocator.globalServices.RegisterBatch(func(events []krt.Event[GlobalService]) {
-		ipalog.Debugf("GlobalServices updated: %v", events)
-		for _, e := range events {
-			switch e.Event {
-			case controllers.EventAdd:
-				ipallocator.addGlobalService(e.New, localClusterNetwork)
-			case controllers.EventUpdate:
-				ln := localClusterNetwork.Get()
-				if e.Old.network == ln.network {
-					continue
-				}
-				if e.Old.serviceScope == model.Global && e.New.serviceScope == model.Local {
-					ipallocator.removeGlobalService(e.Old)
-				} else if e.New.serviceScope == model.Global && e.Old.serviceScope == model.Local {
-					ipallocator.addGlobalService(e.New, localClusterNetwork)
-				}
-			case controllers.EventDelete:
-				ipallocator.removeGlobalService(e.Old)
-			}
-		}
-	}, false)
+		ipalog.Debugf("enqueueing %d GlobalService events", len(events))
+		ipallocator.queue.Add(&events)
+	}, true)
 
 	ipallocator.ipAddressCollection.RegisterBatch(func(events []krt.Event[*networking.IPAddress]) {
-		ipalog.Debugf("IPAddress updated")
-		for _, e := range events {
-			switch e.Event {
-			case controllers.EventAdd:
-				fallthrough
-			case controllers.EventUpdate:
-				addr, err := netip.ParseAddr((*e.New).Name)
-				if err != nil {
-					ipalog.Debugf("can't parse IP address %s", (*e.New).Name)
-					continue
-				}
-				ipallocator.usedAddresses[addr] = true
-			case controllers.EventDelete:
-				addr, err := netip.ParseAddr((*e.New).Name)
-				if err != nil {
-					ipalog.Debugf("can't parse IP address %s", (*e.New).Name)
-					continue
-				}
-				delete(ipallocator.usedAddresses, addr)
-			}
-		}
-	}, false)
+		ipalog.Debugf("enqueueing %d IPAddress events", len(events))
+		ipallocator.queue.Add(&events)
+	}, true)
 
 	ipallocator.serviceCidrCollection.RegisterBatch(func(events []krt.Event[*networking.ServiceCIDR]) {
-		ipalog.Debugf("ServiceCIDR updated")
-		for _, e := range events {
-			switch e.Event {
-			case controllers.EventAdd:
-				ipallocator.addServiceCIDR(*e.New)
-			case controllers.EventDelete:
-				ipallocator.removeServiceCIDR(*e.Old)
-				// TODO: what to do with IPs that were
-				// allocated from this CIDR
-			case controllers.EventUpdate:
-				ipallocator.removeServiceCIDR(*e.Old)
-				ipallocator.addServiceCIDR(*e.New)
-			}
-		}
-	}, false)
+		ipalog.Debugf("enqueueing %d ServiceCIDR events", len(events))
+		ipallocator.queue.Add(&events)
+	}, true)
 
 	serviceAddressIndex := krt.NewIndex(ipallocator.ipAddressCollection, "serviceAddressIndex", func(address *networking.IPAddress) []GlobalService {
 		labels := address.Labels
@@ -377,13 +334,115 @@ func NewIPAllocator(client kube.Client, stop <-chan struct{}, mc *multicluster.C
 	return &ipallocator
 }
 
+func (a *IPAllocator) Run(stop <-chan struct{}) {
+	ipalog.Debug("waiting for IP allocator collections to sync")
+	if !kube.WaitForCacheSync("ambient-ipallocator", stop,
+		a.ipAddressCollection.HasSynced,
+		a.serviceCidrCollection.HasSynced,
+		a.globalServices.HasSynced,
+		a.localClusterNetwork.AsCollection().HasSynced,
+	) {
+		a.queue.ShutDownEarly()
+		return
+	}
+	for _, cidr := range a.serviceCidrCollection.List() {
+		a.addServiceCIDR(cidr)
+	}
+	for _, address := range a.ipAddressCollection.List() {
+		addr, err := netip.ParseAddr(address.Name)
+		if err != nil {
+			ipalog.Debugf("can't parse IP address %s", address.Name)
+			continue
+		}
+		a.usedAddresses[addr] = true
+	}
+	ipalog.WithLabels("ipv4CIDRs", len(a.v4Allocator.cidrs), "ipv6CIDRs", len(a.v6Allocator.cidrs), "usedAddresses", len(a.usedAddresses)).Debug("starting IP allocator queue with warmed state")
+	a.queue.Run(stop)
+	_ = a.queue.WaitForClose(0)
+}
+
+func (a *IPAllocator) reconcile(item any) error {
+	ipalog.Debugf("processing queued allocator batch of type %T", item)
+	switch events := item.(type) {
+	case *[]krt.Event[GlobalService]:
+		a.handleGlobalServiceEvents(*events)
+	case *[]krt.Event[*networking.ServiceCIDR]:
+		a.handleServiceCIDREvents(*events)
+	case *[]krt.Event[*networking.IPAddress]:
+		a.handleIPAddressEvents(*events)
+	}
+	return nil
+}
+
+func (a *IPAllocator) handleGlobalServiceEvents(events []krt.Event[GlobalService]) {
+	for _, event := range events {
+		switch event.Event {
+		case controllers.EventAdd:
+			a.addGlobalService(event.New, a.localClusterNetwork)
+		case controllers.EventUpdate:
+			localNetwork := a.localClusterNetwork.Get()
+			if event.Old.network == localNetwork.network {
+				continue
+			}
+			if event.Old.serviceScope == model.Global && event.New.serviceScope == model.Local {
+				a.removeGlobalService(event.Old)
+			} else if event.New.serviceScope == model.Global && event.Old.serviceScope == model.Local {
+				a.addGlobalService(event.New, a.localClusterNetwork)
+			}
+		case controllers.EventDelete:
+			a.removeGlobalService(event.Old)
+		}
+	}
+}
+
+func (a *IPAllocator) handleServiceCIDREvents(events []krt.Event[*networking.ServiceCIDR]) {
+	for _, event := range events {
+		switch event.Event {
+		case controllers.EventAdd:
+			a.addServiceCIDR(*event.New)
+		case controllers.EventDelete:
+			a.removeServiceCIDR(*event.Old)
+			// TODO: what to do with IPs that were
+			// allocated from this CIDR
+		case controllers.EventUpdate:
+			a.removeServiceCIDR(*event.Old)
+			a.addServiceCIDR(*event.New)
+		}
+	}
+}
+
+func (a *IPAllocator) handleIPAddressEvents(events []krt.Event[*networking.IPAddress]) {
+	for _, event := range events {
+		switch event.Event {
+		case controllers.EventAdd, controllers.EventUpdate:
+			addr, err := netip.ParseAddr((*event.New).Name)
+			if err != nil {
+				ipalog.Debugf("can't parse IP address %s", (*event.New).Name)
+				continue
+			}
+			a.usedAddresses[addr] = true
+		case controllers.EventDelete:
+			addr, err := netip.ParseAddr((*event.Old).Name)
+			if err != nil {
+				ipalog.Debugf("can't parse IP address %s", (*event.Old).Name)
+				continue
+			}
+			delete(a.usedAddresses, addr)
+		}
+	}
+}
+
 func (a *IPAllocator) addGlobalService(service *GlobalService, localClusterNetwork krt.Singleton[clusterNetwork]) {
 	localNetwork := localClusterNetwork.Get()
 	if service.network == localNetwork.network || service.serviceScope != model.Global {
+		ipalog.WithLabels("service", service.service.String(), "network", service.network,
+			"localNetwork", localNetwork.network, "scope", service.serviceScope).Debug("skipping IP allocation: service is local to this network or not global")
 		return
 	}
 	currentIPs := a.serviceAddressIndex.Lookup(*service)
 	if len(currentIPs) > 0 {
+		ipalog.WithLabels("service", service.service.String(), "network", service.network,
+			"addresses", len(currentIPs)).Debug("skipping IP allocation: addresses already exist")
 		return
 	}
 	a.allocate(service)
@@ -434,6 +493,7 @@ func (a *IPAllocator) allocateFrom(pool *allocator, g *GlobalService) error {
 		if a.usedAddresses[addr] {
 			continue
 		}
+		ipalog.WithLabels("service", g.service.String(), "network", g.network, "address", addr.String()).Debug("creating IPAddress")
 		_, err := a.ipAddressWriter.Create(&networking.IPAddress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: addr.String(),
@@ -462,11 +522,14 @@ func (a *IPAllocator) allocateFrom(pool *allocator, g *GlobalService) error {
 			return fmt.Errorf("failed to create IPAddress %s: %w", addr, err)
 		}
 		a.usedAddresses[addr] = true
+		ipalog.WithLabels("service", g.service.String(), "network", g.network, "address", addr.String()).Debug("created IPAddress")
 		return nil
 	}
 }
 
 func (a *IPAllocator) allocate(g *GlobalService) {
+	ipalog.WithLabels("service", g.service.String(), "network", g.network,
+		"ipv4CIDRs", len(a.v4Allocator.cidrs), "ipv6CIDRs", len(a.v6Allocator.cidrs)).Debug("allocating service addresses")
 	if !a.v4Allocator.empty() {
 		if err := a.allocateFrom(&a.v4Allocator, g); err != nil {
 			ipalog.Warnf("failed to allocate IPv4 address: %v", err)
