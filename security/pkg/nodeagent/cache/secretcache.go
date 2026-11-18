@@ -1004,7 +1004,7 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 		sc.certMutex.Lock()
 		removedWatch := false
 		for fc := range sc.fileCerts {
-			if fc.TargetPath == "" && strings.HasPrefix(fc.ResourceName, "file-root-crl:") && filepath.Dir(fc.Filename) == event.Name {
+			if fc.TargetPath == "" && strings.HasPrefix(fc.ResourceName, security.FileRootCRLResourcePrefix) && filepath.Dir(fc.Filename) == event.Name {
 				if !removedWatch {
 					_ = sc.certWatcher.Remove(event.Name)
 					removedWatch = true
@@ -1019,7 +1019,7 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 
 	// Process all file certificates (both symlinks and regular files)
 	for fc := range resources {
-		mountedCRL := strings.HasPrefix(fc.ResourceName, "file-root-crl:")
+		mountedCRL := strings.HasPrefix(fc.ResourceName, security.FileRootCRLResourcePrefix)
 		if event.Op == fsnotify.Rename && !mountedCRL {
 			continue
 		}
@@ -1086,7 +1086,7 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 		// Check if the removed path is a directory by checking if any symlinks are inside it
 		removedPaths := make([]FileCert, 0)
 		for fc := range sc.fileCerts {
-			if strings.HasPrefix(fc.ResourceName, "file-root-crl:") && fc.TargetPath == "" && fc.Filename == event.Name {
+			if strings.HasPrefix(fc.ResourceName, security.FileRootCRLResourcePrefix) && fc.TargetPath == "" && fc.Filename == event.Name {
 				continue
 			}
 			// Remove exact matches (file or symlink removal)

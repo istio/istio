@@ -133,7 +133,7 @@ const (
 	GkeWorkloadCertificateProvider = "GkeWorkloadCertificate"
 
 	// FileRootSystemCACert is a unique resource name signaling that the system CA certificate should be used
-	FileRootSystemCACert = "file-root:system"
+	FileRootSystemCACert = fileRootResourcePrefix + "system"
 
 	// CACRLFilePath is the well-known path for the plugged-in CA's CRL file
 	CACRLFilePath = "/var/run/secrets/istio/crl/ca-crl.pem"
@@ -537,13 +537,17 @@ type SdsCertificateConfig struct {
 }
 
 const (
-	ResourceSeparator = "~"
+	ResourceSeparator      = "~"
+	fileCertResourcePrefix = "file-cert:"
+	fileRootResourcePrefix = "file-root:"
+	// FileRootCRLResourcePrefix identifies file-backed SDS resources containing a CA and CRL.
+	FileRootCRLResourcePrefix = "file-root-crl:"
 )
 
 // GetResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name
 func (s SdsCertificateConfig) GetResourceName() string {
 	if s.IsKeyCertificate() {
-		return "file-cert:" + s.CertificatePath + ResourceSeparator + s.PrivateKeyPath // Format: file-cert:%s~%s
+		return fileCertResourcePrefix + s.CertificatePath + ResourceSeparator + s.PrivateKeyPath // Format: file-cert:%s~%s
 	}
 	return ""
 }
@@ -552,10 +556,10 @@ func (s SdsCertificateConfig) GetResourceName() string {
 func (s SdsCertificateConfig) GetRootResourceName() string {
 	if s.IsRootCertificate() {
 		if s.CRLPath != "" {
-			return "file-root-crl:" + base64.RawURLEncoding.EncodeToString([]byte(s.CaCertificatePath)) + ResourceSeparator +
+			return FileRootCRLResourcePrefix + base64.RawURLEncoding.EncodeToString([]byte(s.CaCertificatePath)) + ResourceSeparator +
 				base64.RawURLEncoding.EncodeToString([]byte(s.CRLPath))
 		}
-		return "file-root:" + s.CaCertificatePath // Format: file-root:%s
+		return fileRootResourcePrefix + s.CaCertificatePath // Format: file-root:%s
 	}
 	return ""
 }
@@ -573,7 +577,7 @@ func (s SdsCertificateConfig) IsKeyCertificate() bool {
 // SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
 // If the resource name is not valid, false is returned.
 func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
-	if after, ok := strings.CutPrefix(resource, "file-root-crl:"); ok {
+	if after, ok := strings.CutPrefix(resource, FileRootCRLResourcePrefix); ok {
 		paths := strings.Split(after, ResourceSeparator)
 		if len(paths) != 2 {
 			return SdsCertificateConfig{}, false
@@ -584,14 +588,14 @@ func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig
 			return SdsCertificateConfig{}, false
 		}
 		return SdsCertificateConfig{CaCertificatePath: string(ca), CRLPath: string(crl)}, true
-	} else if after, ok := strings.CutPrefix(resource, "file-cert:"); ok {
+	} else if after, ok := strings.CutPrefix(resource, fileCertResourcePrefix); ok {
 		filesString := after
 		split := strings.Split(filesString, ResourceSeparator)
 		if len(split) != 2 {
 			return SdsCertificateConfig{}, false
 		}
 		return SdsCertificateConfig{CertificatePath: split[0], PrivateKeyPath: split[1]}, true
-	} else if after, ok := strings.CutPrefix(resource, "file-root:"); ok {
+	} else if after, ok := strings.CutPrefix(resource, fileRootResourcePrefix); ok {
 		filesString := after
 		split := strings.Split(filesString, ResourceSeparator)
 
