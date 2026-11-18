@@ -11,7 +11,7 @@ We have three sets of values, in order of precedence (last wins):
 
 Unfortunately, Helm provides us (1) and (3) together (as .Values), making it hard to insert (2).
 
-However, we can workaround this by placing all of (1) under a specific key (.Values.defaults).
+However, we can workaround this by placing all of (1) under a specific key (.Values._internal_defaults_do_not_set).
 We can then merge the profile onto the defaults, then the user settings onto that.
 Finally, we can set all of that under .Values so the chart behaves without awareness.
 */}}
