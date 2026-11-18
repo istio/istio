@@ -109,6 +109,10 @@ _internal_defaults_do_not_set:
   ipFamilyPolicy: ""
   ipFamilies: []
 
+  # Traffic distribution preference for the istiod Service.
+  # See https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
+  trafficDistribution: ""
+
   # Ambient mode only.
   # Set this if you install ztunnel to a different namespace from `istiod`.
   # If set, `istiod` will allow connections from trusted node proxy ztunnels
@@ -341,6 +345,10 @@ _internal_defaults_do_not_set:
 
     proxy:
       image: proxyv2
+
+      # Variant of the proxy image to use. If unset, global.variant is used.
+      # Currently supported are: [debug, distroless]
+      variant: ""
 
       # This controls the 'policy' in the sidecar injector.
       autoInject: enabled

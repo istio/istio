@@ -1074,6 +1074,10 @@ message PilotConfig {
   // https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
   // Defaults to 0 (the pod is considered available as soon as it is ready).
   int32 minReadySeconds = 71;
+
+  // Traffic distribution preference for the istiod service.
+  // See https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
+  string trafficDistribution = 72;
 }
 
 message PilotTaintControllerConfig {
@@ -1275,6 +1279,9 @@ message ProxyConfig {
 
   // A comma separated list of outbound ports for which traffic is to be redirected to Envoy, regardless of the destination IP.
   string includeOutboundPorts = 39;
+
+  // The variant of the proxy container image to use. Options are "debug" or "distroless". Unset will use global.variant.
+  string variant = 45;
 }
 
 message StartupProbe {

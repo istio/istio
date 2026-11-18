@@ -97,7 +97,8 @@ data:
             "failureThreshold": 600
           },
           "statusPort": 15020,
-          "tracer": "none"
+          "tracer": "none",
+          "variant": ""
         },
         "proxy_init": {
           "forceApplyIptables": false,
