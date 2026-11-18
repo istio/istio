@@ -435,10 +435,6 @@ func (a *index) buildGlobalCollections(
 		name := addr.Labels[constants.RemoteServiceNameLabel]
 		namespace := addr.Labels[constants.RemoteServiceNamespaceLabel]
 		if name == "" || namespace == "" {
-			name = addr.Labels["istio.io/original-service-name"]
-			namespace = addr.Labels["istio.io/original-service-namespace"]
-		}
-		if name == "" || namespace == "" {
 			return nil
 		}
 		ip, err := netip.ParseAddr(addr.Name)
