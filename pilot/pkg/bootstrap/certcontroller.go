@@ -325,6 +325,10 @@ func (s *Server) watchSecureDiscoveryService(args *PilotArgs) {
 			if srv == nil {
 				return
 			}
+			if s.caServer != nil {
+				// Also expose the CA API on the newly-available secure port.
+				s.caServer.Register(srv)
+			}
 			listener, err := net.Listen("tcp", args.ServerOptions.SecureGRPCAddr)
 			if err != nil {
 				log.Errorf("error starting secure discovery service for certificate: %v", err)
@@ -333,7 +337,7 @@ func (s *Server) watchSecureDiscoveryService(args *PilotArgs) {
 			s.secureGrpcReady.Store(true)
 			go func() {
 				<-stop
-				srv.Stop()
+				s.gracefulStopGRPCServer(srv)
 			}()
 
 			log.Infof("starting secure gRPC discovery service at %s", listener.Addr())
