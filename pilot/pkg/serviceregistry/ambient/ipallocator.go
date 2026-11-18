@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -323,10 +324,10 @@ func NewIPAllocator(client kube.Client, stop <-chan struct{}, mc *multicluster.C
 		}
 		return []GlobalService{{
 			service: types.NamespacedName{
-				Namespace: labels["networking.istio.io/remote-ns"],
-				Name:      labels["networking.istio.io/remote-service"],
+				Namespace: labels[constants.RemoteServiceNamespaceLabel],
+				Name:      labels[constants.RemoteServiceNameLabel],
 			},
-			network: network.ID(labels["networking.istio.io/remote-network"]),
+			network: network.ID(labels[constants.RemoteServiceNetworkLabel]),
 		}}
 	})
 	ipallocator.serviceAddressIndex = serviceAddressIndex
@@ -498,10 +499,10 @@ func (a *IPAllocator) allocateFrom(pool *allocator, g *GlobalService) error {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: addr.String(),
 				Labels: map[string]string{
-					networking.LabelManagedBy:            "remote-service-controller.istio.io",
-					"networking.istio.io/remote-ns":      g.service.Namespace,
-					"networking.istio.io/remote-service": g.service.Name,
-					"networking.istio.io/remote-network": string(g.network),
+					networking.LabelManagedBy:             "remote-service-controller.istio.io",
+					constants.RemoteServiceNamespaceLabel: g.service.Namespace,
+					constants.RemoteServiceNameLabel:      g.service.Name,
+					constants.RemoteServiceNetworkLabel:   string(g.network),
 				},
 			},
 			Spec: networking.IPAddressSpec{

@@ -432,8 +432,8 @@ func (a *index) buildGlobalCollections(
 	})
 
 	globalServiceVIPs := krt.NewCollection(localIPAddresses, func(ctx krt.HandlerContext, addr *netv1.IPAddress) *globalServiceAddress {
-		name := addr.Labels["networking.istio.io/remote-service"]
-		namespace := addr.Labels["networking.istio.io/remote-ns"]
+		name := addr.Labels[constants.RemoteServiceNameLabel]
+		namespace := addr.Labels[constants.RemoteServiceNamespaceLabel]
 		if name == "" || namespace == "" {
 			name = addr.Labels["istio.io/original-service-name"]
 			namespace = addr.Labels["istio.io/original-service-namespace"]
