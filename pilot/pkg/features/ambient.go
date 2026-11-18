@@ -65,6 +65,9 @@ var (
 	EnableAmbientMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK", false, false,
 		"If true, the multi-network functionality will be enabled.")
 
+	EnableAmbientRemoteServiceIPAllocation = registerAmbient("AMBIENT_ENABLE_REMOTE_SERVICE_IP_ALLOCATION", false, false,
+		"If true, enables the controller that allocates IPAddress resources for remote global services.")
+
 	EnableAmbientBaggage = registerAmbient("AMBIENT_ENABLE_BAGGAGE", false, false,
 		"If true, enables waypoints to use baggage header to discover and propagate peer metadata for metrics.")
 

@@ -45,6 +45,39 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 )
 
+type remoteServicesControllerTestServer struct {
+	server.Instance
+	components []string
+}
+
+func (s *remoteServicesControllerTestServer) RunComponent(name string, _ server.Component) {
+	s.components = append(s.components, name)
+}
+
+func TestInitRemoteServicesController(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		enabled    bool
+		kubeClient bool
+		want       []string
+	}{
+		{name: "disabled", kubeClient: true},
+		{name: "enabled", enabled: true, kubeClient: true, want: []string{"remote services controller"}},
+		{name: "no Kubernetes client", enabled: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableAmbientRemoteServiceIPAllocation, tt.enabled)
+			runner := &remoteServicesControllerTestServer{}
+			s := &Server{server: runner}
+			if tt.kubeClient {
+				s.kubeClient = &struct{ kube.Client }{}
+			}
+			s.initRemoteServicesController(&PilotArgs{})
+			assert.Equal(t, runner.components, tt.want)
+		})
+	}
+}
+
 func loadCertFilesAtPaths(t TLSFSLoadPaths) error {
 	// create cert directories if not existing
 	if err := os.MkdirAll(filepath.Dir(t.testTLSCertFilePath), os.ModePerm); err != nil {
