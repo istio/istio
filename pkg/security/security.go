@@ -72,6 +72,9 @@ const (
 	// for file-based certificates.
 	CredentialFileMetaDataName = "file-credential"
 
+	// FileCRLSDSMetadataName reports support for the paired file-root-crl resource.
+	FileCRLSDSMetadataName = "FILE_CRL_SDS_SUPPORTED"
+
 	// SDSExternalClusterName is the name of the cluster for external SDS connections which is defined via CredentialNameSocketPath
 	SDSExternalClusterName = "sds-external"
 

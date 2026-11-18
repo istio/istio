@@ -55,6 +55,7 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/proto"
+	securitymodel "istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -5516,6 +5517,7 @@ func TestGatewayFileCRLSDS(t *testing.T) {
 	cases := []struct {
 		name           string
 		version        *pilot_model.IstioVersion
+		capability     any
 		mode           networking.ServerTLSSettings_TLSmode
 		ca             string
 		crl            string
@@ -5524,36 +5526,53 @@ func TestGatewayFileCRLSDS(t *testing.T) {
 		wantRoot       string
 		wantCRL        string
 	}{
-		{name: "supported mutual", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+		{name: "supported mutual", capability: true, version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
 			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caCRL},
-		{name: "supported optional mutual", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+		{name: "supported optional mutual", capability: true, version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_OPTIONAL_MUTUAL,
 			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caCRL},
-		{name: "future version", version: pilot_model.ParseIstioVersion("1.34.0"), mode: networking.ServerTLSSettings_MUTUAL,
-			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caCRL},
+		{name: "future version without capability", version: pilot_model.ParseIstioVersion("1.34.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caOnly, wantCRL: "/crl.pem"},
 		{name: "older agent", version: pilot_model.ParseIstioVersion("1.32.9"), mode: networking.ServerTLSSettings_MUTUAL,
 			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caOnly, wantCRL: "/crl.pem"},
 		{name: "nil version", mode: networking.ServerTLSSettings_MUTUAL,
 			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caOnly, wantCRL: "/crl.pem"},
-		{name: "unknown version follows latest convention", version: pilot_model.ParseIstioVersion("unknown"), mode: networking.ServerTLSSettings_MUTUAL,
+		{name: "unknown version without capability", version: pilot_model.ParseIstioVersion("unknown"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caOnly, wantCRL: "/crl.pem"},
+		{name: "current version without capability", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caOnly, wantCRL: "/crl.pem"},
+		{name: "explicit capability on older version", capability: true, version: pilot_model.ParseIstioVersion("1.32.9"), mode: networking.ServerTLSSettings_MUTUAL,
 			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caCRL},
-		{name: "different CRL same CA", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+		{name: "explicit capability without version", capability: true, mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caCRL},
+		{name: "false capability", capability: false, version: pilot_model.ParseIstioVersion("1.34.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caOnly, wantCRL: "/crl.pem"},
+		{name: "malformed capability", capability: "TRUE", version: pilot_model.ParseIstioVersion("1.34.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caOnly, wantCRL: "/crl.pem"},
+		{name: "string true capability", capability: "true", version: pilot_model.ParseIstioVersion("1.34.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caOnly, wantCRL: "/crl.pem"},
+		{name: "object capability", capability: map[string]any{"enabled": "true"}, version: pilot_model.ParseIstioVersion("1.34.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caOnly, wantCRL: "/crl.pem"},
+		{name: "different CRL same CA", capability: true, version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
 			ca: "/ca.pem", crl: "/other.pem", wantRoot: "file-root-crl:L2NhLnBlbQ~L290aGVyLnBlbQ"},
-		{name: "no CRL", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+		{name: "no CRL", capability: true, version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
 			ca: "/ca.pem", wantRoot: caOnly},
-		{name: "no explicit CA", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+		{name: "no explicit CA", capability: true, version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
 			crl: "/crl.pem", wantRoot: "ROOTCA", wantCRL: "/crl.pem"},
-		{name: "file SDS socket", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+		{name: "file SDS socket", capability: true, version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
 			ca: "/ca.pem", crl: "/crl.pem", fileSDS: true, wantRoot: caCRL},
-		{name: "istio mutual unchanged", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
+		{name: "istio mutual unchanged", capability: true, version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 			ca: "/ca.pem", crl: "/crl.pem", wantRoot: "ROOTCA", wantCRL: "/crl.pem"},
-		{name: "credential name unchanged", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+		{name: "credential name unchanged", capability: true, version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
 			credentialName: "gateway-cert", wantRoot: "kubernetes://gateway-cert-cacert"},
-		{name: "simple unchanged", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_SIMPLE,
+		{name: "simple unchanged", capability: true, version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_SIMPLE,
 			ca: "/ca.pem", crl: "/crl.pem"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			raw := map[string]any{}
+			if tt.capability != nil {
+				raw[securitymodel.FileCRLSDSMetadataName] = tt.capability
+			}
 			if tt.fileSDS {
 				raw["file-credential"] = "true"
 			}
