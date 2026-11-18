@@ -70,8 +70,7 @@ func newBuilder(
 ) *Builder {
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
 	allowsPerRouteAuth := features.EnableGatewayAPIHTTPRouteAuth &&
-		(proxy.Type == model.Router || (
-			proxy.Type == model.Waypoint && !alwaysTreatAsNonWaypoint))
+		(proxy.Type == model.Router || (proxy.Type == model.Waypoint && !alwaysTreatAsNonWaypoint))
 	option := builder.Option{
 		IsCustomBuilder:  actionType == Custom,
 		UseFilterState:   useFilterState,
@@ -186,6 +185,10 @@ type PerRouteBuilder struct {
 
 // NewPerRouteBuilder returns a builder for per-route authorization config for the given proxy.
 func NewPerRouteBuilder(push *model.PushContext, proxy *model.Proxy) *PerRouteBuilder {
+	return NewPerRouteBuilderForService(push, proxy, nil)
+}
+
+func NewPerRouteBuilderForService(push *model.PushContext, proxy *model.Proxy, svc *model.Service) *PerRouteBuilder {
 	p := &PerRouteBuilder{
 		push:           push,
 		tdBundle:       trustdomain.NewBundle(push.Mesh.GetTrustDomain(), push.Mesh.GetTrustDomainAliases()),
@@ -193,7 +196,7 @@ func NewPerRouteBuilder(push *model.PushContext, proxy *model.Proxy) *PerRouteBu
 		cache:          map[types.NamespacedName]map[string]*anypb.Any{},
 	}
 	if push.AuthzPolicies != nil {
-		selectionOpts := model.PolicyMatcherForProxy(proxy).WithRootNamespace(push.AuthzPolicies.RootNamespace)
+		selectionOpts := model.PolicyMatcherForProxy(proxy).WithService(svc).WithRootNamespace(push.AuthzPolicies.RootNamespace)
 		p.workloadAllow = push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts).Allow
 	}
 	return p
@@ -216,8 +219,8 @@ func (p *PerRouteBuilder) Build(origin types.NamespacedName) map[string]*anypb.A
 	// the listener configured.
 	policies := model.AuthorizationPoliciesResult{Deny: route.Deny}
 	if len(route.Allow) > 0 {
-		// The override replaces the ALLOW filter's config here, so it must carry the workload's
-		// ALLOW policies too or they would stop applying to this route.
+		// The override replaces the ALLOW filter's config here, so it must carry
+		// applicable workload ALLOW policies too or they would stop applying to this route.
 		policies.Allow = make([]model.AuthorizationPolicy, 0, len(p.workloadAllow)+len(route.Allow))
 		policies.Allow = append(policies.Allow, p.workloadAllow...)
 		policies.Allow = append(policies.Allow, route.Allow...)

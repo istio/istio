@@ -1164,6 +1164,11 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
+	var perRouteAuthz *authz.PerRouteBuilder
+	if features.EnableGatewayAPIHTTPRouteAuth {
+		perRouteAuthz = authz.NewPerRouteBuilderForService(lb.push, lb.node, svc)
+	}
+
 	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
