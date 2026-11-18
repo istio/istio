@@ -93,7 +93,7 @@ func VerifyIptablesState(
 		emptyExpectedState := isEmptyState(expectedState)
 
 		if err != nil {
-			log.Warnf("[%s] iptables-save failed. Assuming clean state.", ipCfg.versionName, err)
+			log.Warnf("[%s] iptables-save failed: %v. Assuming clean state.", ipCfg.versionName, err)
 			curResidueExists = false
 			if !emptyExpectedState {
 				curDeltaExists = true

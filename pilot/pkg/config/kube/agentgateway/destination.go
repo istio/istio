@@ -90,7 +90,7 @@ func buildAgwDestination(
 		hostname = GetInferenceServiceHostname(ctx, string(to.Name), namespace)
 		key := namespace + "/" + string(to.Name)
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.InferencePools, krt.FilterKey(key)))
-		log.Debugf("found pull pool for service", "svc", svc, "key", key)
+		log.WithLabels("svc", svc, "key", key).Debug("found pull pool for service")
 		if svc == nil {
 			msg := fmt.Sprintf("backendRef %s not found", key)
 			log.Debug(msg)

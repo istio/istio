@@ -263,7 +263,7 @@ func ConvertGRPCRouteToAgw(ctx RouteContext, r gatewayv1.GRPCRouteRule,
 	for _, match := range r.Matches {
 		headers, err := CreateAgwGRPCHeadersMatch(match)
 		if err != nil {
-			log.Errorf("failed to translate grpc header match", "err", err, "route_name", obj.Name, "route_ns", obj.Namespace)
+			log.WithLabels("err", err, "route_name", obj.Name, "route_ns", obj.Namespace).Error("failed to translate grpc header match")
 			return nil, err
 		}
 		// For GRPC, we don't have path match in the traditional sense, so we'll derive it from method
@@ -298,14 +298,14 @@ func ConvertGRPCRouteToAgw(ctx RouteContext, r gatewayv1.GRPCRouteRule,
 
 	policies, err := BuildAgwGRPCTrafficPolicies(ctx, obj.Namespace, r.Filters)
 	if err != nil {
-		log.Errorf("failed to translate grpc filter", "err", err, "route_name", obj.Name, "route_ns", obj.Namespace)
+		log.WithLabels("err", err, "route_name", obj.Name, "route_ns", obj.Namespace).Error("failed to translate grpc filter")
 		return nil, err
 	}
 	res.TrafficPolicies = policies
 
 	route, backendErr, err := buildAgwGRPCDestination(ctx, r.BackendRefs, obj.Namespace)
 	if err != nil {
-		log.Errorf("failed to translate grpc destination", "err", err, "route_name", obj.Name, "route_ns", obj.Namespace)
+		log.WithLabels("err", err, "route_name", obj.Name, "route_ns", obj.Namespace).Error("failed to translate grpc destination")
 		res.Backends = nil
 		return res, err
 	}
@@ -330,7 +330,7 @@ func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayv1.TCPRouteRule,
 	// Build TCP destinations
 	route, backendErr, err := buildAgwTCPDestination(ctx, r.BackendRefs, obj.Namespace)
 	if err != nil {
-		log.Errorf("failed to translate tcp destination", "err", err)
+		log.WithLabels("err", err).Error("failed to translate tcp destination")
 		res.Backends = nil
 		return res, err
 	}
@@ -353,7 +353,7 @@ func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayv1.TLSRouteRule,
 	// Build TLS destinations
 	route, backendErr, err := buildAgwTLSDestination(ctx, r.BackendRefs, obj.Namespace)
 	if err != nil {
-		log.Errorf("failed to translate tls destination", "err", err, "route_name", obj.Name, "route_ns", obj.Namespace)
+		log.WithLabels("err", err, "route_name", obj.Name, "route_ns", obj.Namespace).Error("failed to translate tls destination")
 		res.Backends = nil
 		return res, err
 	}
