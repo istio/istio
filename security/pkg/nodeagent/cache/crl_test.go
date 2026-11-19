@@ -89,7 +89,13 @@ func TestMountedRootCRLRotation(t *testing.T) {
 	bundleSecret, err := sc.GenerateSecret(resource)
 	require.NoError(t, err)
 	require.Equal(t, bundle, bundleSecret.CRL)
-	for _, invalid := range [][]byte{nil, []byte("bad PEM"), []byte("-----BEGIN X509 CRL-----\nYmFk\n-----END X509 CRL-----\n"), append(bytes.Clone(crl), []byte("trailing garbage")...), append([]byte("-----BEGIN X509 CRL-----\ninvalid\n"), crl...)} {
+	for _, invalid := range [][]byte{
+		nil,
+		[]byte("bad PEM"),
+		[]byte("-----BEGIN X509 CRL-----\nYmFk\n-----END X509 CRL-----\n"),
+		append(bytes.Clone(crl), []byte("trailing garbage")...),
+		append([]byte("-----BEGIN X509 CRL-----\ninvalid\n"), crl...),
+	} {
 		require.NoError(t, os.WriteFile(crlPath, invalid, 0o600))
 		secret, err := sc.GenerateSecret(resource)
 		require.Error(t, err)
@@ -142,5 +148,4 @@ func TestMountedRootCRLRotation(t *testing.T) {
 	drain()
 	require.NoError(t, os.WriteFile(crlPath, bundle, 0o600))
 	waitUpdate(resource)
-
 }

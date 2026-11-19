@@ -193,7 +193,7 @@ func ApplyToCommonTLSContextForGateway(tlsContext *tls.CommonTlsContext, proxy *
 	tlsCertificates []*networking.ServerTLSSettings_TLSCertificate, allowInsecure bool,
 ) {
 	// check if proxy is running a version which supports fileCRL via SDS
-	fileCRL := proxy.Metadata.Raw[security.FileCRLSDSMetadataName] == true
+	fileCRL, _ := proxy.Metadata.Raw[security.FileCRLSDSMetadataName].(bool)
 	applyToCommonTLSContext(tlsContext, proxy, subjectAltNames, crl, trustDomainAliases, validateClient, tlsCertificates, allowInsecure, fileCRL)
 }
 

@@ -104,7 +104,10 @@ func TestSdsRootCRLResourceName(t *testing.T) {
 	if other.GetRootResourceName() == resource {
 		t.Fatal("CA path must be part of resource identity")
 	}
-	for _, invalid := range []string{"file-root-crl:", "file-root-crl:Y2E", "file-root-crl:Y2E~", "file-root-crl:~Y3Js", "file-root-crl:!~Y3Js", "file-root-crl:Y2E~Y3Js~ZXh0cmE"} {
+	for _, invalid := range []string{
+		"file-root-crl:", "file-root-crl:Y2E", "file-root-crl:Y2E~",
+		"file-root-crl:~Y3Js", "file-root-crl:!~Y3Js", "file-root-crl:Y2E~Y3Js~ZXh0cmE",
+	} {
 		if _, ok := SdsCertificateConfigFromResourceName(invalid); ok {
 			t.Errorf("accepted malformed resource %q", invalid)
 		}
