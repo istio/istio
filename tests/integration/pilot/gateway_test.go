@@ -61,6 +61,7 @@ func TestGateway(t *testing.T) {
 			t.NewSubTest("status").Run(StatusGatewayTest)
 			t.NewSubTest("managed-short-name").Run(ManagedGatewayShortNameTest)
 			t.NewSubTest("insecure-frontend-validation-mode").Run(InsecureFrontendValidationModeTest)
+			t.NewSubTest("frontend-tls-cluster-trust-bundle").Run(FrontendTLSClusterTrustBundleTest)
 		})
 }
 
@@ -398,6 +399,9 @@ spec:
 			Address: fmt.Sprintf("gateway-%s.%s.svc.cluster.local", i.GatewayClassName, apps.Namespace.Name()),
 			Check:   check.And(check.OK(), check.SNI("auth.example.com")),
 		})
+	})
+	t.NewSubTest("backend-tls-cluster-trust-bundle").Run(func(t framework.TestContext) {
+		ManagedGatewayBackendTLSClusterTrustBundleTest(t, i.GatewayClassName)
 	})
 	t.NewSubTest("listenerset").Run(func(t framework.TestContext) {
 		ns := namespace.NewOrFail(t, namespace.Config{Prefix: "listenerset"})

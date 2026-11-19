@@ -69,7 +69,8 @@ var skippedTests = map[string]string{
 	// The following tests were added in v1.7.0
 	// Istio derives the upstream protocol from the Service port; the test Service has no appProtocol,
 	// so we send HTTP/1.1 (no h2 ALPN) to the TLS gRPC backend.
-	"BackendTLSPolicyGRPCRoute": "TODO",
+	"BackendTLSPolicyGRPCRoute":                   "TODO",
+	"BackendTLSPolicyClusterTrustBundleGRPCRoute": "TODO",
 	// Backends have sidecars, which turn the connection error into a 503 response, so the gateway does not retry.
 	"HTTPRouteRetryConnectionError": "TODO",
 }
@@ -100,6 +101,10 @@ func TestGatewayConformance(t *testing.T) {
 
 			supportedFeatures := gateway.SupportedFeatures.Clone().
 				Delete(features.MeshClusterIPMatchingFeature) // https://github.com/istio/istio/issues/44702
+			// ClusterTrustBundle support depends on the installation and the cluster, so it is not in the shared set.
+			if ok, _ := gatewayconformance.ClusterTrustBundleSupported(ctx); ok {
+				supportedFeatures.Insert(features.ClusterTrustBundleFeature)
+			}
 
 			// Standard-only selection goes through SkipTests, leaving supportedFeatures to
 			// advertise what Istio actually implements. Conformance tests read it at runtime

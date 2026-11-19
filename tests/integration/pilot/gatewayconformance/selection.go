@@ -15,15 +15,48 @@
 // limitations under the License.
 
 // Package gatewayconformance holds helpers shared by the Gateway API conformance
-// runners under tests/integration/pilot.
+// runners and Gateway integration tests.
 package gatewayconformance
 
 import (
 	"fmt"
+	"regexp"
 
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
+
+	"istio.io/istio/pkg/kube/clustertrustbundle"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istio"
 )
+
+const clusterTrustBundleFlag = "PILOT_ENABLE_GATEWAY_API_CLUSTER_TRUST_BUNDLE"
+
+// Accept both YAML and --set overrides.
+var clusterTrustBundleFlagDisabledRE = regexp.MustCompile(clusterTrustBundleFlag + `["']?\s*[:=]\s*["']?false`)
+
+// ClusterTrustBundleSupported reports whether ClusterTrustBundle references work in this installation, and if not, why:
+// the feature flag must not be disabled and every config cluster must serve the certificates.k8s.io/v1 API.
+func ClusterTrustBundleSupported(t framework.TestContext) (bool, string) {
+	t.Helper()
+	cfg := istio.DefaultConfigOrFail(t, t)
+	overrides := []string{cfg.ControlPlaneValues, cfg.ConfigClusterValues, cfg.RemoteClusterValues}
+	for k, v := range cfg.Values {
+		overrides = append(overrides, k+"="+v)
+	}
+	for _, o := range overrides {
+		if clusterTrustBundleFlagDisabledRE.MatchString(o) {
+			return false, fmt.Sprintf("%s is disabled in the istio installation", clusterTrustBundleFlag)
+		}
+	}
+	for _, c := range t.Clusters().Configs() {
+		if !clustertrustbundle.IsServed(c) {
+			return false, fmt.Sprintf("cluster %s does not serve the certificates.k8s.io/v1 ClusterTrustBundle API (requires Kubernetes 1.37+)",
+				c.Name())
+		}
+	}
+	return true, ""
+}
 
 // SkipNonStandardTests returns skipTests extended with every conformance test that requires a
 // Gateway API feature outside the standard channel.

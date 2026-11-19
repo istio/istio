@@ -242,6 +242,11 @@ const (
 	probeServed
 )
 
+// IsServed probes discovery once for tests and tooling. Failed requests return false.
+func IsServed(client kube.Client) bool {
+	return probeDiscovery(client.Kube().Discovery()) == probeServed
+}
+
 func probeDiscovery(d discovery.DiscoveryInterface) probeResult {
 	list, err := d.ServerResourcesForGroupVersion(GVR.GroupVersion().String())
 	if err != nil {
