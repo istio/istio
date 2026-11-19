@@ -125,4 +125,16 @@ var (
 
 	XDSCacheIndexClearInterval = env.Register("PILOT_XDS_CACHE_INDEX_CLEAR_INTERVAL", 5*time.Second,
 		"The interval for xds cache index clearing.").Get()
+
+	// BatchLargeEndpointUpdates batches the endpoint recomputation of large Kubernetes Services.
+	BatchLargeEndpointUpdates = env.Register("BATCH_LARGE_ENDPOINT_UPDATES", false,
+		"If enabled, endpoint updates for a Kubernetes Service with more than 5000 endpoints are batched. "+
+			"Instead of recomputing the full endpoint list of the Service on every EndpointSlice or pod label event, "+
+			"istiod waits up to BATCH_LARGE_ENDPOINT_UPDATES_DEBOUNCE_TIME and recomputes it once. "+
+			"Endpoint changes for those Services reach proxies up to that much later.").Get()
+
+	// BatchLargeEndpointUpdatesDebounceTime is the longest time a batched endpoint update is held back.
+	BatchLargeEndpointUpdatesDebounceTime = env.Register("BATCH_LARGE_ENDPOINT_UPDATES_DEBOUNCE_TIME", 1*time.Second,
+		"The longest time an endpoint update for a large Service is held back when BATCH_LARGE_ENDPOINT_UPDATES is enabled. "+
+			"The first event for a Service starts the wait and later events join it without extending it.").Get()
 )

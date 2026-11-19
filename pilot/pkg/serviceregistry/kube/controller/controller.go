@@ -504,6 +504,10 @@ func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
 		if !f {
 			return
 		}
+		// For a large Service the rebuild may be deferred and batched.
+		if c.endpoints.batcher.batch(hostname, svc.Namespace, false, true) {
+			continue
+		}
 		shard := model.ShardKeyFromRegistry(c)
 		endpoints := c.buildEndpointsForService(conv, true)
 		if len(endpoints) > 0 {
