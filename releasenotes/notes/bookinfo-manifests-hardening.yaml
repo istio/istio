@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: documentation
+issue:
+- 56032
+releaseNotes:
+- |
+    **Fixed** the volume mounts of the Bookinfo `reviews` service so that it can run with a read-only root filesystem.
+- |
+    **Fixed** the Bookinfo `bookinfo-mysql.yaml` sample, which failed to start because it passed an option that MySQL 9 no longer accepts.
+- |
+    **Improved** the Bookinfo `bookinfo-psa.yaml` sample to satisfy the `restricted` Pod Security Standard.
