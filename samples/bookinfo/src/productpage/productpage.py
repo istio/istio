@@ -29,6 +29,7 @@ import os
 import requests
 import simplejson as json
 import sys
+from urllib.parse import urlsplit
 
 
 # These two lines enable debugging at httplib level (requests->urllib3->http.client)
@@ -122,6 +123,14 @@ trace.set_tracer_provider(provider)
 tracer = trace.get_tracer(__name__)
 
 
+def getSessionUser():
+    # The session cookie is only signed, not encrypted, and its serializer can
+    # restore a markupsafe.Markup value, which templates do not escape. Only
+    # accept a string and return it as a plain str.
+    user = session.get('user')
+    return str(user) if isinstance(user, str) else None
+
+
 def getForwardHeaders(request):
     headers = {}
 
@@ -130,8 +139,9 @@ def getForwardHeaders(request):
     propagator.inject(headers, ctx)
 
     # We handle other (non x-b3-***) headers manually
-    if 'user' in session:
-        headers['end-user'] = session['user']
+    user = getSessionUser()
+    if user is not None:
+        headers['end-user'] = user
 
     # Keep this in sync with the headers in details and reviews.
     incoming_headers = [
@@ -222,17 +232,29 @@ def health():
     return 'Product page is healthy'
 
 
+# Send the user back to the page they came from, but only if it is an http(s)
+# URL on this host. Otherwise, or without a Referer, go to the product page.
+def redirectToReferrer():
+    try:
+        referrer = urlsplit(request.referrer or '')
+    except ValueError:
+        referrer = None
+    if referrer and referrer.scheme in ('http', 'https') and referrer.netloc and referrer.netloc == request.host:
+        return redirect(referrer.geturl())
+    return redirect('productpage')
+
+
 @app.route('/login', methods=['POST'])
 def login():
     user = request.values.get('username')
-    response = app.make_response(redirect(request.referrer))
+    response = app.make_response(redirectToReferrer())
     session['user'] = user
     return response
 
 
 @app.route('/logout', methods=['GET'])
 def logout():
-    response = app.make_response(redirect(request.referrer))
+    response = app.make_response(redirectToReferrer())
     session.pop('user', None)
     return response
 
@@ -262,7 +284,7 @@ def floodReviews(product_id, headers):
 def front():
     product_id = 0  # TODO: replace default value
     headers = getForwardHeaders(request)
-    user = session.get('user', '')
+    user = getSessionUser() or ''
     product = getProduct(product_id)
     detailsStatus, details = getProductDetails(product_id, headers)
 
@@ -280,6 +302,11 @@ def front():
         user=user)
 
 
+# Product ids are used to build the back-end URLs, so only accept plain digits.
+def isValidProductId(product_id):
+    return product_id.isascii() and product_id.isdigit()
+
+
 # The API:
 @app.route('/api/v1/products')
 def productsRoute():
@@ -288,6 +315,8 @@ def productsRoute():
 
 @app.route('/api/v1/products/<product_id>')
 def productRoute(product_id):
+    if not isValidProductId(product_id):
+        return json.dumps({'error': 'Invalid product id'}), 400, {'Content-Type': 'application/json'}
     headers = getForwardHeaders(request)
     status, details = getProductDetails(product_id, headers)
     return json.dumps(details), status, {'Content-Type': 'application/json'}
@@ -295,6 +324,8 @@ def productRoute(product_id):
 
 @app.route('/api/v1/products/<product_id>/reviews')
 def reviewsRoute(product_id):
+    if not isValidProductId(product_id):
+        return json.dumps({'error': 'Invalid product id'}), 400, {'Content-Type': 'application/json'}
     headers = getForwardHeaders(request)
     status, reviews = getProductReviews(product_id, headers)
     return json.dumps(reviews), status, {'Content-Type': 'application/json'}
@@ -302,6 +333,8 @@ def reviewsRoute(product_id):
 
 @app.route('/api/v1/products/<product_id>/ratings')
 def ratingsRoute(product_id):
+    if not isValidProductId(product_id):
+        return json.dumps({'error': 'Invalid product id'}), 400, {'Content-Type': 'application/json'}
     headers = getForwardHeaders(request)
     status, ratings = getProductRatings(product_id, headers)
     return json.dumps(ratings), status, {'Content-Type': 'application/json'}
