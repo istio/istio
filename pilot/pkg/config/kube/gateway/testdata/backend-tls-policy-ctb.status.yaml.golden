@@ -1,0 +1,170 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: empty
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: httpbin-second
+    conditions:
+    - lastTransitionTime: fake
+      message: 'Certificate reference invalid: ClusterTrustBundle "empty-bundle" has
+        an empty spec.trustBundle'
+      reason: NoValidCACertificate
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: 'Certificate reference invalid: ClusterTrustBundle "empty-bundle" has
+        an empty spec.trustBundle'
+      reason: InvalidCACertificateRef
+      status: "False"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: first-ref-only
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: foo-svc
+    conditions:
+    - lastTransitionTime: fake
+      message: 'Configuration is valid; warning: only the first caCertificateRefs
+        will be used'
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: garbage
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: httpbin-other
+    conditions:
+    - lastTransitionTime: fake
+      message: 'Certificate reference invalid: ClusterTrustBundle "garbage-bundle"
+        does not contain any valid PEM-encoded CA certificates in spec.trustBundle'
+      reason: NoValidCACertificate
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: 'Certificate reference invalid: ClusterTrustBundle "garbage-bundle"
+        does not contain any valid PEM-encoded CA certificates in spec.trustBundle'
+      reason: InvalidCACertificateRef
+      status: "False"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: not-found
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: httpbin
+    conditions:
+    - lastTransitionTime: fake
+      message: 'Certificate reference invalid: ClusterTrustBundle "does-not-exist"
+        not found'
+      reason: NoValidCACertificate
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: 'Certificate reference invalid: ClusterTrustBundle "does-not-exist"
+        not found'
+      reason: InvalidCACertificateRef
+      status: "False"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: valid
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: echo
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: valid-signer-name
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: example
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Handled by Istio controller
+    reason: Accepted
+    status: "True"
+    type: Accepted
+---
