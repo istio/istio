@@ -1,1 +1,2 @@
+-c requirements.txt
 requests-mock==1.5.2
