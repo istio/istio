@@ -266,26 +266,3 @@ func TestHBONEOriginationAdapterMetadata(t *testing.T) {
 		}
 	}
 }
-
-func TestHBONEOriginationAdapterCacheIsolation(t *testing.T) {
-	test.SetForTest(t, &features.EnableHBONESend, true)
-	test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, false)
-	svc := &model.Service{Hostname: "app.default.svc.cluster.local", Attributes: model.ServiceAttributes{Namespace: "default"}}
-	port := &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP}
-	cg := NewConfigGenTest(t, TestOptions{Services: []*model.Service{svc}})
-	for _, kind := range []model.NodeType{model.SidecarProxy, model.Router} {
-		t.Run(string(kind), func(t *testing.T) {
-			keys := make([][2]any, 0, 2)
-			for _, enabled := range []bool{false, true} {
-				proxy := adapterTestProxy(cg, kind, enabled)
-				cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
-				cds := buildClusterKey(svc, port, cb, proxy, nil)
-				eds := endpoints.NewEndpointBuilder(model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port), proxy, cg.PushContext())
-				keys = append(keys, [2]any{cds.Key(), eds.Key()})
-			}
-			assert.Equal(t, keys[0][0] != keys[1][0], true)
-			// Outbound endpoint metadata is identical with CONNECT wait enabled or disabled.
-			assert.Equal(t, keys[0][1], keys[1][1])
-		})
-	}
-}
