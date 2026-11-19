@@ -19,6 +19,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -91,7 +92,33 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 		CapturedByZtunnel: capturedByZtunnel,
 	}
 	networkID := out.endpointNetwork(ip)
-	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, node, networkID)
+	out.labels = labelutil.AugmentLabels(withoutIgnoredLabels(podLabels), c.Cluster(), locality, node, networkID)
+	return out
+}
+
+// withoutIgnoredLabels drops the pod labels listed in features.EndpointIgnoredPodLabels, so that they are
+// never part of an endpoint. The input is returned as is when there is nothing to drop.
+func withoutIgnoredLabels(in labels.Instance) labels.Instance {
+	ignored := features.EndpointIgnoredPodLabels
+	if len(ignored) == 0 {
+		return in
+	}
+	drop := false
+	for k := range ignored {
+		if _, f := in[k]; f {
+			drop = true
+			break
+		}
+	}
+	if !drop {
+		return in
+	}
+	out := make(labels.Instance, len(in))
+	for k, v := range in {
+		if !ignored.Contains(k) {
+			out[k] = v
+		}
+	}
 	return out
 }
 

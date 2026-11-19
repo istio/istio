@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -146,6 +147,82 @@ func TestPodLabelUpdate(t *testing.T) {
 	got = c.pods.getPodsByIP("128.0.0.1")
 	assert.Equal(t, got != nil, true)
 	assert.Equal(t, map[string]string{"app": "test", "foo": "not-bar"}, got[0].Labels)
+}
+
+func TestPodIgnoredLabelUpdate(t *testing.T) {
+	test.SetForTest(t, &features.EndpointIgnoredPodLabels, sets.New("role"))
+	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		WatchedNamespaces: "nsa,nsb",
+	})
+
+	initTestEnv(t, c.client.Kube(), fx)
+	createServiceWait(c, "ratings", "nsa", []string{"10.0.0.1"},
+		nil, nil, []int32{8080}, map[string]string{"app": "test"}, t)
+	pod := generatePod([]string{"128.0.0.1"}, "cpod1", "nsa", "", "",
+		map[string]string{"app": "test", "foo": "bar", "role": "canary"}, map[string]string{})
+	addPods(t, c, fx, pod)
+	createEndpoints(t, c, "ratings", "nsa", []string{"tcp-port"}, []string{"128.0.0.1"}, []*v1.ObjectReference{
+		{
+			Kind:      "Pod",
+			Namespace: "nsa",
+			Name:      "cpod1",
+		},
+	}, nil)
+	fx.WaitOrFail(t, "eds")
+	hostname := kube.ServiceHostname("ratings", "nsa", c.opts.DomainSuffix)
+	endpointLabels := func() labels.Instance {
+		t.Helper()
+		var eps []*model.IstioEndpoint
+		retry.UntilOrFail(t, func() bool {
+			eps = c.endpoints.endpointCache.Get(hostname)
+			return len(eps) == 1
+		}, retry.Timeout(time.Second*2))
+		return eps[0].Labels
+	}
+
+	// The ignored label never reaches the endpoint; other labels do.
+	got := endpointLabels()
+	assert.Equal(t, got["foo"], "bar")
+	if _, f := got["role"]; f {
+		t.Fatalf("ignored label is present on the endpoint: %v", got)
+	}
+	// Let the slice events settle before checking which events a pod update produces.
+	fx.AssertEmpty(t, time.Millisecond*100)
+	fx.Clear()
+
+	// A change limited to an ignored label refreshes the proxy but does not recompute endpoints.
+	pod.Labels["role"] = "stable"
+	clienttest.Wrap(t, c.podsClient).CreateOrUpdate(pod)
+	fx.StrictMatchOrFail(t, xdsfake.Event{
+		Type: "proxy",
+		ID:   "128.0.0.1",
+	})
+	fx.AssertEmpty(t, time.Millisecond*100)
+	pods := c.pods.getPodsByIP("128.0.0.1")
+	assert.Equal(t, pods != nil, true)
+	assert.Equal(t, pods[0].Labels["role"], "stable")
+
+	// A label that is not ignored still recomputes endpoints.
+	pod.Labels["foo"] = "not-bar"
+	clienttest.Wrap(t, c.podsClient).CreateOrUpdate(pod)
+	fx.StrictMatchOrFail(t, xdsfake.Event{
+		Type: "proxy",
+		ID:   "128.0.0.1",
+	},
+		xdsfake.Event{
+			Type:          "eds cache",
+			ID:            "ratings.nsa.svc.company.com",
+			EndpointCount: 1,
+		},
+		xdsfake.Event{
+			Type: "xds",
+			ID:   "ratings.nsa.svc.company.com",
+		})
+	got = endpointLabels()
+	assert.Equal(t, got["foo"], "not-bar")
+	if _, f := got["role"]; f {
+		t.Fatalf("ignored label is present on the endpoint: %v", got)
+	}
 }
 
 func TestHostNetworkPod(t *testing.T) {

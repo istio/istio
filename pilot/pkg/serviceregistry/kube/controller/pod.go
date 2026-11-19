@@ -134,13 +134,43 @@ func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodC
 	return -1, nil
 }
 
-func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
-	// If labels/annotations updated, trigger proxy push
-	labelsChanged := !maps.Equal(old.Labels, cur.Labels)
+// labelFilter reports whether the pod's labels or relevant annotations changed, and whether that change
+// is visible on endpoints. Labels listed in features.EndpointIgnoredPodLabels are never copied onto
+// endpoints, so a change limited to them still triggers a proxy push but leaves endpoints alone.
+func (pc *PodCache) labelFilter(old, cur *v1.Pod) (changed bool, endpointsChanged bool) {
 	// Annotations are only used in endpoints in one case, so just compare that one
-	relevantAnnotationsChanged := old.Annotations[annotation.AmbientRedirection.Name] != cur.Annotations[annotation.AmbientRedirection.Name]
-	changed := labelsChanged || relevantAnnotationsChanged
-	return changed
+	if old.Annotations[annotation.AmbientRedirection.Name] != cur.Annotations[annotation.AmbientRedirection.Name] {
+		return true, true
+	}
+	// If labels updated, trigger proxy push
+	if maps.Equal(old.Labels, cur.Labels) {
+		return false, false
+	}
+	return true, !equalIgnoringKeys(old.Labels, cur.Labels, features.EndpointIgnoredPodLabels)
+}
+
+// equalIgnoringKeys reports whether a and b are equal once the ignored keys are left out.
+func equalIgnoringKeys(a, b map[string]string, ignored sets.String) bool {
+	if len(ignored) == 0 {
+		return maps.Equal(a, b)
+	}
+	for k, v := range a {
+		if ignored.Contains(k) {
+			continue
+		}
+		if bv, f := b[k]; !f || bv != v {
+			return false
+		}
+	}
+	for k := range b {
+		if ignored.Contains(k) {
+			continue
+		}
+		if _, f := a[k]; !f {
+			return false
+		}
+	}
+	return true
 }
 
 // onEvent updates the IP-based index (pc.podsByIP).
@@ -167,7 +197,7 @@ func (pc *PodCache) onEvent(old, pod *v1.Pod, ev model.Event) error {
 	switch ev {
 	case model.EventAdd:
 		if includePod {
-			pc.addPod(pod, ip, key, false)
+			pc.addPod(pod, ip, key, false, false)
 		} else {
 			return nil
 		}
@@ -179,8 +209,8 @@ func (pc *PodCache) onEvent(old, pod *v1.Pod, ev model.Event) error {
 			}
 			ev = model.EventDelete
 		} else {
-			labelUpdated := pc.labelFilter(old, pod)
-			pc.addPod(pod, ip, key, labelUpdated)
+			labelUpdated, endpointsUpdated := pc.labelFilter(old, pod)
+			pc.addPod(pod, ip, key, labelUpdated, endpointsUpdated)
 		}
 	case model.EventDelete:
 		// delete only if this pod was in the cache,
@@ -270,13 +300,13 @@ func (pc *PodCache) deleteIP(ip string, podKey types.NamespacedName) bool {
 	return false
 }
 
-func (pc *PodCache) addPod(pod *v1.Pod, ip string, key types.NamespacedName, labelUpdated bool) {
+func (pc *PodCache) addPod(pod *v1.Pod, ip string, key types.NamespacedName, labelUpdated, endpointsUpdated bool) {
 	pc.Lock()
 	// if the pod has been cached, return
 	if pc.podsByIP[ip].Contains(key) {
 		pc.Unlock()
 		if labelUpdated {
-			pc.proxyUpdates(pod, true)
+			pc.proxyUpdates(pod, endpointsUpdated)
 		}
 		return
 	}
@@ -316,14 +346,14 @@ func (pc *PodCache) endpointDeleted(key types.NamespacedName, ip string) {
 	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
-func (pc *PodCache) proxyUpdates(pod *v1.Pod, isPodUpdate bool) {
+func (pc *PodCache) proxyUpdates(pod *v1.Pod, recomputeEndpoints bool) {
 	if pc.c != nil {
 		if pc.c.opts.XDSUpdater != nil {
 			ip := pod.Status.PodIP
 			pc.c.opts.XDSUpdater.ProxyUpdate(pc.c.Cluster(), ip)
 		}
-		if isPodUpdate {
-			// Recompute service(s) due to pod label change.
+		if recomputeEndpoints {
+			// Recompute service(s) due to a pod label change that is visible on endpoints.
 			// If it is a new pod, no need to recompute, as it yet computed for the first time yet.
 			pc.c.recomputeServiceForPod(pod)
 		}
