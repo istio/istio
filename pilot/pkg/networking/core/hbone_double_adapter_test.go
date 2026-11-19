@@ -270,9 +270,8 @@ func TestHBONEDoubleAdapterPairing(t *testing.T) {
 						if !enabled {
 							stockCDS, stockEDS = cdsKey, eb.Key()
 						}
-						if wantAdapter && (cdsKey == stockCDS || eb.Key() == stockEDS) {
-							t.Fatal("adapter and stock share a cache key")
-						}
+						assert.Equal(t, cdsKey != stockCDS, enabled)
+						assert.Equal(t, eb.Key(), stockEDS)
 						localities := eb.FromServiceEndpoints()
 						listeners := cg.Listeners(proxy)
 						assert.Equal(t, len(localities), 1)
@@ -301,9 +300,7 @@ func TestHBONEDoubleAdapterPairing(t *testing.T) {
 								target := ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields["double_hbone"].GetStructValue().Fields["hbone_target_address"].GetStringValue()
 								assert.Equal(t, target, "app.default.svc.cluster.local:80")
 							}
-							if kind == model.Router || wantAdapter {
-								assert.Equal(t, ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[model.TunnelLabelShortName].GetStringValue(), model.TunnelHTTP)
-							}
+							assert.Equal(t, ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[model.TunnelLabelShortName].GetStringValue(), model.TunnelHTTP)
 						}
 						clusters := xdstest.ExtractClusters(cg.Clusters(proxy))
 						inner, outer := clusters[DoubleHBONEInnerConnectOriginate], clusters[DoubleHBONEOuterConnectOriginate]

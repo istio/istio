@@ -278,12 +278,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				gwEp.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(gwAddr, gwPort, "")
 				// and we need the original service domain name and port that to put in the :authority of the HTTP2 CONNECT.
 				util.AppendDoubleHBONEMetadata(string(b.service.Hostname), svcPort.Port, gwEp.Metadata)
-				if b.dir != model.TrafficDirectionInboundVIP || b.hboneConnectWait {
-					gwEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
-						},
-					}
+				gwEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+					},
 				}
 			} else {
 				epAddr := util.BuildAddress(gw.Addr, gw.Port)

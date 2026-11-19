@@ -72,7 +72,6 @@ type EndpointBuilder struct {
 	destinationRule        *model.ConsolidatedDestRule
 	service                *model.Service
 	clusterLocal           bool
-	hboneConnectWait       bool
 	nodeType               model.NodeType
 	failoverPriorityLabels []byte
 
@@ -140,7 +139,6 @@ func NewCDSEndpointBuilder(
 
 	b.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(service, b.DestinationRule(), port, subsetName)
 	b.populateSubsetInfo()
-	b.populateHBONEConnectWait()
 	b.populateFailoverPriorityLabels()
 	if features.EnableAmbientMultiNetwork {
 		b.populateAmbientServiceInfo()
@@ -168,26 +166,10 @@ func (b *EndpointBuilder) WithSubset(subset string) *EndpointBuilder {
 	subsetBuilder := *b
 	subsetBuilder.subsetName = subset
 	subsetBuilder.populateSubsetInfo()
-	subsetBuilder.populateHBONEConnectWait()
 	subsetBuilder.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(
 		subsetBuilder.service, subsetBuilder.DestinationRule(), subsetBuilder.port, subsetBuilder.subsetName,
 	)
 	return &subsetBuilder
-}
-
-func (b *EndpointBuilder) populateHBONEConnectWait() {
-	if !util.HBONEConnectWaitEnabled(b.proxy) {
-		b.hboneConnectWait = false
-		return
-	}
-
-	var policy *v1alpha3.TrafficPolicy
-	if dr := b.DestinationRule(); dr != nil {
-		policy = getSubsetTrafficPolicy(dr, &model.Port{Port: b.port}, b.subsetName)
-	}
-	b.hboneConnectWait = !model.IsDNSSrvSubsetKey(b.clusterName) &&
-		(b.dir == model.TrafficDirectionOutbound || b.dir == model.TrafficDirectionInboundVIP) &&
-		util.HBONEConnectWaitEligible(b.service, policy)
 }
 
 func (b *EndpointBuilder) populateSubsetInfo() {
@@ -288,8 +270,6 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	if b == nil {
 		return
 	}
-	h.WriteString(strconv.FormatBool(b.hboneConnectWait))
-	h.Write(Separator)
 	h.WriteString(b.clusterName)
 	h.Write(Separator)
 	h.WriteString(string(b.network))
@@ -883,14 +863,11 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			Address: util.BuildInternalAddressWithIdentifier(innerAddressName, target),
 		}}
 		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
-		if b.dir != model.TrafficDirectionInboundVIP || b.hboneConnectWait {
-			// Select HBONE for this endpoint. Waypoints need this match when CONNECT
-			// wait is enabled to keep ordinary socket endpoints on their native transport.
-			ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
-				},
-			}
+		// Mark HBONE endpoints so the cluster can select the appropriate transport.
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+			},
 		}
 	} else {
 		addr := util.BuildAddress(e.Addresses[0], e.EndpointPort)

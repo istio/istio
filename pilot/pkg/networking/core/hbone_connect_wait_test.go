@@ -114,7 +114,7 @@ func TestHBONEConnectWaitOptInAndCacheIsolation(t *testing.T) {
 						stockCDS, stockEDS = cache.Key(), eb.Key()
 					}
 					assert.Equal(t, cache.Key() != stockCDS, tt.want)
-					assert.Equal(t, eb.Key() != stockEDS, tt.want)
+					assert.Equal(t, eb.Key(), stockEDS)
 					listeners := cg.Listeners(proxy)
 					assert.Equal(t, xdstest.ExtractListener(ConnectOriginate, listeners) != nil, true)
 				})

@@ -22,6 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
+	"google.golang.org/protobuf/proto"
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
@@ -115,8 +116,7 @@ spec:
 	}
 }
 
-// Exercise the actual CDS and EDS builders against the same effective DestinationRule.
-// A partial opt-in would produce a connection failure for every request to that cluster.
+// Verify EDS marks HBONE endpoints while CDS applies service, port, and subset policies.
 func TestHBONEOriginationAdapterPairing(t *testing.T) {
 	test.SetForTest(t, &features.EnableHBONESend, true)
 	test.SetForTest(t, &features.PreferHBONESend, true)
@@ -169,6 +169,7 @@ func TestHBONEOriginationAdapterPairing(t *testing.T) {
 				}}},
 			})
 			for _, kind := range []model.NodeType{model.Waypoint, model.Router, model.SidecarProxy} {
+				var stockTransport *core.TransportSocket
 				for _, enabled := range []bool{false, true} {
 					proxy := adapterTestProxy(cg, kind, enabled)
 					cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, model.NewXdsCache())
@@ -192,23 +193,41 @@ func TestHBONEOriginationAdapterPairing(t *testing.T) {
 							mesh: cg.PushContext().Mesh, direction: direction,
 						})
 					}
-					transport := c.TransportSocket
-					for _, match := range c.TransportSocketMatches {
-						if match.Name == "hbone" {
-							transport = match.TransportSocket
-						}
-					}
-					if transport == nil {
-						t.Fatal("missing HBONE transport")
-					}
 					wantAdapter := enabled && tt.adapter
 					assert.Equal(t, c.UpstreamConfig != nil, wantAdapter)
-					assert.Equal(t, transport.Name == util.HBONEOriginationAdapterTransport, wantAdapter)
 					clusterName := model.BuildSubsetKey(direction, subset, svc.Hostname, port.Port)
 					eb := endpoints.NewEndpointBuilder(clusterName, proxy, cg.PushContext())
 					localities := eb.FromServiceEndpoints()
 					if len(localities) != 1 || len(localities[0].LbEndpoints) != 1 {
 						t.Fatalf("unexpected endpoints: %v", localities)
+					}
+					assert.Equal(t, eb.WithSubset(subset).FromServiceEndpoints(), localities)
+					metadata := localities[0].LbEndpoints[0].GetMetadata().GetFilterMetadata()[util.EnvoyTransportSocketMetadataKey].GetFields()
+					// EDS marks HBONE endpoints regardless of policy; CDS controls which transport is used.
+					assert.Equal(t, metadata[model.TunnelLabelShortName].GetStringValue(), model.TunnelHTTP)
+					transport := c.TransportSocket
+					for _, match := range c.TransportSocketMatches {
+						matches := true
+						for key, value := range match.Match.Fields {
+							if !proto.Equal(metadata[key], value) {
+								matches = false
+								break
+							}
+						}
+						if matches {
+							transport = match.TransportSocket
+							break
+						}
+					}
+					if transport == nil {
+						t.Fatal("missing HBONE transport")
+					}
+					assert.Equal(t, transport.Name == util.HBONEOriginationAdapterTransport, wantAdapter)
+					if !enabled {
+						stockTransport = transport
+					}
+					if !wantAdapter {
+						assert.Equal(t, transport, stockTransport)
 					}
 					ep := localities[0].LbEndpoints[0].GetEndpoint()
 					assert.Equal(t, ep.Address.GetEnvoyInternalAddress().GetServerListenerName(), ConnectOriginate)
@@ -264,9 +283,9 @@ func TestHBONEOriginationAdapterCacheIsolation(t *testing.T) {
 				eds := endpoints.NewEndpointBuilder(model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port), proxy, cg.PushContext())
 				keys = append(keys, [2]any{cds.Key(), eds.Key()})
 			}
-			if keys[0][0] == keys[1][0] || keys[0][1] == keys[1][1] {
-				t.Fatal("adapter and stock proxy share an xDS cache key")
-			}
+			assert.Equal(t, keys[0][0] != keys[1][0], true)
+			// Outbound endpoint metadata is identical with CONNECT wait enabled or disabled.
+			assert.Equal(t, keys[0][1], keys[1][1])
 		})
 	}
 }
