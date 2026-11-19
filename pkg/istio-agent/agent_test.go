@@ -43,7 +43,6 @@ import (
 	xdsfake "istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/bootstrap"
-	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/mesh"
 	pkgenv "istio.io/istio/pkg/env"
@@ -66,39 +65,6 @@ import (
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/tests/util/leak"
 )
-
-func TestFileCRLSDSCapability(t *testing.T) {
-	t.Setenv("ISTIO_METAJSON_TEST", `{"FILE_CRL_SDS_SUPPORTED":true}`)
-	a := &Agent{proxyConfig: &meshconfig.ProxyConfig{}, cfg: &AgentOptions{}, secOpts: &security.Options{}}
-	for _, tc := range []struct {
-		name   string
-		server SDSService
-		want   bool
-	}{
-		{"no provider", nil, false},
-		{"built-in provider", &sds.Server{}, true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			a.sdsServer = tc.server
-			node, err := a.generateNodeMetadata()
-			if err != nil {
-				t.Fatal(err)
-			}
-			opt := option.NodeMetadata(node.Metadata, node.RawMetadata)
-			params, err := option.NewTemplateParams(opt)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var received model.BootstrapNodeMetadata
-			if err := json.Unmarshal([]byte(params[opt.Name().String()].(string)), &received); err != nil {
-				t.Fatal(err)
-			}
-			if got := received.Raw[security.FileCRLSDSMetadataName]; got != tc.want {
-				t.Fatalf("file CRL SDS capability = %v, want %v", got, tc.want)
-			}
-		})
-	}
-}
 
 func TestServiceNode(t *testing.T) {
 	cases := []struct {

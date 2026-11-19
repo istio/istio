@@ -210,6 +210,9 @@ meshConfig:
 values:
   global:
     pilotCertProvider: "mycopki"
+    proxy:
+      # Surface Envoy filesystem reload failures in the CRL rotation test.
+      componentLogLevel: "misc:warning"
   pilot:
     env:
       # We need to turn off the XDS Auth because test certificates only have a fixed/hardcoded identity, but the identity of the actual

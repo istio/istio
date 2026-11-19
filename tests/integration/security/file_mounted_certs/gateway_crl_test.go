@@ -19,6 +19,7 @@ package filemountedcerts
 import (
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"strings"
@@ -149,7 +150,9 @@ spec:
 		send(check.ErrorContains("tls: revoked certificate"), false)
 
 		malformedUpdateTime := metav1.Now()
-		updateCRL("invalid CRL file")
+		// A valid PEM envelope with invalid DER must reach Envoy's CRL parser.
+		malformedCRL := pem.EncodeToMemory(&pem.Block{Type: "X509 CRL", Bytes: []byte{0x30, 0x00}})
+		updateCRL(string(malformedCRL))
 		retry.UntilSuccessOrFail(t, func() error {
 			pods, err := t.Clusters().Default().PodsForSelector(context.Background(), gateway.Namespace(),
 				"istio="+gatewayLabel)
@@ -167,7 +170,7 @@ spec:
 				if err != nil {
 					return err
 				}
-				if !strings.Contains(logs, "invalid PEM CRL in /gateway-crl/ca.crl") {
+				if !strings.Contains(logs, "Failed to reload certificates: Failed to load CRL") {
 					return fmt.Errorf("gateway %s has not rejected the malformed CRL yet", pod.Name)
 				}
 			}

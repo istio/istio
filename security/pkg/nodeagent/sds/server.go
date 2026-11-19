@@ -49,9 +49,6 @@ func NewServer(options *security.Options, workloadSecretCache security.SecretMan
 	return s
 }
 
-// SupportsFileCRLSDS reports support for serving a mounted CA and CRL in one secret.
-func (*Server) SupportsFileCRLSDS() bool { return true }
-
 func (s *Server) OnSecretUpdate(resourceName string) {
 	if s.workloadSds == nil {
 		return

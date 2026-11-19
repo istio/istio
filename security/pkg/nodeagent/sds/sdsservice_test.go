@@ -31,10 +31,12 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/log"
 	ca2 "istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test"
 )
 
 var (
@@ -349,15 +351,33 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func TestMountedCRLInlineSecret(t *testing.T) {
-	cfg := ca2.SdsCertificateConfig{CaCertificatePath: "/mounted/ca.pem", CRLPath: "/mounted/crl.pem"}
-	item := &ca2.SecretItem{ResourceName: cfg.GetRootResourceName(), RootCert: []byte("ca bytes"), CRL: []byte("crl bytes")}
-	secret := toEnvoySecret(item, "", nil)
-	ctx := secret.GetValidationContext()
-	if string(ctx.GetTrustedCa().GetInlineBytes()) != "ca bytes" || string(ctx.GetCrl().GetInlineBytes()) != "crl bytes" {
-		t.Fatalf("missing inline CA/CRL bytes: %v", secret)
+func TestMountedCRLFilenameSecret(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("EnableCACRL=%t", enabled), func(t *testing.T) {
+			test.SetForTest(t, &features.EnableCACRL, enabled)
+			cfg := ca2.SdsCertificateConfig{CaCertificatePath: "/mounted/ca.pem", CRLPath: "/mounted/crl~bundle.pem"}
+			item := &ca2.SecretItem{ResourceName: cfg.GetRootResourceName(), RootCert: []byte("ca bytes")}
+			secret := toEnvoySecret(item, "", nil)
+			ctx := secret.GetValidationContext()
+			if string(ctx.GetTrustedCa().GetInlineBytes()) != "ca bytes" || ctx.GetCrl().GetFilename() != cfg.CRLPath {
+				t.Fatalf("missing inline CA bytes or CRL filename: %v", secret)
+			}
+			if len(ctx.GetCrl().GetInlineBytes()) != 0 {
+				t.Fatal("mounted CRL must be an Envoy file reference")
+			}
+		})
 	}
-	if ctx.GetCrl().GetFilename() != "" {
-		t.Fatal("mounted CRL must not become an Envoy file reference")
+}
+
+func TestRootSecretWithoutMountedCRL(t *testing.T) {
+	test.SetForTest(t, &features.EnableCACRL, false)
+	for _, name := range []string{rootResourceName, ca2.SdsCertificateConfig{CaCertificatePath: "/mounted/ca.pem"}.GetRootResourceName()} {
+		t.Run(name, func(t *testing.T) {
+			secret := toEnvoySecret(&ca2.SecretItem{ResourceName: name, RootCert: []byte("ca bytes")}, "", nil)
+			ctx := secret.GetValidationContext()
+			if string(ctx.GetTrustedCa().GetInlineBytes()) != "ca bytes" || ctx.GetCrl() != nil {
+				t.Fatalf("unexpected CA validation context: %v", ctx)
+			}
+		})
 	}
 }

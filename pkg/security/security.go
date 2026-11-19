@@ -72,9 +72,6 @@ const (
 	// for file-based certificates.
 	CredentialFileMetaDataName = "file-credential"
 
-	// FileCRLSDSMetadataName reports support for the paired file-root-crl resource.
-	FileCRLSDSMetadataName = "FILE_CRL_SDS_SUPPORTED"
-
 	// SDSExternalClusterName is the name of the cluster for external SDS connections which is defined via CredentialNameSocketPath
 	SDSExternalClusterName = "sds-external"
 
@@ -311,7 +308,6 @@ type SecretItem struct {
 	PrivateKey       []byte
 
 	RootCert []byte
-	CRL      []byte
 
 	// ResourceName passed from envoy SDS discovery request.
 	// "ROOTCA" for root cert request, "default" for key/cert request.
@@ -537,11 +533,10 @@ type SdsCertificateConfig struct {
 }
 
 const (
-	ResourceSeparator      = "~"
-	fileCertResourcePrefix = "file-cert:"
-	fileRootResourcePrefix = "file-root:"
-	// FileRootCRLResourcePrefix identifies file-backed SDS resources containing a CA and CRL.
-	FileRootCRLResourcePrefix = "file-root-crl:"
+	ResourceSeparator         = "~"
+	fileCertResourcePrefix    = "file-cert:"
+	fileRootResourcePrefix    = "file-root:"
+	fileRootCRLResourcePrefix = "file-root-crl:"
 )
 
 // GetResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name
@@ -556,7 +551,7 @@ func (s SdsCertificateConfig) GetResourceName() string {
 func (s SdsCertificateConfig) GetRootResourceName() string {
 	if s.IsRootCertificate() {
 		if s.CRLPath != "" {
-			return FileRootCRLResourcePrefix + base64.RawURLEncoding.EncodeToString([]byte(s.CaCertificatePath)) + ResourceSeparator +
+			return fileRootCRLResourcePrefix + base64.RawURLEncoding.EncodeToString([]byte(s.CaCertificatePath)) + ResourceSeparator +
 				base64.RawURLEncoding.EncodeToString([]byte(s.CRLPath))
 		}
 		return fileRootResourcePrefix + s.CaCertificatePath // Format: file-root:%s
@@ -577,7 +572,7 @@ func (s SdsCertificateConfig) IsKeyCertificate() bool {
 // SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
 // If the resource name is not valid, false is returned.
 func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
-	if after, ok := strings.CutPrefix(resource, FileRootCRLResourcePrefix); ok {
+	if after, ok := strings.CutPrefix(resource, fileRootCRLResourcePrefix); ok {
 		paths := strings.Split(after, ResourceSeparator)
 		if len(paths) != 2 {
 			return SdsCertificateConfig{}, false

@@ -188,6 +188,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist, push)
 	default:
 		certProxy := &model.Proxy{}
+		certProxy.IstioVersion = proxy.IstioVersion
 		certProxy.Metadata = &model.NodeMetadata{
 			TLSServerCertChain: serverTLSSettings.ServerCertificate,
 			TLSServerKey:       serverTLSSettings.PrivateKey,

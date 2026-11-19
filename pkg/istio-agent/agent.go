@@ -282,7 +282,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		log.Info("Credential SDS socket found")
 	}
 
-	node, err := bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
+	return bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
 		ID:                           a.cfg.ServiceNode,
 		Envs:                         os.Environ(),
 		Platform:                     a.cfg.Platform,
@@ -303,13 +303,6 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		EnvoySkipDeprecatedLogs:      a.cfg.EnvoySkipDeprecatedLogs,
 		WorkloadIdentitySocketFile:   a.cfg.WorkloadIdentitySocketFile,
 	})
-	if err != nil {
-		return nil, err
-	}
-	// Advertise the capability of the active SDS provider, including custom builds.
-	provider, ok := a.sdsServer.(interface{ SupportsFileCRLSDS() bool })
-	node.RawMetadata[security.FileCRLSDSMetadataName] = ok && provider.SupportsFileCRLSDS()
-	return node, nil
 }
 
 func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
