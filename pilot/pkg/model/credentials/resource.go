@@ -36,6 +36,9 @@ const (
 	BuiltinGatewaySecretTypeURI = BuiltinGatewaySecretType + "://"
 	KubernetesConfigMapType     = "configmap"
 	KubernetesConfigMapTypeURI  = KubernetesConfigMapType + "://"
+	// ClusterTrustBundles use clustertrustbundle://name, without a namespace or "-cacert" suffix, and are read from the config cluster.
+	KubernetesClusterTrustBundleType    = "clustertrustbundle"
+	KubernetesClusterTrustBundleTypeURI = KubernetesClusterTrustBundleType + "://"
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = "-cacert"
 	// InvalidSecretType will be used to send a certificate that is never valid
@@ -45,14 +48,16 @@ const (
 
 // SecretResource defines a reference to a secret
 type SecretResource struct {
-	// ResourceType is the type of secret. One of KubernetesSecretType, KubernetesGatewaySecretType, KubernetesConfigMapType
+	// ResourceType is the type of secret. One of KubernetesSecretType, KubernetesGatewaySecretType, KubernetesConfigMapType,
+	// KubernetesClusterTrustBundleType
 	ResourceType string
-	// ResourceKind is the type of secret. May be Secret or ConfigMap
+	// ResourceKind is the type of secret. May be Secret, ConfigMap, or ClusterTrustBundle
 	ResourceKind kind.Kind
 	// Name is the name of the secret
 	Name string
 	// Namespace is the namespace the secret resides in. For implicit namespace references (such as in KubernetesSecretType),
-	// this will be resolved to the appropriate namespace. As a result, this should never be empty.
+	// this will be resolved to the appropriate namespace. As a result, this should never be empty, except for cluster-scoped
+	// resources (KubernetesClusterTrustBundleType).
 	Namespace string
 	// ResourceName is the original name of the resource
 	ResourceName string
@@ -85,6 +90,7 @@ func ToResourceName(name string) string {
 	}
 	// If they explicitly defined the type, keep it
 	if strings.HasPrefix(name, KubernetesConfigMapTypeURI) ||
+		strings.HasPrefix(name, KubernetesClusterTrustBundleTypeURI) ||
 		strings.HasPrefix(name, KubernetesSecretTypeURI) ||
 		strings.HasPrefix(name, kubernetesGatewaySecretTypeURI) {
 		return name
@@ -140,6 +146,21 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 			ResourceKind: kind.ConfigMap,
 			Name:         name,
 			Namespace:    namespace,
+			ResourceName: resourceName,
+			Cluster:      configCluster,
+		}, nil
+	} else if after, ok := strings.CutPrefix(resourceName, KubernetesClusterTrustBundleTypeURI); ok {
+		// Signer-linked names may contain ':' (example.com:signer:v1), but never a namespace.
+		if len(after) == 0 {
+			return SecretResource{}, fmt.Errorf("invalid resource name %q. Expected name", resourceName)
+		}
+		if strings.Contains(after, sep) {
+			return SecretResource{}, fmt.Errorf("invalid resource name %q. Expected only a name, as ClusterTrustBundles are cluster-scoped", resourceName)
+		}
+		return SecretResource{
+			ResourceType: KubernetesClusterTrustBundleType,
+			ResourceKind: kind.ClusterTrustBundle,
+			Name:         after,
 			ResourceName: resourceName,
 			Cluster:      configCluster,
 		}, nil

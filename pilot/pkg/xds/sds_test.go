@@ -16,12 +16,14 @@ package xds_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
+	certificatesv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,9 +39,13 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/clustertrustbundle/clustertrustbundletest"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	xdsserver "istio.io/istio/pkg/xds"
 )
@@ -548,4 +554,100 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 			t.Fatal("expect no private key provider in secret")
 		}
 	}
+}
+
+func makeClusterTrustBundle(name, bundle string) *certificatesv1.ClusterTrustBundle {
+	return &certificatesv1.ClusterTrustBundle{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec:       certificatesv1.ClusterTrustBundleSpec{TrustBundle: bundle},
+	}
+}
+
+func TestGenerateSDSClusterTrustBundle(t *testing.T) {
+	rootA := readFile(filepath.Join(certDir, "dns/root-cert.pem"))
+	rootB := readFile(filepath.Join(certDir, "mountedcerts-client/root-cert.pem"))
+	const (
+		a      = "clustertrustbundle://example.com:signer:v1"
+		b      = "clustertrustbundle://other"
+		bad    = "clustertrustbundle://garbage"
+		absent = "clustertrustbundle://absent"
+	)
+	nameA, nameB := "example.com:signer:v1", "other"
+
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		KubernetesObjects: []runtime.Object{
+			makeClusterTrustBundle(nameA, rootA),
+			makeClusterTrustBundle(nameB, rootB),
+			makeClusterTrustBundle("garbage", "not a pem"),
+		},
+		KubeClientModifier: func(c kube.Client) {
+			clustertrustbundletest.SetAPIAvailable(c)
+			// Authorization must not matter for ClusterTrustBundles, so deny every SubjectAccessReview.
+			c.Kube().(*fake.Clientset).PrependReactor("create", "subjectaccessreviews",
+				func(action k8stesting.Action) (bool, runtime.Object, error) {
+					return true, nil, errors.New("not authorized")
+				})
+		},
+	})
+	gen := s.Discovery.Generators[v3.SecretType]
+	newProxy := func(ns string, typ model.NodeType) *model.Proxy {
+		return s.SetupProxy(&model.Proxy{
+			VerifiedIdentity: &spiffe.Identity{Namespace: ns},
+			Type:             typ,
+			Metadata:         &model.NodeMetadata{ClusterID: constants.DefaultClusterName},
+		})
+	}
+	generate := func(proxy *model.Proxy, req *model.PushRequest, names ...string) map[string]string {
+		req.Start = time.Now()
+		res, _, _ := gen.Generate(proxy, &model.WatchedResource{ResourceNames: sets.New(names...)}, req)
+		got := map[string]string{}
+		for _, scrt := range xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(res)) {
+			// A bundle is only ever a validation context.
+			assert.Equal(t, scrt.GetTlsCertificate() == nil, true)
+			got[scrt.Name] = string(scrt.GetValidationContext().GetTrustedCa().GetInlineBytes())
+		}
+		return got
+	}
+	// The informers fill asynchronously after the server starts.
+	waitFor := func(proxy *model.Proxy, want map[string]string, names ...string) {
+		t.Helper()
+		retry.UntilSuccessOrFail(t, func() error {
+			// Forced pushes may be served from the cache; in production the controller event clears it.
+			s.Discovery.Cache.ClearAll()
+			got := generate(proxy, &model.PushRequest{Forced: true}, names...)
+			if !maps.Equal(got, want) {
+				return fmt.Errorf("got %v, want %v", got, want)
+			}
+			return nil
+		}, retry.Timeout(10*time.Second))
+	}
+
+	// Any proxy, in any namespace and of any type, may read a bundle. Missing and invalid bundles are not generated.
+	for _, typ := range []model.NodeType{model.Router, model.SidecarProxy} {
+		waitFor(newProxy("some-other-namespace", typ), map[string]string{a: rootA, b: rootB}, a, b, bad, absent)
+	}
+
+	proxy := newProxy("istio-system", model.SidecarProxy)
+	w := clienttest.NewWriter[*certificatesv1.ClusterTrustBundle](t, s.KubeClient())
+
+	// Incremental push for bundle A: only A is regenerated, not the (unchanged) B.
+	newRootA := rootB
+	w.Update(makeClusterTrustBundle(nameA, newRootA))
+	waitFor(proxy, map[string]string{a: newRootA, b: rootB}, a, b)
+	incremental := func(updated model.ConfigKey, names ...string) map[string]string {
+		s.Discovery.Cache.Clear(sets.New(updated))
+		return generate(proxy, &model.PushRequest{ConfigsUpdated: sets.New(updated)}, names...)
+	}
+	assert.Equal(t, incremental(model.ConfigKey{Kind: kind.ClusterTrustBundle, Name: nameA}, a, b),
+		map[string]string{a: newRootA})
+	// An update to a bundle the proxy does not watch regenerates nothing.
+	assert.Equal(t, incremental(model.ConfigKey{Kind: kind.ClusterTrustBundle, Name: "unrelated"}, a, b),
+		map[string]string{})
+	// A Secret or ConfigMap that happens to share the bundle's name is not the bundle.
+	assert.Equal(t, incremental(model.ConfigKey{Kind: kind.ConfigMap, Name: nameA, Namespace: "default"}, a),
+		map[string]string{})
+
+	// Deleted bundle is no longer generated.
+	w.Delete(nameB, "")
+	waitFor(proxy, map[string]string{a: newRootA}, a, b)
 }

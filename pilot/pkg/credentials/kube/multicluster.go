@@ -47,8 +47,8 @@ func NewMulticluster(configCluster cluster.ID, controller multicluster.Component
 			return nil
 		}
 
-		// Only enable ConfigMaps for the config cluster, not for remote clusters
-		return NewCredentialsController(cluster.Client, m.secretHandlers, isConfigCluster)
+		// ConfigMaps and ClusterTrustBundles are read only from the config cluster.
+		return NewCredentialsController(cluster.Client, m.secretHandlers, isConfigCluster, cluster.GetStop())
 	})
 	return m
 }
@@ -153,6 +153,15 @@ func (a *AggregateController) GetConfigMapCaCert(name, namespace string) (certIn
 		}
 	}
 	return nil, firstError
+}
+
+func (a *AggregateController) GetClusterTrustBundle(name string) (*credentials.CertInfo, error) {
+	for _, c := range a.controllers {
+		if c.isConfigCluster {
+			return c.GetClusterTrustBundle(name)
+		}
+	}
+	return nil, fmt.Errorf("config cluster is not configured")
 }
 
 var ErrNoAuthController = errors.New("no auth controller")

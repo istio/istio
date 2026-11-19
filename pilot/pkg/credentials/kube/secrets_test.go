@@ -120,8 +120,9 @@ func TestSecretsController(t *testing.T) {
 		wrongKeys,
 	}
 	client := kube.NewFakeClient(secrets...)
-	sc := NewCredentialsController(client, nil, true)
-	client.RunAndWait(test.NewStop(t))
+	stop := test.NewStop(t)
+	sc := NewCredentialsController(client, nil, true, stop)
+	client.RunAndWait(stop)
 	cases := []struct {
 		name            string
 		namespace       string
@@ -287,8 +288,9 @@ func TestDockerCredentials(t *testing.T) {
 		genericCert,
 	}
 	client := kube.NewFakeClient(secrets...)
-	sc := NewCredentialsController(client, nil, true)
-	client.RunAndWait(test.NewStop(t))
+	stop := test.NewStop(t)
+	sc := NewCredentialsController(client, nil, true, stop)
+	client.RunAndWait(stop)
 	cases := []struct {
 		name                string
 		namespace           string
@@ -472,8 +474,9 @@ func TestAuthorizeGroups(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := kube.NewFakeClient()
 			allowGroups(client, tt.grantedTo)
-			con := NewCredentialsController(client, nil, true)
-			client.RunAndWait(test.NewStop(t))
+			stop := test.NewStop(t)
+			con := NewCredentialsController(client, nil, true, stop)
+			client.RunAndWait(stop)
 			got := con.Authorize("sa-any", "ns-local")
 			if (got == nil) != tt.allowed {
 				t.Fatalf("expected allowed=%v, got error=%v", tt.allowed, got)

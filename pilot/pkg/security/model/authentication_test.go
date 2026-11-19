@@ -908,6 +908,24 @@ func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 			wantValidationCA: "configmap://backend/backend-ca",
 		},
 		{
+			name: "simple TLS with only a CA ClusterTrustBundle credential",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "clustertrustbundle://example.com:signer:v1",
+			},
+			wantCertificate:  "",
+			wantValidationCA: "clustertrustbundle://example.com:signer:v1",
+		},
+		{
+			name: "simple TLS with a ClusterTrustBundle as the credential name is not suffixed",
+			tlsOpts: &networking.ClientTLSSettings{
+				Mode:           networking.ClientTLSSettings_SIMPLE,
+				CredentialName: "clustertrustbundle://bundle",
+			},
+			wantCertificate:  "",
+			wantValidationCA: "clustertrustbundle://bundle",
+		},
+		{
 			// With no credential socket and no SDS extension provider we fall back to resolving
 			// the name as a Kubernetes Secret, which requires the "-cacert" suffix.
 			name: "simple TLS with an sds:// CA credential falling back to ADS",
@@ -970,6 +988,7 @@ func TestNormalizeCaCertCredentialName(t *testing.T) {
 		"kubernetes://backend/backend-ca": "kubernetes://backend/backend-ca-cacert",
 		"kubernetes-gateway://backend/backend-ca":             "kubernetes-gateway://backend/backend-ca-cacert",
 		"configmap://backend/backend-ca":                      "configmap://backend/backend-ca",
+		"clustertrustbundle://bundle":                         "clustertrustbundle://bundle",
 		"sds://backend-ca":                                    "sds://backend-ca",
 		credentials.InvalidSecretTypeURI:                      credentials.InvalidSecretTypeURI,
 		credentials.BuiltinGatewaySecretTypeURI:               credentials.BuiltinGatewaySecretTypeURI + SdsCaSuffix,
