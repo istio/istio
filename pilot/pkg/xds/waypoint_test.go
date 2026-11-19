@@ -320,6 +320,7 @@ func TestHBONEConnectWaitWaypointEndpoints(t *testing.T) {
 			if stock == nil {
 				t.Fatal("missing stock service cluster")
 			}
+			stockEndpoints := xdstest.ExtractLocalityLbEndpoints(d.Endpoints(proxy))[name]
 			for _, enabled := range []bool{false, true} {
 				t.Run(fmt.Sprintf("enabled=%t", enabled), func(t *testing.T) {
 					proxy.Metadata.EnableHBONEConnectWait = model.StringBool(enabled)
@@ -329,6 +330,7 @@ func TestHBONEConnectWaitWaypointEndpoints(t *testing.T) {
 					}
 					assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONEConnectWaitPool, enabled)
 					assignments := d.Endpoints(proxy)
+					assert.Equal(t, xdstest.ExtractLocalityLbEndpoints(assignments)[name], stockEndpoints)
 					assert.Equal(t, slices.Sort(xdstest.ExtractLoadAssignments(assignments)[name]), []string{
 						"1.1.1.3:80,[2001:20::3]:80",
 						"connect_originate;1.1.1.1:80",
@@ -339,6 +341,8 @@ func TestHBONEConnectWaitWaypointEndpoints(t *testing.T) {
 							// Resolve the first matching transport using the generated EDS metadata.
 							transport := c.TransportSocket
 							metadata := ep.GetMetadata().GetFilterMetadata()[util.EnvoyTransportSocketMetadataKey].GetFields()
+							hbone := ep.GetEndpoint().Address.GetEnvoyInternalAddress() != nil
+							assert.Equal(t, metadata[model.TunnelLabelShortName].GetStringValue() == model.TunnelHTTP, hbone)
 							for _, match := range c.TransportSocketMatches {
 								matches := true
 								for key, value := range match.Match.Fields {
@@ -352,7 +356,7 @@ func TestHBONEConnectWaitWaypointEndpoints(t *testing.T) {
 									break
 								}
 							}
-							if enabled && ep.GetEndpoint().Address.GetEnvoyInternalAddress() != nil {
+							if enabled && hbone {
 								assert.Equal(t, transport, util.WaypointHBONEOriginationAdapterTransportSocket())
 							} else {
 								assert.Equal(t, transport, stock.TransportSocket)

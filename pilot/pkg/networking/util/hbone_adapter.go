@@ -49,7 +49,7 @@ func HBONEConnectWaitEnabled(proxy *model.Proxy) bool {
 }
 
 // HBONEConnectWaitEligible reports whether a service and traffic policy support CONNECT wait.
-// Apply this check consistently in CDS and EDS, after checking HBONEConnectWaitEnabled.
+// Apply this check in CDS after checking HBONEConnectWaitEnabled.
 // Only EDS services without application TLS or PROXY protocol origination are eligible.
 func HBONEConnectWaitEligible(service *model.Service, policy *networking.TrafficPolicy) bool {
 	if service == nil || service.Resolution != model.ClientSideLB || policy.GetProxyProtocol() != nil {
