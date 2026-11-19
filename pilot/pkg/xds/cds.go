@@ -79,6 +79,12 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	// However, if ServiceUpdate is also present, the service definition changed
 	// (ports, labels, etc.) and we need to push CDS.
 	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
+	// With PILOT_ENABLE_HEADLESS_HBONE_SEND, a sidecar's headless cluster depends on its endpoints
+	// (https://github.com/istio/istio/issues/54921). Refresh CDS only when the HBONE decision changed for an updated
+	// Service, so that other headless endpoint updates keep this optimization.
+	if headlessOnly && headlessHBONECDSEnabled(proxy) && req.Push.HeadlessHBONEChanged(req.ConfigsUpdated) {
+		headlessOnly = false
+	}
 
 	relevantUpdates := make(sets.Set[model.ConfigKey])
 	filtered := false
@@ -153,4 +159,10 @@ func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	}
 	updatedClusters, removedClusters, logs, usedDelta := c.ConfigGenerator.BuildDeltaClusters(proxy, req, w)
 	return updatedClusters, removedClusters, logs, usedDelta, nil
+}
+
+// headlessHBONECDSEnabled reports whether proxy can get headless HBONE clusters.
+func headlessHBONECDSEnabled(proxy *model.Proxy) bool {
+	return features.EnableHeadlessHBONESend && features.EnableHBONESend && proxy.Type == model.SidecarProxy &&
+		(proxy.Metadata == nil || !bool(proxy.Metadata.DisableHBONESend))
 }

@@ -464,7 +464,7 @@ func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 }
 
 func (cb *ClusterBuilder) maybeApplyBaggageMetadataDiscovery(c *cluster.Cluster) {
-	if cb.sendHbone && c.GetType() == cluster.Cluster_EDS {
+	if cb.sendHbone && (c.GetType() == cluster.Cluster_EDS || isHeadlessHBONECluster(c)) {
 		applyBaggageMetadataDiscovery(c)
 	}
 }

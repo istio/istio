@@ -281,6 +281,12 @@ type PushContext struct {
 	InitDone        atomic.Bool
 	initializeMutex sync.Mutex
 	ambientIndex    AmbientIndexes
+
+	// headlessHBONE holds the headless HBONE state for each TCP port of a headless Kubernetes Service.
+	// It is set only when PILOT_ENABLE_HEADLESS_HBONE_SEND is enabled.
+	headlessHBONE map[headlessHBONEKey]headlessHBONEState
+	// headlessHBONEChanged holds the Services whose headless HBONE state changed in this push.
+	headlessHBONEChanged sets.Set[ConfigKey]
 }
 
 type consolidatedDestRules struct {
@@ -1402,8 +1408,14 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	// create new or incremental update
 	if pushReq == nil || oldPushContext == nil || !oldPushContext.InitDone.Load() || pushReq.Forced {
 		ps.createNewContext(env)
+		if oldPushContext != nil && !oldPushContext.InitDone.Load() {
+			oldPushContext = nil
+		}
+		ps.initHeadlessHBONE(oldPushContext, true)
 	} else {
 		ps.updateContext(env, oldPushContext, pushReq)
+		ps.initHeadlessHBONE(oldPushContext,
+			HasConfigsOfKind(pushReq.ConfigsUpdated, kind.ServiceEntry) || HasConfigsOfKind(pushReq.ConfigsUpdated, kind.DNSName))
 	}
 
 	ps.networkMgr = env.NetworkManager
@@ -2579,6 +2591,137 @@ func (ps *PushContext) AllInstancesSupportHBONE(service *Service, port *Port) bo
 		}
 	}
 	return true
+}
+
+// IsHeadlessKubernetesService reports whether service is a headless Kubernetes Service.
+func IsHeadlessKubernetesService(service *Service) bool {
+	return service != nil && service.Resolution == Passthrough &&
+		service.Attributes.ServiceRegistry == provider.Kubernetes
+}
+
+// headlessHBONEKey identifies one port of a headless Kubernetes Service.
+type headlessHBONEKey struct {
+	service string // Service.Key()
+	port    int
+}
+
+// headlessHBONEState holds the endpoint facts that decide whether sidecars send HBONE to a headless Service port.
+// The proxy network is applied when the state is read, so one state serves every proxy.
+type headlessHBONEState struct {
+	// allTunnel is true when the port has endpoints and every endpoint accepts HBONE.
+	allTunnel bool
+	// anyNonMTLS is true when at least one endpoint cannot accept Istio mTLS, for example an ambient pod.
+	anyNonMTLS bool
+	// network is the network of the endpoints. It is meaningful only when multiNetwork is false.
+	network      network.ID
+	multiNetwork bool
+}
+
+func (s headlessHBONEState) sendHBONE(proxyNetwork network.ID) bool {
+	return s.allTunnel && !s.multiNetwork && s.network == proxyNetwork && (s.anyNonMTLS || features.PreferHBONESend)
+}
+
+func (ps *PushContext) computeHeadlessHBONEState(service *Service, port int) headlessHBONEState {
+	instances := ps.ServiceEndpointsByPort(service, port, nil)
+	if len(instances) == 0 {
+		return headlessHBONEState{}
+	}
+	s := headlessHBONEState{allTunnel: true, network: instances[0].Network}
+	for _, e := range instances {
+		if e.Network != s.network {
+			s.multiNetwork = true
+		}
+		addressSupportsTunnel := SupportsTunnel(e.Labels, TunnelHTTP)
+		for _, addr := range e.Addresses {
+			if addressSupportsTunnel {
+				break
+			}
+			addressSupportsTunnel = ps.SupportsTunnel(e.Network, addr)
+		}
+		if !addressSupportsTunnel {
+			s.allTunnel = false
+		}
+		if e.TLSMode != IstioMutualTLSModeLabel {
+			s.anyNonMTLS = true
+		}
+	}
+	return s
+}
+
+// initHeadlessHBONE computes the headless HBONE state once per push context, so that cluster generation does not
+// walk the endpoints of a headless Service for every proxy. It also records the Services whose state differs from
+// oldPushContext, so CDS is pushed for a headless endpoint update only when the decision can change.
+// See https://github.com/istio/istio/issues/54921.
+func (ps *PushContext) initHeadlessHBONE(oldPushContext *PushContext, servicesChanged bool) {
+	if !features.EnableHeadlessHBONESend {
+		return
+	}
+	if !servicesChanged && oldPushContext != nil && oldPushContext.headlessHBONE != nil {
+		// The service index was copied from oldPushContext, so the state is unchanged.
+		ps.headlessHBONE = oldPushContext.headlessHBONE
+		return
+	}
+	ps.headlessHBONE = map[headlessHBONEKey]headlessHBONEState{}
+	ps.headlessHBONEChanged = sets.New[ConfigKey]()
+	for _, byNamespace := range ps.ServiceIndex.HostnameAndNamespace {
+		for _, svc := range byNamespace {
+			if !IsHeadlessKubernetesService(svc) {
+				continue
+			}
+			changed := false
+			for _, port := range svc.Ports {
+				if !port.Protocol.IsTCP() {
+					continue
+				}
+				k := headlessHBONEKey{service: svc.Key(), port: port.Port}
+				s := ps.computeHeadlessHBONEState(svc, port.Port)
+				ps.headlessHBONE[k] = s
+				if oldPushContext != nil && oldPushContext.headlessHBONE != nil && oldPushContext.headlessHBONE[k] != s {
+					changed = true
+				}
+			}
+			if changed {
+				ps.headlessHBONEChanged.Insert(ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace})
+			}
+		}
+	}
+	// Ports that are gone also count as a change.
+	if oldPushContext != nil {
+		for k, s := range oldPushContext.headlessHBONE {
+			if _, f := ps.headlessHBONE[k]; f || s == (headlessHBONEState{}) {
+				continue
+			}
+			ns, hostname, _ := strings.Cut(k.service, "/")
+			ps.headlessHBONEChanged.Insert(ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: ns})
+		}
+	}
+}
+
+// HeadlessHBONEChanged reports whether the headless HBONE decision changed in this push for one of the
+// configs. It is used to decide if a headless endpoint update needs a CDS push.
+func (ps *PushContext) HeadlessHBONEChanged(configs sets.Set[ConfigKey]) bool {
+	if ps == nil || len(ps.headlessHBONEChanged) == 0 {
+		return false
+	}
+	for c := range configs {
+		if ps.headlessHBONEChanged.Contains(c) {
+			return true
+		}
+	}
+	return false
+}
+
+// HeadlessServiceNeedsHBONE reports whether a sidecar on proxyNetwork should reach the pods of a headless service
+// port over HBONE. Every pod must support HBONE and be on the proxy's network, and at least one pod must be unable
+// to accept legacy Istio mTLS (an ambient pod), unless HBONE is preferred. Requiring an ambient pod keeps
+// all-sidecar headless services on legacy mTLS, matching the EDS path.
+// See https://github.com/istio/istio/issues/54921.
+func (ps *PushContext) HeadlessServiceNeedsHBONE(service *Service, port *Port, proxyNetwork network.ID) bool {
+	if s, f := ps.headlessHBONE[headlessHBONEKey{service: service.Key(), port: port.Port}]; f {
+		return s.sendHBONE(proxyNetwork)
+	}
+	// Not precomputed, for example for a push context built without InitContext.
+	return ps.computeHeadlessHBONEState(service, port.Port).sendHBONE(proxyNetwork)
 }
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
