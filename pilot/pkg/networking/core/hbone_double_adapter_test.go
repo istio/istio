@@ -105,7 +105,25 @@ func TestHBONEConnectWaitSharedDoubleHBONEListeners(t *testing.T) {
 		for _, baggage := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/baggage=%t", kind, baggage), func(t *testing.T) {
 				test.SetForTest(t, &features.EnableAmbientBaggage, baggage)
-				cg := NewConfigGenTest(t, TestOptions{ConfigString: doubleAdapterGateway})
+				cg := NewConfigGenTest(t, TestOptions{ConfigString: doubleAdapterGateway + `
+---
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: server-logs
+  namespace: default
+spec:
+  accessLogging:
+  - providers:
+    - name: envoy
+    match:
+      mode: SERVER
+  - providers:
+    - name: envoy
+    match:
+      mode: CLIENT
+    disabled: true
+`})
 				stockListeners := cg.Listeners(doubleAdapterProxy(cg, kind, false))
 				for _, enabled := range []bool{false, true} {
 					proxy := doubleAdapterProxy(cg, kind, enabled)
@@ -134,6 +152,13 @@ func TestHBONEConnectWaitSharedDoubleHBONEListeners(t *testing.T) {
 						assert.NoError(t, filters[len(filters)-1].GetTypedConfig().UnmarshalTo(tcpProxy))
 						assert.Equal(t, tcpProxy.GetUpstreamConnectMode(), tcp.UpstreamConnectMode_IMMEDIATE)
 						assert.Equal(t, tcpProxy.GetTunnelingConfig().GetUsePost(), false)
+						// Nested listeners preserve SERVER Telemetry selection even on gateways.
+						wantLogs := 1
+						if kind == model.Router && name == ConnectOriginate {
+							wantLogs = 0
+						}
+						assert.Equal(t, len(got.AccessLog), wantLogs, name)
+						assert.Equal(t, len(tcpProxy.AccessLog), wantLogs, name)
 					}
 					terminal := inner.FilterChains[0].Filters[len(inner.FilterChains[0].Filters)-1]
 					assert.Equal(t, terminal.Name, wellknown.TCPProxy)

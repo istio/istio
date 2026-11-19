@@ -1617,7 +1617,7 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
 		TunnelingConfig:  tunnel,
 	}
-	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, hboneOriginationListenerClass(proxy))
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
 
 	sfs := &listener.Filter{
 		Name: "propagate_endpoint_metadata",
@@ -1644,7 +1644,7 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 			Filters: filters,
 		}},
 	}
-	accessLogBuilder.setListenerAccessLog(push, proxy, l, hboneOriginationListenerClass(proxy))
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
 	return l
 }
 
@@ -1681,7 +1681,7 @@ func buildOuterConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 			HeadersToAdd: headers,
 		},
 	}
-	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, hboneOriginationListenerClass(proxy))
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
 
 	l := &listener.Listener{
 		Name:              DoubleHBONEOuterConnectOriginate,
@@ -1699,6 +1699,6 @@ func buildOuterConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 			}},
 		}},
 	}
-	accessLogBuilder.setListenerAccessLog(push, proxy, l, hboneOriginationListenerClass(proxy))
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
 	return l
 }
