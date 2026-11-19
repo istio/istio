@@ -191,9 +191,13 @@ spec:
         - name: tmp
           mountPath: /tmp
         - name: wlp-output
-          mountPath: /opt/ibm/wlp/output
+          mountPath: /opt/ol/wlp/output
+        - name: config-dropins
+          mountPath: /opt/ol/wlp/usr/servers/defaultServer/configDropins/defaults
       volumes:
       - name: wlp-output
+        emptyDir: {}
+      - name: config-dropins
         emptyDir: {}
       - name: tmp
         emptyDir: {}
@@ -231,9 +235,13 @@ spec:
         - name: tmp
           mountPath: /tmp
         - name: wlp-output
-          mountPath: /opt/ibm/wlp/output
+          mountPath: /opt/ol/wlp/output
+        - name: config-dropins
+          mountPath: /opt/ol/wlp/usr/servers/defaultServer/configDropins/defaults
       volumes:
       - name: wlp-output
+        emptyDir: {}
+      - name: config-dropins
         emptyDir: {}
       - name: tmp
         emptyDir: {}
@@ -271,9 +279,13 @@ spec:
         - name: tmp
           mountPath: /tmp
         - name: wlp-output
-          mountPath: /opt/ibm/wlp/output
+          mountPath: /opt/ol/wlp/output
+        - name: config-dropins
+          mountPath: /opt/ol/wlp/usr/servers/defaultServer/configDropins/defaults
       volumes:
       - name: wlp-output
+        emptyDir: {}
+      - name: config-dropins
         emptyDir: {}
       - name: tmp
         emptyDir: {}
