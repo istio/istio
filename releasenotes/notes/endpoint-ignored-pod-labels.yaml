@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** the `PILOT_ENDPOINT_IGNORED_POD_LABELS` environment variable for istiod. It takes a comma separated
+    list of pod label keys that are not copied onto endpoints. A change limited to these labels on a running pod
+    no longer recomputes the endpoints of the Services that select the pod, which avoids long delays in endpoint
+    propagation when a controller relabels every pod of a large Service in place (for example Argo Rollouts
+    ephemeral metadata).
