@@ -429,6 +429,9 @@ func (cb *ClusterBuilder) buildOuterConnectOriginateCluster(proxy *model.Proxy, 
 		},
 	}
 
+	// The outer tunnel owns the TCP connection to the remote gateway, so mesh wide TCP keepalive applies here.
+	setKeepAliveSettings(c, cb.req.Push.Mesh.TcpKeepalive)
+
 	c.AltStatName = util.DelimitedStatsPrefix(DoubleHBONEOuterConnectOriginate)
 
 	return c
@@ -533,6 +536,10 @@ func (cb *ClusterBuilder) buildConnectOriginate(
 			})},
 		},
 	}
+
+	// DestinationRule connection pool settings only reach the service clusters in front of this one, whose
+	// upstream is an internal listener. This cluster owns the TCP connection, so apply mesh wide TCP keepalive.
+	setKeepAliveSettings(c, cb.req.Push.Mesh.TcpKeepalive)
 
 	c.AltStatName = util.DelimitedStatsPrefix(name)
 
