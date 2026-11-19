@@ -17,8 +17,8 @@ spec:
       interval: "10s"
 
   sessionPersistence:
-    sessionName: foo
     absoluteTimeout: 1h
     type: Cookie
-    cookieConfig:
+    cookie:
+      name: foo
       lifetimeType: Permanent

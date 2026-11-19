@@ -26,6 +26,18 @@ var skippedExtendedFeatures = []features.Feature{
 	features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature,
 	// UDPRoute* - Istio does not support UDPRoute
 	features.UDPRouteFeature,
+	// The following features were added in v1.7.0
+	// GatewayRouteHostnameIntersectionPrecedence: route precedence by original route hostname specificity
+	features.GatewayRouteHostnameIntersectionPrecedenceFeature,
+	// HTTPRouteBackendURLRewrite: URLRewrite filter on backendRefs
+	features.HTTPRouteBackendURLRewriteFeature,
+	// Listener-level filters are not translated into gateway configuration.
+	features.GatewayListenerFiltersFeature,
+	// Address allocation does not implement the requested routability scope.
+	features.GatewayAddressRoutabilityFeature,
+	features.GatewayAddressRoutabilityClusterFeature,
+	// Gateway frontend and BackendTLSPolicy CA references do not resolve ClusterTrustBundles.
+	features.ClusterTrustBundleFeature,
 }
 
 var SupportedFeatures = features.AllFeatures.Clone().Delete(skippedExtendedFeatures...)

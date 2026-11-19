@@ -16,6 +16,7 @@ package agentgateway
 
 import (
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,7 @@ import (
 	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestBackendTLSPolicyRejectsMissingOrEmptyCACertificate(t *testing.T) {
@@ -144,4 +146,37 @@ func assertPolicyCondition(
 		return
 	}
 	t.Fatalf("condition %q not found in %#v", conditionType, conditions)
+}
+
+func TestBackendTLSPolicyConditionTransitionTime(t *testing.T) {
+	controller := gatewayv1.GatewayController("istio.io/agentgateway-controller")
+	ref := gatewayv1.ParentReference{Name: "gateway"}
+	originalTime := metav1.NewTime(time.Unix(100, 0))
+	accepted := map[string]*Condition{"Accepted": {reason: "Accepted", message: "Configuration is valid"}}
+	current := gatewayv1.PolicyAncestorStatus{
+		AncestorRef: ref, ControllerName: controller,
+		Conditions: []metav1.Condition{{
+			Type: "Accepted", Status: metav1.ConditionTrue,
+			Reason: "Accepted", Message: "Configuration is valid", ObservedGeneration: 1, LastTransitionTime: originalTime,
+		}},
+	}
+	// Another controller can report the same ancestor; it must not supply our transition time.
+	foreign := *current.DeepCopy()
+	foreign.ControllerName = "example.com/other"
+	foreign.Conditions[0].LastTransitionTime = metav1.NewTime(time.Unix(50, 0))
+	status := &gatewayv1.PolicyStatus{Ancestors: []gatewayv1.PolicyAncestorStatus{foreign, current}}
+	before := status.DeepCopy()
+	assert.Equal(t, btlsSetAncestorStatus(ref, status, 1, accepted, controller), current)
+	updated := btlsSetAncestorStatus(ref, status, 2, accepted, controller)
+	assert.Equal(t, updated.Conditions[0].ObservedGeneration, int64(2))
+	assert.Equal(t, updated.Conditions[0].LastTransitionTime, originalTime)
+	rejected := btlsSetAncestorStatus(ref, status, 2, map[string]*Condition{
+		"Accepted": {error: &ConfigError{Reason: "Invalid", Message: "Invalid policy"}},
+	}, controller)
+	assert.Equal(t, rejected.Conditions[0].Status, metav1.ConditionFalse)
+	assert.Equal(t, rejected.Conditions[0].Reason, "Invalid")
+	if !rejected.Conditions[0].LastTransitionTime.After(originalTime.Time) {
+		t.Fatal("a condition status transition must update its timestamp")
+	}
+	assert.Equal(t, status, before)
 }
