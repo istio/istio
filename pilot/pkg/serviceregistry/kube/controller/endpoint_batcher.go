@@ -22,7 +22,28 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/util/sets"
+)
+
+// The wait added by batching happens before the XDSUpdater is told about a change, so it is not part of
+// pilot_debounce_time, pilot_proxy_queue_time or pilot_proxy_convergence_time. These metrics make it visible.
+var (
+	endpointUpdatesBatched = monitoring.NewSum(
+		"pilot_k8s_endpoint_updates_batched_total",
+		"Endpoint events of large Services whose update was held back to be batched.",
+	)
+
+	endpointBatchFlushes = monitoring.NewSum(
+		"pilot_k8s_endpoint_batch_flushes_total",
+		"Batched endpoint updates performed for large Services.",
+	)
+
+	endpointBatchDelay = monitoring.NewDistribution(
+		"pilot_k8s_endpoint_batch_delay_seconds",
+		"Delay in seconds between the first held back endpoint event of a Service and its batched update.",
+		[]float64{.01, .1, .5, 1, 3, 5, 10, 20, 30},
+	)
 )
 
 // largeEndpointBatchThreshold is the number of endpoints a Service must exceed before its endpoint
@@ -35,6 +56,8 @@ type endpointBatchKey struct {
 }
 
 type endpointBatchState struct {
+	// first is when the first event of this batch was held back.
+	first time.Time
 	// push is set when an EndpointSlice changed: the flush sends the Service's endpoints with EDSUpdate.
 	push bool
 	// rebuild is set when a pod label changed: the flush rebuilds the cached endpoints of every slice
@@ -80,7 +103,7 @@ func (b *endpointBatcher) batch(hostname host.Name, namespace string, push, rebu
 		if b.esc.endpointCache.count(hostname) <= largeEndpointBatchThreshold {
 			return false
 		}
-		state = &endpointBatchState{}
+		state = &endpointBatchState{first: time.Now()}
 		b.pending[key] = state
 		// Flush on the controller queue so that it is serialized with every other event. The first
 		// event starts the wait; later events join it without extending it.
@@ -93,6 +116,7 @@ func (b *endpointBatcher) batch(hostname host.Name, namespace string, push, rebu
 	}
 	state.push = state.push || push
 	state.rebuild = state.rebuild || rebuild
+	endpointUpdatesBatched.Increment()
 	return true
 }
 
@@ -105,6 +129,8 @@ func (b *endpointBatcher) flush(key endpointBatchKey) {
 	if state == nil {
 		return
 	}
+	endpointBatchFlushes.Increment()
+	endpointBatchDelay.Record(time.Since(state.first).Seconds())
 
 	c := b.esc.c
 	rebuilt := false

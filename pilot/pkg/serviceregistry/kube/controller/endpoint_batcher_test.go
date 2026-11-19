@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	dto "github.com/prometheus/client_model/go"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -91,6 +93,23 @@ func collectEvents(fx *xdsfake.Updater, quiet time.Duration) []xdsfake.Event {
 	}
 }
 
+// assertBatchMetrics checks that at least the given number of events were held back and that they
+// were followed by at least one batched update, whose delay was recorded.
+func assertBatchMetrics(mt *monitortest.MetricsTest, heldBack int) {
+	mt.Assert(endpointUpdatesBatched.Name(), nil, monitortest.AtLeast(float64(heldBack)))
+	mt.Assert(endpointBatchFlushes.Name(), nil, monitortest.AtLeast(1))
+	mt.Assert(endpointBatchDelay.Name(), nil, func(f any) error {
+		d, ok := f.(*dto.Histogram)
+		if !ok {
+			return fmt.Errorf("expected a histogram, got %T", f)
+		}
+		if d.GetSampleCount() == 0 || d.GetSampleSum() <= 0 {
+			return fmt.Errorf("expected a recorded delay, got %d samples with sum %v", d.GetSampleCount(), d.GetSampleSum())
+		}
+		return nil
+	})
+}
+
 func eventsOf(events []xdsfake.Event, eventType, id string) []xdsfake.Event {
 	var out []xdsfake.Event
 	for _, e := range events {
@@ -108,6 +127,7 @@ func TestBatchLargeEndpointUpdates(t *testing.T) {
 		const debounce = 300 * time.Millisecond
 		const updates = 20
 		enableEndpointBatching(t, debounce)
+		mt := monitortest.New(t)
 		c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 		initTestEnv(t, c.client.Kube(), fx)
 		createServiceWait(c, "large", ns, []string{"10.0.0.1"}, nil, nil, []int32{8080}, map[string]string{"app": "large"}, t)
@@ -128,6 +148,7 @@ func TestBatchLargeEndpointUpdates(t *testing.T) {
 			t.Fatalf("expected the %d updates to be coalesced, got %d EDS updates", updates, len(sent))
 		}
 		assert.Equal(t, len(sent[len(sent)-1].Endpoints), final)
+		assertBatchMetrics(mt, updates)
 	})
 
 	t.Run("only large Services are held back", func(t *testing.T) {
@@ -161,6 +182,7 @@ func TestBatchLargeEndpointPodLabelUpdates(t *testing.T) {
 	const pods = 10
 	const debounce = 300 * time.Millisecond
 	enableEndpointBatching(t, debounce)
+	mt := monitortest.New(t)
 	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 	initTestEnv(t, c.client.Kube(), fx)
 	createServiceWait(c, "large", ns, []string{"10.0.0.1"}, nil, nil, []int32{8080}, map[string]string{"app": "large"}, t)
@@ -196,6 +218,7 @@ func TestBatchLargeEndpointPodLabelUpdates(t *testing.T) {
 		t.Fatalf("expected the %d label changes to be coalesced, got %d rebuilds", pods, len(rebuilds))
 	}
 	assert.Equal(t, len(eventsOf(events, "xds", string(hostname))), len(rebuilds))
+	assertBatchMetrics(mt, pods)
 
 	retry.UntilOrFail(t, func() bool {
 		eps := c.endpoints.endpointCache.Get(hostname)
