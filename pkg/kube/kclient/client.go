@@ -402,7 +402,19 @@ func NewDelayedInformer[T controllers.ComparableObject](
 	if watcher == nil {
 		log.Fatal("NewDelayedInformer called without a CrdWatcher enabled")
 	}
-	delay := newDelayedFilter(gvr, watcher)
+	return NewDelayedInformerWithFilter[T](c, gvr, informerType, filter, newDelayedFilter(gvr, watcher))
+}
+
+// NewDelayedInformerWithFilter is like NewDelayedInformer, but the caller supplies the DelayedFilter that decides when the
+// resource becomes available. This is for resources that a CRD watcher cannot observe, such as built-in APIs that
+// may or may not be served by the cluster.
+func NewDelayedInformerWithFilter[T controllers.ComparableObject](
+	c kube.Client,
+	gvr schema.GroupVersionResource,
+	informerType kubetypes.InformerType,
+	filter Filter,
+	delay kubetypes.DelayedFilter,
+) Informer[T] {
 	inf := func() informerfactory.StartableInformer {
 		opts := ToOpts(c, gvr, filter)
 		opts.InformerType = informerType
