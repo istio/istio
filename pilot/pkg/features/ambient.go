@@ -15,6 +15,8 @@
 package features
 
 import (
+	"time"
+
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/env"
@@ -128,6 +130,26 @@ var (
 		}
 		return &wrappers.UInt32Value{Value: v}
 	}()
+
+	HBONEKeepaliveInterval = registerAmbient(
+		"PILOT_HBONE_KEEPALIVE_INTERVAL",
+		10*time.Second, 10*time.Second,
+		"Sets the interval between HTTP/2 keepalive PINGs on HBONE CONNECT upstream clusters generated for "+
+			"waypoints and gateways. If 0, periodic PINGs are not sent.")
+
+	HBONEKeepaliveTimeout = registerAmbient(
+		"PILOT_HBONE_KEEPALIVE_TIMEOUT",
+		20*time.Second, 20*time.Second,
+		"Sets how long to wait for a response to an HTTP/2 keepalive PING on HBONE CONNECT upstream clusters "+
+			"generated for waypoints and gateways before the connection is closed. If 0, HTTP/2 keepalive is "+
+			"disabled on these clusters.")
+
+	HBONEKeepaliveConnectionIdleInterval = registerAmbient(
+		"PILOT_HBONE_KEEPALIVE_CONNECTION_IDLE_INTERVAL",
+		time.Duration(0), time.Duration(0),
+		"If set, an HBONE CONNECT upstream connection generated for waypoints and gateways that has been idle "+
+			"for at least this long sends an HTTP/2 keepalive PING before it is reused for a new stream. "+
+			"If 0 (the default), no PING is sent on reuse.")
 )
 
 // registerAmbient registers a variable that is allowed only if EnableAmbient is set
