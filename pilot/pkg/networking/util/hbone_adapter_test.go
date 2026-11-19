@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"istio.io/api/label"
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
@@ -68,15 +67,4 @@ func TestHBONEConnectWaitOptIn(t *testing.T) {
 			assert.Equal(t, HBONEConnectWaitEnabled(proxy), false)
 		})
 	}
-}
-
-func TestHBONEConnectWaitUnsupportedServices(t *testing.T) {
-	assert.Equal(t, HBONEConnectWaitEligible(nil, nil), false)
-	for _, resolution := range []model.Resolution{model.DNSLB, model.DNSRoundRobinLB, model.Passthrough, model.DynamicDNS} {
-		assert.Equal(t, HBONEConnectWaitEligible(&model.Service{Resolution: resolution}, nil), false)
-	}
-	// Unknown future TLS modes must not silently lose application encryption.
-	assert.Equal(t, HBONEConnectWaitEligible(&model.Service{}, &networking.TrafficPolicy{
-		Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_TLSmode(99)},
-	}), false)
 }

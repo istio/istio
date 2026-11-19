@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/api/label"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -50,6 +51,19 @@ func assertHBONEConnectWaitPool(t *testing.T, c *cluster.Cluster, enabled bool) 
 	assert.Equal(t, c.GetUpstreamConfig().GetName(), util.HBONEConnectWaitPool)
 	assert.Equal(t, c.GetUpstreamConfig().GetTypedConfig().GetTypeUrl(), util.HBONEConnectWaitPoolTypeURL)
 	assert.Equal(t, len(c.GetUpstreamConfig().GetTypedConfig().GetValue()), 0)
+}
+
+func TestHBONEConnectWaitUnsupportedServices(t *testing.T) {
+	cb := &ClusterBuilder{hboneConnectWait: true}
+	c := &cluster.Cluster{ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}}
+	assert.Equal(t, cb.hboneConnectWaitEligible(c, nil, nil), false)
+	for _, resolution := range []model.Resolution{model.DNSLB, model.DNSRoundRobinLB, model.Passthrough, model.DynamicDNS} {
+		assert.Equal(t, cb.hboneConnectWaitEligible(c, &model.Service{Resolution: resolution}, nil), false)
+	}
+	// Unknown future TLS modes must not silently lose application encryption.
+	assert.Equal(t, cb.hboneConnectWaitEligible(c, &model.Service{}, &networking.TrafficPolicy{
+		Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_TLSmode(99)},
+	}), false)
 }
 
 func TestHBONEConnectWaitOptInAndCacheIsolation(t *testing.T) {

@@ -18,7 +18,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -46,21 +45,6 @@ func HBONEConnectWaitEnabled(proxy *model.Proxy) bool {
 	}
 	return proxy.IsWaypointProxy() ||
 		((proxy.Type == model.SidecarProxy || proxy.Type == model.Router) && features.EnableHBONESend)
-}
-
-// HBONEConnectWaitEligible reports whether a service and traffic policy support CONNECT wait.
-// Apply this check in CDS after checking HBONEConnectWaitEnabled.
-// Only EDS services without application TLS or PROXY protocol origination are eligible.
-func HBONEConnectWaitEligible(service *model.Service, policy *networking.TrafficPolicy) bool {
-	if service == nil || service.Resolution != model.ClientSideLB || policy.GetProxyProtocol() != nil {
-		return false
-	}
-	switch policy.GetTls().GetMode() {
-	case networking.ClientTLSSettings_DISABLE, networking.ClientTLSSettings_ISTIO_MUTUAL:
-		return true
-	default:
-		return false
-	}
 }
 
 // HBONEOriginationAdapterTransportSocket carries the same host/cluster metadata as the
