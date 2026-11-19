@@ -665,6 +665,120 @@ func TestValidateResource(t *testing.T) {
 	}
 }
 
+// listFromYAML wraps the given YAML documents in a v1 List, the same shape as the output of
+// `kubectl get <kind> -o yaml` when more than one object matches.
+func listFromYAML(docs ...string) *unstructured.Unstructured {
+	items := make([]any, 0, len(docs))
+	for _, d := range docs {
+		items = append(items, fromYAML(d).Object)
+	}
+	return &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "List",
+		"items":      items,
+	}}
+}
+
+func TestValidateResourceList(t *testing.T) {
+	cases := []struct {
+		name    string
+		docs    []string
+		valid   bool
+		warn    bool
+		errHave []string
+	}{
+		{
+			name:  "valid Istio resources",
+			docs:  []string{validVirtualServiceYAML, validVirtualService1YAML},
+			valid: true,
+		},
+		{
+			name:    "invalid Istio resource among valid ones",
+			docs:    []string{validVirtualServiceYAML, invalidVirtualServiceYAML},
+			valid:   false,
+			errHave: []string{"VirtualService", "invalid-virtual-service"},
+		},
+		{
+			name:  "Istio resource with a warning",
+			docs:  []string{validVirtualServiceYAML, warnDestinationRule},
+			valid: true,
+			warn:  true,
+		},
+		{
+			name:    "invalid Istio resource and invalid Service",
+			docs:    []string{invalidVirtualServiceYAML, invalidPortNamingSvc},
+			valid:   false,
+			errHave: []string{"invalid-virtual-service", "hello"},
+		},
+		{
+			name:  "valid Istio resource and valid Service",
+			docs:  []string{validVirtualServiceYAML, validPortNamingSvc},
+			valid: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			v := &validator{}
+			warn, err := v.validateResource("istio-system", "", listFromYAML(c.docs...), io.Discard)
+			if (err == nil) != c.valid {
+				t.Fatalf("unexpected validation result: got valid=%v want %v: err=%v", err == nil, c.valid, err)
+			}
+			if (warn != nil) != c.warn {
+				t.Fatalf("unexpected validation warning result: got %v want %v: warn=%v", warn != nil, c.warn, warn)
+			}
+			for _, want := range c.errHave {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q does not mention %q", err, want)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateFilesList checks the `kubectl get ... -o yaml | istioctl validate -f -` shape end to end:
+// a List document whose items are Istio resources must be validated item by item.
+func TestValidateFilesList(t *testing.T) {
+	listYAML := func(items ...string) string {
+		var b strings.Builder
+		b.WriteString("apiVersion: v1\nkind: List\nitems:\n")
+		for _, item := range items {
+			for i, line := range strings.Split(strings.Trim(item, "\n"), "\n") {
+				if i == 0 {
+					b.WriteString("- " + line + "\n")
+				} else {
+					b.WriteString("  " + line + "\n")
+				}
+			}
+		}
+		return b.String()
+	}
+
+	validFile, closeValid := createTestFile(t, listYAML(validVirtualServiceYAML, validVirtualService1YAML))
+	defer closeValid.Close()
+	invalidFile, closeInvalid := createTestFile(t, listYAML(validVirtualServiceYAML, invalidVirtualServiceYAML))
+	defer closeInvalid.Close()
+
+	istioNamespace := "istio-system"
+
+	var out bytes.Buffer
+	if err := validateFiles(&istioNamespace, "", []string{validFile}, &out); err != nil {
+		t.Fatalf("expected a list of valid resources to validate, got: %v", err)
+	}
+	if !strings.Contains(out.String(), "is valid") {
+		t.Errorf("expected %q to be reported as valid, got: %q", validFile, out.String())
+	}
+
+	out.Reset()
+	err := validateFiles(&istioNamespace, "", []string{invalidFile}, &out)
+	if err == nil {
+		t.Fatalf("expected an error for a list containing an invalid VirtualService, got none (output: %q)", out.String())
+	}
+	if !strings.Contains(err.Error(), "invalid-virtual-service") {
+		t.Errorf("error should name the invalid resource, got: %v", err)
+	}
+}
+
 func buildMultiDocConfig(docs []string) string {
 	var b strings.Builder
 	for _, r := range docs {

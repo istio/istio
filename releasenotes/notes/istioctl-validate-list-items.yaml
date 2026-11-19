@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** `istioctl validate` reporting success for a `List` document (for example the output of
+    `kubectl get virtualservices -o yaml`) without validating the Istio resources inside it. Every item of the
+    list is now validated the same way as a standalone resource.
