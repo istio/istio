@@ -25,6 +25,7 @@ import (
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
@@ -194,6 +195,7 @@ func (s *Server) Register(grpcServer *grpc.Server) {
 func New(
 	ca CertificateAuthority,
 	ttl time.Duration,
+	meshHolder mesh.Holder,
 	authenticators []security.Authenticator,
 	controller multicluster.ComponentBuilder,
 ) (*Server, error) {
@@ -212,7 +214,7 @@ func New(
 	if len(features.CATrustedNodeAccounts) > 0 {
 		// TODO: do we need some way to delayed readiness until this is synced? Probably
 		// Worst case is we deny some requests though which are retried
-		server.nodeAuthorizer = NewMulticlusterNodeAuthenticator(features.CATrustedNodeAccounts, controller)
+		server.nodeAuthorizer = NewMulticlusterNodeAuthenticator(features.CATrustedNodeAccounts, meshHolder, controller)
 	}
 	return server, nil
 }
