@@ -16,6 +16,7 @@ package content
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -215,25 +216,21 @@ func GetEvents(p *Params) (map[string]string, error) {
 	}, err
 }
 
-// GetIstiodInfo returns internal Istiod debug info.
-func GetIstiodInfo(p *Params) (map[string]string, error) {
+// WriteIstiodInfo writes internal Istiod debug info to files under dir, one file per debug URL.
+// Each response is streamed to its file, because some (such as debug/krtz) can be very large.
+func WriteIstiodInfo(p *Params, dir string) error {
 	if p.Namespace == "" || p.Pod == "" {
-		return nil, fmt.Errorf("getIstiodInfo requires namespace and pod")
+		return fmt.Errorf("WriteIstiodInfo requires namespace and pod")
 	}
 	errs := istiomultierror.New()
-	ret := make(map[string]string)
 	for _, url := range common.IstiodDebugURLs(p.ClusterVersion) {
-		out, err := p.Runner.Exec(p.Namespace, p.Pod, common.DiscoveryContainerName, fmt.Sprintf(`pilot-discovery request GET %s`, url), p.DryRun)
+		err := p.Runner.ExecToFile(p.Namespace, p.Pod, common.DiscoveryContainerName,
+			fmt.Sprintf(`pilot-discovery request GET %s`, url), filepath.Join(dir, url), p.DryRun)
 		if err != nil {
 			errs = multierror.Append(errs, err)
-			continue
 		}
-		ret[url] = out
 	}
-	if errs.ErrorOrNil() != nil {
-		return nil, errs
-	}
-	return ret, nil
+	return errs.ErrorOrNil()
 }
 
 // GetProxyInfo returns internal proxy debug info.
