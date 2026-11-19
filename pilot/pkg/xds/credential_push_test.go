@@ -18,13 +18,14 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // TestCredentialUpdatePushes verifies that credential updates from the credentials controller
-// (Secrets and CA-bearing ConfigMaps) only trigger SDS pushes:
+// (Secrets, CA-bearing ConfigMaps and ClusterTrustBundles) only trigger SDS pushes:
 // - Credentials are referenced by SDS resource name, so CDS, LDS, RDS, EDS and NDS are skipped
 // - A credential update merged with another config change still pushes what that change needs
 func TestCredentialUpdatePushes(t *testing.T) {
@@ -94,6 +95,43 @@ func TestCredentialUpdatePushes(t *testing.T) {
 			want: pushes{CDS: false, LDS: false, RDS: false, EDS: false, NDS: false, SDS: true},
 		},
 		{
+			name:      "Sidecar with ClusterTrustBundle update should only push SDS",
+			proxyType: model.SidecarProxy,
+			reason:    model.NewReasonStats(model.SecretTrigger),
+			configUpdates: sets.New(
+				model.ConfigKey{Kind: kind.ClusterTrustBundle, Name: "example.com:signer:v1"},
+			),
+			want: pushes{CDS: false, LDS: false, RDS: false, EDS: false, NDS: false, SDS: true},
+		},
+		{
+			name:      "Router with ClusterTrustBundle update should only push SDS",
+			proxyType: model.Router,
+			reason:    model.NewReasonStats(model.SecretTrigger),
+			configUpdates: sets.New(
+				model.ConfigKey{Kind: kind.ClusterTrustBundle, Name: "example.com:signer:v1"},
+			),
+			want: pushes{CDS: false, LDS: false, RDS: false, EDS: false, NDS: false, SDS: true},
+		},
+		{
+			name:      "Waypoint with ClusterTrustBundle update should only push SDS",
+			proxyType: model.Waypoint,
+			reason:    model.NewReasonStats(model.SecretTrigger),
+			configUpdates: sets.New(
+				model.ConfigKey{Kind: kind.ClusterTrustBundle, Name: "example.com:signer:v1"},
+			),
+			want: pushes{CDS: false, LDS: false, RDS: false, EDS: false, NDS: false, SDS: true},
+		},
+		{
+			name:      "Sidecar with ClusterTrustBundle and VirtualService updates should still push CDS, LDS and RDS",
+			proxyType: model.SidecarProxy,
+			reason:    model.NewReasonStats(model.SecretTrigger, model.ConfigUpdate),
+			configUpdates: sets.New(
+				model.ConfigKey{Kind: kind.ClusterTrustBundle, Name: "my-bundle"},
+				model.ConfigKey{Kind: kind.VirtualService, Name: "my-vs", Namespace: "default"},
+			),
+			want: pushes{CDS: true, LDS: true, RDS: true, EDS: false, NDS: false, SDS: true},
+		},
+		{
 			name:      "Sidecar with ConfigMap and VirtualService updates should still push CDS, LDS and RDS",
 			proxyType: model.SidecarProxy,
 			reason:    model.NewReasonStats(model.SecretTrigger, model.ConfigUpdate),
@@ -143,6 +181,22 @@ func TestCredentialUpdatePushes(t *testing.T) {
 				SDS: sdsNeedsPush(req.Forced, req.ConfigsUpdated),
 			}
 			assert.Equal(t, got, tt.want)
+		})
+	}
+}
+
+// TestClusterTrustBundleCacheKeys verifies that a ClusterTrustBundle resource depends on exactly the config key
+// that the credentials controller reports, so both incremental filtering and cache eviction match.
+func TestClusterTrustBundleCacheKeys(t *testing.T) {
+	// A bundle name may legitimately end in the "-cacert" suffix, which must not be stripped or appended.
+	for _, name := range []string{"example.com:signer:v1", "my-bundle-cacert"} {
+		t.Run(name, func(t *testing.T) {
+			key := model.ConfigKey{Kind: kind.ClusterTrustBundle, Name: name}
+			assert.Equal(t, relatedConfigs(key), []model.ConfigKey{key})
+
+			sr, err := credentials.ParseResourceName("clustertrustbundle://"+name, "ns", "proxy-cluster", "config-cluster")
+			assert.NoError(t, err)
+			assert.Equal(t, SecretResource{SecretResource: sr}.DependentConfigs(), []model.ConfigHash{key.HashCode()})
 		})
 	}
 }

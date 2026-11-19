@@ -77,9 +77,7 @@ func sdsNeedsPush(forced bool, updates model.XdsUpdates) bool {
 	}
 	for update := range updates {
 		switch update.Kind {
-		case kind.Secret:
-			return true
-		case kind.ConfigMap:
+		case kind.Secret, kind.ConfigMap, kind.ClusterTrustBundle:
 			return true
 		}
 	}
@@ -117,7 +115,9 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	}
 	var updatedSecrets sets.Set[model.ConfigKey]
 	if !req.Forced {
-		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret).Merge(model.ConfigsOfKind(req.ConfigsUpdated, kind.ConfigMap))
+		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret).
+			Merge(model.ConfigsOfKind(req.ConfigsUpdated, kind.ConfigMap)).
+			Merge(model.ConfigsOfKind(req.ConfigsUpdated, kind.ClusterTrustBundle))
 	}
 
 	proxyClusterSecrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
@@ -173,15 +173,24 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	// Fetch the appropriate cluster's secret, based on the credential type
 	var secretController credscontroller.Controller
 	switch sr.ResourceType {
-	case credentials.KubernetesGatewaySecretType, credentials.KubernetesConfigMapType:
+	case credentials.KubernetesGatewaySecretType, credentials.KubernetesConfigMapType, credentials.KubernetesClusterTrustBundleType:
 		secretController = configClusterSecrets
 	default:
 		secretController = proxyClusterSecrets
 	}
 
 	isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
-	if sr.ResourceType == credentials.KubernetesConfigMapType {
-		caCertInfo, err := secretController.GetConfigMapCaCert(sr.Name, sr.Namespace)
+	if isCAOnlySecret || sr.ResourceType == credentials.KubernetesConfigMapType || sr.ResourceType == credentials.KubernetesClusterTrustBundleType {
+		var caCertInfo *credscontroller.CertInfo
+		var err error
+		switch sr.ResourceType {
+		case credentials.KubernetesConfigMapType:
+			caCertInfo, err = secretController.GetConfigMapCaCert(sr.Name, sr.Namespace)
+		case credentials.KubernetesClusterTrustBundleType:
+			caCertInfo, err = secretController.GetClusterTrustBundle(sr.Name)
+		default:
+			caCertInfo, err = secretController.GetCaCert(sr.Name, sr.Namespace)
+		}
 		if err != nil {
 			pilotSDSCertificateErrors.Increment()
 			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
@@ -190,20 +199,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		if err := ValidateCertificate(caCertInfo.Cert); err != nil {
 			recordInvalidCertificate(sr.Namespace, sr.Name, sr.ResourceName, err)
 		}
-		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
-		return res
-	} else if isCAOnlySecret {
-		caCertInfo, err := secretController.GetCaCert(sr.Name, sr.Namespace)
-		if err != nil {
-			pilotSDSCertificateErrors.Increment()
-			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
-			return nil
-		}
-		if err := ValidateCertificate(caCertInfo.Cert); err != nil {
-			recordInvalidCertificate(sr.Namespace, sr.Name, sr.ResourceName, err)
-		}
-		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
-		return res
+		return toEnvoyCaSecret(sr.ResourceName, caCertInfo)
 	}
 	certInfo, err := secretController.GetCertInfo(sr.Name, sr.Namespace)
 	if err != nil {
@@ -281,12 +277,8 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			} else {
 				deniedResources = append(deniedResources, r.Name)
 			}
-		case credentials.KubernetesConfigMapType:
-			// Current, we allow any configmap references. We only expose the ca.crt field, which should not be 'private'.
-			// We cannot do a namespace check, as the client is the one reading the configmap of the server, so cross-namespace
-			// lookups are expected.
-			// We could do a check that the ConfigMap is referenced by a DestinationRule, but given the lack of impact here
-			// this seems over-complicated.
+		case credentials.KubernetesConfigMapType, credentials.KubernetesClusterTrustBundleType:
+			// These expose only public CA certificates. Clients may read the server's CA across namespace boundaries.
 			allowedResources = append(allowedResources, r)
 
 		case credentials.KubernetesSecretType:
@@ -461,6 +453,10 @@ func containsAny(mp sets.Set[model.ConfigKey], keys []model.ConfigKey) bool {
 // but we need to push both the `foo` and `foo-cacert` resource name, or they will fall out of sync.
 func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 	related := []model.ConfigKey{k}
+	if k.Kind == kind.ClusterTrustBundle {
+		// ClusterTrustBundle names are used verbatim: there is no "-cacert" variant, and a bundle may legitimately end in it.
+		return related
+	}
 	// For secret without -cacert suffix, add the suffix
 	if !strings.HasSuffix(k.Name, securitymodel.SdsCaSuffix) {
 		k.Name += securitymodel.SdsCaSuffix

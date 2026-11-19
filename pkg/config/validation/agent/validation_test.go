@@ -980,6 +980,69 @@ func TestValidateTLS(t *testing.T) {
 			configNamespace: "backend",
 			valid:           false,
 		},
+		{
+			name: "SIMPLE: clustertrustbundle:// CaCertCredentialName",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "clustertrustbundle://example.com:signer:v1",
+			},
+			configNamespace: "backend",
+			valid:           true,
+		},
+		{
+			name: "SIMPLE: clustertrustbundle:// CaCertCredentialName without a configuration namespace",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "clustertrustbundle://bundle",
+			},
+			valid: true,
+		},
+		{
+			name: "SIMPLE: clustertrustbundle:// CredentialName",
+			tls: &networking.ClientTLSSettings{
+				Mode:           networking.ClientTLSSettings_SIMPLE,
+				CredentialName: "clustertrustbundle://bundle",
+			},
+			configNamespace: "backend",
+			valid:           true,
+		},
+		{
+			name: "SIMPLE: clustertrustbundle:// CaCertCredentialName with an empty name",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "clustertrustbundle://",
+			},
+			configNamespace: "backend",
+			valid:           false,
+		},
+		{
+			name: "SIMPLE: clustertrustbundle:// CaCertCredentialName with a slash in the name",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_SIMPLE,
+				CaCertCredentialName: "clustertrustbundle://backend/bundle",
+			},
+			configNamespace: "backend",
+			valid:           false,
+		},
+		{
+			name: "MUTUAL: clustertrustbundle:// CredentialName",
+			tls: &networking.ClientTLSSettings{
+				Mode:           networking.ClientTLSSettings_MUTUAL,
+				CredentialName: "clustertrustbundle://bundle",
+			},
+			configNamespace: "backend",
+			valid:           false,
+		},
+		{
+			name: "MUTUAL: Secret CredentialName with clustertrustbundle:// CaCertCredentialName",
+			tls: &networking.ClientTLSSettings{
+				Mode:                 networking.ClientTLSSettings_MUTUAL,
+				CredentialName:       "client-cert",
+				CaCertCredentialName: "clustertrustbundle://bundle",
+			},
+			configNamespace: "backend",
+			valid:           true,
+		},
 	}
 
 	for _, tc := range testCases {
