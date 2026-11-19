@@ -19,8 +19,28 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
+
+// hboneConnectWaitEligible reports whether this application cluster can use CONNECT wait.
+// Only EDS services without application TLS or PROXY protocol origination are eligible.
+func (cb *ClusterBuilder) hboneConnectWaitEligible(c *cluster.Cluster, service *model.Service, policy *networking.TrafficPolicy) bool {
+	// Traffic policy can change the cluster type independently of service resolution.
+	if !cb.hboneConnectWait || c.GetType() != cluster.Cluster_EDS {
+		return false
+	}
+	if service == nil || service.Resolution != model.ClientSideLB || policy.GetProxyProtocol() != nil {
+		return false
+	}
+	switch policy.GetTls().GetMode() {
+	case networking.ClientTLSSettings_DISABLE, networking.ClientTLSSettings_ISTIO_MUTUAL:
+		return true
+	default:
+		return false
+	}
+}
 
 // Required on both application clusters using the adapter transport and their HBONE
 // origination clusters. The pool signals CONNECT readiness from tunneling callbacks
