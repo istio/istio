@@ -928,6 +928,13 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	if features.EnableAmbientMultiNetwork && features.EnableAmbientTLSProxyHTTPMetrics {
 		pre = append(pre, buildSetTLSFilterExchangeHTTPFilter())
 	}
+	// Separate RBAC filters which can be overridden by per-route configuration,
+	// so they are ran after filters which may clear the route cache. Per-route
+	// ALLOW/DENY configuration must have an RBAC filter to override, thus when
+	// no listener-scoped ALLOW or DENY RBAC filters exist, we have to create
+	// an empty RBAC filter to allow per-route overrides.
+	rbacFilters, routeOverridableRBACFilters := authz.PartitionRouteOverridableRBACFilters(
+		lb.node, cls, authzBuilder.BuildHTTP(cls))
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	// TODO policies here will need to be different per-chain (service attached)
 	// If the waypoint has opted in via annotation, synthesize XFCC from the
@@ -940,10 +947,11 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHN)
 	pre = append(pre, authnBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHZ)
-	pre = append(pre, authzBuilder.BuildHTTP(cls)...)
+	pre = append(pre, rbacFilters...)
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_STATS)
 	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
+	post = append(post, routeOverridableRBACFilters...)
 	post = append(post, xdsfilters.GenerateWaypointUpstreamMetadataFilter())
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
 	return pre, post
