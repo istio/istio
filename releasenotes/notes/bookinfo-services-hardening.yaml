@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: documentation
+releaseNotes:
+- |
+    **Improved** request validation and error handling in the Bookinfo sample services: `productpage` rejects non-numeric product IDs and only redirects to the same host after login and logout, `details` no longer forwards cookies and credentials to the external book service, `ratings` rejects invalid or oversized requests, and `reviews` tolerates malformed responses from `ratings`.
+- |
+    **Fixed** the Bookinfo `ratings` service failing to connect to MySQL 9, and the MongoDB seed data used by `ratings` v2.
+- |
+    **Updated** the base images and dependencies of the Bookinfo sample services.
