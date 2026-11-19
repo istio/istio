@@ -118,6 +118,30 @@ func TestWorkloadGroupCreate(t *testing.T) {
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},
+		{
+			description:       "Invalid ports - entry without a port number",
+			args:              strings.Split("group create --name foo --namespace bar --ports http", " "),
+			expectedException: true,
+			expectedOutput:    "Error: invalid port \"http\": expected <name>=<port>\n",
+		},
+		{
+			description:       "Invalid ports - port is not a number",
+			args:              strings.Split("group create --name foo --namespace bar --ports grpc=3550,http=abc", " "),
+			expectedException: true,
+			expectedOutput:    "Error: invalid port \"http=abc\": \"abc\" is not a valid port number\n",
+		},
+		{
+			description:       "Invalid ports - port is zero",
+			args:              strings.Split("group create --name foo --namespace bar --ports http=0", " "),
+			expectedException: true,
+			expectedOutput:    "Error: invalid port \"http=0\": port number 0 must be in the range 1..65535\n",
+		},
+		{
+			description:       "Invalid ports - port is out of range",
+			args:              strings.Split("group create --name foo --namespace bar --ports http=65536", " "),
+			expectedException: true,
+			expectedOutput:    "Error: invalid port \"http=65536\": port number 65536 must be in the range 1..65535\n",
+		},
 	}
 
 	for i, c := range cases {
@@ -455,6 +479,45 @@ func TestConvertToMap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := convertToStringMap(tt.arg); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("convertToStringMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestConvertToUnsignedInt32Map(t *testing.T) {
+	tests := []struct {
+		name    string
+		arg     []string
+		want    map[string]uint32
+		wantErr string
+	}{
+		{name: "none", arg: nil, want: map[string]uint32{}},
+		{name: "one", arg: []string{"http=8080"}, want: map[string]uint32{"http": 8080}},
+		{name: "two", arg: []string{"grpc=3550", "http=8080"}, want: map[string]uint32{"grpc": 3550, "http": 8080}},
+		{name: "min-and-max-port", arg: []string{"a=1", "b=65535"}, want: map[string]uint32{"a": 1, "b": 65535}},
+		{name: "no-equals", arg: []string{"http"}, wantErr: `invalid port "http": expected <name>=<port>`},
+		{name: "empty-port", arg: []string{"http="}, wantErr: `invalid port "http=": "" is not a valid port number`},
+		{name: "not-a-number", arg: []string{"http=abc"}, wantErr: `invalid port "http=abc": "abc" is not a valid port number`},
+		{name: "negative", arg: []string{"http=-1"}, wantErr: `invalid port "http=-1": "-1" is not a valid port number`},
+		{name: "overflows-uint32", arg: []string{"http=4294967296"}, wantErr: `invalid port "http=4294967296": "4294967296" is not a valid port number`},
+		{name: "zero", arg: []string{"http=0"}, wantErr: `invalid port "http=0": port number 0 must be in the range 1..65535`},
+		{name: "above-65535", arg: []string{"http=65536"}, wantErr: `invalid port "http=65536": port number 65536 must be in the range 1..65535`},
+		{name: "valid-then-invalid", arg: []string{"grpc=3550", "http=abc"}, wantErr: `invalid port "http=abc": "abc" is not a valid port number`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := convertToUnsignedInt32Map(tt.arg)
+			if tt.wantErr != "" {
+				if err == nil || err.Error() != tt.wantErr {
+					t.Fatalf("convertToUnsignedInt32Map(%q) error = %v, want %q", tt.arg, err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("convertToUnsignedInt32Map(%q) unexpected error: %v", tt.arg, err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("convertToUnsignedInt32Map(%q) = %v, want %v", tt.arg, got, tt.want)
 			}
 		})
 	}
