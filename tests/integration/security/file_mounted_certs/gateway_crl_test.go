@@ -19,7 +19,9 @@ package filemountedcerts
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -71,9 +73,13 @@ func createGatewayCRLSecrets(ctx resource.Context) error {
 func TestGatewayFileCRLRotation(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		const host = "gateway-file-crl.example.com"
+		gatewayLabel := inst.Settings().IngressGatewayIstioLabel
+		if gatewayLabel == "" {
+			gatewayLabel = "ingressgateway"
+		}
 		t.ConfigIstio().Eval(echo1NS.Name(), map[string]string{
 			"Host":         host,
-			"GatewayLabel": inst.Settings().IngressGatewayIstioLabel,
+			"GatewayLabel": gatewayLabel,
 		}, `
 apiVersion: networking.istio.io/v1
 kind: Gateway
@@ -81,7 +87,7 @@ metadata:
   name: file-crl
 spec:
   selector:
-    istio: {{.GatewayLabel | default "ingressgateway"}}
+    istio: {{.GatewayLabel}}
   servers:
   - port:
       number: 443
@@ -111,7 +117,7 @@ spec:
 `).ApplyOrFail(t)
 
 		gateway := inst.IngressFor(t.Clusters().Default())
-		send := func(expected echo.Checker) {
+		send := func(expected echo.Checker, noRetry bool) {
 			t.Helper()
 			gateway.CallOrFail(t, echo.CallOptions{
 				Port: echo.Port{Protocol: protocol.HTTPS},
@@ -122,7 +128,7 @@ spec:
 					Cert:   ingressutil.TLSClientCertA,
 				},
 				NewConnectionPerRequest: true,
-				Retry:                   echo.Retry{Options: []retry.Option{retry.Timeout(2 * time.Minute)}},
+				Retry:                   echo.Retry{NoRetry: noRetry, Options: []retry.Option{retry.Timeout(2 * time.Minute)}},
 				Check:                   expected,
 			})
 		}
@@ -138,10 +144,38 @@ spec:
 			}
 		}
 
-		send(check.OK())
+		send(check.OK(), false)
 		updateCRL(ingressutil.CaCrlA)
-		send(check.ErrorContains("tls: revoked certificate"))
+		send(check.ErrorContains("tls: revoked certificate"), false)
+
+		malformedUpdateTime := metav1.Now()
+		updateCRL("invalid CRL file")
+		retry.UntilSuccessOrFail(t, func() error {
+			pods, err := t.Clusters().Default().PodsForSelector(context.Background(), gateway.Namespace(),
+				"istio="+gatewayLabel)
+			if err != nil {
+				return err
+			}
+			if len(pods.Items) == 0 {
+				return fmt.Errorf("no ingress gateway pods found")
+			}
+			for _, pod := range pods.Items {
+				logs, err := t.Clusters().Default().PodLogsWithOptions(context.Background(), pod.Name, gateway.Namespace(), &v1.PodLogOptions{
+					Container: "istio-proxy",
+					SinceTime: &malformedUpdateTime,
+				})
+				if err != nil {
+					return err
+				}
+				if !strings.Contains(logs, "invalid PEM CRL in /gateway-crl/ca.crl") {
+					return fmt.Errorf("gateway %s has not rejected the malformed CRL yet", pod.Name)
+				}
+			}
+			return nil
+		}, retry.Timeout(2*time.Minute), retry.Delay(time.Second))
+		send(check.ErrorContains("tls: revoked certificate"), true)
+
 		updateCRL(ingressutil.DummyCaCrlA)
-		send(check.OK())
+		send(check.OK(), false)
 	})
 }
