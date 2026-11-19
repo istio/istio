@@ -815,14 +815,14 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		meta = e.Metadata()
 	}
 
-	// detect if mTLS is possible for this endpoint, used later during ep filtering
-	// this must be done while converting IstioEndpoints because we still have workload labels
-	if !mtlsEnabled {
+	tunnel := useTunnel(b, e, toServiceWaypoint)
+	// Only direct mTLS endpoints need tlsMode; HBONE endpoints get a tunnel marker below.
+	if !mtlsEnabled || tunnel {
 		meta.TLSMode = ""
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
-	if useTunnel(b, e, toServiceWaypoint) {
+	if tunnel {
 		// Currently, Envoy cannot support tunneling to multiple IP families.
 		// TODO(https://github.com/envoyproxy/envoy/issues/36318)
 		address, port := e.Addresses[0], int(e.EndpointPort)
