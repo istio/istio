@@ -231,3 +231,13 @@ spec:
   - issuer: example
     presence: MANDATORY
 ---
+_err: "spec.jwtRules[0].outputPayloadToMetadata in body should match"
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-payload-metadata-key
+spec:
+  jwtRules:
+  - issuer: example
+    outputPayloadToMetadata: "foo.bar"
+---
