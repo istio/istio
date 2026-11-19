@@ -138,6 +138,7 @@ func DestinationRuleCollection(
 	backends krt.Collection[*gatewayx.XBackend],
 	ancestors krt.Index[TypedNamespacedName, AncestorBackend],
 	references *gatewaycommon.ReferenceSet,
+	clusterTrustBundles gatewaycommon.ClusterTrustBundles,
 	domainSuffix string,
 	c *Controller,
 	services krt.Collection[*v1.Service],
@@ -150,10 +151,10 @@ func DestinationRuleCollection(
 	// Gateway API community if having the Gateway as an ancestor ref is required or not; we would prefer it to not be if possible.
 	// Until conformance requires it, for now we skip it.
 	ancestorCollection := ancestors.AsCollection(append(opts.WithName("AncestorBackend"), TypedNamespacedNameIndexCollectionFunc)...)
-	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, domainSuffix, opts)
+	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, clusterTrustBundles, domainSuffix, opts)
 	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
-	backendResourceStatus, backendResourcePolicies := BackendResourcePolicyCollection(backends, ancestorCollection, references, opts)
+	backendResourceStatus, backendResourcePolicies := BackendResourcePolicyCollection(backends, ancestorCollection, references, clusterTrustBundles, opts)
 	status.RegisterStatus(c.status, backendResourceStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	// We need to merge these by hostname into a single DR
@@ -316,6 +317,7 @@ func BackendResourcePolicyCollection(
 	backends krt.Collection[*gatewayx.XBackend],
 	ancestors krt.Collection[krt.IndexObject[TypedNamespacedName, AncestorBackend]],
 	references *gatewaycommon.ReferenceSet,
+	clusterTrustBundles gatewaycommon.ClusterTrustBundles,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gatewayx.XBackend, gatewayx.BackendStatus], krt.Collection[BackendPolicy]) {
 	return krt.NewStatusManyCollection(
@@ -345,7 +347,7 @@ func BackendResourcePolicyCollection(
 					Reason:  string(gw.PolicyReasonInvalid),
 					Message: fmt.Sprintf("unsupported backend type: %s", i.Spec.Type),
 				}
-			} else if tls := backendResourceTLSSettings(ctx, i, conds, references); tls != nil {
+			} else if tls := backendResourceTLSSettings(ctx, i, conds, references, clusterTrustBundles); tls != nil {
 				res = append(res, BackendPolicy{
 					Source:       self,
 					Target:       self,
@@ -393,6 +395,7 @@ func backendResourceTLSSettings(
 	i *gatewayx.XBackend,
 	conds map[string]*condition,
 	references *gatewaycommon.ReferenceSet,
+	clusterTrustBundles gatewaycommon.ClusterTrustBundles,
 ) *networking.ClientTLSSettings {
 	if i.Spec.TLS == nil {
 		return nil
@@ -437,7 +440,7 @@ func backendResourceTLSSettings(
 		// XBackend's validation field is optional, so Hostname may be unset.
 		tls.Sni = string(i.Spec.ExternalHostname.Hostname)
 	}
-	tls.CredentialName = getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
+	tls.CredentialName = getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references, clusterTrustBundles)
 
 	return tls
 }
@@ -497,6 +500,7 @@ func BackendTLSPolicyCollection(
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
 	ancestors krt.IndexCollection[TypedNamespacedName, AncestorBackend],
 	references *gatewaycommon.ReferenceSet,
+	clusterTrustBundles gatewaycommon.ClusterTrustBundles,
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gw.BackendTLSPolicy, gw.PolicyStatus], krt.Collection[BackendPolicy]) {
@@ -548,7 +552,7 @@ func BackendTLSPolicyCollection(
 			}
 			return nil
 		})
-		tls.CredentialName = getBackendTLSCredentialName(ctx, s.Validation, i.Namespace, conds, references)
+		tls.CredentialName = getBackendTLSCredentialName(ctx, s.Validation, i.Namespace, conds, references, clusterTrustBundles)
 
 		// In ancestor status, we need to report for Service (for mesh) and for each relevant Gateway.
 		// However, there is a max of 16 items we can report.
@@ -681,6 +685,7 @@ func getBackendTLSCredentialName(
 	policyNamespace string,
 	conds map[string]*condition,
 	references *gatewaycommon.ReferenceSet,
+	clusterTrustBundles gatewaycommon.ClusterTrustBundles,
 ) string {
 	if wk := validation.WellKnownCACertificates; wk != nil {
 		switch *wk {
@@ -703,6 +708,9 @@ func getBackendTLSCredentialName(
 	ref := validation.CACertificateRefs[0]
 	if len(validation.CACertificateRefs) > 1 {
 		conds[string(gw.PolicyConditionAccepted)].message += "; warning: only the first caCertificateRefs will be used"
+	}
+	if gatewaycommon.IsClusterTrustBundleRef(string(ref.Group), string(ref.Kind)) {
+		return clusterTrustBundleCredentialName(ctx, ref, conds, clusterTrustBundles)
 	}
 	refo, err := references.LocalPolicyRef(ctx, ref, policyNamespace)
 	if err == nil {
@@ -752,6 +760,34 @@ func getBackendTLSCredentialName(
 		return credentials.InvalidSecretTypeURI
 	}
 	return ""
+}
+
+// clusterTrustBundleCredentialName resolves a ClusterTrustBundle caCertificateRef. ClusterTrustBundles are cluster-scoped,
+// so neither the policy namespace nor a ReferenceGrant is involved.
+func clusterTrustBundleCredentialName(
+	ctx krt.HandlerContext,
+	ref gw.LocalObjectReference,
+	conds map[string]*condition,
+	clusterTrustBundles gatewaycommon.ClusterTrustBundles,
+) string {
+	res := clusterTrustBundles.Resolve(ctx, string(ref.Name))
+	if res.Outcome == gatewaycommon.ClusterTrustBundleResolved {
+		return res.CredentialName
+	}
+	reason := gw.BackendTLSPolicyReasonInvalidCACertificateRef
+	if res.Unsupported() {
+		reason = gw.BackendTLSPolicyReasonInvalidKind
+	}
+	conds[string(gw.BackendTLSPolicyConditionResolvedRefs)].error = &ConfigError{
+		Reason:  string(reason),
+		Message: "Certificate reference invalid: " + res.Message,
+	}
+	conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+		Reason:  string(gw.BackendTLSPolicyReasonNoValidCACertificate),
+		Message: "Certificate reference invalid: " + res.Message,
+	}
+	// Fail closed: a missing or invalid bundle must never leave stale trust anchors in place.
+	return credentials.InvalidSecretTypeURI
 }
 
 func BackendTrafficPolicyCollection(

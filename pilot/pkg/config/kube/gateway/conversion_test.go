@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/clustertrustbundle/clustertrustbundletest"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
@@ -837,6 +838,19 @@ func TestConvertResources(t *testing.T) {
 		},
 		{name: "backend-tls-client-cert"},
 		{name: "xbackend"},
+		{
+			name: "backend-tls-policy-ctb",
+			// ClusterTrustBundles are built-in resources without a CRD validator.
+			validationIgnorer: crdvalidation.NewValidationIgnorer("/.*"),
+		},
+		{
+			name: "frontend-tls-ctb",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"/.*",
+				// The experimental CRD rejects a namespace on ClusterTrustBundle refs; the standard CRD does not.
+				"istio-system/^namespace-set$",
+			),
+		},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
@@ -848,6 +862,7 @@ func TestConvertResources(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator, tt.validationIgnorer)
 			kc := kube.NewFakeClient(input...)
 			setupClientCRDs(t, kc)
+			clustertrustbundletest.SetAPIAvailable(kc)
 			// Setup a few preconfigured services
 			instances := []*model.ServiceInstance{}
 			for _, svc := range services {
@@ -1702,6 +1717,10 @@ func readConfig(t testing.TB, filename string, validator *crdvalidation.Validato
 	objs = append(objs, objects...)
 
 	for ns := range namespaces {
+		if ns == "" {
+			// Cluster-scoped objects
+			continue
+		}
 		objs = append(objs, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: ns,

@@ -152,6 +152,7 @@ type Inputs struct {
 	BackendTLSPolicies   krt.Collection[*gatewayv1.BackendTLSPolicy]
 	ServiceEntries       krt.Collection[*networkingclient.ServiceEntry]
 	InferencePools       krt.Collection[*inferencev1.InferencePool]
+	ClusterTrustBundles  gatewaycommon.ClusterTrustBundles
 }
 
 // FeatureFlags is a snapshot of the feature flags taken when the controller is built. Route
@@ -231,6 +232,10 @@ func NewController(
 		inputs.Backends = krt.NewStaticCollection[*gatewayx.XBackend](nil, nil, opts.WithName("disable/XBackend")...)
 	}
 
+	if features.EnableGatewayAPIClusterTrustBundle {
+		inputs.ClusterTrustBundles = gatewaycommon.NewClusterTrustBundles(kc, stop, opts)
+	}
+
 	if flags.EnableGatewayAPIInferenceExtension {
 		inputs.InferencePools = buildClient[*inferencev1.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
 	} else {
@@ -269,6 +274,7 @@ func NewController(
 		ReferenceGrants,
 		inputs.ConfigMaps,
 		inputs.Secrets,
+		inputs.ClusterTrustBundles,
 		options.DomainSuffix,
 		c.gatewayContext,
 		c.tagWatcher,
@@ -286,6 +292,7 @@ func NewController(
 		ReferenceGrants,
 		inputs.ConfigMaps,
 		inputs.Secrets,
+		inputs.ClusterTrustBundles,
 		c.domainSuffix,
 		c.gatewayContext,
 		c.tagWatcher,
@@ -385,6 +392,7 @@ func NewController(
 		inputs.Backends,
 		AncestorsIndex,
 		references,
+		inputs.ClusterTrustBundles,
 		c.domainSuffix,
 		c,
 		inputs.Services,

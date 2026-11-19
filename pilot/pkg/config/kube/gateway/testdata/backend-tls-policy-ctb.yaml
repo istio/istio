@@ -1,0 +1,166 @@
+# BackendTLSPolicy caCertificateRefs referencing ClusterTrustBundles (GEP-5075).
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: certificates.k8s.io/v1
+kind: ClusterTrustBundle
+metadata:
+  name: ca-bundle
+spec:
+  trustBundle: |
+    -----BEGIN CERTIFICATE-----
+    MIIB0zCCAX2gAwIBAgIJAI/M7BYjwB+uMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
+    BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
+    aWRnaXRzIFB0eSBMdGQwHhcNMTIwOTEyMjE1MjAyWhcNMTUwOTEyMjE1MjAyWjBF
+    MQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50
+    ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBANLJ
+    hPHhITqQbPklG3ibCVxwGMRfp/v4XqhfdQHdcVfHap6NQ5Wok/4xIA+ui35/MmNa
+    rtNuC+BdZ1tMuVCPFZcCAwEAAaNQME4wHQYDVR0OBBYEFJvKs8RfJaXTH08W+SGv
+    zQyKn0H8MB8GA1UdIwQYMBaAFJvKs8RfJaXTH08W+SGvzQyKn0H8MAwGA1UdEwQF
+    MAMBAf8wDQYJKoZIhvcNAQEFBQADQQBJlffJHybjDGxRMqaRmDhX0+6v02TUKZsW
+    r5QuVbpQhH6u+0UgcW0jp9QwpxoPTLTWGXEWBBBurxFwiCBhkQ+V
+    -----END CERTIFICATE-----
+---
+apiVersion: certificates.k8s.io/v1
+kind: ClusterTrustBundle
+metadata:
+  name: example.com:signer:ca
+spec:
+  signerName: example.com/signer
+  trustBundle: |
+    -----BEGIN CERTIFICATE-----
+    MIIB0zCCAX2gAwIBAgIJAI/M7BYjwB+uMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
+    BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
+    aWRnaXRzIFB0eSBMdGQwHhcNMTIwOTEyMjE1MjAyWhcNMTUwOTEyMjE1MjAyWjBF
+    MQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50
+    ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBANLJ
+    hPHhITqQbPklG3ibCVxwGMRfp/v4XqhfdQHdcVfHap6NQ5Wok/4xIA+ui35/MmNa
+    rtNuC+BdZ1tMuVCPFZcCAwEAAaNQME4wHQYDVR0OBBYEFJvKs8RfJaXTH08W+SGv
+    zQyKn0H8MB8GA1UdIwQYMBaAFJvKs8RfJaXTH08W+SGvzQyKn0H8MAwGA1UdEwQF
+    MAMBAf8wDQYJKoZIhvcNAQEFBQADQQBJlffJHybjDGxRMqaRmDhX0+6v02TUKZsW
+    r5QuVbpQhH6u+0UgcW0jp9QwpxoPTLTWGXEWBBBurxFwiCBhkQ+V
+    -----END CERTIFICATE-----
+---
+apiVersion: certificates.k8s.io/v1
+kind: ClusterTrustBundle
+metadata:
+  name: empty-bundle
+spec:
+  trustBundle: ""
+---
+apiVersion: certificates.k8s.io/v1
+kind: ClusterTrustBundle
+metadata:
+  name: garbage-bundle
+spec:
+  trustBundle: |
+    this is not a certificate
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: valid
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      name: echo
+      group: ""
+  validation:
+    caCertificateRefs:
+      - group: certificates.k8s.io
+        kind: ClusterTrustBundle
+        name: ca-bundle
+    hostname: auth.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: valid-signer-name
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      name: example
+      group: ""
+  validation:
+    caCertificateRefs:
+      - group: certificates.k8s.io
+        kind: ClusterTrustBundle
+        name: example.com:signer:ca
+    hostname: auth.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: not-found
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      name: httpbin
+      group: ""
+  validation:
+    caCertificateRefs:
+      - group: certificates.k8s.io
+        kind: ClusterTrustBundle
+        name: does-not-exist
+    hostname: auth.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: empty
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      name: httpbin-second
+      group: ""
+  validation:
+    caCertificateRefs:
+      - group: certificates.k8s.io
+        kind: ClusterTrustBundle
+        name: empty-bundle
+    hostname: auth.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: garbage
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      name: httpbin-other
+      group: ""
+  validation:
+    caCertificateRefs:
+      - group: certificates.k8s.io
+        kind: ClusterTrustBundle
+        name: garbage-bundle
+    hostname: auth.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: first-ref-only
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      name: foo-svc
+      group: ""
+  validation:
+    caCertificateRefs:
+      - group: certificates.k8s.io
+        kind: ClusterTrustBundle
+        name: ca-bundle
+      - group: ""
+        kind: ConfigMap
+        name: auth-cert
+    hostname: auth.example.com
