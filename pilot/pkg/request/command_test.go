@@ -15,6 +15,7 @@
 package request
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -76,6 +77,7 @@ func Test_command_do(t *testing.T) {
 		pilotStates       []pilotStubState
 		pilotNotReachable bool
 		wantError         bool
+		wantOutput        string
 	}{
 		{
 			name:   "makes a request using passed method, url and body",
@@ -85,6 +87,7 @@ func Test_command_do(t *testing.T) {
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine", wantMethod: "POST", wantPath: "/want/path", wantBody: []byte("body")},
 			},
+			wantOutput: "fine\n",
 		},
 		{
 			name:   "adds / prefix to path if required",
@@ -94,6 +97,7 @@ func Test_command_do(t *testing.T) {
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine", wantMethod: "POST", wantPath: "/want/path", wantBody: []byte("body")},
 			},
+			wantOutput: "fine\n",
 		},
 		{
 			name:   "handles empty string body in args",
@@ -103,6 +107,7 @@ func Test_command_do(t *testing.T) {
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine", wantMethod: "GET", wantPath: "/want/path", wantBody: nil},
 			},
+			wantOutput: "fine\n",
 		},
 		{
 			name:   "doesn't error on 404",
@@ -112,6 +117,7 @@ func Test_command_do(t *testing.T) {
 			pilotStates: []pilotStubState{
 				{StatusCode: 404, Response: "not-found", wantMethod: "GET", wantPath: "/want/path", wantBody: nil},
 			},
+			wantOutput: "not-found\n",
 		},
 		{
 			name:              "errors if Pilot is unreachable",
@@ -140,15 +146,20 @@ func Test_command_do(t *testing.T) {
 			if tt.pilotNotReachable {
 				stubURL, _ = url.Parse("http://notpilot")
 			}
+			out := &bytes.Buffer{}
 			c := &Command{
 				Address: stubURL.Host,
 				Client:  &http.Client{},
+				Output:  out,
 			}
 			err := c.Do(tt.method, tt.path, tt.body)
 			if (err == nil) && tt.wantError {
 				t.Errorf("Expected an error but received none")
 			} else if (err != nil) && !tt.wantError {
 				t.Errorf("Unexpected err: %v", err)
+			}
+			if got := out.String(); got != tt.wantOutput {
+				t.Errorf("Expected output %q, got %q", tt.wantOutput, got)
 			}
 		})
 	}
