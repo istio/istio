@@ -110,6 +110,10 @@ const (
 	// Required parameters: envoyFilter config patch index
 	EnvoyFilterConfigPath = "{.spec.configPatches[%d].patch.value}"
 
+	// Path for the filter name in the value of a ConfigPatch in envoyFilter; lines are recorded for scalars only
+	// Required parameters: envoyFilter config patch index
+	EnvoyFilterConfigName = "{.spec.configPatches[%d].patch.value.name}"
+
 	// Path for selector in telemetry.
 	// Required parameters: selector label.
 	TelemetrySelector = "{.spec.selector.matchLabels.%s}"

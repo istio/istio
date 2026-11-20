@@ -159,6 +159,69 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "extprocNameCollision",
+		inputFiles: []string{"testdata/extproc-collision.yaml", "testdata/extproc-collision-reported.yaml"},
+		analyzer:   &envoyfilter.ExtProcNameCollisionAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-bare-insert"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-status-gateway"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-google-grpc-target"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-google-camel"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-camel-case"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-type-url-path"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-typed-struct"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-xds-typed-struct"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-two-patches"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-target-ref"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-target-ref"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-both-refs"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter routes-ns/example-selector-own-ns"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter istio-system/example-root-selector"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter istio-system/example-root-selector"},
+			// once per pool Gateway in default
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-namespace-wide"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-namespace-wide"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter default/example-namespace-wide"},
+			// once per pool Gateway
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter istio-system/example-root-namespace"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter istio-system/example-root-namespace"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter istio-system/example-root-namespace"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter istio-system/example-root-namespace"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter istio-system/example-root-namespace"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter istio-system/example-root-namespace"},
+		},
+	},
+	{
+		name:       "extprocNameCollisionSkipped",
+		inputFiles: []string{"testdata/extproc-collision.yaml", "testdata/extproc-collision-skipped.yaml"},
+		analyzer:   &envoyfilter.ExtProcNameCollisionAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:           "extprocNameCollisionCustomRootNamespace",
+		inputFiles:     []string{"testdata/extproc-collision.yaml", "testdata/extproc-collision-skipped.yaml"},
+		meshConfigFile: "testdata/extproc-collision-meshconfig.yaml",
+		analyzer:       &envoyfilter.ExtProcNameCollisionAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter custom-root/example-custom-root"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter custom-root/example-custom-root"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter custom-root/example-custom-root"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter custom-root/example-custom-root"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter custom-root/example-custom-root"},
+			{msg.EnvoyFilterExtProcNameCollision, "EnvoyFilter custom-root/example-custom-root"},
+		},
+	},
+	{
+		name:       "extprocNameCollisionNoPools",
+		inputFiles: []string{"testdata/extproc-collision-reported.yaml"},
+		analyzer:   &envoyfilter.ExtProcNameCollisionAnalyzer{},
+		expected:   []message{
+			// no messages: without an InferencePool, Istio adds no ext_proc filter to collide with
+		},
+	},
+	{
 		name:       "gatewayNoWorkload",
 		inputFiles: []string{"testdata/gateway-no-workload.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
@@ -1209,6 +1272,48 @@ func TestAnalyzers(t *testing.T) {
 					"Either the metadata is wrong or the test cases for the analyzer are insufficient.", analyzerName))
 		}
 	})
+}
+
+// TestExtProcNameCollisionDetails checks the message arguments and lines, which the test grid does not.
+func TestExtProcNameCollisionDetails(t *testing.T) {
+	g := NewWithT(t)
+	sa, err := setupAnalyzerForCase(testCase{
+		inputFiles: []string{"testdata/extproc-collision.yaml", "testdata/extproc-collision-reported.yaml"},
+		analyzer:   &envoyfilter.ExtProcNameCollisionAnalyzer{},
+	}, func(config.GroupVersionKind) {})
+	g.Expect(err).To(BeNil())
+	result, err := runAnalyzer(sa)
+	g.Expect(err).To(BeNil())
+
+	got := map[string]diag.Message{}
+	for _, m := range result.Messages {
+		got[m.Resource.Origin.FriendlyName()+" "+m.Parameters[1].(string)] = m
+	}
+	const (
+		cluster   = "outbound|9003||example-filter.default.svc.cluster.local"
+		bothPools = "default/large-pool, default/small-pool"
+		largePool = "default/large-pool"
+	)
+	for _, want := range []struct {
+		envoyFilter, gateway, target, pools string
+		line                                int
+	}{
+		{"default/example-bare-insert", "default/inference-gateway", cluster, bothPools, 25},
+		{"default/example-status-gateway", "default/status-gateway", cluster, largePool, 54},
+		{"default/example-google-grpc-target", "default/inference-gateway", "127.0.0.1:9099", bothPools, 75},
+		{"default/example-google-camel", "default/inference-gateway", "127.0.0.1:9100", bothPools, 97},
+		{"default/example-two-patches", "default/inference-gateway", "first.default", bothPools, 219},
+		{"default/example-target-ref", "default/status-gateway", cluster, largePool, 255},
+		{"istio-system/example-root-selector", "routes-ns/inference-gateway", cluster, largePool, 325},
+		{"default/example-namespace-wide", "default/cross-ns-gateway", cluster, bothPools, 344},
+		{"istio-system/example-root-namespace", "routes-ns/other-ns-gateway", cluster, largePool, 363},
+	} {
+		key := "EnvoyFilter " + want.envoyFilter + " " + want.gateway
+		m, ok := got[key]
+		g.Expect(ok).To(BeTrue(), key)
+		g.Expect(m.Parameters).To(Equal([]any{want.target, want.gateway, want.pools}), key)
+		g.Expect(m.Line).To(Equal(want.line), key)
+	}
 }
 
 // Verify that all of the analyzers tested here are also registered in All()
