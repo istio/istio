@@ -24,3 +24,9 @@ spec:
     - "custom_scope"
     - "provider.login.scope"
     presence: REQUIRED
+    outputPayloadToMetadata: idp
+    failedStatusMetadataKey: jwt-failed-status/example-com
+  - issuer: "example.org"
+    jwksUri: https://example.org/.well-known/jwks.json
+    presence: PERMISSIVE
+    failedStatusMetadataKey: jwt-failed-status/example-org
