@@ -182,7 +182,11 @@ func initializeMonitoring() (prometheus.Gatherer, error) {
 	wrapped.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	wrapped.MustRegister(collectors.NewGoCollector())
 
-	_, err := monitoring.RegisterPrometheusExporter(wrapped, registry)
+	var exporterOpts []monitoring.ExporterOption
+	if features.AgentNativeHistograms {
+		exporterOpts = append(exporterOpts, monitoring.WithNativeHistograms())
+	}
+	_, err := monitoring.RegisterPrometheusExporter(wrapped, registry, exporterOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("could not setup exporter: %v", err)
 	}
@@ -614,13 +618,6 @@ func ParseScrapeTargets(raw string) ([]ScrapeTarget, error) {
 
 // handleStats handles prometheus stats scraping. This will scrape envoy metrics, and, if configured,
 // the application metrics and merge them together.
-// The merge here is a simple string concatenation. This works for almost all cases, assuming the application
-// is not exposing the same metrics as Envoy.
-// This merging works for both FmtText and FmtOpenMetrics and will use the format of the application metrics
-// Note that we do not return any errors here. If we do, we will drop metrics. For example, the app may be having issues,
-// but we still want Envoy metrics. Instead, errors are tracked in the failed scrape metrics/logs.
-// handleStats handles prometheus stats scraping. This will scrape envoy metrics, and, if configured,
-// the application metrics and merge them together.
 // The merge here is a simple string concatenation for the all-text and all-OpenMetrics cases.
 // This works for almost all cases, assuming the application is not exposing the same metrics as Envoy.
 // When at least one upstream advertises the delimited Prometheus protobuf format
@@ -628,8 +625,9 @@ func ParseScrapeTargets(raw string) ([]ScrapeTarget, error) {
 // — required for native Prometheus histograms), the merger switches to a parse-and-re-encode
 // path that decodes each upstream into MetricFamily values, gathers agent self-metrics, and
 // re-emits the merged stream in the negotiated format. Mixed formats (e.g. one proto upstream
-// and one text upstream) downgrade to text — converting text to proto would require the
-// CPU/memory cost-comparison study mandated by the Istio TOC and is deferred to a follow-up.
+// and one text upstream) downgrade to text, unless PILOT_AGENT_METRICS_PROTOBUF_UPCONVERSION
+// is enabled and the scraper prefers protobuf: then the text and OpenMetrics upstreams are
+// converted and the response is protobuf.
 // Note that we do not return any errors here. If we do, we will drop metrics. For example, the app may be having issues,
 // but we still want Envoy metrics. Instead, errors are tracked in the failed scrape metrics/logs.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
@@ -741,12 +739,23 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	envoyNonText := envoyFormat != "" && envoyFormat.FormatType() != expfmt.TypeTextPlain
 	anyProto := envoyFormat.FormatType() == expfmt.TypeProtoDelim ||
 		appFormat.FormatType() == expfmt.TypeProtoDelim
-	needsParseMerge := anyProto || envoyNonText
+	// Upconversion (opt-in): when the scraper prefers protobuf, answer in protobuf and
+	// convert text and OpenMetrics upstreams instead of downgrading the merged response
+	// to text, which would flatten native histograms to +Inf, _sum and _count. The
+	// client's own Accept header decides, so a scraper that cannot read protobuf never
+	// receives it.
+	upconvert := features.AgentMetricsProtobufUpconversion &&
+		expfmt.NegotiateAccept(r.Header, FmtOpenMetrics_1_0_0, FmtOpenMetrics_0_0_1, FmtProtoDelim, FmtText).
+			FormatType() == expfmt.TypeProtoDelim
+	needsParseMerge := anyProto || envoyNonText || upconvert
 
 	var outFormat expfmt.Format
-	if needsParseMerge {
+	switch {
+	case upconvert:
+		outFormat = FmtProtoDelim
+	case needsParseMerge:
 		outFormat = mergeFormat(envoyFormat, appFormat)
-	} else {
+	default:
 		outFormat = appFormat
 		if outFormat == "" {
 			outFormat = FmtText
@@ -756,8 +765,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", string(outFormat))
 
 	// Record the delivered format. A downgrade is "any upstream offered proto but we
-	// emitted text because another upstream did not". This is the metric a future
-	// PR3 (text→proto upconversion behind a feature gate) will optimize against.
+	// emitted text because another upstream did not"; enabling upconversion removes
+	// downgrades for scrapers that prefer protobuf.
 	switch {
 	case anyProto && outFormat.FormatType() != expfmt.TypeProtoDelim:
 		metrics.ScrapeFormatDowngraded.Increment()
@@ -851,7 +860,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // writeMergedProtoPath is the parse-and-re-encode merger used whenever at least one
-// upstream returned the delimited Prometheus protobuf format. It decodes every upstream
+// upstream returned the delimited Prometheus protobuf format, or when upconversion
+// turns a protobuf-preferring scrape into protobuf output. It decodes every upstream
 // (proto and non-proto alike) into MetricFamily values, gathers the agent's own
 // MetricFamily values directly from the registry, and re-encodes the union in outFormat.
 //
@@ -1161,9 +1171,9 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 // denominator). An empty argument list returns FmtText.
 //
 // The downgrade rule is deliberately conservative: if any two upstreams disagree we emit
-// text, even when one of them is protobuf. The alternative (text→protobuf upconversion)
-// is gated on a CPU/memory cost-comparison study mandated by the Istio TOC and is the
-// subject of PR3 in the native-histogram contribution sequence.
+// text, even when one of them is protobuf. handleStats bypasses it with protobuf output
+// when PILOT_AGENT_METRICS_PROTOBUF_UPCONVERSION is enabled and the scraper prefers
+// protobuf.
 func mergeFormat(formats ...expfmt.Format) expfmt.Format {
 	var out expfmt.Format
 	for _, f := range formats {
