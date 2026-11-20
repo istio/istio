@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type PushQueue struct {
@@ -35,14 +36,19 @@ type PushQueue struct {
 	// If model.PushRequest is not nil, it will be Enqueued again once MarkDone has been called.
 	processing map[*Connection]*model.PushRequest
 
+	// connectionsWithMergedRequestCopy tracks connections whose accumulated request is a private CopyMerge
+	// result. CopyMergeInPlace can reuse it until Dequeue hands it to a worker.
+	connectionsWithMergedRequestCopy sets.Set[*Connection]
+
 	shuttingDown bool
 }
 
 func NewPushQueue() *PushQueue {
 	return &PushQueue{
-		pending:    make(map[*Connection]*model.PushRequest),
-		processing: make(map[*Connection]*model.PushRequest),
-		cond:       sync.NewCond(&sync.Mutex{}),
+		pending:                          make(map[*Connection]*model.PushRequest),
+		processing:                       make(map[*Connection]*model.PushRequest),
+		connectionsWithMergedRequestCopy: sets.New[*Connection](),
+		cond:                             sync.NewCond(&sync.Mutex{}),
 	}
 }
 
@@ -58,12 +64,12 @@ func (p *PushQueue) Enqueue(con *Connection, pushRequest *model.PushRequest) {
 
 	// If its already in progress, merge the info and return
 	if request, f := p.processing[con]; f {
-		p.processing[con] = request.CopyMerge(pushRequest)
+		p.processing[con] = p.merge(con, request, pushRequest)
 		return
 	}
 
 	if request, f := p.pending[con]; f {
-		p.pending[con] = request.CopyMerge(pushRequest)
+		p.pending[con] = p.merge(con, request, pushRequest)
 		return
 	}
 
@@ -71,6 +77,24 @@ func (p *PushQueue) Enqueue(con *Connection, pushRequest *model.PushRequest) {
 	p.queue = append(p.queue, con)
 	// Signal waiters on Dequeue that a new item is available
 	p.cond.Signal()
+}
+
+// merge combines update with con's accumulated request. The first merge of two non-nil requests uses
+// CopyMerge, later merges use CopyMergeInPlace. The caller must hold the queue lock.
+func (p *PushQueue) merge(con *Connection, request, update *model.PushRequest) *model.PushRequest {
+	if request == nil {
+		return update
+	}
+	if update == nil {
+		return request
+	}
+	if p.connectionsWithMergedRequestCopy.Contains(con) {
+		// CopyMerge made request private, and Dequeue clears the set entry before handing it out.
+		// request can be mutated in place, while the shared update must remain unchanged.
+		return request.CopyMergeInPlace(update)
+	}
+	p.connectionsWithMergedRequestCopy.Insert(con)
+	return request.CopyMerge(update)
 }
 
 // Remove a proxy from the queue. If there are no proxies ready to be removed, this will block
@@ -96,6 +120,8 @@ func (p *PushQueue) Dequeue() (con *Connection, request *model.PushRequest, shut
 
 	request = p.pending[con]
 	delete(p.pending, con)
+	// Clear copy tracking before handing the request to the worker.
+	p.connectionsWithMergedRequestCopy.Delete(con)
 
 	// Mark the connection as in progress
 	p.processing[con] = nil

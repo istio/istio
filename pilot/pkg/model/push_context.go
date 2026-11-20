@@ -601,6 +601,49 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 	return merged
 }
 
+// CopyMergeInPlace merges updates like CopyMerge, but reuses pr instead of building a new PushRequest.
+// It assumes pr is non-nil and safe to mutate, including its update maps, and other is safe to read
+// for the duration of the call. Unlike CopyMerge, it retains pr.Delta and does not normalize existing
+// empty maps to nil.
+func (pr *PushRequest) CopyMergeInPlace(other *PushRequest) *PushRequest {
+	if other == nil {
+		return pr
+	}
+
+	if len(other.Reason) > 0 {
+		if pr.Reason == nil {
+			pr.Reason = make(ReasonStats, len(other.Reason))
+		}
+		pr.Reason.Merge(other.Reason)
+	}
+
+	pr.Forced = pr.Forced || other.Forced
+	pr.Push = latestPushContext(pr.Push, other.Push)
+
+	if other.ConfigsUpdated != nil {
+		if pr.ConfigsUpdated == nil {
+			pr.ConfigsUpdated = make(sets.Set[ConfigKey], len(other.ConfigsUpdated))
+		}
+		pr.ConfigsUpdated.Merge(other.ConfigsUpdated)
+	}
+
+	if len(other.AddressesUpdated) > 0 {
+		if pr.AddressesUpdated == nil {
+			pr.AddressesUpdated = make(sets.Set[string], len(other.AddressesUpdated))
+		}
+		pr.AddressesUpdated.Merge(other.AddressesUpdated)
+	}
+
+	if len(other.WaypointsUpdated) > 0 {
+		if pr.WaypointsUpdated == nil {
+			pr.WaypointsUpdated = make(sets.Set[WaypointReference], len(other.WaypointsUpdated))
+		}
+		pr.WaypointsUpdated.Merge(other.WaypointsUpdated)
+	}
+
+	return pr
+}
+
 func (pr *PushRequest) IsRequest() bool {
 	return len(pr.Reason) == 1 && pr.Reason.Has(ProxyRequest)
 }
