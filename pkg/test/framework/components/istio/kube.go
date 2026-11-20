@@ -256,6 +256,14 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		// Using a pre-installed control plane. Get the revisions from the
 		// command-line.
 		revisions = ctx.Settings().Revisions
+		// When using ControlPlaneInstaller, and no revision CLI flag is provided,
+		// fall back to the IOP so the framework resolves revision-suffixed
+		// resources (configmaps, webhooks) correctly.
+		if len(revisions) == 0 && cfg.ControlPlaneInstaller != "" && len(iopFiles.primaryIOP.spec.Revision) > 0 {
+			revisions = resource.RevVerMap{
+				iopFiles.primaryIOP.spec.Revision: "",
+			}
+		}
 	} else if len(iopFiles.primaryIOP.spec.Revision) > 0 {
 		// Use revisions from the default control plane operator.
 		revisions = resource.RevVerMap{

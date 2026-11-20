@@ -37,6 +37,9 @@ var (
 		"If true, detect AWS VPC CNI branch ENI pods and add ip rules to route probe traffic via veth").Get()
 	EnableHostProbeLocalRoute = env.RegisterBoolVar("AMBIENT_ENABLE_HOST_PROBE_LOCAL_ROUTE", false,
 		"If true, install local host probe SNAT routes for CNIs that return local destinations to host netfilter").Get()
+	ReconcileEnrollmentInterval = env.RegisterDurationVar("AMBIENT_RECONCILE_ENROLLMENT_INTERVAL", 0,
+		"If greater than 0, periodically check that pods enrolled in ambient mesh still run in the network namespace "+
+			"this agent enrolled, and re-enroll the ones that do not. Disabled by default").Get()
 
 	// KataRuntimeClassNames is the set of RuntimeClass names for which the CNI
 	// should install the "kata mode" iptables rules (pod IP forwarded into a

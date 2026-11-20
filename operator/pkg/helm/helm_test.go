@@ -110,6 +110,13 @@ func TestRender(t *testing.T) {
 			diffSelect:  "Deployment:*:istio-ingress",
 		},
 		{
+			desc:        "gateway-daemonset-update-strategy",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "DaemonSet:*:istio-ingress",
+		},
+		{
 			desc:        "gateway-env-var-from",
 			releaseName: "istio-ingress",
 			namespace:   "istio-ingress",

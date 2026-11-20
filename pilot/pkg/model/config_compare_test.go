@@ -171,6 +171,162 @@ func TestNeedsPush(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "unchanged istio.io label with other annotation change",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"istio.io/rev": "canary"},
+					Annotations:      map[string]string{"example.com/sha": "a"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"istio.io/rev": "canary"},
+					Annotations:      map[string]string{"example.com/sha": "b"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			expected: false,
+		},
+		{
+			name: "unchanged istio.io annotation with other label change",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"test": "v1"},
+					Annotations:      map[string]string{"networking.istio.io/exportTo": "."},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"test": "v2"},
+					Annotations:      map[string]string{"networking.istio.io/exportTo": "."},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			expected: false,
+		},
+		{
+			name: "istio.io label value change",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"istio.io/rev": "canary"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"istio.io/rev": "stable"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			expected: true,
+		},
+		{
+			name: "istio.io annotation added",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Annotations:      map[string]string{"istio.io/dry-run": "true"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			expected: true,
+		},
+		{
+			name: "istio.io annotation removed",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Annotations:      map[string]string{"istio.io/dry-run": "true"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+				},
+				Spec: &networking.VirtualService{},
+			},
+			expected: true,
+		},
+		{
+			name: "unchanged istio.io label with spec change",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"istio.io/rev": "canary"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"istio.io/rev": "canary"},
+				},
+				Spec: &networking.VirtualService{Hosts: []string{"test-host"}},
+			},
+			expected: true,
+		},
+		{
+			name: "always push label unchanged",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{constants.AlwaysPushLabel: "true"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{constants.AlwaysPushLabel: "true"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			expected: true,
+		},
+		{
 			name: "non istio resources",
 			prev: config.Config{
 				Meta: config.Meta{

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+issue:
+  - https://github.com/istio/istio/issues/62285
+
+releaseNotes:
+  - |
+    **Added** a `pdb.labels` value to the istiod Helm chart to apply additional labels to the istiod PodDisruptionBudget.

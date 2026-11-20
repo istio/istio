@@ -396,9 +396,9 @@ func InboundTrafficPolicyMode(meshConfig *meshconfig.MeshConfig) string {
 // imageURL creates url from parts.
 // imageType is appended if not empty
 // if imageType is already present in the tag, then it is replaced.
-// registry.istio.io/release/proxyv2:1.12-distroless
+// docker.io/istio/proxyv2:1.12-distroless
 // gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17-distroless
-// registry.istio.io/release/proxyv2:1.12
+// docker.io/istio/proxyv2:1.12
 func imageURL(hub, imageName, tag, imageType string) string {
 	return hub + "/" + imageName + ":" + updateImageTypeIfPresent(tag, imageType)
 }
@@ -506,8 +506,14 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		if err != nil {
 			return nil, nil, err
 		}
+		// The rendered template is applied to both templatePod and mergedPod below. Convert it
+		// from YAML once instead of parsing the same YAML for each of them.
+		overlayJSON, err := yaml.YAMLToJSON(bbuf.Bytes())
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed applying injection overlay: %v", err)
+		}
 
-		templatePod, err = applyOverlayYAML(templatePod, bbuf.Bytes())
+		templatePod, err = applyOverlay(templatePod, overlayJSON)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed applying injection overlay: %v", err)
 		}
@@ -529,7 +535,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 			mergedPod = mergedPod.DeepCopy()
 			mergedPod.Spec.Containers, mergedPod.Spec.InitContainers = moveContainer(mergedPod.Spec.Containers, mergedPod.Spec.InitContainers, ProxyContainerName)
 		}
-		mergedPod, err = applyOverlayYAML(mergedPod, bbuf.Bytes())
+		mergedPod, err = applyOverlay(mergedPod, overlayJSON)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
 		}

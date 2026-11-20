@@ -15,7 +15,6 @@
 package serviceentry
 
 import (
-	"cmp"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -346,23 +345,23 @@ func convertServiceEntryToInstances(
 
 	out := make([]*WorkloadServiceInstance, 0, len(serviceEntry.Ports)*endpointsNum)
 	if hostnameToServiceInstance {
-		for _, serviceEntryPort := range serviceEntry.Ports {
+		// The endpoint comes from the ServiceEntry itself, like inline endpoints, which are WorkloadEntry kind.
+		uidPrefix := workloadServiceInstanceUIDPrefix(model.WorkloadEntryKind.String(), cfg.Namespace, cfg.Name, service)
+		for _, servicePort := range service.Ports {
 			// Note: only convert the hostname to service instance if WorkloadSelector is not set
 			// when service entry has discovery type DNS and no endpoints.
 			// We create endpoints from service's host, do not use serviceentry.hosts
 			// as a service entry is converted into multiple services (one for each host)
-			endpointPort := serviceEntryPort.Number
-			if serviceEntryPort.TargetPort > 0 {
-				endpointPort = serviceEntryPort.TargetPort
-			}
-			out = append(out, &WorkloadServiceInstance{
+			endpointPort := servicePortTargetPort(servicePort)
+			instance := &WorkloadServiceInstance{
+				UID:       workloadServiceInstanceUID(uidPrefix, servicePort),
 				Namespace: cfg.Namespace,
 				Name:      cfg.Name,
 				Endpoint: &model.IstioEndpoint{
 					Addresses:            []string{string(service.Hostname)},
 					EndpointPort:         endpointPort,
-					ServicePortName:      serviceEntryPort.Name,
-					LegacyClusterPortKey: int(serviceEntryPort.Number),
+					ServicePortName:      servicePort.Name,
+					LegacyClusterPortKey: servicePort.Port,
 					Labels:               nil,
 					TLSMode:              model.DisabledTLSModeLabel,
 					Locality: model.Locality{
@@ -372,8 +371,9 @@ func convertServiceEntryToInstances(
 					WorkloadName: cfg.Name,
 				},
 				Service:     service,
-				ServicePort: convertPort(serviceEntryPort),
-			})
+				ServicePort: servicePort,
+			}
+			out = append(out, instance)
 		}
 	} else {
 		for i, endpoint := range serviceEntry.Endpoints {
@@ -383,7 +383,7 @@ func convertServiceEntryToInstances(
 				Name:      cfg.Name + "-" + strconv.Itoa(i),
 			}
 			wli := convertWorkloadEntryToWorkloadInstance(ctx, endpoint, meta, meshConfig, cfg.Namespace, clusterID, networkIDFn)
-			out = append(out, convertWorkloadInstanceToInstances(wli, service, serviceEntry.Ports)...)
+			out = appendWorkloadInstanceToInstances(out, wli, service)
 		}
 	}
 	return out
@@ -402,30 +402,38 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 	return tlsMode
 }
 
-// The workload instance has pointer to the service and its service port.
-// We need to create our own but we can retain the endpoint already created.
-func convertWorkloadInstanceToInstances(workloadInstance *model.WorkloadInstance, service *model.Service,
-	serviceEntryPorts []*networking.ServicePort,
+// The workload instance has no service or service-port association, so create one instance per service port.
+func convertWorkloadInstanceToInstances(workloadInstance *model.WorkloadInstance, service *model.Service) []*WorkloadServiceInstance {
+	out := make([]*WorkloadServiceInstance, 0, len(service.Ports))
+	return appendWorkloadInstanceToInstances(out, workloadInstance, service)
+}
+
+// appendWorkloadInstanceToInstances appends one instance per service port to out.
+func appendWorkloadInstanceToInstances(
+	out []*WorkloadServiceInstance,
+	workloadInstance *model.WorkloadInstance,
+	service *model.Service,
 ) []*WorkloadServiceInstance {
-	out := make([]*WorkloadServiceInstance, 0, len(serviceEntryPorts))
-	for _, serviceEntryPort := range serviceEntryPorts {
+	// unix addresses can only happen on workload entries which have only one address
+	addrs := workloadInstance.Endpoint.Addresses
+	unixAddress := len(addrs) == 1 && strings.HasPrefix(addrs[0], model.UnixAddressPrefix)
+	if unixAddress {
+		addrs = []string{strings.TrimPrefix(addrs[0], model.UnixAddressPrefix)}
+	}
+	uidPrefix := workloadServiceInstanceUIDPrefix(workloadInstance.Kind.String(), workloadInstance.Namespace, workloadInstance.Name, service)
+	for _, servicePort := range service.Ports {
 		var targetPort uint32
-		addrs := workloadInstance.Endpoint.Addresses
 		// priority level: unixAddress > we.ports > se.port.targetPort > se.port.number
-		// unix addresses can only happen on workload entries which have only one address
-		if len(workloadInstance.Endpoint.Addresses) == 1 && strings.HasPrefix(workloadInstance.Endpoint.Addresses[0], model.UnixAddressPrefix) {
-			addrs = []string{strings.TrimPrefix(workloadInstance.Endpoint.Addresses[0], model.UnixAddressPrefix)}
+		if unixAddress {
 			targetPort = 0
-		} else if port, ok := workloadInstance.PortMap[serviceEntryPort.Name]; ok && port > 0 {
+		} else if port, ok := workloadInstance.PortMap[servicePort.Name]; ok && port > 0 {
 			targetPort = port
-		} else if serviceEntryPort.TargetPort > 0 {
-			targetPort = serviceEntryPort.TargetPort
 		} else {
-			targetPort = serviceEntryPort.Number
+			targetPort = servicePortTargetPort(servicePort)
 		}
 		ep := workloadInstance.Endpoint.ShallowCopy()
-		ep.ServicePortName = serviceEntryPort.Name
-		ep.LegacyClusterPortKey = int(serviceEntryPort.Number)
+		ep.ServicePortName = servicePort.Name
+		ep.LegacyClusterPortKey = servicePort.Port
 		ep.Addresses = addrs
 		ep.EndpointPort = targetPort
 		if ep.Namespace == "" {
@@ -435,15 +443,39 @@ func convertWorkloadInstanceToInstances(workloadInstance *model.WorkloadInstance
 			ep.WorkloadName = workloadInstance.Name
 		}
 
-		out = append(out, &WorkloadServiceInstance{
+		instance := &WorkloadServiceInstance{
+			UID:         workloadServiceInstanceUID(uidPrefix, servicePort),
 			Namespace:   workloadInstance.Namespace,
 			Name:        workloadInstance.Name,
 			Endpoint:    ep,
 			Service:     service,
-			ServicePort: convertPort(serviceEntryPort),
-		})
+			ServicePort: servicePort,
+		}
+		out = append(out, instance)
 	}
 	return out
+}
+
+// workloadServiceInstanceUIDPrefix returns the part of an instance UID shared by all ports of a workload
+// for a given service. The workload kind leads so that, after the service, merged instances order Pods
+// before WorkloadEntries; DNS round robin services keep only the first instance per port, so this
+// decides which one wins.
+// The endpoint is deliberately left out: a workload yields exactly one endpoint per service port, so it
+// adds nothing to uniqueness, and keeping the address out makes an address change an update of the
+// same instance rather than a delete and add.
+func workloadServiceInstanceUIDPrefix(kind, namespace, name string, service *model.Service) string {
+	return kind + "/" + namespace + "/" + name + "/" + service.ResourceName() + "/"
+}
+
+func workloadServiceInstanceUID(prefix string, servicePort *model.Port) string {
+	return prefix + strconv.Itoa(servicePort.Port)
+}
+
+func servicePortTargetPort(port *model.Port) uint32 {
+	if port.TargetPort.Type == intstr.Int && port.TargetPort.IntVal > 0 {
+		return uint32(port.TargetPort.IntVal)
+	}
+	return uint32(port.Port)
 }
 
 // Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
@@ -507,22 +539,17 @@ func convertWorkloadEntryToWorkloadInstance(
 	}
 }
 
-// Services derived from ServiceEntry configs
 func services(
 	serviceEntries krt.Collection[config.Config],
+	serviceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	meshConfig krt.Collection[meshwatcher.MeshConfigResource],
 	namespaces krt.Collection[*v1.Namespace],
-	workloadsByNamespace krt.Index[string, *model.WorkloadInstance],
 	clusterID cluster.ID,
 	networkIDFn networkIDCallback,
 	canonicalServiceForMeshExternal bool,
 	opts krt.OptionsBuilder,
-) (krt.Collection[ServiceWithInstances], krt.Index[string, ServiceWithInstances], krt.Index[string, ServiceWithInstances]) {
-	// Precompile the serviceEntryVisibility matcher once (shared with the ambient path) rather than
-	// per ServiceEntry.
-	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(meshConfig, opts)
-
-	collection := krt.NewManyCollection(serviceEntries, func(ctx krt.HandlerContext, cfg config.Config) []ServiceWithInstances {
+) krt.Collection[*ServiceWithInstances] {
+	return krt.NewManyCollection(serviceEntries, func(ctx krt.HandlerContext, cfg config.Config) []*ServiceWithInstances {
 		se := cfg.Spec.(*networking.ServiceEntry)
 		namespace := krt.FetchOne(ctx, namespaces, krt.FilterKey(cfg.Namespace))
 		var namespaceAnnotations map[string]string
@@ -542,109 +569,66 @@ func services(
 				svc.Attributes.Visibility = resolved
 			}
 		}
-		if se.WorkloadSelector == nil {
-			// No selector: endpoints from SE directly
-			return slices.Map(services, func(ss *model.Service) ServiceWithInstances {
-				return ServiceWithInstances{
-					Service:   ss,
-					Instances: convertServiceEntryToInstances(ctx, cfg, ss, meshConfig, clusterID, networkIDFn),
+
+		if se.WorkloadSelector != nil {
+			return slices.Map(services, func(ss *model.Service) *ServiceWithInstances {
+				return &ServiceWithInstances{
+					Service: ss,
 				}
 			})
 		}
 
-		dnsService := isDNSTypeService(services[0])
-		var selectedWorkloads []*model.WorkloadInstance
-
-		// SE with empty workload selector will not select any workloads
-		if len(se.WorkloadSelector.Labels) != 0 {
-			selectedWorkloads = workloadsByNamespace.Fetch(
-				ctx,
-				cfg.Namespace,
-				krt.FilterLabel(se.WorkloadSelector.Labels),
-				krt.FilterGeneric(func(o any) bool {
-					wi := o.(*model.WorkloadInstance)
-					if wi.DNSServiceEntryOnly && !dnsService {
-						return false
-					}
-					return true
-				}),
-			)
-		}
-
-		// krt fetching does not guarantee order, so we need to sort the selected workloads to ensure determinism
-		slices.SortStableFunc(selectedWorkloads, func(a, b *model.WorkloadInstance) int {
-			if r := cmp.Compare(a.Kind, b.Kind); r != 0 {
-				return r
+		// No selector: endpoints from SE directly
+		return slices.Map(services, func(ss *model.Service) *ServiceWithInstances {
+			return &ServiceWithInstances{
+				Service:   ss,
+				Instances: convertServiceEntryToInstances(ctx, cfg, ss, meshConfig, clusterID, networkIDFn),
 			}
-			if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {
-				return r
-			}
-			return cmp.Compare(a.Name, b.Name)
 		})
-
-		res := make([]ServiceWithInstances, 0, len(services))
-		for _, service := range services {
-			swi := ServiceWithInstances{
-				Service:   service,
-				Instances: make([]*WorkloadServiceInstance, 0, len(selectedWorkloads)*len(se.Ports)),
-			}
-			for _, wi := range selectedWorkloads {
-				swi.Instances = append(swi.Instances, convertWorkloadInstanceToInstances(wi, service, se.Ports)...)
-			}
-			res = append(res, swi)
-		}
-		return res
-	}, opts.WithName("outputs/Services")...)
-
-	nsHostIndex := krt.NewIndex(collection, "nsHost", func(swi ServiceWithInstances) []string {
-		return []string{swi.Service.Attributes.Namespace + "/" + swi.Service.Hostname.String()}
-	})
-
-	hostIndex := krt.NewIndex(collection, "host", func(ss ServiceWithInstances) []string {
-		return []string{ss.Service.Hostname.String()}
-	})
-
-	return collection, nsHostIndex, hostIndex
+	}, opts.WithName("outputs/ServicesWithInstances")...)
 }
 
-// Merge services with the same namespace and hostname into a single service instance with all the instances.
-// Also filters multiple DNS round robin service instances with the same host and port.
-func mergeServicesInstancesByNamespaceHost(
-	servicesByNsHost krt.Collection[krt.IndexObject[string, ServiceWithInstances]],
+func serviceInstances(
+	allWorkloads krt.Collection[*model.WorkloadInstance],
+	servicesByNamespace krt.Index[string, *model.Service],
 	opts krt.OptionsBuilder,
-) krt.Collection[InstancesByNamespaceHost] {
-	return krt.NewCollection(servicesByNsHost, func(ctx krt.HandlerContext, s krt.IndexObject[string, ServiceWithInstances]) *InstancesByNamespaceHost {
-		namespace, hostname, _ := strings.Cut(s.Key, "/")
-		sortServicesByCreationTime(s.Objects)
-
-		ports := sets.New[int]()
-		instances := make([]*WorkloadServiceInstance, 0)
-		anyDNSServiceEndpoint := false
-		for _, swi := range s.Objects {
-			for _, si := range swi.Instances {
-				if si.Service.Resolution == model.DNSRoundRobinLB {
-					if ports.Contains(si.ServicePort.Port) {
-						log.Debugf("skipping service %s from service entry %s with DnsRoundRobinLB. A service entry with the same host "+
-							"already exists. Only one locality lb end point is allowed for DnsRoundRobinLB services.",
-							si.Service.Hostname, si.Service.Attributes.Name+"/"+si.Service.Attributes.Namespace)
-						continue
-					}
-				}
-				instances = append(instances, si)
-				ports.Insert(si.ServicePort.Port)
-				if isDNSTypeService(si.Service) {
-					anyDNSServiceEndpoint = true
-				}
-			}
+) krt.Collection[*WorkloadServiceInstance] {
+	return krt.NewManyCollection(allWorkloads, func(ctx krt.HandlerContext, wi *model.WorkloadInstance) []*WorkloadServiceInstance {
+		filters := []krt.FetchOption{
+			krt.FilterSelectsNonEmpty(wi.GetLabels()),
+		}
+		if wi.DNSServiceEntryOnly {
+			filters = append(filters, krt.FilterGeneric(func(o any) bool {
+				return isDNSTypeService(o.(*model.Service))
+			}))
 		}
 
-		return &InstancesByNamespaceHost{
-			Namespace:             namespace,
-			Hostname:              hostname,
-			Instances:             instances,
-			HasDNSServiceEndpoint: anyDNSServiceEndpoint,
+		selectedServices := servicesByNamespace.Fetch(
+			ctx,
+			wi.Namespace,
+			filters...,
+		)
+
+		if len(selectedServices) == 0 {
+			return nil
 		}
-	}, opts.WithName("outputs/ServiceInstancesByNamespaceHost")...)
+		if len(selectedServices) == 1 {
+			// Common case: a workload is selected by a single service, and
+			// convertWorkloadInstanceToInstances already returns an exactly-sized slice.
+			return convertWorkloadInstanceToInstances(wi, selectedServices[0])
+		}
+
+		// One instance per service port.
+		n := 0
+		for _, s := range selectedServices {
+			n += len(s.Ports)
+		}
+		res := make([]*WorkloadServiceInstance, 0, n)
+		for _, s := range selectedServices {
+			res = appendWorkloadInstanceToInstances(res, wi, s)
+		}
+		return res
+	}, opts.WithName("outputs/WorkloadServiceInstances")...)
 }
 
 // return the mesh network for the workload entry. Empty string if not found.

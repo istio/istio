@@ -24,6 +24,23 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
+const (
+	// PeerDirectRemoteIPFilterStateKey is a filter state key where a listener that terminates the downstream
+	// connection, such as the HBONE CONNECT termination listener, stores the direct remote address of that
+	// connection for the internal listener it forwards to. On the internal listener the direct remote address is an
+	// internal Envoy address, so authorization policy matches source IPs against this value instead.
+	//
+	// The value is connection scoped: every CONNECT stream multiplexed on one HBONE connection has the same direct
+	// peer. This matches ztunnel, which enforces ipBlocks against the peer of the HBONE connection too, and which
+	// pools HBONE connections per source workload and source IP.
+	PeerDirectRemoteIPFilterStateKey = "io.istio.peer_direct_remote_ip"
+
+	// PeerDirectRemoteAddressFilterStateFactory creates the PeerDirectRemoteIPFilterStateKey object from an
+	// "IP:port" string. Its objects are hashable addresses, so Envoy does not share an upstream internal connection
+	// between downstream connections with different peers.
+	PeerDirectRemoteAddressFilterStateFactory = "envoy.filters.listener.original_dst.remote_ip"
+)
+
 func RawBufferTransport() *core.TransportSocket {
 	return &core.TransportSocket{
 		Name:       "raw_buffer",
@@ -51,6 +68,20 @@ var DefaultInternalUpstreamTransportSocket = InternalUpstreamTransportSocket("in
 // WaypointInternalUpstreamTransportSocket builds an internal upstream transport socket suitable for usage in a waypoint
 // This will passthrough the OrigDst key and HBONE destination address.
 func WaypointInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.TransportSocket {
+	return &core.TransportSocket{
+		Name: "internal_upstream",
+		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
+			PassthroughMetadata: waypointPassthroughMetadata(),
+			TransportSocket:     inner,
+		})},
+	}
+}
+
+func WaypointHBONEOriginationAdapterTransportSocket() *core.TransportSocket {
+	return HBONEOriginationAdapterTransportSocket(waypointPassthroughMetadata())
+}
+
+func waypointPassthroughMetadata() []*internalupstream.InternalUpstreamTransport_MetadataValueSource {
 	passthroughMetadata := []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
 		{
 			Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
@@ -75,18 +106,26 @@ func WaypointInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.
 		)
 	}
 
-	return &core.TransportSocket{
-		Name: "internal_upstream",
-		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-			PassthroughMetadata: passthroughMetadata,
-			TransportSocket:     inner,
-		})},
-	}
+	return passthroughMetadata
 }
 
 // FullMetadataPassthroughInternalUpstreamTransportSocket builds an internal upstream transport socket suitable for usage in
 // originating HBONE. For waypoints, use WaypointInternalUpstreamTransportSocket.
 func FullMetadataPassthroughInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.TransportSocket {
+	return &core.TransportSocket{
+		Name: "envoy.transport_sockets.internal_upstream",
+		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
+			PassthroughMetadata: fullPassthroughMetadata(),
+			TransportSocket:     inner,
+		})},
+	}
+}
+
+func FullMetadataPassthroughHBONEOriginationAdapterTransportSocket() *core.TransportSocket {
+	return HBONEOriginationAdapterTransportSocket(fullPassthroughMetadata())
+}
+
+func fullPassthroughMetadata() []*internalupstream.InternalUpstreamTransport_MetadataValueSource {
 	passthroughMetadata := []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
 		{
 			Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
@@ -115,11 +154,5 @@ func FullMetadataPassthroughInternalUpstreamTransportSocket(inner *core.Transpor
 		)
 	}
 
-	return &core.TransportSocket{
-		Name: "envoy.transport_sockets.internal_upstream",
-		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-			PassthroughMetadata: passthroughMetadata,
-			TransportSocket:     inner,
-		})},
-	}
+	return passthroughMetadata
 }

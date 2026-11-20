@@ -237,6 +237,11 @@ func TestAuthenticate(t *testing.T) {
 				return
 			}
 
+			// aliases resolve to the canonical cluster the token was validated against
+			expectedCluster := cluster.ID(constants.DefaultClusterName)
+			if tc.remoteCluster {
+				expectedCluster = remoteCluster
+			}
 			expectedCaller := &security.Caller{
 				AuthSource: security.AuthSourceIDToken,
 				Identities: []string{tc.expectedID},
@@ -244,6 +249,7 @@ func TestAuthenticate(t *testing.T) {
 					PodNamespace:      "default",
 					PodServiceAccount: "example-pod-sa",
 				},
+				ClusterID: expectedCluster,
 			}
 
 			assert.Equal(t, actualCaller, expectedCaller)

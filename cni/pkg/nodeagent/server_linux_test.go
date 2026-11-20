@@ -770,6 +770,55 @@ func TestMeshDataplaneSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 	fakeIPSetDeps.AssertExpectations(t)
 }
 
+// The enrollment check must not prune the host probe ipset: an add puts a pod's IPs there before the
+// informer sees that pod as enrolled, and a prune against the informer's view would evict them.
+func TestMeshDataplaneReconcileEnrollmentLeavesHostIPSetAlone(t *testing.T) {
+	pod := buildConvincingPod(false)
+
+	fakeCtx := context.Background()
+	server := &fakeServer{}
+	server.On("ReconcileEnrollment", fakeCtx, []*corev1.Pod{pod}).Return(nil)
+	fakeClientSet := fake.NewClientset()
+
+	// No ipset calls are expected: an add, list or clear fails the test.
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	ipsetInstance := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+	setWrapper := set.NewIPSetWrapper(ipsetInstance)
+	m := getFakeDPWithAddressSet(server, fakeClientSet, setWrapper)
+
+	assert.NoError(t, m.ReconcileEnrollment(fakeCtx, []*corev1.Pod{pod}))
+	server.AssertExpectations(t)
+	fakeIPSetDeps.AssertExpectations(t)
+}
+
+func TestMeshDataplaneReconcileEnrollmentAnnotatesPartialReEnrollment(t *testing.T) {
+	unacknowledged := podWithAnnotation()
+	unacknowledged.Name = "unacknowledged"
+	unredirected := podWithAnnotation()
+	unredirected.Name = "unredirected"
+
+	fakeCtx := context.Background()
+	server := &fakeServer{}
+	server.On("ReconcileEnrollment", fakeCtx, []*corev1.Pod{unacknowledged, unredirected}).Return(errors.Join(
+		&reEnrollError{pod: unacknowledged, inner: errors.New("ztunnel not connected")},
+		&reEnrollError{pod: unredirected, inner: NewErrNonRetryableAdd(errors.New("iptables failed"))},
+	))
+	fakeClientSet := fake.NewClientset(unacknowledged, unredirected)
+	m := getFakeDP(server, fakeClientSet)
+
+	assert.Error(t, m.ReconcileEnrollment(fakeCtx, []*corev1.Pod{unacknowledged, unredirected}))
+	server.AssertExpectations(t)
+
+	for name, redirection := range map[string]string{
+		unacknowledged.Name: constants.AmbientRedirectionPending,
+		unredirected.Name:   constants.AmbientRedirectionEnabled,
+	} {
+		pod, err := fakeClientSet.CoreV1().Pods("test").Get(fakeCtx, name, metav1.GetOptions{})
+		assert.NoError(t, err)
+		assert.Equal(t, pod.Annotations[annotation.AmbientRedirection.Name], redirection)
+	}
+}
+
 func podWithAnnotation() *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

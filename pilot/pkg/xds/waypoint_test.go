@@ -23,9 +23,12 @@ import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	rbactcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -34,6 +37,7 @@ import (
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
@@ -297,6 +301,72 @@ func TestWaypointEndpoints(t *testing.T) {
 		// Tunnel doesn't support multiple IPs
 		"connect_originate;1.1.1.2:80",
 	})
+}
+
+func TestHBONEConnectWaitWaypointEndpoints(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
+	for _, appProtocol := range []string{"HTTP", "HTTP2", "TCP"} {
+		t.Run(appProtocol, func(t *testing.T) {
+			d, proxy := setupWaypointTest(t,
+				waypointGateway, waypointSvc, waypointInstance,
+				appPod, appPodNoMesh, appWorkloadEntry,
+				strings.ReplaceAll(appServiceEntry, "protocol: HTTP", "protocol: "+appProtocol))
+			subset := "http"
+			if appProtocol == "TCP" {
+				subset = "tcp"
+			}
+			name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, "app.com", 80)
+			stock := xdstest.ExtractClusters(d.Clusters(proxy))[name]
+			if stock == nil {
+				t.Fatal("missing stock service cluster")
+			}
+			stockEndpoints := xdstest.ExtractLocalityLbEndpoints(d.Endpoints(proxy))[name]
+			for _, enabled := range []bool{false, true} {
+				t.Run(fmt.Sprintf("enabled=%t", enabled), func(t *testing.T) {
+					proxy.Metadata.EnableHBONEConnectWait = model.StringBool(enabled)
+					c := xdstest.ExtractClusters(d.Clusters(proxy))[name]
+					if c == nil {
+						t.Fatal("missing service cluster")
+					}
+					assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONEConnectWaitPool, enabled)
+					assignments := d.Endpoints(proxy)
+					assert.Equal(t, xdstest.ExtractLocalityLbEndpoints(assignments)[name], stockEndpoints)
+					assert.Equal(t, slices.Sort(xdstest.ExtractLoadAssignments(assignments)[name]), []string{
+						"1.1.1.3:80,[2001:20::3]:80",
+						"connect_originate;1.1.1.1:80",
+						"connect_originate;1.1.1.2:80",
+					})
+					for _, locality := range xdstest.ExtractLocalityLbEndpoints(assignments)[name] {
+						for _, ep := range locality.LbEndpoints {
+							// Resolve the first matching transport using the generated EDS metadata.
+							transport := c.TransportSocket
+							metadata := ep.GetMetadata().GetFilterMetadata()[util.EnvoyTransportSocketMetadataKey].GetFields()
+							hbone := ep.GetEndpoint().Address.GetEnvoyInternalAddress() != nil
+							assert.Equal(t, metadata[model.TunnelLabelShortName].GetStringValue() == model.TunnelHTTP, hbone)
+							for _, match := range c.TransportSocketMatches {
+								matches := true
+								for key, value := range match.Match.Fields {
+									if !proto.Equal(metadata[key], value) {
+										matches = false
+										break
+									}
+								}
+								if matches {
+									transport = match.TransportSocket
+									break
+								}
+							}
+							if enabled && hbone {
+								assert.Equal(t, transport, util.WaypointHBONEOriginationAdapterTransportSocket())
+							} else {
+								assert.Equal(t, transport, stock.TransportSocket)
+							}
+						}
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestWaypointTelemetry(t *testing.T) {
@@ -603,24 +673,50 @@ spec:
 }
 
 func TestIngressUseWaypoint(t *testing.T) {
+	test.SetForTest(t, &features.EnableHBONESend, true)
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 	d, _ := setupWaypointTest(t,
 		waypointGateway,
 		waypointSvc,
 		appPod, appPodNoMesh,
 		waypointInstance, appWorkloadEntry,
 		appServiceEntry)
-	ingressProxy := d.SetupProxy(&model.Proxy{
-		Type:            model.Router,
-		ConfigNamespace: "default",
-		IPAddresses:     []string{"3.0.0.3"}, // Arbitrary
-	})
-
-	eps := slices.Sort(xdstest.ExtractLoadAssignments(d.Endpoints(ingressProxy))["outbound|80||app.com"])
-	assert.Equal(t, eps, []string{
-		// 1.2.3.4: Service VIP
-		// 3.0.0.1: Waypoint Pod IP
-		"connect_originate;1.2.3.4:80;3.0.0.1:15008",
-	})
+	for _, adapter := range []bool{false, true} {
+		t.Run(fmt.Sprintf("adapter=%t", adapter), func(t *testing.T) {
+			ingressProxy := d.SetupProxy(&model.Proxy{
+				Type: model.Router, ConfigNamespace: "default",
+				IPAddresses: []string{"3.0.0.3"},
+				Metadata: &model.NodeMetadata{
+					EnableHBONEConnectWait: model.StringBool(adapter),
+				},
+			})
+			transportName := "envoy.transport_sockets.internal_upstream"
+			if adapter {
+				transportName = util.HBONEOriginationAdapterTransport
+			}
+			eps := slices.Sort(xdstest.ExtractLoadAssignments(d.Endpoints(ingressProxy))["outbound|80||app.com"])
+			// Preserve the service VIP as CONNECT authority and the waypoint as outer peer.
+			assert.Equal(t, eps, []string{"connect_originate;1.2.3.4:80;3.0.0.1:15008"})
+			clusters := xdstest.ExtractClusters(d.Clusters(ingressProxy))
+			c := clusters["outbound|80||app.com"]
+			if c == nil || clusters["connect_originate"] == nil {
+				t.Fatal("missing service or outer HBONE cluster")
+			}
+			found := false
+			for _, match := range c.TransportSocketMatches {
+				if match.Name == "hbone" {
+					found = true
+					assert.Equal(t, match.TransportSocket.Name, transportName)
+				}
+			}
+			assert.Equal(t, found, true)
+			assert.Equal(t, c.GetUpstreamConfig().GetName() == util.HBONEConnectWaitPool, adapter)
+			assert.Equal(t, c.LoadBalancingPolicy == nil, true)
+			listeners := d.Listeners(ingressProxy)
+			assert.Equal(t, xdstest.ExtractListener("connect_originate", listeners) != nil, true)
+		})
+	}
 }
 
 func TestWaypointClusterWithDynamicDNS(t *testing.T) {
@@ -1396,4 +1492,160 @@ spec:
 	full = clusterNames()
 	assert.Equal(t, full.Contains(backendCluster), false)
 	assert.Equal(t, sets.SortedList(watched.Union(built).DeleteAll(removed...)), sets.SortedList(full))
+}
+
+const (
+	httpRBACTypeURL    = "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC"
+	networkRBACTypeURL = "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC"
+	hcmTypeURL         = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+)
+
+// rbacConfigs returns the JSON of every network and HTTP RBAC filter on the listener.
+func rbacConfigs(t *testing.T, l *listenerv3.Listener) []string {
+	t.Helper()
+	if l == nil {
+		t.Fatal("listener not found")
+	}
+	var out []string
+	for _, fc := range l.GetFilterChains() {
+		for _, f := range fc.GetFilters() {
+			switch f.GetTypedConfig().GetTypeUrl() {
+			case networkRBACTypeURL:
+				out = append(out, xdstest.Dump(t, xdstest.UnmarshalAny[rbactcp.RBAC](t, f.GetTypedConfig())))
+			case hcmTypeURL:
+				for _, hf := range xdstest.UnmarshalAny[hcm.HttpConnectionManager](t, f.GetTypedConfig()).GetHttpFilters() {
+					if hf.GetTypedConfig().GetTypeUrl() == httpRBACTypeURL {
+						out = append(out, xdstest.Dump(t, xdstest.UnmarshalAny[rbachttp.RBAC](t, hf.GetTypedConfig())))
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+// assertSourceIPMatching checks how RBAC filters for the source-ip policy match ipBlocks: using the peer IP in filter
+// state on internal listeners, or the direct remote address otherwise.
+func assertSourceIPMatching(t *testing.T, l *listenerv3.Listener, internal bool) {
+	t.Helper()
+	const policy = "source-ip"
+	found := false
+	for _, cfg := range rbacConfigs(t, l) {
+		if !strings.Contains(cfg, policy) {
+			continue
+		}
+		found = true
+		usesPeerIP := strings.Contains(cfg, `"addressMatch"`) && strings.Contains(cfg, `"io.istio.peer_direct_remote_ip"`)
+		usesDirect := strings.Contains(cfg, `"directRemoteIp"`)
+		if internal && (!usesPeerIP || usesDirect) {
+			t.Fatalf("%s: internal listener must match ipBlocks against the peer IP in filter state:\n%s", l.GetName(), cfg)
+		}
+		if !internal && (usesPeerIP || !usesDirect) {
+			t.Fatalf("%s: listener must match ipBlocks against the direct remote address:\n%s", l.GetName(), cfg)
+		}
+		// remoteIpBlocks keep matching the remote address on every listener.
+		if !strings.Contains(cfg, `"remoteIp"`) {
+			t.Fatalf("%s: listener must match remoteIpBlocks against the remote address:\n%s", l.GetName(), cfg)
+		}
+	}
+	if !found {
+		t.Fatalf("%s: no RBAC filter enforces %s", l.GetName(), policy)
+	}
+}
+
+// assertPeerIPFilterState checks that a CONNECT terminating listener stores the direct peer of the HBONE connection
+// for the internal listener.
+func assertPeerIPFilterState(t *testing.T, l *listenerv3.Listener) {
+	t.Helper()
+	if l == nil {
+		t.Fatal("listener not found")
+	}
+	terminate := xdstest.Dump(t, l)
+	if !strings.Contains(terminate, `"io.istio.peer_direct_remote_ip"`) ||
+		!strings.Contains(terminate, `"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%"`) {
+		t.Fatalf("%s does not store the peer address in filter state:\n%s", l.GetName(), terminate)
+	}
+}
+
+const sourceIPPolicyRules = `  rules:
+  - from:
+    - source:
+        ipBlocks: ["10.0.0.1", "2001:db8::/32"]
+  - from:
+    - source:
+        notIpBlocks: ["10.0.0.2"]
+  - from:
+    - source:
+        remoteIpBlocks: ["10.0.0.3"]
+  - when:
+    - key: source.ip
+      notValues: ["10.0.0.4"]
+`
+
+// TestWaypointSourceIPAuthorization checks that ipBlocks on a waypoint match the peer that the HBONE terminating
+// listener stores in filter state, as the direct remote address of main_internal is an internal Envoy address.
+// See https://github.com/istio/istio/issues/62522.
+func TestWaypointSourceIPAuthorization(t *testing.T) {
+	for _, action := range []string{"ALLOW", "DENY"} {
+		t.Run(action, func(t *testing.T) {
+			policy := `apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: source-ip
+  namespace: default
+spec:
+  targetRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: app
+  action: ` + action + "\n" + sourceIPPolicyRules
+			d, proxy := setupWaypointTest(t,
+				waypointGateway, waypointSvc, waypointInstance,
+				appServiceEntry, policy)
+			listeners := d.Listeners(proxy)
+
+			assertSourceIPMatching(t, xdstest.ExtractListener("main_internal", listeners), true)
+			assertPeerIPFilterState(t, xdstest.ExtractListener("connect_terminate", listeners))
+		})
+	}
+}
+
+// TestSidecarHBONESourceIPAuthorization checks that a sidecar matches ipBlocks against the peer in filter state on its
+// HBONE internal listener, and against the direct remote address on its regular inbound listener.
+func TestSidecarHBONESourceIPAuthorization(t *testing.T) {
+	test.SetForTest(t, &features.EnableSidecarHBONEListening, true)
+	policy := `apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: source-ip
+  namespace: istio-system
+spec:
+  action: DENY
+` + sourceIPPolicyRules
+	d := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: policy})
+	proxy := d.SetupProxy(&model.Proxy{Metadata: &model.NodeMetadata{EnableHBONE: true}})
+	listeners := d.Listeners(proxy)
+
+	assertSourceIPMatching(t, xdstest.ExtractListener("main_internal", listeners), true)
+	assertSourceIPMatching(t, xdstest.ExtractListener(model.VirtualInboundListenerName, listeners), false)
+	assertPeerIPFilterState(t, xdstest.ExtractListener("connect_terminate", listeners))
+}
+
+func TestWaypointConnectOriginateHasHTTP2Keepalive(t *testing.T) {
+	g := NewWithT(t)
+	d, p := setupWaypointTest(t, waypointGateway, waypointSvc, waypointInstance)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(p))
+	c := clusters["connect_originate"]
+	g.Expect(c).NotTo(BeNil())
+
+	po := c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
+	g.Expect(po).NotTo(BeNil())
+	var httpOptions upstream.HttpProtocolOptions
+	g.Expect(po.UnmarshalTo(&httpOptions)).To(Succeed())
+
+	keepalive := httpOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions().GetConnectionKeepalive()
+	g.Expect(keepalive).NotTo(BeNil(), "connect_originate must send HTTP/2 PINGs to detect dead peers")
+	g.Expect(keepalive.GetInterval().AsDuration()).To(Equal(10 * time.Second))
+	g.Expect(keepalive.GetTimeout().AsDuration()).To(Equal(20 * time.Second))
 }

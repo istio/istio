@@ -271,7 +271,6 @@ func TestOwnedCNIConfigInstall(t *testing.T) {
 				h := helm.New(cs.Filename())
 
 				// setup debug pod
-				cniLabel := "k8s-app=istio-cni-node"
 				var debugPod *corev1.Pod
 				nodeC := cs.Kube().CoreV1().Nodes()
 				if nodes, err := nodeC.List(context.TODO(), metav1.ListOptions{}); err != nil {
@@ -364,7 +363,7 @@ securityContext:
 				}
 
 				cniChartPath := filepath.Join(ManifestsChartPath, CniChartsDir)
-				upgradeChart := func(values map[string]any, args ...string) {
+				upgradeChart := func(t framework.TestContext, values map[string]any, args ...string) {
 					overrideValues, err := yaml.Marshal(values)
 					if err != nil {
 						t.Fatalf("failed to marshal override values to YAML: %v", err)
@@ -377,7 +376,7 @@ securityContext:
 					if err := h.UpgradeChart(CniReleaseName, cniChartPath, cniNs, overrideValuesFile, Timeout, args...); err != nil {
 						t.Fatalf("failed to upgrade istio %s chart", CniReleaseName)
 					}
-					VerifyPodReady(t, cs, cniNs, cniLabel)
+					VerifyDaemonSetRolledOut(t, cs, cniNs, "istio-cni-node")
 				}
 
 				settings := t.Settings()
@@ -387,6 +386,12 @@ securityContext:
 						"hub":     settings.Image.Hub,
 						"variant": settings.Image.Variant,
 					},
+				}
+				// subtests share node state, a failed one can leave cni config behind and break the rest
+				skipIfPriorFailed := func(sub framework.TestContext) {
+					if t.Failed() {
+						sub.Skip("previous subtest failed")
+					}
 				}
 				t.NewSubTest("initial install").Run(func(t framework.TestContext) {
 					// primary CNIConfig only
@@ -409,8 +414,9 @@ securityContext:
 				})
 
 				t.NewSubTest("enable detection retry").Run(func(t framework.TestContext) {
+					skipIfPriorFailed(t)
 					// enable retry
-					upgradeChart(maps.MergeCopy(cniValues, map[string]any{
+					upgradeChart(t, maps.MergeCopy(cniValues, map[string]any{
 						"profile": "ambient",
 						"ambient": map[string]any{
 							"enableAmbientDetectionRetry": true,
@@ -436,8 +442,9 @@ securityContext:
 				})
 
 				t.NewSubTest("istio owned enabled + user owned config file").Run(func(t framework.TestContext) {
+					skipIfPriorFailed(t)
 					// enable istioOWnedCNIConfig
-					upgradeChart(maps.MergeCopy(cniValues, map[string]any{
+					upgradeChart(t, maps.MergeCopy(cniValues, map[string]any{
 						"profile":                     "ambient",
 						"istioOwnedCNIConfig":         true,
 						"istioOwnedCNIConfigFileName": "01-myconfig.conflist",
@@ -474,8 +481,9 @@ securityContext:
 				})
 
 				t.NewSubTest("enable istio owned config").Run(func(t framework.TestContext) {
+					skipIfPriorFailed(t)
 					// enable istioOWnedCNIConfig
-					upgradeChart(maps.MergeCopy(cniValues, map[string]any{
+					upgradeChart(t, maps.MergeCopy(cniValues, map[string]any{
 						"profile":             "ambient",
 						"istioOwnedCNIConfig": true,
 					}))
@@ -511,6 +519,7 @@ securityContext:
 				})
 
 				t.NewSubTest("uninstall").Run(func(t framework.TestContext) {
+					skipIfPriorFailed(t)
 					// uninstall istio-cni
 					if err := h.DeleteChart(CniReleaseName, cniNs); err != nil {
 						t.Fatalf("failed to delete %s release: %v", CniReleaseName, err)
@@ -534,7 +543,7 @@ securityContext:
 				})
 
 				// satisfy the cleanup
-				upgradeChart(maps.MergeCopy(cniValues, map[string]any{
+				upgradeChart(t, maps.MergeCopy(cniValues, map[string]any{
 					"profile": "ambient",
 				}), "--install")
 			}, "")(t)

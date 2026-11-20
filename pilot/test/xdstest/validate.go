@@ -93,6 +93,20 @@ func validateInboundListener(t testing.TB, l *listener.Listener) {
 func validateFilterChainMatch(t testing.TB, l *listener.Listener) {
 	t.Helper()
 
+	// With a filter chain matcher, Envoy selects chains by name and requires the names to be unique.
+	if l.GetFilterChainMatcher() != nil {
+		names := sets.New[string]()
+		for _, fc := range l.FilterChains {
+			if fc.GetFilterChainMatch() != nil {
+				t.Errorf("filter chain %q has a filter chain match, which a filter chain matcher ignores", fc.Name)
+			}
+			if names.InsertContains(fc.Name) {
+				t.Errorf("duplicate filter chain name %q", fc.Name)
+			}
+		}
+		return
+	}
+
 	// Check for duplicate filter chains, to avoid "multiple filter chains with the same matching rules are defined" error
 	check := map[string]int{}
 	for i1, l1 := range l.FilterChains {

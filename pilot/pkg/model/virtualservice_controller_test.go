@@ -796,6 +796,7 @@ type fakeXDSUpdater struct {
 
 func (f *fakeXDSUpdater) ConfigUpdate(*PushRequest)                                 { f.pushCount.Add(1) }
 func (f *fakeXDSUpdater) EDSUpdate(ShardKey, string, string, []*IstioEndpoint)      {}
+func (f *fakeXDSUpdater) EDSReplace(ShardKey, string, string, []*IstioEndpoint)     {}
 func (f *fakeXDSUpdater) EDSCacheUpdate(ShardKey, string, string, []*IstioEndpoint) {}
 func (f *fakeXDSUpdater) SvcUpdate(ShardKey, string, string, Event)                 {}
 func (f *fakeXDSUpdater) ProxyUpdate(cluster.ID, string)                            {}
