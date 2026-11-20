@@ -249,6 +249,39 @@ func (in *Installer) Run(ctx context.Context) error {
 // Cleanup removes Istio CNI's config, kubeconfig file, and binaries.
 func (in *Installer) Cleanup() error {
 	installLog.Info("cleaning up CNI installation")
+	cfgErr := in.cleanupCNIConfig()
+	// Another CNI chaining in front of ours (e.g. Antrea) can keep a copy that lists istio-cni,
+	// in owned and non-owned mode, so sweep even if our own config could not be cleaned.
+	removeIstioCNIFromCopies(in.cfg)
+	if cfgErr != nil {
+		// Keep the binary: a config still listing istio-cni without it fails every new sandbox.
+		return cfgErr
+	}
+
+	if err := removePreviousIstioOwnedMarker(in.cfg); err != nil {
+		return fmt.Errorf("failed to remove istio-owned marker file: %w", err)
+	}
+
+	if len(in.kubeconfigFilepath) > 0 && file.Exists(in.kubeconfigFilepath) {
+		installLog.Infof("removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
+		if err := os.Remove(in.kubeconfigFilepath); err != nil {
+			return fmt.Errorf("failed to remove kubeconfig file %s: %w", in.kubeconfigFilepath, err)
+		}
+	}
+
+	for _, targetDir := range in.cfg.CNIBinTargetDirs {
+		if istioCNIBin := filepath.Join(targetDir, "istio-cni"); file.Exists(istioCNIBin) {
+			installLog.Infof("removing binary: %s", istioCNIBin)
+			if err := os.Remove(istioCNIBin); err != nil {
+				return fmt.Errorf("failed to remove binary %s: %w", istioCNIBin, err)
+			}
+		}
+	}
+	return nil
+}
+
+// cleanupCNIConfig removes istio-cni from the primary CNI config, or removes our own config file.
+func (in *Installer) cleanupCNIConfig() error {
 	if len(in.cniConfigFilepath) > 0 && file.Exists(in.cniConfigFilepath) {
 		if in.cfg.ChainedCNIPlugin && !in.cfg.IstioOwnedCNIConfig {
 			installLog.Infof("removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
@@ -288,29 +321,6 @@ func (in *Installer) Cleanup() error {
 			installLog.Infof("removing Istio CNI config file: %s", in.cniConfigFilepath)
 			if err := os.Remove(in.cniConfigFilepath); err != nil {
 				return fmt.Errorf("failed to remove CNI config file %s: %w", in.cniConfigFilepath, err)
-			}
-			if useIstioOwnedCNIConfig(in.cfg) {
-				removeIstioCNIFromCopies(in.cfg)
-			}
-		}
-	}
-
-	if err := removePreviousIstioOwnedMarker(in.cfg); err != nil {
-		return fmt.Errorf("failed to remove istio-owned marker file: %w", err)
-	}
-
-	if len(in.kubeconfigFilepath) > 0 && file.Exists(in.kubeconfigFilepath) {
-		installLog.Infof("removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
-		if err := os.Remove(in.kubeconfigFilepath); err != nil {
-			return fmt.Errorf("failed to remove kubeconfig file %s: %w", in.kubeconfigFilepath, err)
-		}
-	}
-
-	for _, targetDir := range in.cfg.CNIBinTargetDirs {
-		if istioCNIBin := filepath.Join(targetDir, "istio-cni"); file.Exists(istioCNIBin) {
-			installLog.Infof("removing binary: %s", istioCNIBin)
-			if err := os.Remove(istioCNIBin); err != nil {
-				return fmt.Errorf("failed to remove binary %s: %w", istioCNIBin, err)
 			}
 		}
 	}

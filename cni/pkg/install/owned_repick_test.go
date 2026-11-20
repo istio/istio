@@ -253,3 +253,68 @@ func TestChainedConfiguredPrimaryStaysPinned(t *testing.T) {
 	assert.Equal(t, cfg.CNIConfName, primaryName)
 	assert.Equal(t, path, filepath.Join(dir, primaryName))
 }
+
+// Antrea chaining on a non-owned primary copies it with istio-cni already appended.
+func TestCleanupChainedStripsCopies(t *testing.T) {
+	cfg := ownedTestConfig(t)
+	cfg.IstioOwnedCNIConfig = false
+	cfg.IstioOwnedCNIConfigFilename = ""
+	dir := cfg.MountedCNINetDir
+
+	path, _ := install(t, cfg, "")
+	if err := file.AtomicCopy(path, dir, antreaName); err != nil {
+		t.Fatal(err)
+	}
+
+	isReady := &atomic.Value{}
+	isReady.Store(false)
+	installer := NewInstaller(cfg, isReady)
+	installer.cniConfigFilepath = path
+	if err := installer.Cleanup(); err != nil {
+		t.Fatal(err)
+	}
+
+	assertNoIstioCNI(t, path)
+	assertNoIstioCNI(t, filepath.Join(dir, antreaName))
+}
+
+func TestCleanupStripsCopiesWhenOwnedConfigGone(t *testing.T) {
+	cfg := ownedTestConfig(t)
+	dir := cfg.MountedCNINetDir
+
+	path, _ := install(t, cfg, "")
+	antreaChain(t, dir)
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+
+	isReady := &atomic.Value{}
+	isReady.Store(false)
+	installer := NewInstaller(cfg, isReady)
+	installer.cniConfigFilepath = path
+	if err := installer.Cleanup(); err != nil {
+		t.Fatal(err)
+	}
+
+	assertNoIstioCNI(t, filepath.Join(dir, antreaName))
+}
+
+func TestUnchangedOwnedConfigModeReconciled(t *testing.T) {
+	cfg := ownedTestConfig(t)
+
+	path, _ := install(t, cfg, "")
+	if err := os.Chmod(path, 0o666); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if _, err := createCNIConfigFile(ctx, cfg); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, info.Mode().Perm(), cfg.CNIConfFileMode().Perm())
+}
