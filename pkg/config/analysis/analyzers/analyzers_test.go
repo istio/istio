@@ -566,6 +566,471 @@ var testGrid = []testCase{
 		expected: []message{},
 	},
 	{
+		name: "wildcardSNIGateway",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/outside"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/all-sni"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/subset"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/dot-gateway"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/fqdn-gateway"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService egress-cfg/scoped-cr"},
+		},
+	},
+	{
+		// PILOT_SCOPE_GATEWAY_TO_NAMESPACE: the egress-cfg Gateway no longer applies to the istio-system pod.
+		name: "wildcardSNIGatewayScopedToNamespace",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on-scoped.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/outside"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/all-sni"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/subset"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/dot-gateway"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/fqdn-gateway"},
+		},
+	},
+	{
+		// The analyzed istiod (no istio.io/rev label, so "default") does not serve the canary gateway pod.
+		name: "wildcardSNIGatewayOtherRevision",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-gateway-other-revision.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		// A released istiod older than 1.33 has no gateway wildcard TLS support, so it does not skip these routes.
+		name: "wildcardSNIGatewayReleasedOld",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on-released-old.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		// The istiod image is a vendor build of a release older than 1.33: gateway wildcard TLS support is not known, so no warning.
+		name: "wildcardSNIGatewayImageVendor",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on-vendor.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		// The istiod image is a pre-release of an Istio version older than 1.33: gateway wildcard TLS support is not known, so no warning.
+		name: "wildcardSNIGatewayImagePrerelease",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on-prerelease.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		// The istiod image is an image tag without a version: gateway wildcard TLS support is not known, so no warning.
+		name: "wildcardSNIGatewayImageLatest",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on-latest.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		// The istiod image is an image pinned by digest only: gateway wildcard TLS support is not known, so no warning.
+		name: "wildcardSNIGatewayImageDigest",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on-digest.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		// The istiod Deployment has no discovery container, so the istiod version is not known: no warning.
+		name: "wildcardSNIGatewayNoDiscoveryContainer",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on-no-discovery.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "wildcardSNIGatewayReleasedNew",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on-released-new.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/outside"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/all-sni"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/subset"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/dot-gateway"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/fqdn-gateway"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService egress-cfg/scoped-cr"},
+		},
+	},
+	{
+		// The flag comes from a ConfigMap the analyzer cannot read: unknown, so no warning.
+		name: "wildcardSNIGatewayFlagFromConfigMap",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-valuefrom.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		// The gateway pod uses revision tag "prod", which points to the analyzed default revision.
+		name: "wildcardSNIGatewayRevisionTag",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-gateway-tag.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-egress/tag"},
+		},
+	},
+	{
+		name: "wildcardSNIWaypointClassBinding",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-waypoint-class-binding.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-class/class-bound"},
+		},
+	},
+	{
+		// The waypoint check does not depend on gateway wildcard TLS support.
+		name: "wildcardSNIWaypointReleasedOld",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on-released-old.yaml",
+			"testdata/wildcard-sni-waypoint.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/narrow"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/narrow"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb-ns/by-namespace"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-x/cross-se-ns"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService egress-wp/cross-wp-ns"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-sel/selected"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-bind/bind-all"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-bind/bind-badport"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/other-backend"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/exact-source-labels"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/exact-source-namespace"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/wildcard-and-own"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/broader-own"},
+		},
+	},
+	{
+		name: "wildcardSNITLSRouteGateway",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-tlsroute-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-c"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-c2"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-e"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute app/t-g"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-i"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-l"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute app-sel/t-sel"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-no-hostnames"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-other-kind"},
+		},
+	},
+	{
+		// defaultVirtualServiceExportTo ["."] hides the VirtualServices that istiod creates in app and app-sel from the
+		// gateway pods in egress.
+		name:           "wildcardSNITLSRouteGatewayVirtualServiceExportTo",
+		meshConfigFile: "testdata/wildcard-sni-mesh-vs-exportto-local.yaml",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-tlsroute-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-c"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-c2"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-e"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-i"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-l"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-no-hostnames"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-other-kind"},
+		},
+	},
+	{
+		// Only a canary istiod is analyzed. A Gateway without an istio.io/rev label in a namespace with
+		// istio.io/rev=canary is served by it; without a Namespace object the revision comes from the Gateway labels.
+		name: "wildcardSNITLSRouteGatewayCanaryOnly",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on-canary-only.yaml",
+			"testdata/wildcard-sni-tlsroute-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress/t-canary"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "TLSRoute egress-rev/t-ns-rev"},
+		},
+	},
+	{
+		name: "wildcardSNITLSRouteGatewayFlagOff",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-off.yaml",
+			"testdata/wildcard-sni-tlsroute-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "wildcardSNITLSRouteWaypoint",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-tlsroute-waypoint.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{
+			{msg.WaypointWildcardSNIMatchIgnored, "TLSRoute amb-t/w-narrow"},
+			{msg.WaypointWildcardSNIMatchIgnored, "TLSRoute amb-t/w-wider"},
+			{msg.WaypointWildcardSNIMatchIgnored, "TLSRoute amb-t/w-two"},
+			{msg.WaypointWildcardSNIMatchIgnored, "TLSRoute amb-t/w-none-match"},
+			{msg.WaypointWildcardSNIMatchIgnored, "TLSRoute amb-t2/w-cross"},
+		},
+	},
+	{
+		// defaultVirtualServiceExportTo ["."] hides the VirtualService that istiod creates in amb-t2 from the amb-t waypoint.
+		name:           "wildcardSNITLSRouteWaypointVirtualServiceExportTo",
+		meshConfigFile: "testdata/wildcard-sni-mesh-vs-exportto-local.yaml",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-tlsroute-waypoint.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{
+			{msg.WaypointWildcardSNIMatchIgnored, "TLSRoute amb-t/w-narrow"},
+			{msg.WaypointWildcardSNIMatchIgnored, "TLSRoute amb-t/w-wider"},
+			{msg.WaypointWildcardSNIMatchIgnored, "TLSRoute amb-t/w-two"},
+			{msg.WaypointWildcardSNIMatchIgnored, "TLSRoute amb-t/w-none-match"},
+		},
+	},
+	{
+		name: "wildcardSNIWaypoint",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-waypoint.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/narrow"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/narrow"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb-ns/by-namespace"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-x/cross-se-ns"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService egress-wp/cross-wp-ns"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-sel/selected"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-bind/bind-all"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService app-bind/bind-badport"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/other-backend"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/exact-source-labels"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/exact-source-namespace"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/wildcard-and-own"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/broader-own"},
+		},
+	},
+	{
+		// istiod picks TLS routes for each port on its own, so an exact-host match on one port does not hide
+		// ignored matches on another port.
+		name: "wildcardSNIWaypointPerPort",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-waypoint-ports.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb-p/split-ports"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb-p/any-port-narrow"},
+		},
+	},
+	{
+		// serviceEntryVisibility may refuse cross-namespace waypoints, so only same-namespace ones are checked.
+		name:           "wildcardSNIWaypointServiceEntryVisibility",
+		meshConfigFile: "testdata/wildcard-sni-mesh-se-visibility.yaml",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-waypoint.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/narrow"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/narrow"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb-ns/by-namespace"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/other-backend"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/exact-source-labels"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/exact-source-namespace"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/wildcard-and-own"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/broader-own"},
+		},
+	},
+	{
+		// A policy NONE for namespaces labeled vis=none: ztunnel does not get es.wikipedia.org, so that match warns.
+		// serviceEntryVisibility is set, so only same-namespace waypoints are checked.
+		name:           "wildcardSNIWaypointServiceEntryVisibilityPolicy",
+		meshConfigFile: "testdata/wildcard-sni-mesh-se-visibility-policy.yaml",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-waypoint.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/narrow"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/narrow"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb-ns/by-namespace"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/other-backend"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/exact-source-labels"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/exact-source-namespace"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/wildcard-and-own"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/broader-own"},
+			{msg.WaypointWildcardSNIMatchIgnored, "VirtualService amb/own-se-none"},
+		},
+	},
+	{
+		// Visibility NONE: istiod does not configure the ServiceEntries, so no waypoint uses them.
+		name:           "wildcardSNIWaypointServiceEntryVisibilityNone",
+		meshConfigFile: "testdata/wildcard-sni-mesh-se-visibility-none.yaml",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-waypoint.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "wildcardSNIGatewayFlagOff",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-off.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "wildcardSNIWaypointFlagOff",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-off.yaml",
+			"testdata/wildcard-sni-waypoint.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{},
+	},
+	{
+		// Another istiod revision without the flag: the flag state of each proxy is unknown.
+		name: "wildcardSNIGatewayRevisionWithoutFlag",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-istiod-canary.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "wildcardSNIWaypointRevisionWithoutFlag",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-istiod-canary.yaml",
+			"testdata/wildcard-sni-waypoint.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "wildcardSNIGatewayNoIstiod",
+		inputFiles: []string{
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "wildcardSNIWaypointNoIstiod",
+		inputFiles: []string{
+			"testdata/wildcard-sni-waypoint.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIWaypointAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "wildcardSNIGatewayOtherNamespace",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-gateway-other-namespace.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/other-namespace"},
+		},
+	},
+	{
+		// defaultServiceExportTo ["."] hides the egress2 ServiceEntry from the istio-system gateway pod.
+		name:           "wildcardSNIGatewayMeshDefaultExportTo",
+		meshConfigFile: "testdata/wildcard-sni-mesh-exportto-local.yaml",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-gateway-other-namespace.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		// serviceEntryVisibility with applyToSidecars limits the egress2 ServiceEntry to its own namespace, so the
+		// istio-system gateway pod does not see it.
+		name:           "wildcardSNIGatewayServiceEntryVisibility",
+		meshConfigFile: "testdata/wildcard-sni-mesh-se-visibility-sidecars.yaml",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-gateway-other-namespace.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{},
+	},
+	{
+		// The same setting keeps ServiceEntries in the gateway pod namespace visible.
+		name:           "wildcardSNIGatewayServiceEntryVisibilitySameNamespace",
+		meshConfigFile: "testdata/wildcard-sni-mesh-se-visibility-sidecars.yaml",
+		inputFiles: []string{
+			"testdata/wildcard-sni-istiod-on.yaml",
+			"testdata/wildcard-sni-gateway.yaml",
+		},
+		analyzer: &virtualservice.WildcardSNIGatewayAnalyzer{},
+		expected: []message{
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/outside"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/all-sni"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/subset"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/dot-gateway"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService istio-system/fqdn-gateway"},
+			{msg.GatewayWildcardSNIHostsNotUnderHost, "VirtualService egress-cfg/scoped-cr"},
+		},
+	},
+	{
 		name: "authorizationpolicies",
 		inputFiles: []string{
 			"testdata/authorizationpolicies.yaml",
@@ -1327,4 +1792,60 @@ func prettyPrintMessages(msgs diag.Messages) string {
 		fmt.Fprintf(&sb, "\t%s\n", m.String())
 	}
 	return sb.String()
+}
+
+// TestWaypointWildcardSNIIgnoredPorts checks that IST0180 names the ports where the waypoint ignores the rule, since
+// istiod picks TLS routes for each port on its own.
+func TestWaypointWildcardSNIIgnoredPorts(t *testing.T) {
+	cases := []struct {
+		name       string
+		inputFiles []string
+		want       map[string]string
+	}{
+		{
+			name:       "VirtualService",
+			inputFiles: []string{"testdata/wildcard-sni-istiod-on.yaml", "testdata/wildcard-sni-waypoint-ports.yaml"},
+			want: map[string]string{
+				"VirtualService amb-p/split-ports":     "ignores TLS rule 0 on ports [8443].",
+				"VirtualService amb-p/any-port-narrow": "ignores TLS rule 0 on ports [8443].",
+			},
+		},
+		{
+			name:       "TLSRoute",
+			inputFiles: []string{"testdata/wildcard-sni-istiod-on.yaml", "testdata/wildcard-sni-tlsroute-waypoint.yaml"},
+			want: map[string]string{
+				"TLSRoute amb-t/w-narrow": "on ports [443].",
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sa, err := setupAnalyzerForCase(testCase{
+				name:       tc.name,
+				inputFiles: tc.inputFiles,
+				analyzer:   &virtualservice.WildcardSNIWaypointAnalyzer{},
+			}, func(config.GroupVersionKind) {})
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := runAnalyzer(sa)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for origin, want := range tc.want {
+				found := false
+				for _, m := range result.Messages {
+					if m.Resource != nil && m.Resource.Origin.FriendlyName() == origin {
+						found = true
+						if !strings.Contains(m.String(), want) {
+							t.Errorf("%s: message %q does not contain %q", origin, m.String(), want)
+						}
+					}
+				}
+				if !found {
+					t.Errorf("%s: no message", origin)
+				}
+			}
+		})
+	}
 }

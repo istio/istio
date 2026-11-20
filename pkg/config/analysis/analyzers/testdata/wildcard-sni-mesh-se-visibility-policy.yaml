@@ -1,0 +1,4 @@
+serviceEntryVisibility:
+  policies:
+  - visibility: NONE
+    matchingRules: [{namespaceSelector: {matchLabels: {vis: none}}}]

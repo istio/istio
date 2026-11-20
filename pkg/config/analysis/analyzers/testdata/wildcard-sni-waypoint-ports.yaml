@@ -1,0 +1,88 @@
+# Waypoint: istiod picks TLS routes separately for each port, so an exact-host match on one port does not make
+# narrower matches on another port of the same rule used.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: egress-waypoint
+  namespace: amb-p
+spec:
+  gatewayClassName: istio-waypoint
+  listeners: [{name: mesh, port: 15008, protocol: HBONE}]
+status:
+  addresses: [{type: IPAddress, value: 10.96.0.10}]
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: amb-p
+  labels:
+    istio.io/dataplane-mode: ambient
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: example
+  namespace: amb-p
+  labels:
+    istio.io/use-waypoint: egress-waypoint
+spec:
+  hosts: ["*.example.com"]
+  ports: [{number: 443, name: tls, protocol: TLS}, {number: 8443, name: tls-alt, protocol: TLS}]
+  location: MESH_EXTERNAL
+  resolution: DYNAMIC_DNS
+---
+# Exact host on 443 only, narrower SNI on 8443: the 8443 match is ignored, one warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: split-ports
+  namespace: amb-p
+spec:
+  hosts: ["*.example.com"]
+  tls:
+  - match:
+    - {port: 443, sniHosts: ["*.example.com"]}
+    - {port: 8443, sniHosts: ["en.example.com"]}
+    route: [{destination: {host: "*.example.com", port: {number: 443}}}]
+---
+# Exact host on every port (no port set): the rule is used on 443 and 8443, no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: all-ports
+  namespace: amb-p
+spec:
+  hosts: ["*.example.com"]
+  tls:
+  - match:
+    - {sniHosts: ["*.example.com"]}
+    - {port: 8443, sniHosts: ["en.example.com"]}
+    route: [{destination: {host: "*.example.com", port: {number: 443}}}]
+---
+# Exact host and narrower SNI on the same port: the rule is used on 443, no warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: same-port
+  namespace: amb-p
+spec:
+  hosts: ["*.example.com"]
+  tls:
+  - match:
+    - {port: 443, sniHosts: ["*.example.com"]}
+    - {port: 443, sniHosts: ["en.example.com"]}
+    route: [{destination: {host: "*.example.com", port: {number: 443}}}]
+---
+# Narrower SNI with no port, exact host only on 443: on 8443 the narrower match is the only one, one warning.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: any-port-narrow
+  namespace: amb-p
+spec:
+  hosts: ["*.example.com"]
+  tls:
+  - match:
+    - {port: 443, sniHosts: ["*.example.com"]}
+    - {sniHosts: ["de.example.com"]}
+    route: [{destination: {host: "*.example.com", port: {number: 443}}}]

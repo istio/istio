@@ -1,0 +1,45 @@
+# A ServiceEntry without exportTo in another namespace than the gateway pod. Visible by default (exportTo "*"),
+# hidden when the mesh defaultServiceExportTo is ["."].
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: other-namespace
+  namespace: egress2
+spec:
+  hosts: ["*.example.com"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: other-namespace
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: [egressgateway]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.example.com", port: {number: 443}}}]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: istio-egressgateway-1
+  namespace: istio-system
+  labels:
+    istio: egressgateway
+spec:
+  containers: [{name: istio-proxy, image: proxyv2}]
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: egressgateway
+  namespace: istio-system
+spec:
+  selector: {istio: egressgateway}
+  servers:
+  - port: {number: 443, name: tls-passthrough, protocol: TLS}
+    hosts: ["*"]
+    tls: {mode: PASSTHROUGH}

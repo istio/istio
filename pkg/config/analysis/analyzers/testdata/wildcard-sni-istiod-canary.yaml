@@ -1,0 +1,20 @@
+# A second istiod revision without the flag.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod-canary
+  namespace: istio-system
+  labels:
+    app: istiod
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+  template:
+    metadata:
+      labels:
+        app: istiod
+    spec:
+      containers:
+        - name: discovery
+          image: registry.istio.io/testing/pilot:latest

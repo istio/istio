@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+  template:
+    metadata:
+      labels:
+        app: istiod
+    spec:
+      containers:
+        - name: discovery
+          image: docker.io/istio/pilot@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          env:
+            - name: ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS
+              value: "true"

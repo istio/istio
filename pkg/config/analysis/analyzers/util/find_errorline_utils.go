@@ -42,6 +42,10 @@ const (
 	// Required parameters: gateway index.
 	VSGateway = "{.spec.gateways[%d]}"
 
+	// Path for the first SNI host of a TLS match in VirtualService.
+	// Required parameters: tls route index, match index.
+	VSTLSMatchSNIHost = "{.spec.tls[%d].match[%d].sniHosts[0]}"
+
 	// Path for regex match of uri, scheme, method and authority.
 	// Required parameters: http index, match index, where to match.
 	URISchemeMethodAuthorityRegexMatch = "{.spec.http[%d].match[%d].%s.regex}"

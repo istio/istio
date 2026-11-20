@@ -1,0 +1,46 @@
+# Gateway pod served by another istiod revision than the one analyzed: istiod with the flag does not configure it,
+# so no warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: istio-egressgateway-canary-1
+  namespace: istio-egress
+  labels:
+    istio: egressgateway-canary
+    istio.io/rev: canary
+spec:
+  containers: [{name: istio-proxy, image: proxyv2}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wikipedia
+  namespace: istio-egress
+spec:
+  hosts: ["*.wikipedia.org"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: egressgateway-canary
+  namespace: istio-egress
+spec:
+  selector: {istio: egressgateway-canary}
+  servers:
+  - port: {number: 443, name: tls-passthrough, protocol: TLS}
+    hosts: ["*"]
+    tls: {mode: PASSTHROUGH}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: other-revision
+  namespace: istio-egress
+spec:
+  hosts: ["*"]
+  gateways: [egressgateway-canary]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]
