@@ -154,6 +154,128 @@ func TestLocalK8sGatewayToNetworkGateways(t *testing.T) {
 	})
 }
 
+func TestRemoteK8sGatewayToNetworkGateways(t *testing.T) {
+	ipType := gatewayv1.IPAddressType
+	hostnameType := gatewayv1.HostnameAddressType
+	terminateMode := gatewayv1.TLSModeTerminate
+	passthroughMode := gatewayv1.TLSModePassthrough
+
+	gateway := func(mutate func(gw *gatewayv1.Gateway)) *gatewayv1.Gateway {
+		gw := &gatewayv1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "eastwest",
+				Namespace: "istio-system",
+				Labels:    map[string]string{label.TopologyNetwork.Name: "nw2"},
+			},
+			Spec: gatewayv1.GatewaySpec{
+				GatewayClassName: constants.EastWestGatewayClassName,
+				Listeners: []gatewayv1.Listener{{
+					Name:     "hbone",
+					Protocol: "HBONE",
+					Port:     15008,
+					TLS:      &gatewayv1.ListenerTLSConfig{Mode: &terminateMode},
+				}},
+			},
+			Status: gatewayv1.GatewayStatus{
+				Addresses: []gatewayv1.GatewayStatusAddress{{Type: &ipType, Value: "1.2.3.4"}},
+			},
+		}
+		if mutate != nil {
+			mutate(gw)
+		}
+		return gw
+	}
+
+	base := model.NetworkGateway{
+		Network:   "nw2",
+		Cluster:   "cluster-2",
+		Addr:      "1.2.3.4",
+		HBONEPort: 15008,
+		// GatewaySA only renames the service account for the remote gateway class.
+		ServiceAccount: types.NamespacedName{Namespace: "istio-system", Name: "eastwest"},
+	}
+	source := types.NamespacedName{Namespace: "istio-system", Name: "eastwest"}
+
+	cases := []struct {
+		name   string
+		gw     *gatewayv1.Gateway
+		expect []NetworkGateway
+	}{
+		{
+			name:   "hbone terminate listener sets HBONEPort",
+			gw:     gateway(nil),
+			expect: []NetworkGateway{{NetworkGateway: base, Source: source}},
+		},
+		{
+			name: "hostname address",
+			gw: gateway(func(gw *gatewayv1.Gateway) {
+				gw.Status.Addresses = []gatewayv1.GatewayStatusAddress{{Type: &hostnameType, Value: "ew.example.com"}}
+			}),
+			expect: []NetworkGateway{{
+				NetworkGateway: func() model.NetworkGateway {
+					g := base
+					g.Addr = "ew.example.com"
+					return g
+				}(),
+				Source: source,
+			}},
+		},
+		{
+			name: "multiple hbone listeners collapse to the first",
+			gw: gateway(func(gw *gatewayv1.Gateway) {
+				gw.Spec.Listeners = append(gw.Spec.Listeners, gatewayv1.Listener{
+					Name:     "hbone-alt",
+					Protocol: "HBONE",
+					Port:     15009,
+					TLS:      &gatewayv1.ListenerTLSConfig{Mode: &terminateMode},
+				})
+			}),
+			expect: []NetworkGateway{{NetworkGateway: base, Source: source}},
+		},
+		{
+			name: "listener that does not terminate is not a remote gateway",
+			gw: gateway(func(gw *gatewayv1.Gateway) {
+				gw.Spec.Listeners = []gatewayv1.Listener{{
+					Name:     "passthrough",
+					Protocol: "HBONE",
+					Port:     15008,
+					TLS:      &gatewayv1.ListenerTLSConfig{Mode: &passthroughMode},
+				}}
+			}),
+			expect: []NetworkGateway{},
+		},
+		{
+			name: "no network label",
+			gw: gateway(func(gw *gatewayv1.Gateway) {
+				gw.Labels = nil
+			}),
+			expect: nil,
+		},
+		{
+			name: "wrong gateway class",
+			gw: gateway(func(gw *gatewayv1.Gateway) {
+				gw.Spec.GatewayClassName = constants.RemoteGatewayClassName
+			}),
+			expect: nil,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, remoteK8sGatewayToNetworkGateways(cluster.ID("cluster-2"), tc.gw), tc.expect)
+		})
+	}
+
+	// The conversion is reached through k8sGatewayToNetworkGateways for any gateway that is
+	// not in the local cluster; getNetworkGatewayAddress skips a gateway whose HBONEPort is
+	// zero, so dropping it here leaves remote workloads with no gateway address at all.
+	t.Run("dispatched for a remote cluster", func(t *testing.T) {
+		assert.Equal(t,
+			k8sGatewayToNetworkGateways(cluster.ID("cluster-2"), gateway(nil), cluster.ID("cluster-1")),
+			[]NetworkGateway{{NetworkGateway: base, Source: source}})
+	})
+}
+
 func TestLookupNetworkGatewayOrder(t *testing.T) {
 	gws := make([]NetworkGateway, 0, 8)
 	for i := range 8 {
