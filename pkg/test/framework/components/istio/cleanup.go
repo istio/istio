@@ -124,6 +124,7 @@ func (i *istioImpl) Dump(ctx resource.Context) {
 		kube2.DumpPods(ctx, d, "kube-system", []string{})
 		return nil
 	})
+	_ = g.Wait()
 }
 
 func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
