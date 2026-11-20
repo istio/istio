@@ -398,6 +398,7 @@ func applyLoadBalancer(
 	}
 
 	ApplyRingHashLoadBalancer(c, lb)
+	loadbalancer.ApplyDynamicSubset(c, lb.GetDynamicSubset())
 }
 
 // applySimpleDefaultLoadBalancer will set the DefaultLBPolicy and create an LbConfig if used in LoadBalancerSettings

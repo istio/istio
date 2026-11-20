@@ -1079,6 +1079,58 @@ spec:
                                   description: Hash based on the source IP address.
                                   type: boolean
                               type: object
+                            dynamicSubset:
+                              description: Dynamic subset load balancing divides the
+                                endpoints of the service into subsets at request time,
+                                based on endpoint attributes, without creating a separate
+                                cluster for each subset.
+                              properties:
+                                defaultSubset:
+                                  additionalProperties:
+                                    type: string
+                                  description: The subset used when `fallbackPolicy`
+                                    is `DEFAULT_SUBSET`, as a map of key to value.
+                                  maxProperties: 16
+                                  type: object
+                                fallbackPolicy:
+                                  description: |-
+                                    The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                                    Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                                  enum:
+                                  - ANY_ENDPOINT
+                                  - NO_FALLBACK
+                                  - DEFAULT_SUBSET
+                                  type: string
+                                subsetSelectors:
+                                  description: The selectors that define which subsets
+                                    exist.
+                                  items:
+                                    properties:
+                                      keys:
+                                        description: The keys that a request must
+                                          supply to select a subset of this selector.
+                                        items:
+                                          type: string
+                                        maxItems: 8
+                                        minItems: 1
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                    required:
+                                    - keys
+                                    type: object
+                                  maxItems: 16
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - subsetSelectors
+                              type: object
+                              x-kubernetes-validations:
+                              - message: defaultSubset is required when fallbackPolicy
+                                  is DEFAULT_SUBSET
+                                rule: |-
+                                  !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                                  size(self.defaultSubset) > 0
                             localityLbSetting:
                               description: Locality load balancer settings.
                               properties:
@@ -1578,6 +1630,61 @@ spec:
                                         description: Hash based on the source IP address.
                                         type: boolean
                                     type: object
+                                  dynamicSubset:
+                                    description: Dynamic subset load balancing divides
+                                      the endpoints of the service into subsets at
+                                      request time, based on endpoint attributes,
+                                      without creating a separate cluster for each
+                                      subset.
+                                    properties:
+                                      defaultSubset:
+                                        additionalProperties:
+                                          type: string
+                                        description: The subset used when `fallbackPolicy`
+                                          is `DEFAULT_SUBSET`, as a map of key to
+                                          value.
+                                        maxProperties: 16
+                                        type: object
+                                      fallbackPolicy:
+                                        description: |-
+                                          The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                                          Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                                        enum:
+                                        - ANY_ENDPOINT
+                                        - NO_FALLBACK
+                                        - DEFAULT_SUBSET
+                                        type: string
+                                      subsetSelectors:
+                                        description: The selectors that define which
+                                          subsets exist.
+                                        items:
+                                          properties:
+                                            keys:
+                                              description: The keys that a request
+                                                must supply to select a subset of
+                                                this selector.
+                                              items:
+                                                type: string
+                                              maxItems: 8
+                                              minItems: 1
+                                              type: array
+                                              x-kubernetes-list-type: set
+                                          required:
+                                          - keys
+                                          type: object
+                                        maxItems: 16
+                                        minItems: 1
+                                        type: array
+                                    required:
+                                    - subsetSelectors
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: defaultSubset is required when fallbackPolicy
+                                        is DEFAULT_SUBSET
+                                      rule: |-
+                                        !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                                        size(self.defaultSubset) > 0
                                   localityLbSetting:
                                     description: Locality load balancer settings.
                                     properties:
@@ -1795,6 +1902,31 @@ spec:
                                     maximum: 4294967295
                                     minimum: 0
                                     type: integer
+                                type: object
+                              retryBudget:
+                                description: Specifies a limit on concurrent retries
+                                  in relation to the number of active requests.
+                                properties:
+                                  budgetInterval:
+                                    description: Specifies the duration in which requests
+                                      will be considered when calculating the budget
+                                      for retries.
+                                    type: string
+                                  minRetryConcurrency:
+                                    description: Specifies the minimum retry concurrency
+                                      allowed for the retry budget.
+                                    maximum: 4294967295
+                                    minimum: 0
+                                    type: integer
+                                  percent:
+                                    description: Specifies the limit on concurrent
+                                      retries as a percentage of the sum of active
+                                      requests and active pending requests.
+                                    format: double
+                                    maximum: 100
+                                    minimum: 0
+                                    nullable: true
+                                    type: number
                                 type: object
                               tls:
                                 description: TLS related settings for connections
@@ -2254,6 +2386,57 @@ spec:
                             description: Hash based on the source IP address.
                             type: boolean
                         type: object
+                      dynamicSubset:
+                        description: Dynamic subset load balancing divides the endpoints
+                          of the service into subsets at request time, based on endpoint
+                          attributes, without creating a separate cluster for each
+                          subset.
+                        properties:
+                          defaultSubset:
+                            additionalProperties:
+                              type: string
+                            description: The subset used when `fallbackPolicy` is
+                              `DEFAULT_SUBSET`, as a map of key to value.
+                            maxProperties: 16
+                            type: object
+                          fallbackPolicy:
+                            description: |-
+                              The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                              Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                            enum:
+                            - ANY_ENDPOINT
+                            - NO_FALLBACK
+                            - DEFAULT_SUBSET
+                            type: string
+                          subsetSelectors:
+                            description: The selectors that define which subsets exist.
+                            items:
+                              properties:
+                                keys:
+                                  description: The keys that a request must supply
+                                    to select a subset of this selector.
+                                  items:
+                                    type: string
+                                  maxItems: 8
+                                  minItems: 1
+                                  type: array
+                                  x-kubernetes-list-type: set
+                              required:
+                              - keys
+                              type: object
+                            maxItems: 16
+                            minItems: 1
+                            type: array
+                        required:
+                        - subsetSelectors
+                        type: object
+                        x-kubernetes-validations:
+                        - message: defaultSubset is required when fallbackPolicy is
+                            DEFAULT_SUBSET
+                          rule: |-
+                            !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                            size(self.defaultSubset) > 0
                       localityLbSetting:
                         description: Locality load balancer settings.
                         properties:
@@ -2741,6 +2924,58 @@ spec:
                                   description: Hash based on the source IP address.
                                   type: boolean
                               type: object
+                            dynamicSubset:
+                              description: Dynamic subset load balancing divides the
+                                endpoints of the service into subsets at request time,
+                                based on endpoint attributes, without creating a separate
+                                cluster for each subset.
+                              properties:
+                                defaultSubset:
+                                  additionalProperties:
+                                    type: string
+                                  description: The subset used when `fallbackPolicy`
+                                    is `DEFAULT_SUBSET`, as a map of key to value.
+                                  maxProperties: 16
+                                  type: object
+                                fallbackPolicy:
+                                  description: |-
+                                    The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                                    Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                                  enum:
+                                  - ANY_ENDPOINT
+                                  - NO_FALLBACK
+                                  - DEFAULT_SUBSET
+                                  type: string
+                                subsetSelectors:
+                                  description: The selectors that define which subsets
+                                    exist.
+                                  items:
+                                    properties:
+                                      keys:
+                                        description: The keys that a request must
+                                          supply to select a subset of this selector.
+                                        items:
+                                          type: string
+                                        maxItems: 8
+                                        minItems: 1
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                    required:
+                                    - keys
+                                    type: object
+                                  maxItems: 16
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - subsetSelectors
+                              type: object
+                              x-kubernetes-validations:
+                              - message: defaultSubset is required when fallbackPolicy
+                                  is DEFAULT_SUBSET
+                                rule: |-
+                                  !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                                  size(self.defaultSubset) > 0
                             localityLbSetting:
                               description: Locality load balancer settings.
                               properties:
@@ -2950,6 +3185,31 @@ spec:
                               maximum: 4294967295
                               minimum: 0
                               type: integer
+                          type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
                           type: object
                         tls:
                           description: TLS related settings for connections to the
@@ -3565,6 +3825,58 @@ spec:
                                   description: Hash based on the source IP address.
                                   type: boolean
                               type: object
+                            dynamicSubset:
+                              description: Dynamic subset load balancing divides the
+                                endpoints of the service into subsets at request time,
+                                based on endpoint attributes, without creating a separate
+                                cluster for each subset.
+                              properties:
+                                defaultSubset:
+                                  additionalProperties:
+                                    type: string
+                                  description: The subset used when `fallbackPolicy`
+                                    is `DEFAULT_SUBSET`, as a map of key to value.
+                                  maxProperties: 16
+                                  type: object
+                                fallbackPolicy:
+                                  description: |-
+                                    The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                                    Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                                  enum:
+                                  - ANY_ENDPOINT
+                                  - NO_FALLBACK
+                                  - DEFAULT_SUBSET
+                                  type: string
+                                subsetSelectors:
+                                  description: The selectors that define which subsets
+                                    exist.
+                                  items:
+                                    properties:
+                                      keys:
+                                        description: The keys that a request must
+                                          supply to select a subset of this selector.
+                                        items:
+                                          type: string
+                                        maxItems: 8
+                                        minItems: 1
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                    required:
+                                    - keys
+                                    type: object
+                                  maxItems: 16
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - subsetSelectors
+                              type: object
+                              x-kubernetes-validations:
+                              - message: defaultSubset is required when fallbackPolicy
+                                  is DEFAULT_SUBSET
+                                rule: |-
+                                  !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                                  size(self.defaultSubset) > 0
                             localityLbSetting:
                               description: Locality load balancer settings.
                               properties:
@@ -4064,6 +4376,61 @@ spec:
                                         description: Hash based on the source IP address.
                                         type: boolean
                                     type: object
+                                  dynamicSubset:
+                                    description: Dynamic subset load balancing divides
+                                      the endpoints of the service into subsets at
+                                      request time, based on endpoint attributes,
+                                      without creating a separate cluster for each
+                                      subset.
+                                    properties:
+                                      defaultSubset:
+                                        additionalProperties:
+                                          type: string
+                                        description: The subset used when `fallbackPolicy`
+                                          is `DEFAULT_SUBSET`, as a map of key to
+                                          value.
+                                        maxProperties: 16
+                                        type: object
+                                      fallbackPolicy:
+                                        description: |-
+                                          The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                                          Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                                        enum:
+                                        - ANY_ENDPOINT
+                                        - NO_FALLBACK
+                                        - DEFAULT_SUBSET
+                                        type: string
+                                      subsetSelectors:
+                                        description: The selectors that define which
+                                          subsets exist.
+                                        items:
+                                          properties:
+                                            keys:
+                                              description: The keys that a request
+                                                must supply to select a subset of
+                                                this selector.
+                                              items:
+                                                type: string
+                                              maxItems: 8
+                                              minItems: 1
+                                              type: array
+                                              x-kubernetes-list-type: set
+                                          required:
+                                          - keys
+                                          type: object
+                                        maxItems: 16
+                                        minItems: 1
+                                        type: array
+                                    required:
+                                    - subsetSelectors
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: defaultSubset is required when fallbackPolicy
+                                        is DEFAULT_SUBSET
+                                      rule: |-
+                                        !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                                        size(self.defaultSubset) > 0
                                   localityLbSetting:
                                     description: Locality load balancer settings.
                                     properties:
@@ -4281,6 +4648,31 @@ spec:
                                     maximum: 4294967295
                                     minimum: 0
                                     type: integer
+                                type: object
+                              retryBudget:
+                                description: Specifies a limit on concurrent retries
+                                  in relation to the number of active requests.
+                                properties:
+                                  budgetInterval:
+                                    description: Specifies the duration in which requests
+                                      will be considered when calculating the budget
+                                      for retries.
+                                    type: string
+                                  minRetryConcurrency:
+                                    description: Specifies the minimum retry concurrency
+                                      allowed for the retry budget.
+                                    maximum: 4294967295
+                                    minimum: 0
+                                    type: integer
+                                  percent:
+                                    description: Specifies the limit on concurrent
+                                      retries as a percentage of the sum of active
+                                      requests and active pending requests.
+                                    format: double
+                                    maximum: 100
+                                    minimum: 0
+                                    nullable: true
+                                    type: number
                                 type: object
                               tls:
                                 description: TLS related settings for connections
@@ -4740,6 +5132,57 @@ spec:
                             description: Hash based on the source IP address.
                             type: boolean
                         type: object
+                      dynamicSubset:
+                        description: Dynamic subset load balancing divides the endpoints
+                          of the service into subsets at request time, based on endpoint
+                          attributes, without creating a separate cluster for each
+                          subset.
+                        properties:
+                          defaultSubset:
+                            additionalProperties:
+                              type: string
+                            description: The subset used when `fallbackPolicy` is
+                              `DEFAULT_SUBSET`, as a map of key to value.
+                            maxProperties: 16
+                            type: object
+                          fallbackPolicy:
+                            description: |-
+                              The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                              Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                            enum:
+                            - ANY_ENDPOINT
+                            - NO_FALLBACK
+                            - DEFAULT_SUBSET
+                            type: string
+                          subsetSelectors:
+                            description: The selectors that define which subsets exist.
+                            items:
+                              properties:
+                                keys:
+                                  description: The keys that a request must supply
+                                    to select a subset of this selector.
+                                  items:
+                                    type: string
+                                  maxItems: 8
+                                  minItems: 1
+                                  type: array
+                                  x-kubernetes-list-type: set
+                              required:
+                              - keys
+                              type: object
+                            maxItems: 16
+                            minItems: 1
+                            type: array
+                        required:
+                        - subsetSelectors
+                        type: object
+                        x-kubernetes-validations:
+                        - message: defaultSubset is required when fallbackPolicy is
+                            DEFAULT_SUBSET
+                          rule: |-
+                            !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                            size(self.defaultSubset) > 0
                       localityLbSetting:
                         description: Locality load balancer settings.
                         properties:
@@ -5227,6 +5670,58 @@ spec:
                                   description: Hash based on the source IP address.
                                   type: boolean
                               type: object
+                            dynamicSubset:
+                              description: Dynamic subset load balancing divides the
+                                endpoints of the service into subsets at request time,
+                                based on endpoint attributes, without creating a separate
+                                cluster for each subset.
+                              properties:
+                                defaultSubset:
+                                  additionalProperties:
+                                    type: string
+                                  description: The subset used when `fallbackPolicy`
+                                    is `DEFAULT_SUBSET`, as a map of key to value.
+                                  maxProperties: 16
+                                  type: object
+                                fallbackPolicy:
+                                  description: |-
+                                    The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                                    Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                                  enum:
+                                  - ANY_ENDPOINT
+                                  - NO_FALLBACK
+                                  - DEFAULT_SUBSET
+                                  type: string
+                                subsetSelectors:
+                                  description: The selectors that define which subsets
+                                    exist.
+                                  items:
+                                    properties:
+                                      keys:
+                                        description: The keys that a request must
+                                          supply to select a subset of this selector.
+                                        items:
+                                          type: string
+                                        maxItems: 8
+                                        minItems: 1
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                    required:
+                                    - keys
+                                    type: object
+                                  maxItems: 16
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - subsetSelectors
+                              type: object
+                              x-kubernetes-validations:
+                              - message: defaultSubset is required when fallbackPolicy
+                                  is DEFAULT_SUBSET
+                                rule: |-
+                                  !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                                  size(self.defaultSubset) > 0
                             localityLbSetting:
                               description: Locality load balancer settings.
                               properties:
@@ -5436,6 +5931,31 @@ spec:
                               maximum: 4294967295
                               minimum: 0
                               type: integer
+                          type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
                           type: object
                         tls:
                           description: TLS related settings for connections to the
@@ -6051,6 +6571,58 @@ spec:
                                   description: Hash based on the source IP address.
                                   type: boolean
                               type: object
+                            dynamicSubset:
+                              description: Dynamic subset load balancing divides the
+                                endpoints of the service into subsets at request time,
+                                based on endpoint attributes, without creating a separate
+                                cluster for each subset.
+                              properties:
+                                defaultSubset:
+                                  additionalProperties:
+                                    type: string
+                                  description: The subset used when `fallbackPolicy`
+                                    is `DEFAULT_SUBSET`, as a map of key to value.
+                                  maxProperties: 16
+                                  type: object
+                                fallbackPolicy:
+                                  description: |-
+                                    The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                                    Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                                  enum:
+                                  - ANY_ENDPOINT
+                                  - NO_FALLBACK
+                                  - DEFAULT_SUBSET
+                                  type: string
+                                subsetSelectors:
+                                  description: The selectors that define which subsets
+                                    exist.
+                                  items:
+                                    properties:
+                                      keys:
+                                        description: The keys that a request must
+                                          supply to select a subset of this selector.
+                                        items:
+                                          type: string
+                                        maxItems: 8
+                                        minItems: 1
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                    required:
+                                    - keys
+                                    type: object
+                                  maxItems: 16
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - subsetSelectors
+                              type: object
+                              x-kubernetes-validations:
+                              - message: defaultSubset is required when fallbackPolicy
+                                  is DEFAULT_SUBSET
+                                rule: |-
+                                  !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                                  size(self.defaultSubset) > 0
                             localityLbSetting:
                               description: Locality load balancer settings.
                               properties:
@@ -6550,6 +7122,61 @@ spec:
                                         description: Hash based on the source IP address.
                                         type: boolean
                                     type: object
+                                  dynamicSubset:
+                                    description: Dynamic subset load balancing divides
+                                      the endpoints of the service into subsets at
+                                      request time, based on endpoint attributes,
+                                      without creating a separate cluster for each
+                                      subset.
+                                    properties:
+                                      defaultSubset:
+                                        additionalProperties:
+                                          type: string
+                                        description: The subset used when `fallbackPolicy`
+                                          is `DEFAULT_SUBSET`, as a map of key to
+                                          value.
+                                        maxProperties: 16
+                                        type: object
+                                      fallbackPolicy:
+                                        description: |-
+                                          The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                                          Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                                        enum:
+                                        - ANY_ENDPOINT
+                                        - NO_FALLBACK
+                                        - DEFAULT_SUBSET
+                                        type: string
+                                      subsetSelectors:
+                                        description: The selectors that define which
+                                          subsets exist.
+                                        items:
+                                          properties:
+                                            keys:
+                                              description: The keys that a request
+                                                must supply to select a subset of
+                                                this selector.
+                                              items:
+                                                type: string
+                                              maxItems: 8
+                                              minItems: 1
+                                              type: array
+                                              x-kubernetes-list-type: set
+                                          required:
+                                          - keys
+                                          type: object
+                                        maxItems: 16
+                                        minItems: 1
+                                        type: array
+                                    required:
+                                    - subsetSelectors
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: defaultSubset is required when fallbackPolicy
+                                        is DEFAULT_SUBSET
+                                      rule: |-
+                                        !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                                        size(self.defaultSubset) > 0
                                   localityLbSetting:
                                     description: Locality load balancer settings.
                                     properties:
@@ -6767,6 +7394,31 @@ spec:
                                     maximum: 4294967295
                                     minimum: 0
                                     type: integer
+                                type: object
+                              retryBudget:
+                                description: Specifies a limit on concurrent retries
+                                  in relation to the number of active requests.
+                                properties:
+                                  budgetInterval:
+                                    description: Specifies the duration in which requests
+                                      will be considered when calculating the budget
+                                      for retries.
+                                    type: string
+                                  minRetryConcurrency:
+                                    description: Specifies the minimum retry concurrency
+                                      allowed for the retry budget.
+                                    maximum: 4294967295
+                                    minimum: 0
+                                    type: integer
+                                  percent:
+                                    description: Specifies the limit on concurrent
+                                      retries as a percentage of the sum of active
+                                      requests and active pending requests.
+                                    format: double
+                                    maximum: 100
+                                    minimum: 0
+                                    nullable: true
+                                    type: number
                                 type: object
                               tls:
                                 description: TLS related settings for connections
@@ -7226,6 +7878,57 @@ spec:
                             description: Hash based on the source IP address.
                             type: boolean
                         type: object
+                      dynamicSubset:
+                        description: Dynamic subset load balancing divides the endpoints
+                          of the service into subsets at request time, based on endpoint
+                          attributes, without creating a separate cluster for each
+                          subset.
+                        properties:
+                          defaultSubset:
+                            additionalProperties:
+                              type: string
+                            description: The subset used when `fallbackPolicy` is
+                              `DEFAULT_SUBSET`, as a map of key to value.
+                            maxProperties: 16
+                            type: object
+                          fallbackPolicy:
+                            description: |-
+                              The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                              Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                            enum:
+                            - ANY_ENDPOINT
+                            - NO_FALLBACK
+                            - DEFAULT_SUBSET
+                            type: string
+                          subsetSelectors:
+                            description: The selectors that define which subsets exist.
+                            items:
+                              properties:
+                                keys:
+                                  description: The keys that a request must supply
+                                    to select a subset of this selector.
+                                  items:
+                                    type: string
+                                  maxItems: 8
+                                  minItems: 1
+                                  type: array
+                                  x-kubernetes-list-type: set
+                              required:
+                              - keys
+                              type: object
+                            maxItems: 16
+                            minItems: 1
+                            type: array
+                        required:
+                        - subsetSelectors
+                        type: object
+                        x-kubernetes-validations:
+                        - message: defaultSubset is required when fallbackPolicy is
+                            DEFAULT_SUBSET
+                          rule: |-
+                            !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                            size(self.defaultSubset) > 0
                       localityLbSetting:
                         description: Locality load balancer settings.
                         properties:
@@ -7713,6 +8416,58 @@ spec:
                                   description: Hash based on the source IP address.
                                   type: boolean
                               type: object
+                            dynamicSubset:
+                              description: Dynamic subset load balancing divides the
+                                endpoints of the service into subsets at request time,
+                                based on endpoint attributes, without creating a separate
+                                cluster for each subset.
+                              properties:
+                                defaultSubset:
+                                  additionalProperties:
+                                    type: string
+                                  description: The subset used when `fallbackPolicy`
+                                    is `DEFAULT_SUBSET`, as a map of key to value.
+                                  maxProperties: 16
+                                  type: object
+                                fallbackPolicy:
+                                  description: |-
+                                    The behavior when a request does not select a subset, or selects a subset that has no endpoints.
+
+                                    Valid Options: ANY_ENDPOINT, NO_FALLBACK, DEFAULT_SUBSET
+                                  enum:
+                                  - ANY_ENDPOINT
+                                  - NO_FALLBACK
+                                  - DEFAULT_SUBSET
+                                  type: string
+                                subsetSelectors:
+                                  description: The selectors that define which subsets
+                                    exist.
+                                  items:
+                                    properties:
+                                      keys:
+                                        description: The keys that a request must
+                                          supply to select a subset of this selector.
+                                        items:
+                                          type: string
+                                        maxItems: 8
+                                        minItems: 1
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                    required:
+                                    - keys
+                                    type: object
+                                  maxItems: 16
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - subsetSelectors
+                              type: object
+                              x-kubernetes-validations:
+                              - message: defaultSubset is required when fallbackPolicy
+                                  is DEFAULT_SUBSET
+                                rule: |-
+                                  !has(self.fallbackPolicy) || self.fallbackPolicy != "DEFAULT_SUBSET" || has(self.defaultSubset) &&
+                                  size(self.defaultSubset) > 0
                             localityLbSetting:
                               description: Locality load balancer settings.
                               properties:
@@ -7922,6 +8677,31 @@ spec:
                               maximum: 4294967295
                               minimum: 0
                               type: integer
+                          type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
                           type: object
                         tls:
                           description: TLS related settings for connections to the
@@ -12848,6 +13628,29 @@ spec:
                               type: object
                           type: object
                       type: object
+                    headerToDynamicSubsetKeys:
+                      description: Selects a dynamic subset of the destination from
+                        request headers.
+                      items:
+                        properties:
+                          defaultValue:
+                            description: The value used when the request does not
+                              carry the header.
+                            type: string
+                          header:
+                            description: The name of the request header that carries
+                              the value.
+                            type: string
+                          key:
+                            description: The dynamic subset key that receives the
+                              value.
+                            type: string
+                        required:
+                        - header
+                        - key
+                        type: object
+                      maxItems: 16
+                      type: array
                     headers:
                       properties:
                         request:
@@ -13904,6 +14707,29 @@ spec:
                               type: object
                           type: object
                       type: object
+                    headerToDynamicSubsetKeys:
+                      description: Selects a dynamic subset of the destination from
+                        request headers.
+                      items:
+                        properties:
+                          defaultValue:
+                            description: The value used when the request does not
+                              carry the header.
+                            type: string
+                          header:
+                            description: The name of the request header that carries
+                              the value.
+                            type: string
+                          key:
+                            description: The dynamic subset key that receives the
+                              value.
+                            type: string
+                        required:
+                        - header
+                        - key
+                        type: object
+                      maxItems: 16
+                      type: array
                     headers:
                       properties:
                         request:
@@ -14960,6 +15786,29 @@ spec:
                               type: object
                           type: object
                       type: object
+                    headerToDynamicSubsetKeys:
+                      description: Selects a dynamic subset of the destination from
+                        request headers.
+                      items:
+                        properties:
+                          defaultValue:
+                            description: The value used when the request does not
+                              carry the header.
+                            type: string
+                          header:
+                            description: The name of the request header that carries
+                              the value.
+                            type: string
+                          key:
+                            description: The dynamic subset key that receives the
+                              value.
+                            type: string
+                        required:
+                        - header
+                        - key
+                        type: object
+                      maxItems: 16
+                      type: array
                     headers:
                       properties:
                         request:
@@ -18406,6 +19255,11 @@ spec:
                         minLength: 1
                         type: string
                       type: array
+                    failedStatusMetadataKey:
+                      description: If set, a verification failure is written to the
+                        filter's dynamic metadata under this key, such that failures
+                        are always observable regardless of the `presence` value.
+                      type: string
                     forwardOriginalToken:
                       description: If set to true, the original token will be kept
                         for the upstream request.
@@ -18487,14 +19341,22 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    outputPayloadToMetadata:
+                      description: This field specifies the key under which the payload
+                        of a successfully verified JWT is stored in the request's
+                        dynamic metadata.
+                      maxLength: 64
+                      pattern: ^[-_A-Za-z0-9]+$
+                      type: string
                     presence:
                       description: |-
-                        Configures whether the JWT token must be present in the request.
+                        Configures how strictly the JWT token is required.
 
-                        Valid Options: OPTIONAL, REQUIRED
+                        Valid Options: OPTIONAL, REQUIRED, PERMISSIVE
                       enum:
                       - OPTIONAL
                       - REQUIRED
+                      - PERMISSIVE
                       type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated
@@ -18704,6 +19566,11 @@ spec:
                         minLength: 1
                         type: string
                       type: array
+                    failedStatusMetadataKey:
+                      description: If set, a verification failure is written to the
+                        filter's dynamic metadata under this key, such that failures
+                        are always observable regardless of the `presence` value.
+                      type: string
                     forwardOriginalToken:
                       description: If set to true, the original token will be kept
                         for the upstream request.
@@ -18785,14 +19652,22 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    outputPayloadToMetadata:
+                      description: This field specifies the key under which the payload
+                        of a successfully verified JWT is stored in the request's
+                        dynamic metadata.
+                      maxLength: 64
+                      pattern: ^[-_A-Za-z0-9]+$
+                      type: string
                     presence:
                       description: |-
-                        Configures whether the JWT token must be present in the request.
+                        Configures how strictly the JWT token is required.
 
-                        Valid Options: OPTIONAL, REQUIRED
+                        Valid Options: OPTIONAL, REQUIRED, PERMISSIVE
                       enum:
                       - OPTIONAL
                       - REQUIRED
+                      - PERMISSIVE
                       type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated
