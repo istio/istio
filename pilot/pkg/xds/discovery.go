@@ -126,6 +126,18 @@ type DiscoveryServer struct {
 	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
 
+	// pushMu makes "read or publish the global push context, drop the cache, stamp Start, enqueue to all
+	// connections" atomic. Without it, concurrent pushes (un-debounced EDS/WDS, ProxyUpdate, debug push-all) and
+	// connection setup can interleave with a full push, so a connection sees push contexts out of order, or a
+	// request pairs an old context with a Start newer than the cache clear. The XDS cache accepts that write, and
+	// since EDS/CDS cache keys don't cover DestinationRule subsets, output from a stale SidecarScope poisons
+	// a key shared by all proxies.
+	//
+	// Only this bookkeeping runs under it; InitContext, logging, metrics and per-proxy generation do not. It is
+	// taken at entry points only (pushAll, AdsPushAll, ProxyUpdate, registerConnection), never nested, and nothing
+	// under it blocks on a channel. Lock order: pushMu -> cache / Env / adsClients / pushQueue locks.
+	pushMu sync.Mutex
+
 	// debugHandlers is the list of all the supported debug handlers.
 	debugHandlers map[string]string
 
@@ -316,9 +328,7 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 // instead of initializing a new one.
 func (s *DiscoveryServer) Push(req *model.PushRequest, initializePushContext bool) {
 	if !initializePushContext {
-		req.Push = s.globalPushContext()
-		s.dropCacheForRequest(req)
-		s.AdsPushAll(req)
+		s.pushCurrent(req)
 		return
 	}
 
@@ -338,8 +348,35 @@ func (s *DiscoveryServer) Push(req *model.PushRequest, initializePushContext boo
 	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 	pushContextInitTime.Record(initContextTime.Seconds())
 
-	req.Push = push
-	s.AdsPushAll(req)
+	s.pushAndPublish(req, push)
+}
+
+// pushAndPublish publishes next as the global push context and sends req to every connection. The cache clear,
+// publish, req.Start and enqueue loop all run under pushMu, which keeps each connection's queue order equal to push
+// context order and (req.Push, req.Start) consistent with the clear. Logging and metrics stay outside the lock.
+func (s *DiscoveryServer) pushAndPublish(req *model.PushRequest, next *model.PushContext) {
+	s.pushMu.Lock()
+	// Clear before publishing, then stamp Start (in StartPush): a cache write stamped before the clear is
+	// dropped, and anything stamped after it is built from the new context.
+	s.dropCacheForRequest(req)
+	s.Env.SetPushContext(next)
+	req.Push = next
+	s.StartPush(req)
+	s.pushMu.Unlock()
+
+	s.recordPush(req)
+}
+
+// pushCurrent sends req to every connection using the current global push context, under pushMu like
+// pushAndPublish, without publishing a new one.
+func (s *DiscoveryServer) pushCurrent(req *model.PushRequest) {
+	s.pushMu.Lock()
+	s.dropCacheForRequest(req)
+	req.Push = s.globalPushContext()
+	s.StartPush(req)
+	s.pushMu.Unlock()
+
+	s.recordPush(req)
 }
 
 func nonce(noncePrefix string) string {
@@ -567,7 +604,8 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 	}
 }
 
-// initPushContext creates a global push context and stores it on the environment. Note: while this
+// initPushContext creates and initializes a push context. It does not publish it: pushAndPublish does that, together
+// with the cache clear and the enqueue, under pushMu. Note: while this
 // method is technically thread safe (there are no data races), it should not be called in parallel;
 // if it is, then we may start two push context creations (say A, and B), but then write them in
 // reverse order, leaving us with a final version of A, which may be incomplete.
@@ -576,10 +614,6 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 	push.PushVersion = version
 	push.JwtKeyResolver = s.JwtKeyResolver
 	push.InitContext(s.Env, oldPushContext, req)
-
-	s.dropCacheForRequest(req)
-	s.Env.SetPushContext(push)
-
 	return push
 }
 

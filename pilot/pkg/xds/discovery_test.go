@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -464,5 +465,278 @@ func BenchmarkPushRequest(b *testing.B) {
 		for p := 0; p < proxies; p++ {
 			recordPushTriggers(req.Reason)
 		}
+	}
+}
+
+// blockingClearCache blocks the first Clear or ClearAll, which pushAndPublish and pushCurrent make under pushMu, to
+// hold a push mid-critical-section.
+type blockingClearCache struct {
+	model.XdsCache
+	blocked atomic.Bool
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (c *blockingClearCache) block() {
+	if c.blocked.CompareAndSwap(false, true) {
+		close(c.entered)
+		<-c.release
+	}
+}
+
+func (c *blockingClearCache) Clear(configs sets.Set[model.ConfigKey]) {
+	c.block()
+	c.XdsCache.Clear(configs)
+}
+
+func (c *blockingClearCache) ClearAll() {
+	c.block()
+	c.XdsCache.ClearAll()
+}
+
+type blockedPush struct {
+	s     *DiscoveryServer
+	oldPC *model.PushContext
+	newPC *model.PushContext
+	conns []*Connection
+	done  chan struct{}
+
+	entered <-chan struct{}
+	release func()
+}
+
+// newBlockedPush returns a server with three registered connections on oldPC. The first cache clear blocks.
+func newBlockedPush(t *testing.T) *blockedPush {
+	t.Helper()
+	env := model.NewEnvironment()
+	oldPC := model.NewPushContext()
+	oldPC.InitDone.Store(true)
+	env.SetPushContext(oldPC)
+	s := NewDiscoveryServer(env, nil, nil)
+	t.Cleanup(s.Shutdown)
+	cache := &blockingClearCache{XdsCache: s.Cache, entered: make(chan struct{}), release: make(chan struct{})}
+	s.Cache = cache
+
+	conns := createProxies(3)
+	for i, c := range conns {
+		c.proxy = &model.Proxy{
+			Metadata:        &model.NodeMetadata{ClusterID: "c1"},
+			IPAddresses:     []string{fmt.Sprintf("10.0.0.%d", i)},
+			LastPushContext: oldPC,
+		}
+		c.MarkInitialized()
+		s.addCon(c.ID(), c)
+	}
+
+	newPC := model.NewPushContext()
+	newPC.InitDone.Store(true)
+	var once sync.Once
+	p := &blockedPush{
+		s: s, oldPC: oldPC, newPC: newPC, conns: conns, done: make(chan struct{}), entered: cache.entered,
+		release: func() { once.Do(func() { close(cache.release) }) },
+	}
+	// Always unblock the push, so a failing test doesn't leak its goroutine.
+	t.Cleanup(p.release)
+	return p
+}
+
+// startBlockedPush starts a full push that publishes newPC and stops inside its critical section, with the
+// connections still on oldPC.
+func startBlockedPush(t *testing.T) *blockedPush {
+	t.Helper()
+	p := newBlockedPush(t)
+	p.blockIn(t, func() {
+		p.s.pushAndPublish(&model.PushRequest{
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "dr", Namespace: "default"}),
+		}, p.newPC)
+	})
+	return p
+}
+
+// blockIn runs f, which must stop in its first cache clear, and waits until it has.
+func (p *blockedPush) blockIn(t *testing.T, f func()) {
+	t.Helper()
+	go func() {
+		defer close(p.done)
+		f()
+	}()
+	waitDone(t, p.entered)
+}
+
+// finish lets the blocked push complete.
+func (p *blockedPush) finish(t *testing.T) {
+	t.Helper()
+	p.release()
+	waitDone(t, p.done)
+}
+
+// assertWaits runs f and checks it does not complete, or queue anything, while the blocked push is in its critical
+// section. A miss only weakens the check; it can't cause a false failure. Returns a channel closed when f completes.
+func (p *blockedPush) assertWaits(t *testing.T, name string, f func()) <-chan struct{} {
+	t.Helper()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		f()
+	}()
+	select {
+	case <-done:
+		t.Fatalf("%s completed while a push was in its critical section; it must wait for the push to finish", name)
+	case <-time.After(100 * time.Millisecond):
+	}
+	if n := p.s.pushQueue.Pending(); n != 0 {
+		t.Fatalf("%s: %d connections were queued before the blocked push; queue order must follow push context order", name, n)
+	}
+	return done
+}
+
+func waitDone(t *testing.T, done <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out")
+	}
+}
+
+// Push triggers must not be queued ahead of an in-flight full push, otherwise a proxy still on the old
+// SidecarScope would serve and cache output built from the old DestinationRule.
+func TestPushTriggersWaitForFullPush(t *testing.T) {
+	triggers := map[string]func(s *DiscoveryServer){
+		"EDS push": func(s *DiscoveryServer) {
+			s.Push(&model.PushRequest{
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "svc", Namespace: "default"}),
+			}, false)
+		},
+		"WDS push": func(s *DiscoveryServer) {
+			s.Push(&model.PushRequest{
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Address, Name: "addr", Namespace: "default"}),
+			}, false)
+		},
+		"ProxyUpdate":    func(s *DiscoveryServer) { s.ProxyUpdate("c1", "10.0.0.0") },
+		"debug push-all": func(s *DiscoveryServer) { AdsPushAll(s) },
+	}
+	for name, trigger := range triggers {
+		t.Run(name, func(t *testing.T) {
+			p := startBlockedPush(t)
+			done := p.assertWaits(t, name, func() { trigger(p.s) })
+			p.finish(t)
+			waitDone(t, done)
+			for range p.conns {
+				_, req, _ := p.s.pushQueue.Dequeue()
+				if req.Push != p.newPC {
+					t.Fatalf("got push context %p, want the new one %p", req.Push, p.newPC)
+				}
+			}
+		})
+	}
+}
+
+// The reverse interleaving: a forced request that already read the old push context and is stalled before
+// enqueueing must keep a full push from publishing and queueing the new context ahead of it. Otherwise the stalled
+// request could land after it and hand a proxy the old context once the new one is already being processed.
+func TestFullPushWaitsForStalledOldContextPush(t *testing.T) {
+	p := newBlockedPush(t)
+	p.blockIn(t, func() {
+		p.s.Push(&model.PushRequest{Forced: true, Reason: model.NewReasonStats(model.DebugTrigger)}, false)
+	})
+	done := p.assertWaits(t, "full push", func() {
+		p.s.pushAndPublish(&model.PushRequest{
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "dr", Namespace: "default"}),
+		}, p.newPC)
+	})
+	if got := p.s.globalPushContext(); got != p.oldPC {
+		t.Fatalf("full push published %p while an old-context push was in flight, want %p", got, p.oldPC)
+	}
+	p.finish(t)
+	waitDone(t, done)
+	// The two requests are merged per connection, in order: the surviving request must carry the new context.
+	for range p.conns {
+		_, req, _ := p.s.pushQueue.Dequeue()
+		if req.Push != p.newPC || !req.Forced {
+			t.Fatalf("got forced=%v push context %p, want forced on the new one %p", req.Forced, req.Push, p.newPC)
+		}
+	}
+}
+
+// A connection registering during a full push must not start on the old context and miss the push.
+func TestRegisterConnectionWaitsForFullPush(t *testing.T) {
+	p := startBlockedPush(t)
+	con := createProxies(1)[0]
+	con.SetID("late")
+	con.proxy = &model.Proxy{Metadata: &model.NodeMetadata{}}
+	done := p.assertWaits(t, "registerConnection", func() { p.s.registerConnection(con) })
+	p.finish(t)
+	waitDone(t, done)
+	if con.proxy.LastPushContext != p.newPC {
+		t.Fatalf("connection started on %p, want the new push context %p", con.proxy.LastPushContext, p.newPC)
+	}
+}
+
+// cacheEntry is a minimal EDS cache entry.
+type cacheEntry struct{ key uint64 }
+
+func (e cacheEntry) Type() string                         { return model.EDSType }
+func (e cacheEntry) Key() any                             { return e.key }
+func (e cacheEntry) DependentConfigs() []model.ConfigHash { return nil }
+func (e cacheEntry) Cacheable() bool                      { return true }
+
+// cacheWritingGenerator tries to write its output to the XDS cache the way real generators do.
+type cacheWritingGenerator struct {
+	cache model.XdsCache
+	entry cacheEntry
+	calls int
+}
+
+func (g *cacheWritingGenerator) Generate(
+	_ *model.Proxy, _ *model.WatchedResource, req *model.PushRequest,
+) (model.Resources, model.XdsLogDetails, error) {
+	g.calls++
+	res := &discovery.Resource{Name: "r"}
+	g.cache.Add(g.entry, req, res)
+	return model.Resources{res}, model.DefaultXdsLogDetails, nil
+}
+
+// Debug config dumps must not write to the shared XDS cache: the proxy may lag the global push context.
+func TestDebugDumpDoesNotWriteCache(t *testing.T) {
+	dumps := map[string]func(s *DiscoveryServer, conn *Connection){
+		"getConfigDumpByResourceType": func(s *DiscoveryServer, conn *Connection) {
+			s.getConfigDumpByResourceType(conn, nil, []string{v3.EndpointType})
+		},
+		"connectionConfigDump": func(s *DiscoveryServer, conn *Connection) {
+			if _, err := s.connectionConfigDump(conn, true); err != nil {
+				t.Fatal(err)
+			}
+		},
+	}
+	for name, dump := range dumps {
+		t.Run(name, func(t *testing.T) {
+			s := NewDiscoveryServer(model.NewEnvironment(), nil, nil)
+			t.Cleanup(s.Shutdown)
+			gen := &cacheWritingGenerator{cache: s.Cache, entry: cacheEntry{key: 1}}
+			s.Generators[v3.EndpointType] = gen
+			conn := createProxies(1)[0]
+			conn.proxy = &model.Proxy{
+				Metadata:         &model.NodeMetadata{},
+				LastPushContext:  model.NewPushContext(),
+				WatchedResources: map[string]*model.WatchedResource{v3.EndpointType: {TypeUrl: v3.EndpointType}},
+			}
+
+			// Control: the generator does write when the request carries a Start.
+			_, _, _ = gen.Generate(conn.proxy, nil, &model.PushRequest{Start: time.Now()})
+			if s.Cache.Get(gen.entry) == nil {
+				t.Fatal("test setup: the generator did not write to the cache for a request with Start")
+			}
+			s.Cache.ClearAll()
+			gen.calls = 0
+
+			dump(s, conn)
+			if gen.calls != 1 {
+				t.Fatalf("the dump called the generator %d times, want 1", gen.calls)
+			}
+			if s.Cache.Get(gen.entry) != nil {
+				t.Fatal("the config dump wrote to the XDS cache")
+			}
+		})
 	}
 }

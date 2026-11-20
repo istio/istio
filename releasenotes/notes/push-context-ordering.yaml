@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: []
+releaseNotes:
+  - |
+    **Fixed** races that could leave a proxy on an older push context than the one already pushed, or write stale
+    configuration into the shared XDS cache. Publishing the push context, clearing the cache and queueing pushes now
+    happen atomically with respect to un-debounced EDS/WDS pushes (`PILOT_ENABLE_EDS_DEBOUNCE=false`,
+    `PILOT_ENABLE_WDS_DEBOUNCE=false`), proxy-triggered pushes, new connections and the debug push-all endpoint.
+    Config dumps from the debug endpoints no longer write to the XDS cache.
