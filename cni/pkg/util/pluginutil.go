@@ -85,7 +85,7 @@ func watchFiles(watcher *fsnotify.Watcher, fileModified chan struct{}, errChan c
 			if !ok {
 				return
 			}
-			if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 {
+			if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove|fsnotify.Rename) != 0 {
 				log.Infof("file modified: %v", event.Name)
 				fileModified <- struct{}{}
 			}
