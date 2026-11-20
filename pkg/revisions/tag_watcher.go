@@ -60,6 +60,7 @@ type tagWatcher struct {
 	services      kclient.Client[*corev1.Service]
 	webhooksIndex kclient.Index[string, *admissionregistrationv1.MutatingWebhookConfiguration]
 	servicesIndex kclient.Index[string, *corev1.Service]
+	serviceTags   kclient.Index[string, *corev1.Service]
 }
 
 func NewTagWatcher(client kube.Client, revision string, systemNamespace string) TagWatcher {
@@ -106,6 +107,13 @@ func NewTagWatcher(client kube.Client, revision string, systemNamespace string) 
 				return nil
 			}
 			return []string{rev}
+		})
+	p.serviceTags = kclient.CreateStringIndex(p.services, "istioTagSvc",
+		func(svc *corev1.Service) []string {
+			if svc.GetLabels()[label.IoIstioRev.Name] == "" {
+				return nil
+			}
+			return []string{svc.GetLabels()[label.IoIstioTag.Name]}
 		})
 
 	return p
@@ -158,19 +166,17 @@ func (p *tagWatcher) IsMine(obj metav1.ObjectMeta) bool {
 
 func (p *tagWatcher) GetMyTags() sets.String {
 	res := sets.New(p.revision)
-	mwhTags := sets.New[string]()
 	for _, wh := range p.webhooksIndex.Lookup(p.revision) {
-		res.Insert(wh.GetLabels()[label.IoIstioTag.Name])
-		mwhTags.Insert(wh.GetLabels()[label.IoIstioTag.Name])
+		tagName := wh.GetLabels()[label.IoIstioTag.Name]
+		// Service tags take precedence, even when they point to another revision.
+		if len(p.serviceTags.Lookup(tagName)) > 0 {
+			log.Debugf("Tag name %s is already defined by a service. Delete the %s-%s MutatingWebhookConfiguration ", tagName, "istio-revision-tag", tagName)
+			continue
+		}
+		res.Insert(tagName)
 	}
 	for _, svc := range p.servicesIndex.Lookup(p.revision) {
-		tagName := svc.GetLabels()[label.IoIstioTag.Name]
-		res.Insert(tagName)
-
-		if mwhTags.Contains(tagName) {
-			log.Debugf("Tag name %s is already defined by a service. Delete the %s-%s MutatingWebhookConfiguration ", tagName, "istio-revision-tag", tagName)
-			mwhTags.Delete(tagName)
-		}
+		res.Insert(svc.GetLabels()[label.IoIstioTag.Name])
 	}
 	return res
 }
