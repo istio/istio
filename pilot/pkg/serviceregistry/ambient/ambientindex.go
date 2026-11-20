@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 type Index interface {
@@ -931,7 +932,7 @@ func selectingWorkloadAuthzByNs(c krt.Collection[model.WorkloadAuthorization]) k
 		if wa.Authorization == nil {
 			return nil // filter policy which are invalid
 		}
-		if wa.GetLabelSelector() == nil {
+		if wa.Authorization.Scope != security.Scope_WORKLOAD_SELECTOR {
 			return nil
 		}
 		return []string{wa.Authorization.Namespace}

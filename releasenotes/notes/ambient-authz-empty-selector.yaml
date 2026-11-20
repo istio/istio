@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** an issue where AuthorizationPolicy resources with an explicitly empty selector were not attached to workloads in ambient mode.
