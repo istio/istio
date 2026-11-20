@@ -101,3 +101,71 @@ spec:
       name: google.com
       port: 443
 ---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: exported
+  namespace: apple
+spec:
+  hosts:
+  - "exported.example.com"
+  exportTo:
+  - "*"
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: private
+  namespace: apple
+spec:
+  hosts:
+  - "private.example.com"
+  exportTo:
+  - "."
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cross-namespace-exported
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames:
+  - "exported.example.com"
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: exported.example.com
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cross-namespace-private
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames:
+  - "private.example.com"
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: private.example.com
+      port: 80
+---
