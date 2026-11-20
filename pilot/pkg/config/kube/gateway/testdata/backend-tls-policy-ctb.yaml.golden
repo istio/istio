@@ -12,6 +12,8 @@ spec:
       credentialName: clustertrustbundle://ca-bundle
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -27,6 +29,8 @@ spec:
       credentialName: clustertrustbundle://example.com:signer:ca
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -42,6 +46,8 @@ spec:
       credentialName: clustertrustbundle://ca-bundle
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -57,6 +63,8 @@ spec:
       credentialName: invalid://
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -72,6 +80,8 @@ spec:
       credentialName: invalid://
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -87,4 +97,6 @@ spec:
       credentialName: invalid://
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---

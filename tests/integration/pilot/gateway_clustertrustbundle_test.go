@@ -150,7 +150,7 @@ spec:
     - group: certificates.k8s.io
       kind: ClusterTrustBundle
       name: {{.}}
-    hostname: auth.example.com
+    hostname: server.default.svc
 `).ApplyOrFail(t)
 
 	call := func(t framework.TestContext, checker echo.Checker) {
@@ -186,7 +186,7 @@ spec:
 	t.NewSubTest("bundle-created").Run(func(t framework.TestContext) {
 		clusterTrustBundleConfig(owner, bundleName, goodCA).ApplyOrFail(t)
 		expectBackendTLSPolicyConditions(t, c, ns, resolved...)
-		call(t, check.And(check.OK(), check.SNI("auth.example.com")))
+		call(t, check.And(check.OK(), check.SNI("server.default.svc")))
 	})
 	t.NewSubTest("bundle-deleted").Run(func(t framework.TestContext) {
 		clusterTrustBundleConfig(owner, bundleName, goodCA).DeleteOrFail(t)
@@ -196,7 +196,7 @@ spec:
 	t.NewSubTest("bundle-recreated").Run(func(t framework.TestContext) {
 		clusterTrustBundleConfig(owner, bundleName, goodCA).ApplyOrFail(t)
 		expectBackendTLSPolicyConditions(t, c, ns, resolved...)
-		call(t, check.And(check.OK(), check.SNI("auth.example.com")))
+		call(t, check.And(check.OK(), check.SNI("server.default.svc")))
 	})
 }
 
