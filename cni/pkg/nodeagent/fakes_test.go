@@ -225,6 +225,25 @@ func (r *fakeIptablesDeps) DelLoopbackRoutes(cfg *config.AmbientConfig) error {
 	return nil
 }
 
+type fakePodNetnsFinder struct {
+	inodes map[types.UID]uint64
+	opened []*fakeNs
+}
+
+func (f *fakePodNetnsFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (PodToNetns, error) {
+	res := make(PodToNetns)
+	for uid, pod := range pods {
+		inode, found := f.inodes[uid]
+		if !found {
+			continue
+		}
+		netns := newFakeNsInode(uintptr(inode), inode)
+		f.opened = append(f.opened, netns)
+		res[string(uid)] = WorkloadInfo{Workload: podToWorkload(pod), Netns: netns}
+	}
+	return res, nil
+}
+
 type NoOpPodNetnsProcFinder struct{}
 
 func (p *NoOpPodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (PodToNetns, error) {
