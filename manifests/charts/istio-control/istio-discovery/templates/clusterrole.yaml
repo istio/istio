@@ -85,6 +85,10 @@ rules:
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["patch"]
+  # read by the taint controller when PILOT_NODE_TAINT_WHEN_NOT_READY is set
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    verbs: ["get", "list", "watch"]
 {{- end }}
 
   # ingress controller
