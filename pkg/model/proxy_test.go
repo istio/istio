@@ -42,6 +42,21 @@ func TestNodeMetadata(t *testing.T) {
 			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{Raw: map[string]any{}}},
 		},
 		{
+			"HBONE CONNECT wait",
+			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{EnableHBONEConnectWait: true}},
+			`{"ENABLE_HBONE_CONNECT_WAIT":"true"}`,
+			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{
+				EnableHBONEConnectWait: true,
+				Raw:                    map[string]any{"ENABLE_HBONE_CONNECT_WAIT": "true"},
+			}},
+		},
+		{
+			"HBONE CONNECT wait disabled",
+			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{EnableHBONEConnectWait: false}},
+			"{}",
+			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{Raw: map[string]any{}}},
+		},
+		{
 			"csvlists",
 			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{InstanceIPs: []string{"abc", "1.2.3.4"}}},
 			`{"INSTANCE_IPS":"abc,1.2.3.4"}`,
