@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62910
+releaseNotes:
+  - |
+    **Fixed** sidecar injection rewriting the application probes of a pod that sets the
+    `status.sidecar.istio.io/port` annotation to `0`. The sidecar runs no status server in that case, so the probes
+    were rewritten to port `0`, which Kubernetes rejects. The probes are now left unchanged.
