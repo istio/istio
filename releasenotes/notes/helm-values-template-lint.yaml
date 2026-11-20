@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 57228
+releaseNotes:
+  - |
+    **Fixed** `istioctl install --set` rejecting `values.platform` and
+    `values.pilot.terminationMessagePolicy`. Both are read by the charts but were missing
+    from the operator's values schema.

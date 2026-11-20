@@ -158,6 +158,22 @@ func main() {
 	}
 
 	fmt.Println("✓ All helm values can be unmarshalled into IstioOperator Values struct")
+
+	if problems := lintTemplates(); len(problems) > 0 {
+		fmt.Println("")
+		fmt.Println("✗ Found .Values references in manifests/charts templates that are not in the Values schema:")
+		for _, p := range problems {
+			fmt.Printf("  - %s\n", p)
+		}
+		fmt.Println("")
+		fmt.Println("A chart can read a value it does not default in values.yaml, so the check above")
+		fmt.Println("does not see it, but `istioctl install --set` still rejects it. Add the missing")
+		fmt.Println("fields to operator/pkg/apis/values_types.proto, then regenerate the Go code:")
+		fmt.Println("  make operator-proto")
+		os.Exit(1)
+	}
+
+	fmt.Println("✓ All .Values references in chart templates resolve to the Values schema")
 	os.Exit(0)
 }
 
