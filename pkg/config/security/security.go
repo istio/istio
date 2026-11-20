@@ -244,7 +244,7 @@ func ValidateAttribute(key string, values []string) error {
 		return CheckServiceAccount(key, values)
 	case isEqual(key, attrSrcPrincipal):
 	case isEqual(key, attrSrcTrustDomain):
-		return CheckWildcardValues(key, values)
+		return CheckTrustDomainValues(key, values)
 	case isEqual(key, attrRequestPrincipal):
 	case isEqual(key, attrRequestAudiences):
 	case isEqual(key, attrRequestPresenter):
