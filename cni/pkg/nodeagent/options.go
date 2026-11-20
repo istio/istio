@@ -35,6 +35,9 @@ var (
 	UseScopedIptablesLegacyLocking = env.RegisterBoolVar("AMBIENT_USE_SCOPED_XTABLES_LOCKING", true, "").Get()
 	EnableAWSBranchENIProbe        = env.RegisterBoolVar("AMBIENT_ENABLE_AWS_BRANCH_ENI_PROBE", true,
 		"If true, detect AWS VPC CNI branch ENI pods and add ip rules to route probe traffic via veth").Get()
+	ReconcileEnrollmentInterval = env.RegisterDurationVar("AMBIENT_RECONCILE_ENROLLMENT_INTERVAL", 0,
+		"If greater than 0, periodically check that pods enrolled in ambient mesh still run in the network namespace "+
+			"this agent enrolled, and re-enroll the ones that do not. Disabled by default").Get()
 
 	// KataRuntimeClassNames is the set of RuntimeClass names for which the CNI
 	// should install the "kata mode" iptables rules (pod IP forwarded into a
