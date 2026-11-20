@@ -1889,6 +1889,7 @@ func reportGatewayStatus(
 	gatewayErr *ConfigError,
 	backendTLSErr *ConfigError,
 	validListeners int,
+	serviceCIDRs []netip.Prefix,
 ) {
 	// TODO: we lose address if servers is empty due to an error
 	internal, internalIP, external, pending, warnings, allUsable := r.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
@@ -1982,21 +1983,51 @@ func reportGatewayStatus(
 			}
 		}
 	}
-	// Do not report an address until we are ready. But once we are ready, never remove the address.
-	if len(addressesToReport) > 0 {
-		gs.Addresses = make([]k8s.GatewayStatusAddress, 0, len(addressesToReport))
-		for _, addr := range addressesToReport {
-			var addrType k8s.AddressType
-			if _, err := netip.ParseAddr(addr); err == nil {
-				addrType = k8s.IPAddressType
-			} else {
-				addrType = k8s.HostnameAddressType
+	var assigned *gatewaycommon.AddressesAssigned
+	if gatewaycommon.IsManaged(&obj.Spec) {
+		clusterIPs := localClusterIPs(r, obj.Namespace, gatewayServices, internal)
+		res := gatewaycommon.ResolveAddresses(gatewaycommon.AddressInputs{
+			Spec:       obj.Spec.Addresses,
+			CIDRs:      serviceCIDRs,
+			Default:    addressesToReport,
+			External:   external,
+			ClusterIPs: clusterIPs,
+			LBPending:  len(pending) > 0,
+		})
+		assigned = res.Condition
+		if res.ProgrammedReason != "" {
+			gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
+				Reason: res.ProgrammedReason, Message: res.ProgrammedMessage,
 			}
-			gs.Addresses = append(gs.Addresses, k8s.GatewayStatusAddress{
-				Value: addr,
-				Type:  &addrType,
-			})
 		}
+		// Do not report an address until we are ready. But once we are ready, never remove the address.
+		// With explicit addresses the status must exactly match what was assigned, so it is always replaced.
+		if len(res.Addresses) > 0 || len(obj.Spec.Addresses) > 0 {
+			gs.Addresses = res.Addresses
+		}
+	} else {
+		// Manual deployment: the Gateway points to an existing Service by hostname.
+		// Routability cannot be guaranteed for it, so entries requesting one are unsatisfied (see extractGatewayServices).
+		if len(addressesToReport) > 0 {
+			gs.Addresses = make([]k8s.GatewayStatusAddress, 0, len(addressesToReport))
+			for _, addr := range addressesToReport {
+				gs.Addresses = append(gs.Addresses, gatewaycommon.StatusAddress(addr, k8s.GatewayAddressRoutabilityDefault))
+			}
+		}
+		var progErr *ConfigError
+		assigned, progErr = manualAddressesAssigned(obj.Spec.Addresses, internal, pending, warnings)
+		if progErr != nil {
+			gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = progErr
+		}
+	}
+	if assigned != nil {
+		gatewayConditions[string(k8s.GatewayConditionAddressesAssigned)] = &condition{
+			status:  assigned.Status,
+			reason:  assigned.Reason,
+			message: assigned.Message,
+		}
+	} else {
+		gs.Conditions = kstatus.RemoveCondition(gs.Conditions, string(k8s.GatewayConditionAddressesAssigned))
 	}
 	// Prune listeners that have been removed
 	haveListeners := getListenerNames(&obj.Spec)
@@ -2009,6 +2040,74 @@ func reportGatewayStatus(
 	}
 	gs.Listeners = listeners
 	gs.Conditions = gatewaycommon.SetListenerConditions(obj.Generation, gs.Conditions, toSharedConditions(gatewayConditions))
+}
+
+// manualAddressesAssigned maps the resolution of a manually deployed Gateway onto AddressesAssigned.
+// The ConfigError is non-nil when no entry can be satisfied and Programmed must be False.
+func manualAddressesAssigned(
+	addrs []k8s.GatewaySpecAddress,
+	internal, pending, warnings []string,
+) (*gatewaycommon.AddressesAssigned, *ConfigError) {
+	var unsatisfied []string
+	satisfiable := 0
+	// Unsupported address types keep the existing UnsupportedAddress reason on Programmed.
+	onlyHostnames := true
+	for _, a := range addrs {
+		isHostname := a.Type != nil && *a.Type == k8s.HostnameAddressType
+		onlyHostnames = onlyHostnames && isHostname
+		if isHostname && a.Routability == "" {
+			satisfiable++
+		} else {
+			unsatisfied = append(unsatisfied, fmt.Sprintf("type=%v routability=%q value=%q", ptr.OrEmpty(a.Type), a.Routability, a.Value))
+		}
+	}
+	details := strings.Join(append(slices.Clone(warnings), unsatisfied...), "; ")
+	switch {
+	case satisfiable == 0:
+		var progErr *ConfigError
+		if onlyHostnames {
+			progErr = &ConfigError{
+				Reason: string(k8s.GatewayReasonAddressNotAssigned), Message: "Failed to assign to any requested addresses: " + details,
+			}
+		}
+		return &gatewaycommon.AddressesAssigned{
+			Status: metav1.ConditionFalse, Reason: string(k8s.GatewayReasonAddressesNotAssigned),
+			Message: "No requested address could be assigned: " + details,
+		}, progErr
+	case len(pending) > 0:
+		return nil, nil
+	case len(warnings) == 0 && len(unsatisfied) == 0:
+		return &gatewaycommon.AddressesAssigned{
+			Status: metav1.ConditionTrue, Reason: string(k8s.GatewayReasonAddressesAssigned), Message: "All requested addresses assigned",
+		}, nil
+	case len(internal) > 0:
+		return &gatewaycommon.AddressesAssigned{
+			Status: metav1.ConditionFalse, Reason: string(k8s.GatewayReasonAddressesPartiallyAssigned),
+			Message: "Some requested addresses could not be assigned: " + details,
+		}, nil
+	}
+	return &gatewaycommon.AddressesAssigned{
+		Status: metav1.ConditionFalse, Reason: string(k8s.GatewayReasonAddressesNotAssigned),
+		Message: "No requested address could be assigned: " + details,
+	}, nil
+}
+
+// localClusterIPs returns the local cluster's ClusterIPs of the Gateway's Service, once it has instances.
+func localClusterIPs(r *gatewaycommon.GatewayContext, namespace string, gatewayServices, internal []string) []string {
+	if len(internal) == 0 {
+		return nil
+	}
+	var ips []string
+	for _, g := range gatewayServices {
+		if svc := r.GetService(g, namespace); svc != nil {
+			for _, ip := range svc.ClusterVIPs.GetAddressesFor(r.Cluster()) {
+				if _, err := netip.ParseAddr(ip); err == nil {
+					ips = append(ips, ip)
+				}
+			}
+		}
+	}
+	return ips
 }
 
 func setProgrammedCondition(gatewayConditions map[string]*condition, internal []string, gatewayServices []string, warnings []string, allUsable bool) {
@@ -2081,14 +2180,10 @@ func reportUnmanagedGatewayStatus(
 	}
 
 	status.Addresses = slices.Map(obj.Spec.Addresses, func(e k8s.GatewaySpecAddress) k8s.GatewayStatusAddress {
-		var routability *k8s.GatewayAddressRoutabilityType
-		if e.Routability != "" {
-			routability = ptr.Of(e.Routability)
-		}
 		return k8s.GatewayStatusAddress{
 			Type:        e.Type,
 			Value:       e.Value,
-			Routability: routability,
+			Routability: ptr.Of(e.Routability),
 		}
 	})
 	status.Listeners = nil
@@ -2106,6 +2201,10 @@ func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info gatewayc
 		if addr.Type != nil && *addr.Type != k8s.HostnameAddressType {
 			// We only support HostnameAddressType. Keep track of invalid ones so we can report in status.
 			skippedAddresses = append(skippedAddresses, addr.Value)
+			continue
+		}
+		if addr.Routability != "" {
+			// Routability cannot be guaranteed for an existing Service; the entry is unsatisfied.
 			continue
 		}
 		// TODO: For now we are using Addresses. There has been some discussion of allowing inline

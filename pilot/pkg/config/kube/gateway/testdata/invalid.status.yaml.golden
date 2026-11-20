@@ -25,6 +25,12 @@ status:
     status: "False"
     type: Accepted
   - lastTransitionTime: fake
+    message: 'No requested address could be assigned: type=istio.io/FakeType routability=""
+      value="1.2.3.4"'
+    reason: NotAssigned
+    status: "False"
+    type: AddressesAssigned
+  - lastTransitionTime: fake
     message: Failed to assign to any requested addresses
     reason: UnsupportedAddress
     status: "False"
@@ -43,7 +49,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
@@ -51,6 +58,11 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: All requested addresses assigned
+    reason: AddressesAssigned
+    status: "True"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
@@ -99,7 +111,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
@@ -107,6 +120,11 @@ status:
     reason: ListenersNotValid
     status: "False"
     type: Accepted
+  - lastTransitionTime: fake
+    message: All requested addresses assigned
+    reason: AddressesAssigned
+    status: "True"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
     reason: Programmed
@@ -162,6 +180,12 @@ status:
     status: "False"
     type: Accepted
   - lastTransitionTime: fake
+    message: 'No requested address could be assigned: port 34002 not found for hostname
+      "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: NotAssigned
+    status: "False"
+    type: AddressesAssigned
+  - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: port 34002 not found for
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
     reason: AddressNotUsable
@@ -211,7 +235,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
@@ -219,6 +244,11 @@ status:
     reason: ListenersNotValid
     status: "False"
     type: Accepted
+  - lastTransitionTime: fake
+    message: All requested addresses assigned
+    reason: AddressesAssigned
+    status: "True"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34001
     reason: Programmed
@@ -268,7 +298,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
@@ -276,6 +307,11 @@ status:
     reason: ListenersNotValid
     status: "False"
     type: Accepted
+  - lastTransitionTime: fake
+    message: All requested addresses assigned
+    reason: AddressesAssigned
+    status: "True"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
     reason: Programmed
@@ -324,7 +360,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
@@ -332,6 +369,11 @@ status:
     reason: ListenersNotValid
     status: "False"
     type: Accepted
+  - lastTransitionTime: fake
+    message: All requested addresses assigned
+    reason: AddressesAssigned
+    status: "True"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
     reason: Programmed
@@ -382,7 +424,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
@@ -390,6 +433,11 @@ status:
     reason: ListenersNotValid
     status: "False"
     type: Accepted
+  - lastTransitionTime: fake
+    message: All requested addresses assigned
+    reason: AddressesAssigned
+    status: "True"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
     reason: Programmed
@@ -440,7 +488,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
@@ -448,6 +497,11 @@ status:
     reason: ListenersNotValid
     status: "False"
     type: Accepted
+  - lastTransitionTime: fake
+    message: All requested addresses assigned
+    reason: AddressesAssigned
+    status: "True"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
     reason: Programmed
@@ -503,6 +557,12 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: 'No requested address could be assigned: hostname "fake-service.com"
+      not found'
+    reason: NotAssigned
+    status: "False"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
       not found'
@@ -607,6 +667,14 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: 'No requested address could be assigned: port 8080 not found for hostname
+      "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service port
+      should be specified, not the workload port. Did you mean one of these ports:
+      [80]?)'
+    reason: NotAssigned
+    status: "False"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: port 8080 not found for
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
