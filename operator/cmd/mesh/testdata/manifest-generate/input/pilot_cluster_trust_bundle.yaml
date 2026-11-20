@@ -1,0 +1,18 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio-operator
+spec:
+  profile: ambient
+  components:
+    ztunnel:
+      enabled: true
+  values:
+    global:
+      trustBundleName: custom-root-cert
+    pilot:
+      env:
+        ENABLE_CLUSTER_TRUST_BUNDLE_API: true
+    ztunnel:
+      env:
+        ENABLE_CLUSTER_TRUST_BUNDLE_API: true

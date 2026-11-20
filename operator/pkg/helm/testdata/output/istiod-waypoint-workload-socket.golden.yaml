@@ -115,6 +115,7 @@ data:
           "servicePort": 0
         },
         "tag": "latest",
+        "trustBundleName": "",
         "variant": "",
         "waypoint": {
           "affinity": {},
