@@ -148,11 +148,18 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 
 	// Other CNIs watch this dir and may copy our config on every write (e.g. Antrea chaining
 	// on the istio-owned config), so an unchanged config must not be rewritten.
-	unchanged := false
+	changed := true
 	if existing, readErr := os.ReadFile(cniConfigFilepath); readErr == nil && bytes.Equal(existing, istioPlugin) &&
 		!strings.HasSuffix(cniConfigFilepath, ".conf") {
-		unchanged = true
+		changed = false
 		installLog.Debugf("CNI config %s is unchanged, not rewriting", cniConfigFilepath)
+		// chmod raises no close_write, so fixing the mode does not trigger a copy
+		if info, statErr := os.Stat(cniConfigFilepath); statErr == nil && info.Mode().Perm() != fileMode.Perm() {
+			if err = os.Chmod(cniConfigFilepath, fileMode.Perm()); err != nil {
+				installLog.Errorf("Failed to set mode on CNI config file %v: %v", cniConfigFilepath, err)
+				return cniConfigFilepath, err
+			}
+		}
 	} else if err = file.AtomicWrite(cniConfigFilepath, istioPlugin, fileMode); err != nil {
 		installLog.Errorf("Failed to write CNI config file %v: %v", cniConfigFilepath, err)
 		return cniConfigFilepath, err
@@ -169,7 +176,7 @@ func writeCNIConfig(ctx context.Context, istioPlugin []byte, cfg *config.Install
 		cniConfigFilepath += "list"
 	}
 
-	if !unchanged {
+	if changed {
 		notifyCloseWrite(cniConfigFilepath)
 		installLog.Infof("Wrote CNI config to %s", cniConfigFilepath)
 	}
