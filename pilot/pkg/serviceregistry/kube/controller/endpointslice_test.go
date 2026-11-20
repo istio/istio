@@ -23,6 +23,7 @@ import (
 	discovery "k8s.io/api/discovery/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
@@ -647,4 +648,41 @@ func TestEndpointSliceMetadataOnlyUpdate(t *testing.T) {
 	es.Endpoints = append(es.Endpoints, discovery.Endpoint{Addresses: []string{"128.0.0.2"}})
 	esClient.Update(es)
 	fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: host})
+}
+
+func TestEndpointSlicePodIndex(t *testing.T) {
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+	writer := clienttest.NewWriter[*discovery.EndpointSlice](t, c.client)
+	slice := &discovery.EndpointSlice{
+		ObjectMeta:  metav1.ObjectMeta{Name: "slice", Namespace: "nsa", Labels: map[string]string{discovery.LabelServiceName: "svc"}},
+		AddressType: discovery.AddressTypeIPv4,
+		Endpoints: []discovery.Endpoint{
+			{Addresses: []string{"10.0.0.1"}, TargetRef: &corev1.ObjectReference{Kind: "Pod", Name: "pod", Namespace: "nsa"}},
+			{Addresses: []string{"10.0.0.2", "10.0.0.3"}},
+		},
+	}
+	lookup := func(namespace, name string) int {
+		return len(c.endpoints.slicesByPod.Lookup(types.NamespacedName{Namespace: namespace, Name: name}))
+	}
+	writer.Create(slice)
+	assert.EventuallyEqual(t, func() int { return lookup("nsa", "pod/pod") }, 1)
+	assert.Equal(t, lookup("nsa", "ip/10.0.0.1"), 0) // Pod reference takes precedence.
+	assert.Equal(t, lookup("nsa", "ip/10.0.0.2"), 1)
+	assert.Equal(t, lookup("nsa", "ip/10.0.0.3"), 1)
+	assert.Equal(t, lookup("nsb", "ip/10.0.0.2"), 0)
+
+	// Updating membership removes the old keys; non-Pod references use IP lookup.
+	slice = slice.DeepCopy()
+	slice.Endpoints = []discovery.Endpoint{{Addresses: []string{"10.0.0.4"}, TargetRef: &corev1.ObjectReference{Kind: "Node", Name: "node"}}}
+	writer.Update(slice)
+	assert.EventuallyEqual(t, func() int { return lookup("nsa", "ip/10.0.0.4") }, 1)
+	assert.Equal(t, lookup("nsa", "pod/pod"), 0)
+	assert.Equal(t, lookup("nsa", "ip/10.0.0.2"), 0)
+	assert.Equal(t, lookup("nsa", "ip/10.0.0.3"), 0)
+
+	// MCS slices must not enter the pod metadata refresh path.
+	slice = slice.DeepCopy()
+	slice.Labels[mcs.LabelServiceName] = "svc"
+	writer.Update(slice)
+	assert.EventuallyEqual(t, func() int { return lookup("nsa", "ip/10.0.0.4") }, 0)
 }
