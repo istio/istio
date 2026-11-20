@@ -136,7 +136,7 @@ type Outputs struct {
 type Inputs struct {
 	Namespaces krt.Collection[*corev1.Namespace]
 
-	Services krt.Collection[*corev1.Service]
+	Services     krt.Collection[*corev1.Service]
 	ServiceCIDRs krt.Collection[*networkingv1.ServiceCIDR]
 	Secrets      krt.Collection[*corev1.Secret]
 	ConfigMaps   krt.Collection[*corev1.ConfigMap]

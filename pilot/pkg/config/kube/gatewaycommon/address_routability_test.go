@@ -366,3 +366,50 @@ func TestResolveAddresses(t *testing.T) {
 		})
 	}
 }
+
+func TestManualAddressesAssigned(t *testing.T) {
+	hostType := gatewayv1.HostnameAddressType
+	hostEntry := gatewayv1.GatewaySpecAddress{Type: &hostType, Value: "svc"}
+	cases := []struct {
+		name       string
+		addrs      []gatewayv1.GatewaySpecAddress
+		internal   []string
+		pending    []string
+		warnings   []string
+		reason     string // empty: condition omitted
+		status     metav1.ConditionStatus
+		programmed string
+	}{
+		{name: "pending", addrs: []gatewayv1.GatewaySpecAddress{hostEntry}, internal: []string{"svc:80"}, pending: []string{"svc"}, warnings: []string{"address pending"}},
+		{
+			name: "hostname with routability is unsatisfied",
+			addrs: []gatewayv1.GatewaySpecAddress{
+				{Type: &hostType, Value: "svc", Routability: gatewayv1.GatewayAddressRoutabilityCluster},
+			},
+			reason: "NotAssigned", status: metav1.ConditionFalse, programmed: "AddressNotAssigned",
+		},
+		{
+			name: "one of two hostnames has routability",
+			addrs: []gatewayv1.GatewaySpecAddress{
+				hostEntry, {Type: &hostType, Value: "other", Routability: gatewayv1.GatewayAddressRoutabilityCluster},
+			},
+			internal: []string{"svc:80"}, reason: "PartiallyAssigned", status: metav1.ConditionFalse,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got, progErr := manualAddressesAssigned(tt.addrs, tt.internal, tt.pending, tt.warnings)
+			if tt.reason == "" {
+				assert.Equal(t, got == nil, true)
+			} else {
+				assert.Equal(t, got.Reason, tt.reason)
+				assert.Equal(t, got.Status, tt.status)
+			}
+			if tt.programmed == "" {
+				assert.Equal(t, progErr == nil, true)
+			} else {
+				assert.Equal(t, progErr.Reason, tt.programmed)
+			}
+		})
+	}
+}

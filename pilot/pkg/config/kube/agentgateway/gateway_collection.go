@@ -21,6 +21,7 @@ import (
 	"github.com/agentgateway/agentgateway/api"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -404,6 +405,7 @@ func GatewayCollection(
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
+	serviceCIDRs krt.Collection[*networkingv1.ServiceCIDR],
 	domainSuffix string,
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
@@ -422,6 +424,7 @@ func GatewayCollection(
 		if context == nil {
 			return nil, nil
 		}
+		cidrs := gatewaycommon.ServiceCIDRPrefixes(krt.Fetch(ctx, serviceCIDRs))
 		result := []*GatewayListener{}
 		kgw := obj.Spec
 		status := obj.Status.DeepCopy()
@@ -450,7 +453,7 @@ func GatewayCollection(
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			log.Errorf("failed to translate gwv1", "name", obj.GetName(), "namespace", obj.GetNamespace(), "err", err.message)
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error, nil, 0)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error, nil, 0, cidrs)
 			return status, nil
 		}
 		var gatewayErr *ConfigError
@@ -544,7 +547,7 @@ func GatewayCollection(
 		if obj.Spec.TLS != nil {
 			backendTLSErr = resolveGatewayBackendTLS(ctx, secrets, grants, obj.Spec.TLS.Backend, obj)
 		}
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr, backendTLSErr, validListeners)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr, backendTLSErr, validListeners, cidrs)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 

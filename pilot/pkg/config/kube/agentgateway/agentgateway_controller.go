@@ -25,6 +25,7 @@ import (
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -128,6 +129,7 @@ type AgwInputs struct {
 	Services       krt.Collection[*corev1.Service]
 	Secrets        krt.Collection[*corev1.Secret]
 	ConfigMaps     krt.Collection[*corev1.ConfigMap]
+	ServiceCIDRs   krt.Collection[*networkingv1.ServiceCIDR]
 	EndpointSlices krt.Collection[*discovery.EndpointSlice]
 
 	// Gateway API resources
@@ -208,6 +210,7 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 			kclient.NewFiltered[*corev1.ConfigMap](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
 			opts.WithName("informer/ConfigMaps")...,
 		),
+		ServiceCIDRs: krt.WrapClient(kclient.New[*networkingv1.ServiceCIDR](kc), opts.WithName("informer/ServiceCIDRs")...),
 		Services: krt.WrapClient(
 			kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
 			opts.WithName("informer/Services")...,
@@ -299,6 +302,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		referenceGrants,
 		c.inputs.ConfigMaps,
 		c.inputs.Secrets,
+		c.inputs.ServiceCIDRs,
 		c.domainSuffix,
 		c.gatewayContext,
 		c.tagWatcher,

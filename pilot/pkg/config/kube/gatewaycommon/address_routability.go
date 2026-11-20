@@ -27,6 +27,9 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 )
 
 // RoutabilitySentinel is reserved for conformance. It carries no routability guarantee.
@@ -348,6 +351,107 @@ func containsAddr(l []netip.Addr, a netip.Addr) bool {
 		}
 	}
 	return false
+}
+
+// ReportAddresses sets gs.Addresses and returns the AddressesAssigned condition to publish (nil means omit it)
+// and, when non-nil, the error that forces Programmed=False.
+func ReportAddresses(
+	r *GatewayContext,
+	obj *gatewayv1.Gateway,
+	gs *gatewayv1.GatewayStatus,
+	cidrs []netip.Prefix,
+	gatewayServices, addressesToReport, internal, external, pending, warnings []string,
+) (*AddressesAssigned, *ListenerStatusConfigError) {
+	if !IsManaged(&obj.Spec) {
+		// Manual deployment: the Gateway points to an existing Service by hostname.
+		// Do not report an address until we are ready. But once we are ready, never remove the address.
+		if len(addressesToReport) > 0 {
+			gs.Addresses = make([]gatewayv1.GatewayStatusAddress, 0, len(addressesToReport))
+			for _, addr := range addressesToReport {
+				gs.Addresses = append(gs.Addresses, StatusAddress(addr, gatewayv1.GatewayAddressRoutabilityDefault))
+			}
+		}
+		return manualAddressesAssigned(obj.Spec.Addresses, internal, pending, warnings)
+	}
+	res := ResolveAddresses(AddressInputs{
+		Spec:       obj.Spec.Addresses,
+		CIDRs:      cidrs,
+		Default:    addressesToReport,
+		External:   external,
+		ClusterIPs: localClusterIPs(r, obj.Namespace, gatewayServices, internal),
+		LBPending:  len(pending) > 0,
+	})
+	// With spec.addresses empty, keep reported addresses once ready. With explicit addresses the status must
+	// exactly match what was assigned, so it is always replaced.
+	if len(res.Addresses) > 0 || len(obj.Spec.Addresses) > 0 {
+		gs.Addresses = res.Addresses
+	}
+	if res.ProgrammedReason == "" {
+		return res.Condition, nil
+	}
+	return res.Condition, &ListenerStatusConfigError{Reason: res.ProgrammedReason, Message: res.ProgrammedMessage}
+}
+
+// manualAddressesAssigned maps the resolution of a manually deployed Gateway onto AddressesAssigned.
+// Routability cannot be guaranteed for an existing Service, so hostname entries requesting one are unsatisfied.
+func manualAddressesAssigned(addrs []gatewayv1.GatewaySpecAddress, internal, pending, warnings []string) (*AddressesAssigned, *ListenerStatusConfigError) {
+	var unsatisfied []string
+	satisfiable := 0
+	// Unsupported address types keep the existing UnsupportedAddress reason on Programmed.
+	onlyHostnames := true
+	for _, a := range addrs {
+		isHostname := a.Type != nil && *a.Type == gatewayv1.HostnameAddressType
+		onlyHostnames = onlyHostnames && isHostname
+		if isHostname && a.Routability == "" {
+			satisfiable++
+		} else {
+			unsatisfied = append(unsatisfied, fmt.Sprintf("type=%v routability=%q value=%q", ptr.OrEmpty(a.Type), a.Routability, a.Value))
+		}
+	}
+	details := strings.Join(append(slices.Clone(warnings), unsatisfied...), "; ")
+	notAssigned := &AddressesAssigned{
+		Status: metav1.ConditionFalse, Reason: string(gatewayv1.GatewayReasonAddressesNotAssigned),
+		Message: "No requested address could be assigned: " + details,
+	}
+	switch {
+	case satisfiable == 0:
+		if onlyHostnames {
+			return notAssigned, &ListenerStatusConfigError{
+				Reason: string(gatewayv1.GatewayReasonAddressNotAssigned), Message: "Failed to assign to any requested addresses: " + details,
+			}
+		}
+		return notAssigned, nil
+	case len(pending) > 0:
+		return nil, nil
+	case len(warnings) == 0 && len(unsatisfied) == 0:
+		return &AddressesAssigned{
+			Status: metav1.ConditionTrue, Reason: string(gatewayv1.GatewayReasonAddressesAssigned), Message: "All requested addresses assigned",
+		}, nil
+	case len(internal) > 0:
+		return &AddressesAssigned{
+			Status: metav1.ConditionFalse, Reason: string(gatewayv1.GatewayReasonAddressesPartiallyAssigned),
+			Message: "Some requested addresses could not be assigned: " + details,
+		}, nil
+	}
+	return notAssigned, nil
+}
+
+// localClusterIPs returns the local cluster's ClusterIPs of the Gateway's Service, once it has instances.
+func localClusterIPs(r *GatewayContext, namespace string, gatewayServices, internal []string) []string {
+	if len(internal) == 0 {
+		return nil
+	}
+	var ips []string
+	for _, g := range gatewayServices {
+		if svc := r.GetService(g, namespace); svc != nil {
+			for _, ip := range svc.ClusterVIPs.GetAddressesFor(r.Cluster()) {
+				if _, err := netip.ParseAddr(ip); err == nil {
+					ips = append(ips, ip)
+				}
+			}
+		}
+	}
+	return ips
 }
 
 // ServiceCIDRPrefixes flattens the CIDRs of ServiceCIDR objects, skipping invalid ones.
