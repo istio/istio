@@ -243,8 +243,10 @@ func allContainers(pod *corev1.Pod) []corev1.Container {
 	return append(slices.Clone(pod.Spec.InitContainers), pod.Spec.Containers...)
 }
 
-// patchRewriteProbe generates the patch for webhook.
-func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPort int32) {
+// sidecarStatusPort returns the port of the sidecar's status server for a pod: the
+// status.sidecar.istio.io/port annotation when set, otherwise defaultPort. Zero means the sidecar
+// does not run a status server.
+func sidecarStatusPort(annotations map[string]string, defaultPort int32) int {
 	statusPort := int(defaultPort)
 	if v, f := annotations[annotation.SidecarStatusPort.Name]; f {
 		p, err := strconv.Atoi(v)
@@ -253,6 +255,12 @@ func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPo
 		}
 		statusPort = p
 	}
+	return statusPort
+}
+
+// patchRewriteProbe generates the patch for webhook.
+func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPort int32) {
+	statusPort := sidecarStatusPort(annotations, defaultPort)
 	for i, c := range pod.Spec.Containers {
 		// Skip sidecar container.
 		if c.Name == ProxyContainerName {
