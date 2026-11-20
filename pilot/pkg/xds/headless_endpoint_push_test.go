@@ -116,6 +116,28 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			expectCDS: true, // ServiceUpdate means service definition changed
 			expectRDS: true, // ServiceUpdate means service definition changed
 		},
+		{
+			name:      "Sidecar with HeadlessEndpointMTLSChange should push CDS but not RDS",
+			proxyType: model.SidecarProxy,
+			reason:    model.NewReasonStats(model.HeadlessEndpointUpdate, model.HeadlessEndpointMTLSChange),
+			configUpdates: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "my-service", Namespace: "default"},
+			),
+			expectLDS: true,
+			expectCDS: true, // clients infer auto-mTLS for the service from its endpoints
+			expectRDS: false,
+		},
+		{
+			name:      "Router with HeadlessEndpointMTLSChange should push CDS only",
+			proxyType: model.Router,
+			reason:    model.NewReasonStats(model.HeadlessEndpointUpdate, model.HeadlessEndpointMTLSChange),
+			configUpdates: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "my-service", Namespace: "default"},
+			),
+			expectLDS: false,
+			expectCDS: true,
+			expectRDS: false,
+		},
 	}
 
 	for _, tt := range tests {

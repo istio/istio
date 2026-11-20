@@ -2103,6 +2103,63 @@ func TestEndpointUpdate(t *testing.T) {
 	fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: host})
 }
 
+// A headless service's auto-mTLS inference depends on whether it has endpoints, so
+// going from none to some (or back) must push CDS, not just a headless endpoint update.
+func TestHeadlessEndpointUpdateAutoMTLSTransition(t *testing.T) {
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+
+	tlsLabels := map[string]string{"app": "prod-app", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel}
+	addPods(t, controller, fx,
+		generatePod([]string{"128.0.0.1"}, "pod1", "nsa", "", "node1", tlsLabels, nil),
+		generatePod([]string{"128.0.0.2"}, "pod2", "nsa", "", "node1", tlsLabels, nil),
+	)
+	createServiceWithoutClusterIP(controller, "svc1", "nsa", nil,
+		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+	fx.WaitOrFail(t, "service")
+	fx.Clear()
+
+	collect := func() model.ReasonStats {
+		got := model.ReasonStats{}
+		for {
+			select {
+			case e := <-fx.Events:
+				if e.Type == "xds" {
+					for r, n := range e.Reason {
+						got[r] += n
+					}
+				}
+			case <-time.After(500 * time.Millisecond):
+				return got
+			}
+		}
+	}
+	setEndpoints := func(pods ...string) {
+		var ips []string
+		var refs []*corev1.ObjectReference
+		for _, p := range pods {
+			ips = append(ips, map[string]string{"pod1": "128.0.0.1", "pod2": "128.0.0.2"}[p])
+			refs = append(refs, &corev1.ObjectReference{Kind: "Pod", Namespace: "nsa", Name: p})
+		}
+		createEndpoints(t, controller, "svc1", "nsa", []string{"tcp-port"}, ips, refs, nil)
+	}
+
+	setEndpoints("pod1")
+	if got := collect(); !got.Has(model.HeadlessEndpointMTLSChange) {
+		t.Fatalf("endpoints appearing should push CDS, got %v", got)
+	}
+
+	setEndpoints("pod1", "pod2")
+	got := collect()
+	if !got.Has(model.HeadlessEndpointUpdate) || got.Has(model.HeadlessEndpointMTLSChange) {
+		t.Fatalf("adding an endpoint to a non-empty service should only be a headless update, got %v", got)
+	}
+
+	setEndpoints()
+	if got := collect(); !got.Has(model.HeadlessEndpointMTLSChange) {
+		t.Fatalf("endpoints disappearing should push CDS, got %v", got)
+	}
+}
+
 // Validates that when Pilot sees Endpoint before the corresponding Pod, it triggers endpoint event on pod event.
 func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})

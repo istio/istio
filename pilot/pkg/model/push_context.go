@@ -466,6 +466,8 @@ const (
 	EndpointUpdate TriggerReason = "endpoint"
 	// HeadlessEndpointUpdate describes a push triggered by an Endpoint change for headless service
 	HeadlessEndpointUpdate TriggerReason = "headlessendpoint"
+	// HeadlessEndpointMTLSChange describes a headless Endpoint change that flips the auto-mTLS mode clients infer for the service
+	HeadlessEndpointMTLSChange TriggerReason = "headlessendpointmtls"
 	// ConfigUpdate describes a push triggered by a config (generally and Istio CRD) change.
 	ConfigUpdate TriggerReason = "config"
 	// ServiceUpdate describes a push triggered by a Service change

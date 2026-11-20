@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** a case where CDS did not update when a headless Service had its TLS mode switch.
+    Going to and from zero endpoints may change the effective TLS Mode.
