@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** `istioctl x workload group create` silently generating a port with value `0` when a `--ports` entry was
+    not in the `<name>=<port>` form or did not contain a valid port number. The command now fails with an error that
+    names the invalid entry, and ports outside the range 1..65535 are rejected.
