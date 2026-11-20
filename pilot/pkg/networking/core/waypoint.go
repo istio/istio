@@ -15,6 +15,7 @@
 package core
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
@@ -134,4 +135,11 @@ func filterWaypointOutboundServices(
 
 func isAmbientEastWestGateway(node *model.Proxy) bool {
 	return node.IsAmbientEastWestGateway()
+}
+
+// sidecarAmbientBridgeEnabled reports whether cross-network traffic is allowed to bridge between
+// the sidecar and ambient data planes at the east-west gateway. The bridge is a strict extension of
+// ambient multi-network, so it requires that to be enabled too.
+func sidecarAmbientBridgeEnabled() bool {
+	return features.EnableAmbientMultiNetwork && features.EnableSidecarAmbientBridge
 }

@@ -30,11 +30,8 @@ import (
 	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
 	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	googleproto "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -400,51 +397,6 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 	}
 	chains := []*listener.FilterChain{}
 	portProtocols := map[int]protocol.Instance{}
-	getOrigDstSfs := func(ipAndPort string, isHttp bool) *listener.Filter {
-		celTemplate := `%%CEL('%s' in filter_state ? filter_state['%s']: r'%s')%%`
-		celEval := fmt.Sprintf(celTemplate, xdsfilters.OriginalDstFilterStateKey, xdsfilters.OriginalDstFilterStateKey, ipAndPort)
-		filterStateValue := &sfsvalue.FilterStateValue{
-			Key: &sfsvalue.FilterStateValue_ObjectKey{
-				ObjectKey: "envoy.network.transport_socket.original_dst_address",
-			},
-			Value: &sfsvalue.FilterStateValue_FormatString{
-				FormatString: &core.SubstitutionFormatString{
-					Formatters: []*core.TypedExtensionConfig{
-						{
-							Name:        "envoy.formatter.cel",
-							TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
-						},
-					},
-					Format: &core.SubstitutionFormatString_TextFormatSource{
-						TextFormatSource: &core.DataSource{
-							Specifier: &core.DataSource_InlineString{
-								// If we have a valid original destination in filter state, use it. Else,
-								// fall back to the original destination address.
-								InlineString: celEval,
-							},
-						},
-					},
-				},
-			},
-		}
-		var msg googleproto.Message
-		if isHttp {
-			msg = &sfs.Config{
-				OnRequestHeaders: []*sfsvalue.FilterStateValue{filterStateValue},
-			}
-		} else {
-			msg = &sfsnetwork.Config{
-				OnNewConnection: []*sfsvalue.FilterStateValue{filterStateValue},
-			}
-		}
-		return &listener.Filter{
-			Name: "set_dst_address",
-			ConfigType: &listener.Filter_TypedConfig{
-				TypedConfig: protoconv.MessageToAny(msg),
-			},
-		}
-	}
-
 	for _, svc := range svcs {
 		var waypoint host.Name
 		var ingressUseWaypoint bool
@@ -487,7 +439,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
 			var filters []*listener.Filter
 			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork && !isAmbientEastWestGateway {
-				filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
+				filters = []*listener.Filter{xdsfilters.BuildSetDstAddressFilter(origDst)}
 			}
 			if isAmbientEastWestGateway {
 				cc.policyService = nil
