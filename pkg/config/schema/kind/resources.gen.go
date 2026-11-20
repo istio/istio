@@ -43,6 +43,7 @@ const (
 	Secret
 	Service
 	ServiceAccount
+	ServiceCIDR
 	ServiceEntry
 	Sidecar
 	StatefulSet
@@ -141,6 +142,8 @@ func (k Kind) String() string {
 		return "Service"
 	case ServiceAccount:
 		return "ServiceAccount"
+	case ServiceCIDR:
+		return "ServiceCIDR"
 	case ServiceEntry:
 		return "ServiceEntry"
 	case Sidecar:
@@ -258,6 +261,8 @@ func FromString(s string) Kind {
 		return Service
 	case "ServiceAccount":
 		return ServiceAccount
+	case "ServiceCIDR":
+		return ServiceCIDR
 	case "ServiceEntry":
 		return ServiceEntry
 	case "Sidecar":

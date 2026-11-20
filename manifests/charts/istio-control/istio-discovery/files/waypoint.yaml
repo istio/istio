@@ -346,8 +346,15 @@ spec:
   {{- end }}
   selector:
     "{{.GatewayNameLabel}}": "{{.Name}}"
-  {{- if and (.Spec.Addresses) (eq .ServiceType "LoadBalancer") }}
-  loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
+  {{- if and .LoadBalancerIP (eq .ServiceType "LoadBalancer") }}
+  loadBalancerIP: {{ .LoadBalancerIP | quote }}
+  {{- end }}
+  {{- if .ClusterIPs }}
+  clusterIP: {{ index .ClusterIPs 0 | quote }}
+  clusterIPs:
+  {{- range .ClusterIPs }}
+  - {{ . | quote }}
+  {{- end }}
   {{- end }}
   type: {{ .ServiceType | quote }}
 ---

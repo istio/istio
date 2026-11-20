@@ -33,7 +33,8 @@ var skippedExtendedFeatures = []features.Feature{
 	features.HTTPRouteBackendURLRewriteFeature,
 	// Listener-level filters are not translated into gateway configuration.
 	features.GatewayListenerFiltersFeature,
-	// Address allocation does not implement the requested routability scope.
+	// Address routability is implemented (see gatewaycommon.ResolveAddresses), but stays skipped until the
+	// gateway-api bump that brings the matching conformance suite; un-skip these two features then.
 	features.GatewayAddressRoutabilityFeature,
 	features.GatewayAddressRoutabilityClusterFeature,
 	// Gateway frontend and BackendTLSPolicy CA references do not resolve ClusterTrustBundles.

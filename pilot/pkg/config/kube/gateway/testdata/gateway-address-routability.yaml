@@ -1,0 +1,139 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+# Cluster only: both ClusterIPs, tagged Cluster
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: rt-cluster
+  namespace: default
+spec:
+  gatewayClassName: istio
+  addresses:
+  - type: IPAddress
+    routability: Cluster
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+---
+# Default and Cluster: the default entry gets the LB address, the Cluster entry the ClusterIP
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: rt-mixed
+  namespace: default
+spec:
+  gatewayClassName: istio
+  addresses:
+  - type: IPAddress
+    routability: ""
+  - type: IPAddress
+    routability: Cluster
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+---
+# LB address still pending: AddressesAssigned is omitted and the ClusterIP is not borrowed
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: rt-pending
+  namespace: default
+spec:
+  gatewayClassName: istio
+  addresses:
+  - type: IPAddress
+    routability: testing.x-k8s.io/sentinel
+  - type: IPAddress
+    routability: Cluster
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+---
+# Static Cluster address in a ServiceCIDR: exactly that value
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: rt-static
+  namespace: default
+spec:
+  gatewayClassName: istio
+  addresses:
+  - type: IPAddress
+    value: 10.96.0.20
+    routability: Cluster
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+---
+# Static Cluster address outside every ServiceCIDR, alone: nothing assigned
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: rt-static-unusable
+  namespace: default
+spec:
+  gatewayClassName: istio
+  addresses:
+  - type: IPAddress
+    value: 192.0.2.20
+    routability: Cluster
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+---
+# Static Cluster address outside every ServiceCIDR plus a satisfiable default entry: partial
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: rt-partial
+  namespace: default
+spec:
+  gatewayClassName: istio
+  addresses:
+  - type: IPAddress
+    value: 192.0.2.20
+    routability: Cluster
+  - type: IPAddress
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+---
+# Unsupported reserved routability: nothing assigned
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: rt-unsupported
+  namespace: default
+spec:
+  gatewayClassName: istio
+  addresses:
+  - type: IPAddress
+    routability: testing.x-k8s.io/unsupported
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+---
+# Remote class entries are echoed with explicit routability
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: rt-default
+  namespace: default
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP

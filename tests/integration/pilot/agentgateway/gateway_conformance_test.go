@@ -104,6 +104,8 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 			// Backend client certificate support (spec.tls.backend.clientCertificateRef) is implemented
 			// for agentgateway even though it is disabled in the shared gateway.SupportedFeatures.
 			supportedFeatures.Insert(features.GatewayBackendClientCertificateFeature)
+			// TODO: set the routability cluster address pools here too once the gateway-api bump adds them
+			// (see tests/integration/pilot/gateway_conformance_test.go).
 
 			// Standard-only selection goes through SkipTests, leaving supportedFeatures to
 			// advertise what Istio actually implements. Conformance tests read it at runtime

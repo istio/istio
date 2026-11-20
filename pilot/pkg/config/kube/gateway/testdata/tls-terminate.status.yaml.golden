@@ -19,7 +19,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
@@ -27,6 +28,12 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: 'Some requested addresses could not be assigned: port 9443 not found
+      for hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: PartiallyAssigned
+    status: "False"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: 'Assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443,
       but failed to assign to all requested addresses: port 9443 not found for hostname

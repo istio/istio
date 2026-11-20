@@ -6,7 +6,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.1.1.1
   conditions:
   - lastTransitionTime: fake

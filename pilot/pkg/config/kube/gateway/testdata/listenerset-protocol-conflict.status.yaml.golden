@@ -279,7 +279,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   attachedListenerSets: 2
   conditions:
@@ -288,6 +289,11 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: All requested addresses assigned
+    reason: AddressesAssigned
+    status: "True"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed

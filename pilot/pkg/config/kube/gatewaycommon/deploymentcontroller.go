@@ -24,6 +24,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,6 +108,7 @@ type DeploymentController struct {
 	configMaps      kclient.Client[*corev1.ConfigMap]
 	serviceAccounts kclient.Client[*corev1.ServiceAccount]
 	namespaces      kclient.Client[*corev1.Namespace]
+	serviceCIDRs    kclient.Client[*networkingv1.ServiceCIDR]
 	tagWatcher      revisions.TagWatcher
 	revision        string
 	systemNamespace string
@@ -196,6 +198,9 @@ func NewDeploymentController(
 			}
 		}
 	}))
+
+	// shortcut: ServiceCIDR changes do not requeue Gateways; they are read on the next reconcile. Add a handler if CIDR changes matter.
+	dc.serviceCIDRs = kclient.New[*networkingv1.ServiceCIDR](client)
 
 	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, filter)
 	dc.deployments.AddEventHandler(parentHandler)
@@ -304,6 +309,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.tagWatcher.HasSynced,
 		d.env.Watcher.AsCollection().HasSynced,
 		d.env.PushContextReady,
+		d.serviceCIDRs.HasSynced,
 	)
 	d.queue.Run(stop)
 	controllers.ShutdownAll(
@@ -316,6 +322,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.pdbs,
 		d.gateways,
 		d.gatewayClasses,
+		d.serviceCIDRs,
 	)
 }
 
@@ -389,9 +396,17 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 
 	defaultName := GetDefaultName(gw.Name, &gw.Spec, gi.DisableNameSuffix)
 
-	serviceType := gi.DefaultServiceType
+	cidrs := ServiceCIDRPrefixes(d.serviceCIDRs.List(metav1.NamespaceAll, klabels.Everything()))
+	// shortcut: a Service's clusterIP is immutable, so changing a static Cluster address on a provisioned Service fails to apply.
+	// Upgrade when update semantics for static Cluster addresses are defined.
+	var typeOverride *string
 	if o, f := gw.Annotations[annotation.NetworkingServiceType.Name]; f {
-		serviceType = corev1.ServiceType(o)
+		typeOverride = &o
+	}
+	plan := PlanService(EvaluateAddressEntries(gw.Spec.Addresses, cidrs), gi.DefaultServiceType, typeOverride)
+	if !plan.Deploy {
+		log.Info("skip gateway with no satisfiable address")
+		return nil
 	}
 	listenersFromListenerSets := []gateway.Listener{}
 	if d.listenerSets != nil {
@@ -427,7 +442,9 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		KubeVersion:               kube.GetVersionAsInt(d.client),
 		Revision:                  d.revision,
 		NativeSidecars:            nativeSidecarModeEnabled,
-		ServiceType:               serviceType,
+		ServiceType:               plan.ServiceType,
+		LoadBalancerIP:            plan.LoadBalancerIP,
+		ClusterIPs:                plan.ClusterIPs,
 		ProxyUID:                  proxyUID,
 		ProxyGID:                  proxyGID,
 		CompliancePolicy:          common_features.CompliancePolicy,
@@ -888,6 +905,8 @@ type TemplateInput struct {
 	ServiceAccount            string
 	Ports                     []corev1.ServicePort
 	ServiceType               corev1.ServiceType
+	LoadBalancerIP            string
+	ClusterIPs                []string
 	ClusterID                 string
 	KubeVersion               int
 	Revision                  string

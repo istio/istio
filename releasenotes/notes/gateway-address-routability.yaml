@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** support for Gateway API address routability (GEP-5093). Managed Gateways can request `Cluster` addresses
+    (Service ClusterIPs, including static ones within a ServiceCIDR) and multiple IP addresses in `spec.addresses`.
+    Status addresses report `routability`, and a new `AddressesAssigned` condition reports address assignment. Istiod
+    needs permission to list and watch `servicecidrs` (networking.k8s.io) to validate static `Cluster` addresses.

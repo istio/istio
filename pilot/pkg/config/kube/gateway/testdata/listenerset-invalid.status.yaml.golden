@@ -131,6 +131,12 @@ status:
     status: "False"
     type: Accepted
   - lastTransitionTime: fake
+    message: 'No requested address could be assigned: type=test.example.com/custom
+      routability="" value="0.0.0.0"'
+    reason: NotAssigned
+    status: "False"
+    type: AddressesAssigned
+  - lastTransitionTime: fake
     message: Failed to assign to any requested addresses
     reason: UnsupportedAddress
     status: "False"
@@ -149,7 +155,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   attachedListenerSets: 1
   conditions:
@@ -158,6 +165,12 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: 'Some requested addresses could not be assigned: port 12345 not found
+      for hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: PartiallyAssigned
+    status: "False"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: 'Assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80,
       but failed to assign to all requested addresses: port 12345 not found for hostname
@@ -208,7 +221,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
@@ -216,6 +230,11 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: All requested addresses assigned
+    reason: AddressesAssigned
+    status: "True"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
@@ -264,7 +283,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: ""
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
@@ -272,6 +292,11 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: All requested addresses assigned
+    reason: AddressesAssigned
+    status: "True"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
@@ -325,6 +350,12 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: 'No requested address could be assigned: port 15008 not found for hostname
+      "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: NotAssigned
+    status: "False"
+    type: AddressesAssigned
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: port 15008 not found for
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'

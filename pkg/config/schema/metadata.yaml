@@ -180,6 +180,15 @@ resources:
     proto: "k8s.io.api.networking.v1.IngressClassSpec"
     protoPackage: "k8s.io/api/networking/v1"
 
+  - kind: "ServiceCIDR"
+    plural: "servicecidrs"
+    group: "networking.k8s.io"
+    version: "v1"
+    builtin: true
+    clusterScoped: true
+    proto: "k8s.io.api.networking.v1.ServiceCIDRSpec"
+    protoPackage: "k8s.io/api/networking/v1"
+
   - kind: "Lease"
     plural: "leases"
     group: "coordination.k8s.io"

@@ -628,6 +628,21 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
+	ServiceCIDR = resource.Builder{
+		Identifier:    "ServiceCIDR",
+		Group:         "networking.k8s.io",
+		Kind:          "ServiceCIDR",
+		Plural:        "servicecidrs",
+		Version:       "v1",
+		Proto:         "k8s.io.api.networking.v1.ServiceCIDRSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapinetworkingv1.ServiceCIDRSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/networking/v1",
+		ClusterScoped: true,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	ServiceEntry = resource.Builder{
 		Identifier: "ServiceEntry",
 		Group:      "networking.istio.io",
@@ -921,6 +936,7 @@ var (
 		MustAdd(Secret).
 		MustAdd(Service).
 		MustAdd(ServiceAccount).
+		MustAdd(ServiceCIDR).
 		MustAdd(ServiceEntry).
 		MustAdd(Sidecar).
 		MustAdd(StatefulSet).
@@ -968,6 +984,7 @@ var (
 		MustAdd(Secret).
 		MustAdd(Service).
 		MustAdd(ServiceAccount).
+		MustAdd(ServiceCIDR).
 		MustAdd(StatefulSet).
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).

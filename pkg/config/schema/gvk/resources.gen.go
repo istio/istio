@@ -63,6 +63,7 @@ var (
 	Secret                         = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
 	Service                        = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}
 	ServiceAccount                 = config.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
+	ServiceCIDR                    = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "ServiceCIDR"}
 	ServiceEntry                   = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "ServiceEntry"}
 	ServiceEntry_v1alpha3          = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "ServiceEntry"}
 	ServiceEntry_v1beta1           = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "ServiceEntry"}
@@ -200,6 +201,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.Service, true
 	case ServiceAccount:
 		return gvr.ServiceAccount, true
+	case ServiceCIDR:
+		return gvr.ServiceCIDR, true
 	case ServiceEntry:
 		return gvr.ServiceEntry, true
 	case ServiceEntry_v1alpha3:
@@ -337,6 +340,8 @@ func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
 		return kind.Service, true
 	case ServiceAccount:
 		return kind.ServiceAccount, true
+	case ServiceCIDR:
+		return kind.ServiceCIDR, true
 	case ServiceEntry:
 		return kind.ServiceEntry, true
 	case Sidecar:
@@ -467,6 +472,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return Service, true
 	case gvr.ServiceAccount:
 		return ServiceAccount, true
+	case gvr.ServiceCIDR:
+		return ServiceCIDR, true
 	case gvr.ServiceEntry:
 		return ServiceEntry, true
 	case gvr.Sidecar:
@@ -588,6 +595,8 @@ func KebabKind(k string) string {
 		return "service"
 	case "ServiceAccount":
 		return "service-account"
+	case "ServiceCIDR":
+		return "service-c-i-d-r"
 	case "ServiceEntry":
 		return "service-entry"
 	case "Sidecar":
