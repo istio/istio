@@ -59,6 +59,7 @@ var (
 	Secret                         = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
 	Service                        = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
 	ServiceAccount                 = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "serviceaccounts"}
+	ServiceCIDR                    = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "servicecidrs"}
 	ServiceEntry                   = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "serviceentries"}
 	ServiceEntry_v1alpha3          = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "serviceentries"}
 	ServiceEntry_v1beta1           = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "serviceentries"}
@@ -195,6 +196,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return false
 	case ServiceAccount:
 		return false
+	case ServiceCIDR:
+		return true
 	case ServiceEntry:
 		return false
 	case ServiceEntry_v1alpha3:

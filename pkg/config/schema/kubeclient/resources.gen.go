@@ -122,6 +122,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().CoreV1().Services(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.ServiceAccount:
 		return c.Kube().CoreV1().ServiceAccounts(namespace).(ktypes.WriteAPI[T])
+	case *k8sioapinetworkingv1.ServiceCIDR:
+		return c.Kube().NetworkingV1().ServiceCIDRs().(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1.ServiceEntry:
 		return c.Istio().NetworkingV1().ServiceEntries(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1.Sidecar:
@@ -229,6 +231,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().CoreV1().Services(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicorev1.ServiceAccount:
 		return c.Kube().CoreV1().ServiceAccounts(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapinetworkingv1.ServiceCIDR:
+		return c.Kube().NetworkingV1().ServiceCIDRs().(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1.ServiceEntry:
 		return c.Istio().NetworkingV1().ServiceEntries(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1.Sidecar:
@@ -336,6 +340,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &k8sioapicorev1.Service{}
 	case gvr.ServiceAccount:
 		return &k8sioapicorev1.ServiceAccount{}
+	case gvr.ServiceCIDR:
+		return &k8sioapinetworkingv1.ServiceCIDR{}
 	case gvr.ServiceEntry:
 		return &apiistioioapinetworkingv1.ServiceEntry{}
 	case gvr.Sidecar:
@@ -620,6 +626,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().CoreV1().ServiceAccounts(opts.Namespace).Watch(ctx, options)
+		}
+	case gvr.ServiceCIDR:
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().NetworkingV1().ServiceCIDRs().List(ctx, options)
+		}
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().NetworkingV1().ServiceCIDRs().Watch(ctx, options)
 		}
 	case gvr.ServiceEntry:
 		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {

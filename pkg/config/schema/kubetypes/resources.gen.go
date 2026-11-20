@@ -126,6 +126,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.Service, true
 	case *k8sioapicorev1.ServiceAccount:
 		return gvk.ServiceAccount, true
+	case *k8sioapinetworkingv1.ServiceCIDR:
+		return gvk.ServiceCIDR, true
 	case *istioioapinetworkingv1alpha3.ServiceEntry:
 		return gvk.ServiceEntry, true
 	case *apiistioioapinetworkingv1.ServiceEntry:

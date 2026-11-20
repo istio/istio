@@ -1633,6 +1633,24 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: obj,
 		}
 	},
+	gvk.ServiceCIDR: func(r runtime.Object) config.Config {
+		obj := r.(*k8sioapinetworkingv1.ServiceCIDR)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.ServiceCIDR,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
+		}
+	},
 	gvk.ServiceEntry: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapinetworkingv1.ServiceEntry)
 		return config.Config{
