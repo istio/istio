@@ -113,6 +113,30 @@ func NewCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Sin
 	)
 }
 
+// NewOptionalCollection builds a mesh config from a single source that may legitimately be absent.
+// Unlike NewCollection, it yields no config (rather than the default mesh config) when the source is
+// missing, so consumers can tell "not configured" apart from "configured with defaults" and apply
+// their own fallback. An invalid source retains the last known state, or no config if there is none.
+func NewOptionalCollection(opts krt.OptionsBuilder, source MeshConfigSource) krt.Singleton[MeshConfigResource] {
+	return krt.NewSingleton[MeshConfigResource](
+		func(ctx krt.HandlerContext) *MeshConfigResource {
+			s := krt.FetchOne(ctx, source.AsCollection())
+			if s == nil {
+				log.Debugf("optional mesh configuration source %s missing", source.Name)
+				return nil
+			}
+			meshCfg, err := mesh.ApplyMeshConfigDefaults(*s)
+			if err != nil {
+				meshConfigLoadErrors.Increment()
+				log.Errorf("invalid mesh config from %s, using last known state: %v", source.Name, err)
+				ctx.DiscardResult()
+				return nil
+			}
+			return &MeshConfigResource{meshCfg}
+		}, opts.WithName("OptionalMeshConfig")...,
+	)
+}
+
 // NewNetworksCollection builds a new meshnetworks config built by applying the provided sources.
 // Sources are applied in order (example: default < sources[0] < sources[1]).
 func NewNetworksCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Singleton[MeshNetworksResource] {

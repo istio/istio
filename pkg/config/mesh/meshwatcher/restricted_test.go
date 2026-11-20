@@ -21,6 +21,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -97,4 +98,41 @@ func TestRestrictedCollectionStopBeforeSync(t *testing.T) {
 	restricted := NewRestrictedCollection(local, remote, time.Hour, krt.NewOptionsBuilder(stop, "test", nil))
 	close(stop)
 	assert.Equal(t, restricted.AsCollection().HasSynced(), false)
+}
+
+// A missing optional remote source must not be replaced by the default mesh config, whose
+// cluster.local trust domain would mask the local fallback.
+func TestRestrictedCollectionOptionalRemoteSource(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := krt.NewOptionsBuilder(stop, "test", nil)
+	local := NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "mesh.example"})
+	source := krt.NewStatic[string](nil, true, opts.WithName("source")...)
+	remote := NewOptionalCollection(opts, MeshConfigSource{Singleton: source, Name: "remote"})
+	restricted := NewRestrictedCollection(local, remote, time.Hour, opts)
+	assert.EventuallyEqual(t, restricted.AsCollection().HasSynced, true)
+	assert.Equal(t, restricted.Get(), &RestrictedMeshConfig{TrustDomain: "mesh.example"})
+
+	source.Set(ptr.Of("trustDomain: remote"))
+	assert.EventuallyEqual(t, restricted.Get, &RestrictedMeshConfig{TrustDomain: "remote"})
+
+	// Invalid config retains the last known state.
+	source.Set(ptr.Of("trustDomain: [invalid"))
+	time.Sleep(20 * time.Millisecond)
+	assert.Equal(t, restricted.Get(), &RestrictedMeshConfig{TrustDomain: "remote"})
+
+	// Present but without a trust domain: the remote control plane uses the default.
+	source.Set(ptr.Of("rootNamespace: foo"))
+	assert.EventuallyEqual(t, restricted.Get, &RestrictedMeshConfig{TrustDomain: "cluster.local"})
+
+	source.Set(nil)
+	assert.EventuallyEqual(t, restricted.Get, &RestrictedMeshConfig{TrustDomain: "mesh.example"})
+}
+
+func TestOptionalCollectionInvalidInitialSource(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := krt.NewOptionsBuilder(stop, "test", nil)
+	source := krt.NewStatic[string](ptr.Of("trustDomain: [invalid"), true, opts.WithName("source")...)
+	remote := NewOptionalCollection(opts, MeshConfigSource{Singleton: source, Name: "remote"})
+	assert.EventuallyEqual(t, remote.AsCollection().HasSynced, true)
+	assert.Equal(t, remote.Get() == nil, true)
 }

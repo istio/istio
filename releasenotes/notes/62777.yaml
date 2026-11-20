@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62777
+releaseNotes:
+- |
+  **Fixed** an issue in multi-cluster meshes where istiod generated workload identities with the `cluster.local`
+  trust domain for a remote cluster that does not have a mesh ConfigMap for istiod's revision (for example, during a
+  revision upgrade or when clusters run different revisions). The local mesh trust domain is now used until the remote
+  revision's mesh config is available.
