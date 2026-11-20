@@ -46,3 +46,25 @@ spec:
         http2KeepAlive:
           interval: 15s
           timeout: 5s
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: dynamic-subset
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST
+      dynamicSubset:
+        subsetSelectors:
+        - keys:
+          - version
+          - stage
+        - keys:
+          - "%ip%"
+        - keys:
+          - "%hostname%"
+        fallbackPolicy: DEFAULT_SUBSET
+        defaultSubset:
+          version: v1

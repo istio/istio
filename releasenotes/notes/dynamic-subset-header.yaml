@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 62827
+releaseNotes:
+  - |
+    **Added** support for `headerToDynamicSubsetKeys` in `VirtualService` HTTP routes, which selects a dynamic subset
+    of the destination from request headers. Together with `trafficPolicy.loadBalancer.dynamicSubset` in
+    `DestinationRule`, a request can be sent to the endpoints matching a set of workload labels, or to a single
+    endpoint by address or hostname. The `envoy.filters.http.header_to_metadata` filter is added to outbound and
+    gateway listeners, disabled, only when a `VirtualService` uses the field, and is enabled per route.

@@ -261,6 +261,9 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	if delegate.Headers == nil {
 		delegate.Headers = root.Headers
 	}
+	if delegate.HeaderToDynamicSubsetKeys == nil {
+		delegate.HeaderToDynamicSubsetKeys = root.HeaderToDynamicSubsetKeys
+	}
 	return delegate
 }
 

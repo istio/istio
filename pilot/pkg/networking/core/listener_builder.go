@@ -541,6 +541,10 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	if features.EnablePersistentSessionFilter.Load() && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
 		filters = append(filters, xdsfilters.EmptySessionFilter)
 	}
+	// Add DisabledHeaderToMetadataFilter so that routes selecting a dynamic subset from headers can enable it.
+	if lb.push.UsesDynamicSubsetHeaders() && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
+		filters = append(filters, xdsfilters.DisabledHeaderToMetadataFilter)
+	}
 
 	// Create DFP filter for wildcard hosts in waypoint inbound for ambient mode
 	if httpOpts.policySvc != nil && httpOpts.policySvc.Hostname.IsWildCarded() && httpOpts.class == istionetworking.ListenerClassSidecarInbound {

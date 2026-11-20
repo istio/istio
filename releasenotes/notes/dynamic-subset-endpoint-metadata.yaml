@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 62827
+releaseNotes:
+  - |
+    **Added** endpoint metadata for dynamic subset load balancing. For services whose `DestinationRule` sets
+    `trafficPolicy.loadBalancer.dynamicSubset`, endpoints now carry the workload labels, address (`%ip%`) and
+    hostname (`%hostname%`) named by the subset selectors as `envoy.lb` metadata. Other services are unchanged.

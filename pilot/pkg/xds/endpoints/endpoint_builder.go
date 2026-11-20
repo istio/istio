@@ -74,6 +74,9 @@ type EndpointBuilder struct {
 	clusterLocal           bool
 	nodeType               model.NodeType
 	failoverPriorityLabels []byte
+	// dynamicSubsetKeys are the keys exposed as `envoy.lb` endpoint metadata, for dynamic subset load balancing.
+	// They are derived from the destination rule, port and subset, which are all part of the key already.
+	dynamicSubsetKeys []string
 
 	// These fields are provided for convenience only
 	subsetName   string
@@ -140,6 +143,7 @@ func NewCDSEndpointBuilder(
 	b.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(service, b.DestinationRule(), port, subsetName)
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
+	b.populateDynamicSubsetKeys()
 	if features.EnableAmbientMultiNetwork {
 		b.populateAmbientServiceInfo()
 	}
@@ -166,6 +170,7 @@ func (b *EndpointBuilder) WithSubset(subset string) *EndpointBuilder {
 	subsetBuilder := *b
 	subsetBuilder.subsetName = subset
 	subsetBuilder.populateSubsetInfo()
+	subsetBuilder.populateDynamicSubsetKeys()
 	subsetBuilder.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(
 		subsetBuilder.service, subsetBuilder.DestinationRule(), subsetBuilder.port, subsetBuilder.subsetName,
 	)
@@ -203,6 +208,17 @@ func (b *EndpointBuilder) populateFailoverPriorityLabels() {
 	if len(failoverPriority) > 0 {
 		b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, failoverPriority)
 	}
+}
+
+// populateDynamicSubsetKeys finds the keys the destination rule uses for dynamic subset load balancing.
+// Only these are sent as endpoint metadata, so services that do not use the feature pay nothing.
+func (b *EndpointBuilder) populateDynamicSubsetKeys() {
+	b.dynamicSubsetKeys = nil
+	if b.isSelfDiscoveryCluster || b.destinationRule.GetRule() == nil {
+		return
+	}
+	_, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
+	b.dynamicSubsetKeys = loadbalancer.DynamicSubsetKeys(lb.GetDynamicSubset())
 }
 
 func (b *EndpointBuilder) populateAmbientServiceInfo() {
@@ -821,6 +837,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		meta.TLSMode = ""
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
+	if len(b.dynamicSubsetKeys) > 0 {
+		appendDynamicSubsetMetadata(b.dynamicSubsetKeys, e, ep.Metadata)
+	}
 
 	if tunnel {
 		// Currently, Envoy cannot support tunneling to multiple IP families.
@@ -1119,4 +1138,36 @@ func isEastWestGateway(node *model.Proxy) bool {
 
 func isSidecarProxy(node *model.Proxy) bool {
 	return node != nil && node.Type == model.SidecarProxy
+}
+
+// appendDynamicSubsetMetadata exposes the requested keys of the endpoint as `envoy.lb` metadata, which is
+// what Envoy's subset load balancer matches on. Keys the endpoint has no value for are omitted, which
+// keeps the endpoint out of the subsets of any selector using that key.
+func appendDynamicSubsetMetadata(keys []string, e *model.IstioEndpoint, md *corev3.Metadata) {
+	var fields map[string]*structpb.Value
+	for _, k := range keys {
+		var v string
+		switch k {
+		case constants.DynamicSubsetIPKey:
+			v = e.FirstAddressOrNil()
+		case constants.DynamicSubsetHostnameKey:
+			v = e.HostName
+		default:
+			v = e.Labels[k]
+		}
+		if v == "" {
+			continue
+		}
+		if fields == nil {
+			fields = make(map[string]*structpb.Value, len(keys))
+		}
+		fields[k] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: v}}
+	}
+	if fields == nil {
+		return
+	}
+	if md.FilterMetadata == nil {
+		md.FilterMetadata = map[string]*structpb.Struct{}
+	}
+	md.FilterMetadata[constants.EnvoySubsetNamespace] = &structpb.Struct{Fields: fields}
 }
