@@ -18,8 +18,11 @@ import (
 	"context"
 	"strconv"
 	"sync"
+	"time"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/util/workqueue"
 
 	v1alpha12 "istio.io/api/analysis/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
@@ -49,6 +52,7 @@ type cacheEntry struct {
 	cacheResource Resource
 	// the perControllerStatus represents the latest version of the ResourceStatus
 	perControllerStatus map[*Controller]any
+	retrying            bool
 }
 
 type lockResource struct {
@@ -80,6 +84,9 @@ func (wq *WorkQueue) Push(target Resource, ctl *Controller, progress any) {
 	wq.lock.Lock()
 	key := convert(target)
 	if item, inqueue := wq.cache[key]; inqueue {
+		if item.cacheResource.UID != target.UID || item.cacheResource.Generation != target.Generation {
+			item.perControllerStatus = make(map[*Controller]any)
+		}
 		// The object may have been updated since it was queued. Carry the newer resource forward,
 		// otherwise the worker compares a stale generation against the live object and drops the write.
 		item.cacheResource = target
@@ -98,6 +105,36 @@ func (wq *WorkQueue) Push(target Resource, ctl *Controller, progress any) {
 	}
 }
 
+// Retry retains failed work without replacing newer queued status.
+func (wq *WorkQueue) Retry(target Resource, progress map[*Controller]any) bool {
+	wq.lock.Lock()
+	defer wq.lock.Unlock()
+	key := convert(target)
+	if item, queued := wq.cache[key]; queued {
+		if item.cacheResource == target {
+			for ctl, value := range progress {
+				if _, newer := item.perControllerStatus[ctl]; !newer {
+					item.perControllerStatus[ctl] = value
+				}
+			}
+		}
+		return false
+	}
+	wq.cache[key] = cacheEntry{cacheResource: target, perControllerStatus: progress, retrying: true}
+	return true
+}
+
+func (wq *WorkQueue) Ready(target Resource) {
+	wq.lock.Lock()
+	defer wq.lock.Unlock()
+	key := convert(target)
+	if item, queued := wq.cache[key]; queued && item.retrying {
+		item.retrying = false
+		wq.cache[key] = item
+		wq.tasks = append(wq.tasks, key)
+	}
+}
+
 // Pop returns the first item in the queue not in exclusion, along with it's latest progress
 func (wq *WorkQueue) Pop(exclusion sets.Set[lockResource]) (target Resource, progress map[*Controller]any) {
 	wq.lock.Lock()
@@ -106,6 +143,7 @@ func (wq *WorkQueue) Pop(exclusion sets.Set[lockResource]) (target Resource, pro
 		if !exclusion.Contains(wq.tasks[i]) {
 			// remove from tasks
 			t, ok := wq.cache[wq.tasks[i]]
+			delete(wq.cache, wq.tasks[i])
 			wq.tasks = append(wq.tasks[:i], wq.tasks[i+1:]...)
 			if !ok {
 				return Resource{}, nil
@@ -129,11 +167,12 @@ func (wq *WorkQueue) Delete(target Resource) {
 }
 
 type WorkerPool struct {
-	q WorkQueue
-	// indicates the queue is closing
-	closing bool
+	q       WorkQueue
+	ctx     context.Context
+	cancel  context.CancelFunc
+	retries workqueue.TypedRateLimiter[lockResource]
 	// the function which will be run for each task in queue
-	write func(*config.Config)
+	write func(*config.Config) error
 	// the function to retrieve the initial status
 	get func(Resource) *config.Config
 	// current worker routine count
@@ -144,8 +183,12 @@ type WorkerPool struct {
 	lock             sync.Mutex
 }
 
-func NewWorkerPool(write func(*config.Config), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
+func NewWorkerPool(write func(*config.Config) error, get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &WorkerPool{
+		ctx:              ctx,
+		cancel:           cancel,
+		retries:          workqueue.NewTypedItemExponentialFailureRateLimiter[lockResource](100*time.Millisecond, time.Second),
 		write:            write,
 		get:              get,
 		maxWorkers:       maxWorkers,
@@ -160,6 +203,7 @@ func NewWorkerPool(write func(*config.Config), get func(Resource) *config.Config
 
 func (wp *WorkerPool) Delete(target Resource) {
 	wp.q.Delete(target)
+	wp.retries.Forget(convert(target))
 }
 
 func (wp *WorkerPool) Push(target Resource, controller *Controller, context any) {
@@ -168,15 +212,10 @@ func (wp *WorkerPool) Push(target Resource, controller *Controller, context any)
 }
 
 func (wp *WorkerPool) Run(ctx context.Context) {
-	context.AfterFunc(ctx, func() {
-		wp.lock.Lock()
-		wp.closing = true
-		wp.lock.Unlock()
-	})
+	context.AfterFunc(ctx, wp.cancel)
 }
 
-// maybeAddWorker adds a worker unless we are at maxWorkers.  Workers exit when there are no more tasks, except for the
-// last worker, which stays alive indefinitely.
+// maybeAddWorker adds a worker unless we are at maxWorkers. Workers exit when there are no runnable tasks.
 func (wp *WorkerPool) maybeAddWorker() {
 	wp.lock.Lock()
 	if wp.workerCount >= wp.maxWorkers || wp.q.Length() == 0 {
@@ -188,7 +227,7 @@ func (wp *WorkerPool) maybeAddWorker() {
 	go func() {
 		for {
 			wp.lock.Lock()
-			if wp.closing || wp.q.Length() == 0 {
+			if wp.ctx.Err() != nil || wp.q.Length() == 0 {
 				wp.workerCount--
 				wp.lock.Unlock()
 				return
@@ -198,26 +237,54 @@ func (wp *WorkerPool) maybeAddWorker() {
 
 			if target == (Resource{}) {
 				// could have been deleted, or could be no items in queue not currently worked on
+				wp.workerCount--
 				wp.lock.Unlock()
 				return
 			}
-			wp.q.Delete(target)
 			wp.currentlyWorking.Insert(convert(target))
 			wp.lock.Unlock()
 			// work should be done without holding the lock
-			cfg := wp.get(target)
-			if cfg != nil {
+			err := func() error {
+				if wp.ctx.Err() != nil {
+					return nil
+				}
+				cfg := wp.get(target)
+				if cfg == nil || (target.UID != "" && cfg.UID != target.UID) {
+					return nil
+				}
 				// Check that generation matches
 				if strconv.FormatInt(cfg.Generation, 10) == target.Generation {
-					sm := GetStatusManipulator(cfg.Status)
+					updated := cfg.DeepCopy()
+					sm := GetStatusManipulator(updated.Status)
 					sm.SetObservedGeneration(cfg.Generation)
 					for c, i := range perControllerWork {
 						// TODO: this does not guarantee controller order.  perhaps it should?
 						c.fn(sm, i)
 					}
-					cfg.Status = sm.Unwrap()
-					wp.write(cfg)
+					updated.Status = sm.Unwrap()
+					if err := wp.write(&updated); kerrors.IsConflict(err) {
+						return err
+					}
 				}
+				return nil
+			}()
+			if kerrors.IsConflict(err) {
+				if wp.q.Retry(target, perControllerWork) {
+					delay := wp.retries.When(convert(target))
+					go func() {
+						timer := time.NewTimer(delay)
+						defer timer.Stop()
+						select {
+						case <-wp.ctx.Done():
+							return
+						case <-timer.C:
+							wp.q.Ready(target)
+							wp.maybeAddWorker()
+						}
+					}()
+				}
+			} else {
+				wp.retries.Forget(convert(target))
 			}
 			wp.lock.Lock()
 			wp.currentlyWorking.Delete(convert(target))

@@ -37,7 +37,7 @@ type Manager struct {
 }
 
 func NewManager(store model.ConfigStore) *Manager {
-	writeFunc := func(m *config.Config) {
+	writeFunc := func(m *config.Config) error {
 		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
@@ -47,8 +47,8 @@ func NewManager(store model.ConfigStore) *Manager {
 				// TODO: need better error handling
 				scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", m, err)
 			}
-			return
 		}
+		return err
 	}
 	retrieveFunc := func(resource Resource) *config.Config {
 		scope.Debugf("retrieving config for status update: %s/%s", resource.Namespace, resource.Name)
