@@ -16,11 +16,13 @@ package loadbalancer
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -852,15 +854,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 				if len(cluster.LoadAssignment.Endpoints) != len(tt.expected) {
 					t.Fatalf("expected endpoints %d but got %d", len(cluster.LoadAssignment.Endpoints), len(tt.expected))
 				}
-				for i := range cluster.LoadAssignment.Endpoints {
-					// TODO Below assertions are not robust to ordering changes in cluster.LoadAssignment.Endpoints[i]
-					if cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight.GetValue() != tt.expected[i].LoadBalancingWeight.GetValue() {
-						t.Errorf("Got unexpected lb weight %v expected %v", cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight, tt.expected[i].LoadBalancingWeight)
-					}
-					if cluster.LoadAssignment.Endpoints[i].Priority != tt.expected[i].Priority {
-						t.Errorf("Got unexpected priority %v expected %v", cluster.LoadAssignment.Endpoints[i].Priority, tt.expected[i].Priority)
-					}
-				}
+				assertPrioritiesAndWeights(t, cluster.LoadAssignment.Endpoints, tt.expected)
 			})
 		}
 	})
@@ -1005,15 +999,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		if len(cluster.LoadAssignment.Endpoints) != len(expected) {
 			t.Fatalf("expected endpoints %d but got %d", len(cluster.LoadAssignment.Endpoints), len(expected))
 		}
-		for i := range cluster.LoadAssignment.Endpoints {
-			// TODO Below assertions are not robust to ordering changes in cluster.LoadAssignment.Endpoints[i]
-			if cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight.GetValue() != expected[i].LoadBalancingWeight.GetValue() {
-				t.Errorf("Got unexpected lb weight %v expected %v", cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight, expected[i].LoadBalancingWeight)
-			}
-			if cluster.LoadAssignment.Endpoints[i].Priority != expected[i].Priority {
-				t.Errorf("Got unexpected priority %v expected %v", cluster.LoadAssignment.Endpoints[i].Priority, expected[i].Priority)
-			}
-		}
+		assertPrioritiesAndWeights(t, cluster.LoadAssignment.Endpoints, expected)
 	})
 
 	// NOTE: The test "FailoverPriority with DNS service instances" has been moved to
@@ -1163,15 +1149,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 				if len(cluster.LoadAssignment.Endpoints) != len(tt.expected) {
 					t.Fatalf("expected endpoints %d but got %d", len(cluster.LoadAssignment.Endpoints), len(tt.expected))
 				}
-				for i := range cluster.LoadAssignment.Endpoints {
-					// TODO Below assertions are not robust to ordering changes in cluster.LoadAssignment.Endpoints[i]
-					if cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight.GetValue() != tt.expected[i].LoadBalancingWeight.GetValue() {
-						t.Errorf("Got unexpected lb weight %v expected %v", cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight, tt.expected[i].LoadBalancingWeight)
-					}
-					if cluster.LoadAssignment.Endpoints[i].Priority != tt.expected[i].Priority {
-						t.Errorf("Got unexpected priority %v expected %v", cluster.LoadAssignment.Endpoints[i].Priority, tt.expected[i].Priority)
-					}
-				}
+				assertPrioritiesAndWeights(t, cluster.LoadAssignment.Endpoints, tt.expected)
 			})
 		}
 	})
@@ -2259,5 +2237,30 @@ func buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover() []*Wrapped
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[5],
 		},
+	}
+}
+
+// assertPrioritiesAndWeights compares priorities and weights in any order, and checks priority order.
+func assertPrioritiesAndWeights(t *testing.T, got, want []*endpoint.LocalityLbEndpoints) {
+	t.Helper()
+	type pw struct{ priority, weight uint32 }
+	collect := func(in []*endpoint.LocalityLbEndpoints) []pw {
+		out := make([]pw, 0, len(in))
+		for _, e := range in {
+			out = append(out, pw{e.Priority, e.LoadBalancingWeight.GetValue()})
+		}
+		sort.Slice(out, func(i, j int) bool {
+			if out[i].priority != out[j].priority {
+				return out[i].priority < out[j].priority
+			}
+			return out[i].weight < out[j].weight
+		})
+		return out
+	}
+	if diff := cmp.Diff(collect(want), collect(got), cmp.AllowUnexported(pw{})); diff != "" {
+		t.Errorf("unexpected priorities and weights (-want +got):\n%s", diff)
+	}
+	if !sort.SliceIsSorted(got, func(i, j int) bool { return got[i].Priority < got[j].Priority }) {
+		t.Errorf("LocalityLbEndpoints are not ordered by priority")
 	}
 }
