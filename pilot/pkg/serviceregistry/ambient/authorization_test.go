@@ -289,14 +289,14 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 				Reason: "UnsupportedValue",
 				Message: "ztunnel does not support HTTP attributes (found: notRequestPrincipals). " +
 					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
-					"DENY policy with HTTP attributes is enforced without the HTTP rules. " +
-					"This will be more restrictive than requested.",
+					"Within a DENY policy, HTTP attributes (notRequestPrincipals) are removed from rules that can still be enforced without them. " +
+					"These rules will be more restrictive than requested.",
 			},
 			checkEffectiveRules:  true,
 			expectEffectiveRules: true,
 		},
 		{
-			name: "DENY policy with L7-only and separate L4 rule is still enforced",
+			name: "DENY policy with L7-only and separate L4 rule omits the L7-only rule",
 			inputAuthzPol: &securityclient.AuthorizationPolicy{
 				Spec: v1beta1.AuthorizationPolicy{
 					Action: v1beta1.AuthorizationPolicy_DENY,
@@ -330,14 +330,103 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 				Reason: "UnsupportedValue",
 				Message: "ztunnel does not support HTTP attributes (found: notRequestPrincipals). " +
 					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
-					"DENY policy with HTTP attributes is enforced without the HTTP rules. " +
-					"This will be more restrictive than requested.",
+					"Within a DENY policy, rules that cannot be enforced without their HTTP attributes (notRequestPrincipals) are omitted. " +
+					"These rules will be less restrictive than requested.",
 			},
 			checkEffectiveRules:  true,
 			expectEffectiveRules: true,
 		},
 		{
-			name: "DENY policy with empty catch-all rule and L7-only rule is still enforced",
+			name: "DENY policy with L4 rule and L4 From plus L7 When rule omits the second rule",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Action: v1beta1.AuthorizationPolicy_DENY,
+					Rules: []*v1beta1.Rule{
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										Namespaces: []string{"staging"},
+									},
+								},
+							},
+						},
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										Namespaces: []string{"pci"},
+									},
+								},
+							},
+							When: []*v1beta1.Condition{
+								{
+									Key:    "request.headers[x-canary]",
+									Values: []string{"true"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectStatusMessage: &model.StatusMessage{
+				Reason: "UnsupportedValue",
+				Message: "ztunnel does not support HTTP attributes (found: request.headers[x-canary]). " +
+					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
+					"Within a DENY policy, rules that cannot be enforced without their HTTP attributes (request.headers[x-canary]) are omitted. " +
+					"These rules will be less restrictive than requested.",
+			},
+			checkEffectiveRules:  true,
+			expectEffectiveRules: true,
+		},
+		{
+			name: "DENY policy with both broadened and omitted rules reports both",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Action: v1beta1.AuthorizationPolicy_DENY,
+					Rules: []*v1beta1.Rule{
+						{
+							To: []*v1beta1.Rule_To{
+								{
+									Operation: &v1beta1.Operation{
+										Ports:   []string{"8080"},
+										Methods: []string{"POST"},
+									},
+								},
+							},
+						},
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										Namespaces: []string{"pci"},
+									},
+								},
+							},
+							When: []*v1beta1.Condition{
+								{
+									Key:    "request.headers[x-canary]",
+									Values: []string{"true"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectStatusMessage: &model.StatusMessage{
+				Reason: "UnsupportedValue",
+				Message: "ztunnel does not support HTTP attributes (found: methods, request.headers[x-canary]). " +
+					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
+					"Within a DENY policy, HTTP attributes (methods) are removed from rules that can still be enforced without them. " +
+					"These rules will be more restrictive than requested. " +
+					"Within a DENY policy, rules that cannot be enforced without their HTTP attributes (request.headers[x-canary]) are omitted. " +
+					"These rules will be less restrictive than requested.",
+			},
+			checkEffectiveRules:  true,
+			expectEffectiveRules: true,
+		},
+		{
+			name: "DENY policy with empty catch-all rule and L7-only rule omits the L7-only rule",
 			inputAuthzPol: &securityclient.AuthorizationPolicy{
 				Spec: v1beta1.AuthorizationPolicy{
 					Action: v1beta1.AuthorizationPolicy_DENY,
@@ -361,8 +450,8 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 				Reason: "UnsupportedValue",
 				Message: "ztunnel does not support HTTP attributes (found: notRequestPrincipals). " +
 					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
-					"DENY policy with HTTP attributes is enforced without the HTTP rules. " +
-					"This will be more restrictive than requested.",
+					"Within a DENY policy, rules that cannot be enforced without their HTTP attributes (notRequestPrincipals) are omitted. " +
+					"These rules will be less restrictive than requested.",
 			},
 			checkEffectiveRules:  true,
 			expectEffectiveRules: true,

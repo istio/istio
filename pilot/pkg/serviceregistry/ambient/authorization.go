@@ -452,6 +452,7 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 	}
 
 	rulesWithL7 := sets.New[string]()
+	denyBroadenedL7, denyOmittedL7 := sets.New[string](), sets.New[string]()
 
 	for _, rule := range pol.Rules {
 		if rule == nil {
@@ -463,6 +464,13 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 				Rules: rules,
 			}
 			opol.Groups = append(opol.Groups, rg)
+			if action == security.Action_DENY && len(foundL7) > 0 {
+				if hasEffectiveRules([]*security.Group{rg}) {
+					denyBroadenedL7.InsertAll(foundL7...)
+				} else {
+					denyOmittedL7.InsertAll(foundL7...)
+				}
+			}
 		}
 		rulesWithL7.InsertAll(foundL7...)
 	}
@@ -475,7 +483,14 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 			// skipped by ztunnel), so the DENY is a no-op.
 			boilerplate = httpDenyNoEffectBoilerplate
 		case action == security.Action_DENY:
-			boilerplate = httpDenyMixedBoilerplate
+			var parts []string
+			if len(denyBroadenedL7) > 0 {
+				parts = append(parts, fmt.Sprintf(httpDenyBroadenedFmt, slices.Join(", ", sets.SortedList(denyBroadenedL7)...)))
+			}
+			if len(denyOmittedL7) > 0 {
+				parts = append(parts, fmt.Sprintf(httpDenyOmittedFmt, slices.Join(", ", sets.SortedList(denyOmittedL7)...)))
+			}
+			boilerplate = slices.Join(" ", parts...)
 		default:
 			boilerplate = httpAllowRuleBoilerplate
 		}
@@ -497,8 +512,10 @@ const (
 
 	httpDenyNoEffectBoilerplate string = "After omitting unsupported HTTP attributes, this DENY policy has no enforceable rules at ztunnel " +
 		"and will have no effect. Deploy a waypoint proxy and use a targetRef to enforce this policy."
-	httpDenyMixedBoilerplate string = "DENY policy with HTTP attributes is enforced without the HTTP rules. " +
-		"This will be more restrictive than requested."
+	httpDenyBroadenedFmt string = "Within a DENY policy, HTTP attributes (%s) are removed from rules that can still be enforced without them. " +
+		"These rules will be more restrictive than requested."
+	httpDenyOmittedFmt string = "Within a DENY policy, rules that cannot be enforced without their HTTP attributes (%s) are omitted. " +
+		"These rules will be less restrictive than requested."
 	httpAllowRuleBoilerplate string = "Within an ALLOW policy, rules matching HTTP attributes are omitted. " +
 		"This will be more restrictive than requested."
 )
