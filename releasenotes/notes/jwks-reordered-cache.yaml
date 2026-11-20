@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+
+issue:
+  - 53691
+
+releaseNotes:
+- |
+  **Fixed** an issue where a JWKS endpoint returning the same keys in a different order caused the cached JWKS string to change, so the inline JWKS embedded in proxy configs was no longer byte-identical and could trigger unnecessary listener updates.
