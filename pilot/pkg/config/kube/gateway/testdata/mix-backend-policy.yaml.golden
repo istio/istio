@@ -13,4 +13,6 @@ spec:
       credentialName: configmap://default/auth-cert
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---

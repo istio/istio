@@ -52,10 +52,14 @@ spec:
         credentialName: configmap://default/auth-cert
         mode: SIMPLE
         sni: auth.example.com
+        subjectAltNames:
+        - auth.example.com
     tls:
       credentialName: configmap://default/auth-cert
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -71,6 +75,8 @@ spec:
       credentialName: configmap://default/auth-cert
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -88,6 +94,8 @@ spec:
       tls:
         mode: SIMPLE
         sni: external.example.com
+        subjectAltNames:
+        - external.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -103,6 +111,8 @@ spec:
       credentialName: invalid://
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -118,6 +128,8 @@ spec:
       credentialName: invalid://
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -133,6 +145,8 @@ spec:
       credentialName: invalid://
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -148,6 +162,8 @@ spec:
       credentialName: configmap://default/auth-cert
       mode: SIMPLE
       sni: auth.example.com
+      subjectAltNames:
+      - auth.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -166,9 +182,13 @@ spec:
         credentialName: configmap://default/auth-cert
         mode: SIMPLE
         sni: api.example.com
+        subjectAltNames:
+        - api.example.com
     tls:
       mode: SIMPLE
       sni: cdn.example.com
+      subjectAltNames:
+      - cdn.example.com
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -187,7 +207,11 @@ spec:
         credentialName: configmap://default/auth-cert
         mode: SIMPLE
         sni: api.example.com
+        subjectAltNames:
+        - api.example.com
     tls:
       mode: SIMPLE
       sni: cdn.example.com
+      subjectAltNames:
+      - cdn.example.com
 ---
