@@ -17,6 +17,8 @@ package nodeagent
 import (
 	"errors"
 	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 // An error on pod add that the ambient informer should not
@@ -39,4 +41,32 @@ func NewErrNonRetryableAdd(err error) *NonRetryableAddError {
 	return &NonRetryableAddError{
 		inner: err,
 	}
+}
+
+type reEnrollError struct {
+	pod   *corev1.Pod
+	inner error
+}
+
+func (e *reEnrollError) Error() string {
+	return fmt.Sprintf("failed to re-enroll pod %s/%s: %v", e.pod.Namespace, e.pod.Name, e.inner)
+}
+
+func (e *reEnrollError) Unwrap() error {
+	return e.inner
+}
+
+func reEnrollFailures(err error) []*reEnrollError {
+	var joined interface{ Unwrap() []error }
+	if !errors.As(err, &joined) {
+		return nil
+	}
+	var failures []*reEnrollError
+	for _, inner := range joined.Unwrap() {
+		var failure *reEnrollError
+		if errors.As(inner, &failure) {
+			failures = append(failures, failure)
+		}
+	}
+	return failures
 }
