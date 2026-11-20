@@ -37,6 +37,7 @@ import (
 	googleproto "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -927,6 +928,13 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	if features.EnableAmbientMultiNetwork && features.EnableAmbientTLSProxyHTTPMetrics {
 		pre = append(pre, buildSetTLSFilterExchangeHTTPFilter())
 	}
+	// Separate RBAC filters which can be overridden by per-route configuration,
+	// so they are ran after filters which may clear the route cache. Per-route
+	// ALLOW/DENY configuration must have an RBAC filter to override, thus when
+	// no listener-scoped ALLOW or DENY RBAC filters exist, we have to create
+	// an empty RBAC filter to allow per-route overrides.
+	rbacFilters, routeOverridableRBACFilters := authz.PartitionRouteOverridableRBACFilters(
+		lb.node, cls, authzBuilder.BuildHTTP(cls))
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	// TODO policies here will need to be different per-chain (service attached)
 	// If the waypoint has opted in via annotation, synthesize XFCC from the
@@ -939,10 +947,11 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHN)
 	pre = append(pre, authnBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHZ)
-	pre = append(pre, authzBuilder.BuildHTTP(cls)...)
+	pre = append(pre, rbacFilters...)
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_STATS)
 	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
+	post = append(post, routeOverridableRBACFilters...)
 	post = append(post, xdsfilters.GenerateWaypointUpstreamMetadataFilter())
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
 	return pre, post
@@ -1164,6 +1173,11 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
+	var perRouteAuthz *authz.PerRouteBuilder
+	if features.EnableGatewayAPIHTTPRouteAuth {
+		perRouteAuthz = authz.NewPerRouteBuilderForService(lb.push, lb.node, svc)
+	}
+
 	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
@@ -1175,7 +1189,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		if vs.Spec.(*networking.VirtualService).Http == nil {
 			continue
 		}
-		vsRoutes, err := lb.waypointInboundRoute(*vs, cc.port.Port)
+		vsRoutes, err := lb.waypointInboundRoute(*vs, cc.port.Port, perRouteAuthz)
 		if err != nil {
 			log.Debugf("omitting routes for virtual service %v/%v due to error: %v", vs.Namespace, vs.Name, err)
 			continue
@@ -1219,18 +1233,35 @@ func getVirtualServiceForWaypoint(configNamespace string, svc *model.Service, co
 	return matching
 }
 
-func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, listenPort int) ([]*route.Route, error) {
+func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, listenPort int, perRouteAuthz *authz.PerRouteBuilder) ([]*route.Route, error) {
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
 	}
 
+	origins, err := istio_route.HTTPRouteOrigins(virtualService, len(vs.Http))
+	if err != nil {
+		return nil, err
+	}
+
 	out := make([]*route.Route, 0, len(vs.Http))
 
 	catchall := false
-	for _, http := range vs.Http {
+	for i, http := range vs.Http {
+		var origin types.NamespacedName
+
+		if origins != nil {
+			origin = origins[i]
+		}
+
+		authzOpts := istio_route.RouteOptions{}
+		if perRouteAuthz != nil {
+			authzOpts.BuildPerRouteAuthConfig = perRouteAuthz.Build
+		}
+
 		if len(http.Match) == 0 {
 			if r := lb.translateWaypointRoute(virtualService, http, nil, listenPort); r != nil {
+				istio_route.ApplyPerRouteAuthPolicy(r, origin, authzOpts)
 				out = append(out, r)
 			}
 			// This is a catchall route, so we can stop processing the rest of the routes.
@@ -1245,6 +1276,7 @@ func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, li
 			}
 
 			if r := lb.translateWaypointRoute(virtualService, http, match, listenPort); r != nil {
+				istio_route.ApplyPerRouteAuthPolicy(r, origin, authzOpts)
 				out = append(out, r)
 				// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 				// As an optimization, we can just stop sending any more routes here.

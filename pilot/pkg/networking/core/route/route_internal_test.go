@@ -775,12 +775,12 @@ func TestHTTPRouteOrigins(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, tt.flag)
-			got, err := httpRouteOrigins(tt.vs, tt.routeCount)
+			got, err := HTTPRouteOrigins(tt.vs, tt.routeCount)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("httpRouteOrigins() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("HTTPRouteOrigins() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("httpRouteOrigins() = %v, want %v", got, tt.want)
+				t.Errorf("HTTPRouteOrigins() = %v, want %v", got, tt.want)
 			}
 		})
 	}
