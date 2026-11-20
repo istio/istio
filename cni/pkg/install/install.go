@@ -411,9 +411,24 @@ func checkValidCNIConfig(cfg *config.InstallConfig, cniConfigFilepath string) er
 	if err != nil || len(cniConfigFilenames) == 0 {
 		return err
 	}
-	firstCNIConfigFilename := cniConfigFilenames[0]
 
 	istioOwned := useIstioOwnedCNIConfig(cfg)
+	if istioOwned {
+		if cfg.CNIConfName != "" && isMultusWrapperConfig(filepath.Join(cfg.MountedCNINetDir, cfg.CNIConfName)) {
+			return fmt.Errorf("Multus wrapper %s cannot be the primary CNI config", cfg.CNIConfName)
+		}
+		var primaryConfigs []string
+		for _, name := range cniConfigFilenames {
+			if !isMultusWrapperConfig(filepath.Join(cfg.MountedCNINetDir, name)) {
+				primaryConfigs = append(primaryConfigs, name)
+			}
+		}
+		if len(primaryConfigs) == 0 {
+			return fmt.Errorf("no primary CNI config found in %s", cfg.MountedCNINetDir)
+		}
+		cniConfigFilenames = primaryConfigs
+	}
+	firstCNIConfigFilename := cniConfigFilenames[0]
 
 	secondCNIConfigFilename := ""
 	if istioOwned {
@@ -485,6 +500,14 @@ func checkValidCNIConfig(cfg *config.InstallConfig, cniConfigFilepath string) er
 	}
 
 	return validateCNIConfigContents(cfg, cniConfigFilepath, istioOwned)
+}
+
+func isMultusWrapperConfig(path string) bool {
+	if !strings.HasPrefix(filepath.Base(path), "00-multus") {
+		return false
+	}
+	conf, err := util.ReadCNIConfigMap(path)
+	return err == nil && conf["type"] == "multus-shim"
 }
 
 // pluginEqual reports whether two decoded CNI plugin maps are equivalent,
