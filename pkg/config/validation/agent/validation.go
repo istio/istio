@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -596,6 +597,10 @@ func ValidateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 			errs = AppendValidation(errs, fmt.Errorf("total locality weight %v != 100", totalWeight))
 			return errs
 		}
+		// destLocalities was built from a map, so its order is random. validateLocalities only reports an overlap
+		// when the broader locality comes first, and '*' sorts before every character allowed in a locality, so
+		// sort to make the result the same on every run.
+		slices.Sort(destLocalities)
 		errs = AppendValidation(errs, validateLocalities(destLocalities))
 	}
 
