@@ -745,6 +745,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "weighted"},
 		{name: "zero"},
 		{name: "mesh"},
+		{name: "mesh-port-selector"},
 		{name: "foreign-waypoint"},
 		{
 			name: "invalid",
