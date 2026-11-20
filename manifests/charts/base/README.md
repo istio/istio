@@ -5,7 +5,7 @@ This chart installs resources shared by all Istio revisions. This includes Istio
 ## Setup Repo Info
 
 ```console
-helm repo add istio https://istio-release.storage.googleapis.com/charts
+helm repo add istio https://blob.istio.io/istio-release/charts
 helm repo update
 ```
 
