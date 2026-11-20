@@ -324,6 +324,13 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 
 		secret.Type = secretValidationContext
 	} else {
+		var fallbackKey *core.DataSource
+		// Envoy does not read the provider's private key when falling back to BoringSSL.
+		if pkpConf.GetCryptomb().GetFallback().GetValue() || pkpConf.GetQat().GetFallback().GetValue() {
+			fallbackKey = &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{InlineBytes: s.PrivateKey},
+			}
+		}
 		switch pkpConf.GetProvider().(type) {
 		case *mesh.PrivateKeyProvider_Cryptomb:
 			crypto := pkpConf.GetCryptomb()
@@ -337,6 +344,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 			})
 			secret.Type = &tls.Secret_TlsCertificate{
 				TlsCertificate: &tls.TlsCertificate{
+					PrivateKey: fallbackKey,
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_InlineBytes{
 							InlineBytes: s.CertificateChain,
@@ -363,6 +371,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 			})
 			secret.Type = &tls.Secret_TlsCertificate{
 				TlsCertificate: &tls.TlsCertificate{
+					PrivateKey: fallbackKey,
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_InlineBytes{
 							InlineBytes: s.CertificateChain,
