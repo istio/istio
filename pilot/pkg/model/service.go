@@ -594,6 +594,7 @@ type IstioEndpoint struct {
 	WorkloadName string
 
 	// Specifies the hostname of the Pod, empty for vm workload.
+	// This is the Pod's `spec.hostname` if set, otherwise the Pod name.
 	HostName string
 
 	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
