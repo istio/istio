@@ -17,8 +17,10 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -93,6 +95,20 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	if features.ScopedAddressPushes && config.Kind == kind.Address {
 		return proxy.GetWatchedResource(v3.AddressType) != nil
 	}
+	// Secret/ConfigMap updates only matter to proxies that subscribe to the specific resource via SDS.
+	if config.Kind == kind.Secret {
+		// Proxies using WasmPlugin/TrafficExtension might use image pull credentials outside of SDS subscriptions,
+		// so for those proxies, we need to preserve the old behavior of pushing at every change.
+		// TODO: build a reverse index (secret -> TrafficExtension resource names) in PushContext so we
+		// can precisely match instead of pushing on each Secret change
+		if proxy.GetWatchedResource(v3.ExtensionConfigurationType) != nil {
+			return true
+		}
+		return proxyReferencesCredential(proxy, config)
+	}
+	if config.Kind == kind.ConfigMap {
+		return proxyReferencesCredential(proxy, config)
+	}
 	// Detailed config dependencies check.
 	switch proxy.Type {
 	case model.Router:
@@ -113,6 +129,30 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	default:
 		// TODO We'll add the check for other proxy types later.
 		return true
+	}
+	return false
+}
+
+// proxyReferencesCredential checks whether any of the proxy's SDS subscriptions resolve to the given
+// Secret or ConfigMap. It intentionally mirrors the matching in SecretGen.Generate (ParseResourceName +
+// relatedConfigs), so we never skip a push for a resource that SDS would regenerate.
+func proxyReferencesCredential(proxy *model.Proxy, config model.ConfigKey) bool {
+	sds := proxy.GetWatchedResource(v3.SecretType)
+	if sds == nil {
+		return false
+	}
+	proxyNamespace := proxy.GetNamespace()
+	if proxy.VerifiedIdentity != nil {
+		proxyNamespace = proxy.VerifiedIdentity.Namespace
+	}
+	for name := range sds.ResourceNames {
+		sr, err := credentials.ParseResourceName(name, proxyNamespace, "", "")
+		if err != nil || sr.ResourceKind != config.Kind {
+			continue
+		}
+		if slices.Contains(relatedConfigs(model.ConfigKey{Kind: sr.ResourceKind, Name: sr.Name, Namespace: sr.Namespace}), config) {
+			return true
+		}
 	}
 	return false
 }
