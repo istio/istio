@@ -1514,40 +1514,6 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 					errs = appendErrors(errs, fmt.Errorf("`provider.name` must not be empty"))
 				}
 			}
-			// TODO(yangminzhu): Add support for more matching rules.
-			for _, rule := range in.GetRules() {
-				check := func(invalid bool, name string) error {
-					if invalid {
-						return fmt.Errorf("%s is currently not supported with CUSTOM action", name)
-					}
-					return nil
-				}
-				for _, from := range rule.GetFrom() {
-					if src := from.GetSource(); src != nil {
-						errs = appendErrors(errs, check(len(src.Namespaces) != 0, "From.Namespaces"))
-						errs = appendErrors(errs, check(len(src.NotNamespaces) != 0, "From.NotNamespaces"))
-						errs = appendErrors(errs, check(len(src.ServiceAccounts) != 0, "From.ServiceAccounts"))
-						errs = appendErrors(errs, check(len(src.NotServiceAccounts) != 0, "From.NotServiceAccounts"))
-						errs = appendErrors(errs, check(len(src.TrustDomains) != 0, "From.TrustDomains"))
-						errs = appendErrors(errs, check(len(src.NotTrustDomains) != 0, "From.NotTrustDomains"))
-						errs = appendErrors(errs, check(len(src.Principals) != 0, "From.Principals"))
-						errs = appendErrors(errs, check(len(src.NotPrincipals) != 0, "From.NotPrincipals"))
-						errs = appendErrors(errs, check(len(src.RequestPrincipals) != 0, "From.RequestPrincipals"))
-						errs = appendErrors(errs, check(len(src.NotRequestPrincipals) != 0, "From.NotRequestPrincipals"))
-					}
-				}
-				for _, when := range rule.GetWhen() {
-					if when == nil {
-						errs = appendErrors(errs, fmt.Errorf("when field cannot be nil"))
-						continue
-					}
-					errs = appendErrors(errs, check(when.Key == "source.namespace", when.Key))
-					errs = appendErrors(errs, check(when.Key == "source.serviceAccount", when.Key))
-					errs = appendErrors(errs, check(when.Key == "source.trustDomain", when.Key))
-					errs = appendErrors(errs, check(when.Key == "source.principal", when.Key))
-					errs = appendErrors(errs, check(strings.HasPrefix(when.Key, "request.auth."), when.Key))
-				}
-			}
 		}
 		if in.GetProvider() != nil && in.Action != security_beta.AuthorizationPolicy_CUSTOM {
 			errs = appendErrors(errs, fmt.Errorf("`provider` must not be with non CUSTOM action, found %s", in.Action))
