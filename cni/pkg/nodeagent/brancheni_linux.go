@@ -162,28 +162,28 @@ func detectBranchENI(podIP netip.Addr) *branchENIRoute {
 // which cannot handle the link-local SNAT address (169.254.7.127) used by istio-cni.
 //
 // Two rules are added:
-//   - Forward path: "ip rule add to <podIP> lookup <table> priority 512"
+//   - Forward path: "ip rule add to <podIP> iif lo lookup <table> priority 512"
 //     Routes host-originated traffic to the pod via the veth instead of VPC gateway.
-//     Priority 512 matches what aws-vpc-cni uses for regular veth pods.
+//     Priority 512 matches what aws-vpc-cni uses for regular veth pods. "iif lo" limits
+//     the rule to locally generated traffic, so forwarded traffic (e.g. DNAT'd hostPort)
+//     keeps the aws-vpc-cni path and doesn't return asymmetrically via the branch ENI.
 //   - Return path: "ip rule add iif <veth> lookup local priority <N>"
 //     Ensures reply traffic from the pod is delivered locally (to conntrack/kubelet)
 //     instead of being hijacked by aws-vpc-cni's iif rule that routes it back to VPC.
 //     Priority is set to one less than aws-vpc-cni's iif rule priority.
 func addBranchENIRules(podIP netip.Addr, info *branchENIRoute) error {
-	ip := net.IP(podIP.AsSlice())
 	family := unix.AF_INET
-	bits := 32
 	if podIP.Is6() {
 		family = unix.AF_INET6
-		bits = 128
 	}
 
-	// Forward path: route to pod via veth
-	fwdRule := netlink.NewRule()
-	fwdRule.Family = family
-	fwdRule.Dst = &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)}
-	fwdRule.Table = info.table
-	fwdRule.Priority = 512
+	// Older versions added the forward rule without "iif lo"; remove it so upgraded
+	// nodes don't keep catching forwarded traffic.
+	delForwardRules(podIP, info.table)
+
+	// Forward path: route host-originated traffic to pod via veth
+	fwdRule := forwardRule(podIP, info.table)
+	fwdRule.IifName = "lo"
 
 	fwdAdded := false
 	if err := netlink.RuleAdd(fwdRule); err != nil {
@@ -193,7 +193,7 @@ func addBranchENIRules(podIP netip.Addr, info *branchENIRoute) error {
 	} else {
 		fwdAdded = true
 	}
-	log.Debugf("added branch ENI forward rule: to %s lookup %d priority 512", podIP, info.table)
+	log.Debugf("added branch ENI forward rule: to %s iif lo lookup %d priority 512", podIP, info.table)
 
 	// Return path: deliver locally before aws-vpc-cni's iif rule.
 	// Insert at priority one less than the existing iif rule so we run first.
@@ -228,22 +228,12 @@ func addBranchENIRules(podIP netip.Addr, info *branchENIRoute) error {
 // Errors are logged but not returned since removal is best-effort
 // (the pod may already be gone, rules may have been cleaned up, etc).
 func delBranchENIRules(podIP netip.Addr, info *branchENIRoute) {
-	ip := net.IP(podIP.AsSlice())
 	family := unix.AF_INET
-	bits := 32
 	if podIP.Is6() {
 		family = unix.AF_INET6
-		bits = 128
 	}
 
-	fwdRule := netlink.NewRule()
-	fwdRule.Family = family
-	fwdRule.Dst = &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)}
-	fwdRule.Table = info.table
-	fwdRule.Priority = 512
-	if err := netlink.RuleDel(fwdRule); err != nil {
-		log.Debugf("failed to remove branch ENI forward rule for %s: %v", podIP, err)
-	}
+	delForwardRules(podIP, info.table)
 
 	retPriority := info.iifPriority - 1
 	if retPriority < 0 {
@@ -259,4 +249,37 @@ func delBranchENIRules(podIP netip.Addr, info *branchENIRoute) {
 	}
 
 	log.Debugf("removed branch ENI rules for pod %s veth %s", podIP, info.vethName)
+}
+
+// forwardRule returns the "to <podIP> lookup <table> priority 512" rule without an iif.
+func forwardRule(podIP netip.Addr, table int) *netlink.Rule {
+	ip := net.IP(podIP.AsSlice())
+	family := unix.AF_INET
+	bits := 32
+	if podIP.Is6() {
+		family = unix.AF_INET6
+		bits = 128
+	}
+	rule := netlink.NewRule()
+	rule.Family = family
+	rule.Dst = &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)}
+	rule.Table = table
+	rule.Priority = 512
+	return rule
+}
+
+// delForwardRules removes all forward rules for the pod, with or without "iif lo".
+// The kernel ignores iif on delete when the request doesn't set it, so deleting
+// without an iif matches both the current rule and the legacy dst-only rule.
+func delForwardRules(podIP netip.Addr, table int) {
+	rule := forwardRule(podIP, table)
+	// at most two rules can exist (legacy + current), bound the loop anyway
+	for range 4 {
+		if err := netlink.RuleDel(rule); err != nil {
+			if !errors.Is(err, unix.ENOENT) {
+				log.Debugf("failed to remove branch ENI forward rule for %s: %v", podIP, err)
+			}
+			return
+		}
+	}
 }

@@ -93,7 +93,7 @@ func TestAddDelBranchENIRules_IPv4(t *testing.T) {
 	foundFwd := false
 	foundRet := false
 	for _, r := range rules {
-		if r.Priority == 512 && r.Table == 199 && r.Dst != nil && r.Dst.IP.Equal(net.ParseIP("10.99.99.99")) {
+		if r.Priority == 512 && r.Table == 199 && r.IifName == "lo" && r.Dst != nil && r.Dst.IP.Equal(net.ParseIP("10.99.99.99")) {
 			foundFwd = true
 		}
 		if r.Priority == 9 && r.Table == 255 && r.IifName == "lo" {
@@ -157,7 +157,7 @@ func TestAddDelBranchENIRules_IPv6(t *testing.T) {
 	foundFwd := false
 	foundRet := false
 	for _, r := range rules {
-		if r.Priority == 512 && r.Table == 198 && r.Dst != nil && r.Dst.IP.Equal(net.ParseIP("fd99::1")) {
+		if r.Priority == 512 && r.Table == 198 && r.IifName == "lo" && r.Dst != nil && r.Dst.IP.Equal(net.ParseIP("fd99::1")) {
 			foundFwd = true
 		}
 		if r.Priority == 9 && r.Table == 255 && r.IifName == "lo" {
@@ -181,6 +181,63 @@ func TestAddDelBranchENIRules_IPv6(t *testing.T) {
 		if r.Priority == 9 && r.Table == 255 && r.IifName == "lo" {
 			t.Error("IPv6 return rule still exists after delete")
 		}
+	}
+}
+
+func TestAddBranchENIRules_ReplacesLegacyForwardRule(t *testing.T) {
+	if unix.Getuid() != 0 {
+		t.Skip("requires root for netlink operations")
+	}
+
+	podIP := netip.MustParseAddr("10.99.99.98")
+	info := &branchENIRoute{
+		table:       197,
+		vethName:    "lo",
+		iifPriority: 10,
+	}
+
+	// legacy forward rule without iif, as added by older versions
+	legacy := forwardRule(podIP, info.table)
+	if err := netlink.RuleAdd(legacy); err != nil {
+		t.Fatalf("failed to add legacy rule: %v", err)
+	}
+
+	countFwd := func() (withIif, withoutIif int) {
+		rules, _ := netlink.RuleList(unix.AF_INET)
+		for _, r := range rules {
+			if r.Priority == 512 && r.Table == 197 && r.Dst != nil && r.Dst.IP.Equal(net.ParseIP("10.99.99.98")) {
+				if r.IifName == "lo" {
+					withIif++
+				} else {
+					withoutIif++
+				}
+			}
+		}
+		return withIif, withoutIif
+	}
+
+	if err := addBranchENIRules(podIP, info); err != nil {
+		t.Fatalf("addBranchENIRules failed: %v", err)
+	}
+	if withIif, withoutIif := countFwd(); withIif != 1 || withoutIif != 0 {
+		t.Errorf("after add: got %d iif lo and %d legacy forward rules, want 1 and 0", withIif, withoutIif)
+	}
+
+	// re-adding (e.g. after a restart) must stay idempotent
+	if err := addBranchENIRules(podIP, info); err != nil {
+		t.Fatalf("second addBranchENIRules failed: %v", err)
+	}
+	if withIif, withoutIif := countFwd(); withIif != 1 || withoutIif != 0 {
+		t.Errorf("after re-add: got %d iif lo and %d legacy forward rules, want 1 and 0", withIif, withoutIif)
+	}
+
+	// delete must also clean up a legacy rule left next to the current one
+	if err := netlink.RuleAdd(legacy); err != nil {
+		t.Fatalf("failed to re-add legacy rule: %v", err)
+	}
+	delBranchENIRules(podIP, info)
+	if withIif, withoutIif := countFwd(); withIif != 0 || withoutIif != 0 {
+		t.Errorf("after delete: got %d iif lo and %d legacy forward rules, want 0 and 0", withIif, withoutIif)
 	}
 }
 
