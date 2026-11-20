@@ -11,4 +11,6 @@ spec:
     tls:
       mode: SIMPLE
       sni: echo.example.com
+      subjectAltNames:
+      - echo.example.com
 ---
