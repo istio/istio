@@ -72,4 +72,9 @@ var (
 
 	AgentMergeEnvoyStats = env.Register("PILOT_AGENT_MERGE_ENVOY_STATS", true,
 		"If false, pilot agent will not merge Envoy stats in the agent stats endpoint.").Get()
+
+	AgentMetricsProtobufUpconversion = env.Register("PILOT_AGENT_METRICS_PROTOBUF_UPCONVERSION", false,
+		"If true, pilot agent answers scrapes that prefer the Prometheus protobuf format in protobuf even when "+
+			"the application serves text or OpenMetrics, converting those bodies instead of downgrading the merged "+
+			"response to text. This keeps native histograms from Envoy and the application intact.").Get()
 )
