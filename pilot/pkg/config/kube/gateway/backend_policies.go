@@ -427,17 +427,9 @@ func backendResourceTLSSettings(
 	}
 
 	tls := &networking.ClientTLSSettings{
-		Mode: mode,
-		Sni:  string(validation.Hostname),
-		SubjectAltNames: slices.MapFilter(validation.SubjectAltNames, func(e gw.SubjectAltName) *string {
-			switch e.Type {
-			case gw.HostnameSubjectAltNameType:
-				return new(string(e.Hostname))
-			case gw.URISubjectAltNameType:
-				return new(string(e.URI))
-			}
-			return nil
-		}),
+		Mode:            mode,
+		Sni:             string(validation.Hostname),
+		SubjectAltNames: backendTLSSubjectAltNames(validation),
 	}
 	if tls.Sni == "" {
 		// XBackend's validation field is optional, so Hostname may be unset.
@@ -446,6 +438,26 @@ func backendResourceTLSSettings(
 	tls.CredentialName = getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
 
 	return tls
+}
+
+// backendTLSSubjectAltNames returns the names the backend certificate must match. Gateway API authenticates the
+// backend against Hostname unless SubjectAltNames are set, in which case Hostname is only used as SNI.
+func backendTLSSubjectAltNames(validation gw.BackendTLSPolicyValidation) []string {
+	if len(validation.SubjectAltNames) == 0 {
+		if validation.Hostname == "" {
+			return nil
+		}
+		return []string{string(validation.Hostname)}
+	}
+	return slices.MapFilter(validation.SubjectAltNames, func(e gw.SubjectAltName) *string {
+		switch e.Type {
+		case gw.HostnameSubjectAltNameType:
+			return ptr.Of(string(e.Hostname))
+		case gw.URISubjectAltNameType:
+			return ptr.Of(string(e.URI))
+		}
+		return nil
+	})
 }
 
 // setBackendAncestorStatus mirrors setAncestorStatus.
@@ -545,15 +557,7 @@ func BackendTLSPolicyCollection(
 			},
 		}
 		tls.Sni = string(s.Validation.Hostname)
-		tls.SubjectAltNames = slices.MapFilter(s.Validation.SubjectAltNames, func(e gw.SubjectAltName) *string {
-			switch e.Type {
-			case gw.HostnameSubjectAltNameType:
-				return ptr.Of(string(e.Hostname))
-			case gw.URISubjectAltNameType:
-				return ptr.Of(string(e.URI))
-			}
-			return nil
-		})
+		tls.SubjectAltNames = backendTLSSubjectAltNames(s.Validation)
 		tls.CredentialName = getBackendTLSCredentialName(ctx, s.Validation, i.Namespace, conds, references)
 
 		// In ancestor status, we need to report for Service (for mesh) and for each relevant Gateway.
