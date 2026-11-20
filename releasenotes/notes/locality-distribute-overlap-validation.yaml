@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62906
+releaseNotes:
+  - |
+    **Fixed** the validation of `localityLbSetting.distribute` in a `DestinationRule` or `MeshConfig` sometimes accepting
+    overlapping localities in the `to` map, such as `a/b/c` together with `a/b/*`. Whether the overlap was reported depended on
+    the random order the map was read in, so the same configuration could pass or fail from one validation to the next. It is
+    now always rejected.
