@@ -98,7 +98,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	svc := proxy.SidecarScope.GetService(hostname)
 	var dr *model.ConsolidatedDestRule
 	if svc != nil {
-		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
+		dr = DestinationRuleForCluster(proxy, dir, svc.Hostname)
 	}
 
 	return *NewCDSEndpointBuilder(
@@ -106,6 +106,15 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		dir, subsetName, hostname, port,
 		svc, dr,
 	)
+}
+
+// DestinationRuleForCluster returns the DestinationRule whose policy CDS applies to the cluster.
+// Waypoint inbound-vip clusters resolve the rule as inbound, which ignores workload selectors.
+func DestinationRuleForCluster(proxy *model.Proxy, dir model.TrafficDirection, hostname host.Name) *model.ConsolidatedDestRule {
+	if dir == model.TrafficDirectionInboundVIP {
+		return proxy.SidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, hostname)
+	}
+	return proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, hostname)
 }
 
 // NewCDSEndpointBuilder allows setting some fields directly when we already
@@ -137,8 +146,8 @@ func NewCDSEndpointBuilder(
 		isSelfDiscoveryCluster:          clusterName == util.SelfDiscoveryCluster,
 	}
 
-	b.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(service, b.DestinationRule(), port, subsetName)
 	b.populateSubsetInfo()
+	b.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(service, b.DestinationRule(), port, b.subsetName)
 	b.populateFailoverPriorityLabels()
 	if features.EnableAmbientMultiNetwork {
 		b.populateAmbientServiceInfo()
@@ -174,8 +183,15 @@ func (b *EndpointBuilder) WithSubset(subset string) *EndpointBuilder {
 
 func (b *EndpointBuilder) populateSubsetInfo() {
 	if b.dir == model.TrafficDirectionInboundVIP {
-		b.subsetName = strings.TrimPrefix(b.subsetName, "http/")
-		b.subsetName = strings.TrimPrefix(b.subsetName, "tcp/")
+		// a bare "http" or "tcp" is the protocol of the default cluster, not a subset
+		subset, isSubset := strings.CutPrefix(b.subsetName, "http/")
+		if !isSubset {
+			subset, isSubset = strings.CutPrefix(b.subsetName, "tcp/")
+		}
+		if !isSubset {
+			subset = ""
+		}
+		b.subsetName = subset
 	}
 	b.mtlsChecker = newMtlsChecker(b.push, b.proxy.SidecarScope.AuthnPolicies, b.port, b.destinationRule.GetRule(), b.subsetName)
 	b.subsetLabels = getSubSetLabels(b.DestinationRule(), b.subsetName)
