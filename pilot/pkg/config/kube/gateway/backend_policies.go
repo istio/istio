@@ -291,6 +291,12 @@ func DestinationRuleCollection(
 			for _, portPolicy := range numberedPortSettings {
 				spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
 			}
+			// Port level settings do not inherit retryBudget, but a BackendTrafficPolicy budget applies to every port.
+			if spec.TrafficPolicy.RetryBudget != nil {
+				for _, portPolicy := range spec.TrafficPolicy.PortLevelSettings {
+					portPolicy.RetryBudget = spec.TrafficPolicy.RetryBudget
+				}
+			}
 			spec.TrafficPolicy.PortLevelSettings = slices.SortBy(spec.TrafficPolicy.PortLevelSettings,
 				func(p *networking.TrafficPolicy_PortTrafficPolicy) uint32 {
 					return p.GetPort().GetNumber()

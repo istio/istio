@@ -2236,6 +2236,118 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 	}
 }
 
+func TestBuildOutboundClustersPortLevelRetryBudget(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     80,
+		Protocol: protocol.HTTP,
+	}
+
+	service := &model.Service{
+		Hostname:   host.Name("backend.default.svc.cluster.local"),
+		Ports:      model.PortList{servicePort},
+		Resolution: model.ClientSideLB,
+	}
+
+	thresholdsWithBudget := func(budget *cluster.CircuitBreakers_Thresholds_RetryBudget) *cluster.CircuitBreakers_Thresholds {
+		thresholds := getDefaultCircuitBreakerThresholds()
+		thresholds.RetryBudget = budget
+		return thresholds
+	}
+	destinationBudget := &networking.TrafficPolicy_RetryBudget{
+		Percent:             wrappers.Double(10),
+		MinRetryConcurrency: 3,
+	}
+
+	cases := []struct {
+		name     string
+		policy   *networking.TrafficPolicy
+		expected *cluster.CircuitBreakers_Thresholds
+	}{
+		{
+			name: "port-level retry budget",
+			policy: &networking.TrafficPolicy{
+				RetryBudget: destinationBudget,
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{Number: 80},
+						RetryBudget: &networking.TrafficPolicy_RetryBudget{
+							Percent:             wrappers.Double(30),
+							MinRetryConcurrency: 5,
+						},
+					},
+				},
+			},
+			expected: thresholdsWithBudget(&cluster.CircuitBreakers_Thresholds_RetryBudget{
+				BudgetPercent:       &xdstype.Percent{Value: 30},
+				MinRetryConcurrency: &wrappers.UInt32Value{Value: 5},
+			}),
+		},
+		{
+			name: "destination-level retry budget is not inherited by port-level settings",
+			policy: &networking.TrafficPolicy{
+				RetryBudget: destinationBudget,
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{Number: 80},
+						ConnectionPool: &networking.ConnectionPoolSettings{
+							Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 100},
+						},
+					},
+				},
+			},
+			expected: func() *cluster.CircuitBreakers_Thresholds {
+				thresholds := getDefaultCircuitBreakerThresholds()
+				thresholds.MaxConnections = &wrappers.UInt32Value{Value: 100}
+				return thresholds
+			}(),
+		},
+		{
+			name: "destination-level retry budget when port-level settings do not match",
+			policy: &networking.TrafficPolicy{
+				RetryBudget: destinationBudget,
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{Number: 8080},
+						RetryBudget: &networking.TrafficPolicy_RetryBudget{
+							Percent: wrappers.Double(30),
+						},
+					},
+				},
+			},
+			expected: thresholdsWithBudget(&cluster.CircuitBreakers_Thresholds_RetryBudget{
+				BudgetPercent:       &xdstype.Percent{Value: 10},
+				MinRetryConcurrency: &wrappers.UInt32Value{Value: 3},
+			}),
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			g := NewWithT(t)
+			cg := NewConfigGenTest(t, TestOptions{
+				Services: []*model.Service{service},
+				Configs: []config.Config{{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "acme",
+						Namespace:        "default",
+					},
+					Spec: &networking.DestinationRule{
+						Host:          "backend.default.svc.cluster.local",
+						TrafficPolicy: c.policy,
+					},
+				}},
+			})
+			clusters := cg.Clusters(cg.SetupProxy(nil))
+			xdstest.ValidateClusters(t, clusters)
+			c80 := xdstest.ExtractCluster("outbound|80||backend.default.svc.cluster.local", clusters)
+			g.Expect(c80).NotTo(BeNil())
+			g.Expect(c80.CircuitBreakers.Thresholds[0]).To(Equal(c.expected))
+		})
+	}
+}
+
 func TestInboundClustersPassThroughBindIPs(t *testing.T) {
 	servicePort := &model.Port{
 		Name:     "default",
