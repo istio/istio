@@ -30,6 +30,109 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+func TestDestinationRulePortLevelSettingsMerge(t *testing.T) {
+	port80 := &networking.TrafficPolicy_PortTrafficPolicy{
+		Port: &networking.PortSelector{Number: 80},
+		Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE},
+	}
+	port443 := &networking.TrafficPolicy_PortTrafficPolicy{
+		Port: &networking.PortSelector{Number: 443},
+		Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+	}
+	duplicate80 := &networking.TrafficPolicy_PortTrafficPolicy{
+		Port: &networking.PortSelector{Number: 80},
+		ConnectionPool: &networking.ConnectionPoolSettings{
+			Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 10},
+		},
+	}
+	firstTLS := &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE}
+	incomingTLS := &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE}
+	policy := func(tls *networking.ClientTLSSettings, ports ...*networking.TrafficPolicy_PortTrafficPolicy) *networking.TrafficPolicy {
+		return &networking.TrafficPolicy{Tls: tls, PortLevelSettings: ports}
+	}
+	cases := []struct {
+		name     string
+		policies []*networking.TrafficPolicy
+		want     *networking.TrafficPolicy
+	}{
+		{
+			name:     "distinct ports",
+			policies: []*networking.TrafficPolicy{policy(firstTLS, port80), policy(incomingTLS, port443)},
+			want:     policy(firstTLS, port80, port443),
+		},
+		{
+			name:     "duplicate port keeps entire first setting",
+			policies: []*networking.TrafficPolicy{policy(firstTLS, port80), policy(incomingTLS, duplicate80, port443)},
+			want:     policy(firstTLS, port80, port443),
+		},
+		{
+			name:     "three rules retain accumulated ports",
+			policies: []*networking.TrafficPolicy{policy(firstTLS, port80), policy(nil, port443), policy(incomingTLS, duplicate80, port443)},
+			want:     policy(firstTLS, port80, port443),
+		},
+		{
+			name:     "first policy has no ports",
+			policies: []*networking.TrafficPolicy{policy(firstTLS), policy(incomingTLS, port443)},
+			want:     policy(firstTLS, port443),
+		},
+		{
+			name:     "first policy absent",
+			policies: []*networking.TrafficPolicy{nil, policy(incomingTLS, port443)},
+			want:     policy(incomingTLS, port443),
+		},
+		{
+			name:     "incoming policy absent",
+			policies: []*networking.TrafficPolicy{policy(firstTLS, port80), nil},
+			want:     policy(firstTLS, port80),
+		},
+		{
+			name:     "incoming policy has no ports",
+			policies: []*networking.TrafficPolicy{policy(nil, port80), policy(incomingTLS)},
+			want:     policy(nil, port80),
+		},
+	}
+	for _, hostname := range []string{"specific.example.com", "*.wildcard.example.com"} {
+		t.Run(hostname, func(t *testing.T) {
+			for _, tc := range cases {
+				t.Run(tc.name, func(t *testing.T) {
+					ps := NewPushContext()
+					ps.exportToDefaults.destinationRule = sets.New(visibility.Public)
+					configs := make([]config.Config, len(tc.policies))
+					originals := make([]*networking.DestinationRule, len(tc.policies))
+					for i, tp := range tc.policies {
+						rule := &networking.DestinationRule{Host: hostname, TrafficPolicy: protomarshal.Clone(tp)}
+						originals[i] = protomarshal.Clone(rule)
+						// Reverse input order to exercise creation-time precedence, not slice order.
+						configs[len(configs)-1-i] = config.Config{
+							Meta: config.Meta{Name: tc.name, Namespace: "test", CreationTimestamp: time.Unix(int64(i), 0)},
+							Spec: rule,
+						}
+					}
+					ps.setDestinationRules(configs)
+					for _, index := range []*consolidatedDestRules{
+						ps.destinationRuleIndex.namespaceLocal["test"],
+						ps.destinationRuleIndex.exportedByNamespace["test"],
+					} {
+						rules := index.specificDestRules[host.Name(hostname)]
+						if host.Name(hostname).IsWildCarded() {
+							rules = index.wildcardDestRules[host.Name(hostname)]
+						}
+						assert.Equal(t, len(rules), 1)
+						got := rules[0].rule.Spec.(*networking.DestinationRule).TrafficPolicy
+						if len(got.GetPortLevelSettings()) != len(tc.want.PortLevelSettings) {
+							t.Fatalf("expected %d port-level settings, got %d", len(tc.want.PortLevelSettings), len(got.GetPortLevelSettings()))
+						}
+						assert.Equal(t, got, tc.want)
+					}
+					for i, cfg := range configs {
+						assert.Equal(t, cfg.Spec.(*networking.DestinationRule), originals[i])
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestBackendPolicyPortSettingsUpdates(t *testing.T) {
 	for _, backendFirst := range []bool{true, false} {
 		name := "backend created last"
