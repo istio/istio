@@ -27,6 +27,7 @@ import (
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
+	k8sioapinetworkingv1beta1 "k8s.io/api/networking/v1beta1"
 	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiinferenceextensionapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -86,6 +87,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.GatewayAPI().GatewayV1().HTTPRoutes(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
 		return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(namespace).(ktypes.WriteAPI[T])
+	case *k8sioapinetworkingv1beta1.IPAddress:
+		return c.Kube().NetworkingV1beta1().IPAddresses().(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiinferenceextensionapiv1.InferencePool:
 		return c.GatewayAPIInference().InferenceV1().InferencePools(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapinetworkingv1.Ingress:
@@ -122,6 +125,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().CoreV1().Services(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.ServiceAccount:
 		return c.Kube().CoreV1().ServiceAccounts(namespace).(ktypes.WriteAPI[T])
+	case *k8sioapinetworkingv1beta1.ServiceCIDR:
+		return c.Kube().NetworkingV1beta1().ServiceCIDRs().(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1.ServiceEntry:
 		return c.Istio().NetworkingV1().ServiceEntries(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1.Sidecar:
@@ -193,6 +198,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.GatewayAPI().GatewayV1().HTTPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
 		return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapinetworkingv1beta1.IPAddress:
+		return c.Kube().NetworkingV1beta1().IPAddresses().(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiinferenceextensionapiv1.InferencePool:
 		return c.GatewayAPIInference().InferenceV1().InferencePools(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapinetworkingv1.Ingress:
@@ -229,6 +236,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().CoreV1().Services(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicorev1.ServiceAccount:
 		return c.Kube().CoreV1().ServiceAccounts(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapinetworkingv1beta1.ServiceCIDR:
+		return c.Kube().NetworkingV1beta1().ServiceCIDRs().(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1.ServiceEntry:
 		return c.Istio().NetworkingV1().ServiceEntries(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1.Sidecar:
@@ -300,6 +309,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &sigsk8siogatewayapiapisv1.HTTPRoute{}
 	case gvr.HorizontalPodAutoscaler:
 		return &k8sioapiautoscalingv2.HorizontalPodAutoscaler{}
+	case gvr.IPAddress:
+		return &k8sioapinetworkingv1beta1.IPAddress{}
 	case gvr.InferencePool:
 		return &sigsk8siogatewayapiinferenceextensionapiv1.InferencePool{}
 	case gvr.Ingress:
@@ -336,6 +347,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &k8sioapicorev1.Service{}
 	case gvr.ServiceAccount:
 		return &k8sioapicorev1.ServiceAccount{}
+	case gvr.ServiceCIDR:
+		return &k8sioapinetworkingv1beta1.ServiceCIDR{}
 	case gvr.ServiceEntry:
 		return &apiistioioapinetworkingv1.ServiceEntry{}
 	case gvr.Sidecar:
@@ -495,6 +508,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(opts.Namespace).Watch(ctx, options)
 		}
+	case gvr.IPAddress:
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().NetworkingV1beta1().IPAddresses().List(ctx, options)
+		}
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().NetworkingV1beta1().IPAddresses().Watch(ctx, options)
+		}
 	case gvr.InferencePool:
 		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 			return c.GatewayAPIInference().InferenceV1().InferencePools(opts.Namespace).List(ctx, options)
@@ -620,6 +640,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().CoreV1().ServiceAccounts(opts.Namespace).Watch(ctx, options)
+		}
+	case gvr.ServiceCIDR:
+		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().NetworkingV1beta1().ServiceCIDRs().List(ctx, options)
+		}
+		w = func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().NetworkingV1beta1().ServiceCIDRs().Watch(ctx, options)
 		}
 	case gvr.ServiceEntry:
 		l = func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {

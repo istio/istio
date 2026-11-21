@@ -23,6 +23,7 @@ import (
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
+	k8sioapinetworkingv1beta1 "k8s.io/api/networking/v1beta1"
 	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiinferenceextensionapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -1300,6 +1301,24 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
+	gvk.IPAddress: func(r runtime.Object) config.Config {
+		obj := r.(*k8sioapinetworkingv1beta1.IPAddress)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.IPAddress,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
+		}
+	},
 	gvk.InferencePool: func(r runtime.Object) config.Config {
 		obj := r.(*sigsk8siogatewayapiinferenceextensionapiv1.InferencePool)
 		return config.Config{
@@ -1631,6 +1650,24 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				Generation:        obj.Generation,
 			},
 			Spec: obj,
+		}
+	},
+	gvk.ServiceCIDR: func(r runtime.Object) config.Config {
+		obj := r.(*k8sioapinetworkingv1beta1.ServiceCIDR)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.ServiceCIDR,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
 		}
 	},
 	gvk.ServiceEntry: func(r runtime.Object) config.Config {

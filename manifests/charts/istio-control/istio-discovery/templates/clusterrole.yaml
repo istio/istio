@@ -66,6 +66,14 @@ rules:
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]
 
+  - apiGroups: ["networking.k8s.io"]
+    verbs: [ "get", "list", "watch", "create", "delete" ]
+    resources: [ "ipaddresses" ]
+
+  - apiGroups: ["networking.k8s.io"]
+    verbs: [ "get", "list", "watch", "create", "delete" ]
+    resources: [ "servicecidrs" ]
+
 {{- if (eq ((coalesce .Values.global.platform .Values.platform) | default "") "openshift") }}
   # OpenShift: read SecurityContextConstraints to discover the injected proxy's UID/GID.
   - apiGroups: ["security.openshift.io"]

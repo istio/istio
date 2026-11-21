@@ -34,6 +34,7 @@ var (
 	HTTPRoute_v1alpha2             = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "httproutes"}
 	HTTPRoute_v1beta1              = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "httproutes"}
 	HorizontalPodAutoscaler        = schema.GroupVersionResource{Group: "autoscaling", Version: "v2", Resource: "horizontalpodautoscalers"}
+	IPAddress                      = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1beta1", Resource: "ipaddresses"}
 	InferencePool                  = schema.GroupVersionResource{Group: "inference.networking.k8s.io", Version: "v1", Resource: "inferencepools"}
 	Ingress                        = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
 	IngressClass                   = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}
@@ -59,6 +60,7 @@ var (
 	Secret                         = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
 	Service                        = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
 	ServiceAccount                 = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "serviceaccounts"}
+	ServiceCIDR                    = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1beta1", Resource: "servicecidrs"}
 	ServiceEntry                   = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "serviceentries"}
 	ServiceEntry_v1alpha3          = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "serviceentries"}
 	ServiceEntry_v1beta1           = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "serviceentries"}
@@ -149,6 +151,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return false
 	case HorizontalPodAutoscaler:
 		return false
+	case IPAddress:
+		return true
 	case InferencePool:
 		return false
 	case Ingress:
@@ -195,6 +199,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return false
 	case ServiceAccount:
 		return false
+	case ServiceCIDR:
+		return true
 	case ServiceEntry:
 		return false
 	case ServiceEntry_v1alpha3:

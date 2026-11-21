@@ -21,6 +21,8 @@ import (
 
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
@@ -48,6 +50,15 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
+type globalServiceAddress struct {
+	name    types.NamespacedName
+	address simpleNetworkAddress
+}
+
+func (a globalServiceAddress) ResourceName() string {
+	return a.address.network + "/" + a.name.Namespace + "/" + a.name.Name + "/" + a.address.ip.String()
+}
+
 func (a *index) buildGlobalCollections(
 	localCluster multicluster.ClusterCollections,
 	localAuthzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
@@ -62,6 +73,13 @@ func (a *index) buildGlobalCollections(
 	options Options,
 	opts krt.OptionsBuilder,
 ) {
+	localIPAddresses := krt.NewInformer[*netv1.IPAddress](localCluster.Client(), opts.With(
+		krt.WithName(fmt.Sprintf("informer/IPAddresses[%s]", localCluster.ID())),
+		krt.WithMetadata(krt.Metadata{
+			multicluster.ClusterKRTMetadataKey: localCluster.ID(),
+		}),
+	)...)
+
 	LocalPods := localCluster.Pods()
 	LocalNamespaces := localCluster.Namespaces()
 	LocalNodes := localCluster.Nodes()
@@ -413,6 +431,32 @@ func (a *index) buildGlobalCollections(
 		return []networkAddress{netaddr}
 	})
 
+	globalServiceVIPs := krt.NewCollection(localIPAddresses, func(ctx krt.HandlerContext, addr *netv1.IPAddress) *globalServiceAddress {
+		name := addr.Labels[constants.RemoteServiceNameLabel]
+		namespace := addr.Labels[constants.RemoteServiceNamespaceLabel]
+		if name == "" || namespace == "" {
+			return nil
+		}
+		ip, err := netip.ParseAddr(addr.Name)
+		if err != nil {
+			log.Warnf("Failed to parse IP address %q to assign to %s/%s: %v", addr.Name, namespace, name, err)
+			return nil
+		}
+		return &globalServiceAddress{
+			name: types.NamespacedName{
+				Namespace: namespace,
+				Name:      name,
+			},
+			address: simpleNetworkAddress{
+				network: GlobalNetworks.FetchLocalNetworkID(ctx).String(),
+				ip:      netip.PrefixFrom(ip, ip.BitLen()),
+			},
+		}
+	}, opts.WithName("GlobalServiceAddresses")...)
+	globalServiceVIPIndex := krt.NewIndex(globalServiceVIPs, "globalServiceAddresses", func(gsa globalServiceAddress) []types.NamespacedName {
+		return []types.NamespacedName{gsa.name}
+	})
+
 	SplitHorizonServices := krt.NewPointerCollection(
 		GlobalMergedWorkloadServices,
 		func(ctx krt.HandlerContext, svc *model.ServiceInfo) *model.ServiceInfo {
@@ -446,6 +490,16 @@ func (a *index) buildGlobalCollections(
 			}
 			sans = sans.Union(sets.New(svc.Service.SubjectAltNames...))
 
+			vips := sets.New[simpleNetworkAddress]()
+			vips.InsertAll(slices.Map(svc.Service.GetAddresses(), networkAddressToSimple)...)
+			gsas := globalServiceVIPIndex.Fetch(ctx, types.NamespacedName{Namespace: svc.Service.Namespace, Name: svc.Service.Name})
+			vips.InsertAll(slices.Map(gsas, func(gsa globalServiceAddress) simpleNetworkAddress {
+				return gsa.address
+			})...)
+			orderedVIPs := slices.SortBy(vips.UnsortedList(), func(addr simpleNetworkAddress) string {
+				return addr.network + "/" + addr.ip.String()
+			})
+
 			newSvcInfo := &model.ServiceInfo{
 				Service:            protomarshal.Clone(svc.Service),
 				PortNames:          svc.PortNames,
@@ -457,6 +511,16 @@ func (a *index) buildGlobalCollections(
 				DNSConnectStrategy: svc.DNSConnectStrategy,
 			}
 			newSvcInfo.Service.SubjectAltNames = sans.UnsortedList()
+			newSvcInfo.Service.Addresses = slices.Map(orderedVIPs, func(addr simpleNetworkAddress) *workloadapi.NetworkAddress {
+				address := &workloadapi.NetworkAddress{
+					Network: addr.network,
+					Address: addr.ip.Addr().AsSlice(),
+				}
+				if !addr.ip.IsSingleIP() {
+					address.Length = ptr.Of(uint32(addr.ip.Bits()))
+				}
+				return address
+			})
 			return precomputeService(newSvcInfo)
 		},
 		opts.WithName("SplitHorizonServices")...,

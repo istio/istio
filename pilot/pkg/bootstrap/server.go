@@ -191,6 +191,8 @@ type Server struct {
 	RWConfigStore model.ConfigStoreController
 
 	krtDebugger *krt.DebugHandler
+
+	ipAllocatorController *ambient.IPAllocator
 }
 
 type readinessFlags struct {
@@ -1224,6 +1226,10 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	log.Info("initializing controllers")
 	s.initMulticluster(args)
 
+	if s.multiclusterController != nil && features.EnableAmbientRemoteServiceIPAllocation {
+		s.initRemoteServicesController(args)
+	}
+
 	s.initSDSServer()
 
 	if features.EnableNodeUntaintControllers {
@@ -1277,6 +1283,30 @@ func (s *Server) initIPAutoallocateController(args *PilotArgs) {
 			AddRunFunction(func(leaderStop <-chan struct{}) {
 				ipallocate := ipallocate.NewIPAllocator(leaderStop, s.kubeClient)
 				ipallocate.Run(leaderStop)
+			}).Run(stop)
+		return nil
+	})
+}
+
+type RemoteService struct {
+	ClusterID cluster.ID
+	Service   *corev1.Service
+}
+
+func (s RemoteService) ResourceName() string {
+	return string(s.ClusterID) + "/" + s.Service.Namespace + "/" + s.Service.Name
+}
+
+func (s *Server) initRemoteServicesController(args *PilotArgs) {
+	if s.kubeClient == nil {
+		return
+	}
+	s.addStartFunc("remote services controller", func(stop <-chan struct{}) error {
+		go leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.RemoteServicesAddressController, args.Revision, s.kubeClient).
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				allocator := ambient.NewIPAllocator(s.kubeClient, leaderStop, s.multiclusterController, s.environment.Watcher)
+				allocator.Run(leaderStop)
 			}).Run(stop)
 		return nil
 	})
