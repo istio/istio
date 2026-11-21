@@ -28,6 +28,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	headertometadata "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_to_metadata/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
@@ -107,6 +108,9 @@ const (
 	// Envoy Stateful Session Filter
 	// TODO: Move to well known.
 	StatefulSessionFilter = "envoy.filters.http.stateful_session"
+
+	// HeaderToMetadataFilter is the name of the header to metadata http filter.
+	HeaderToMetadataFilter = "envoy.filters.http.header_to_metadata"
 
 	// AlpnOverrideMetadataKey is the key under which metadata is added
 	// to indicate whether Istio rewrite the ALPN headers
@@ -837,6 +841,36 @@ func buildDoubleHBONEMetadataStruct(service string, port int) *structpb.Struct {
 	}
 	st, _ := structpb.NewStruct(m)
 	return st
+}
+
+// BuildDynamicSubsetHeaderFilterConfig builds the header to metadata filter config that copies request headers
+// into the `envoy.lb` request metadata, which Envoy's subset load balancer matches against endpoint metadata.
+// It returns nil if there is nothing to copy.
+func BuildDynamicSubsetHeaderFilterConfig(keys []*networking.HeaderToDynamicSubsetKey) *headertometadata.Config {
+	if len(keys) == 0 {
+		return nil
+	}
+	rules := make([]*headertometadata.Config_Rule, 0, len(keys))
+	for _, k := range keys {
+		rule := &headertometadata.Config_Rule{
+			Header: k.GetHeader(),
+			OnHeaderPresent: &headertometadata.Config_KeyValuePair{
+				MetadataNamespace: constants.EnvoySubsetNamespace,
+				Key:               k.GetKey(),
+				Type:              headertometadata.Config_STRING,
+			},
+		}
+		if k.GetDefaultValue() != "" {
+			rule.OnHeaderMissing = &headertometadata.Config_KeyValuePair{
+				MetadataNamespace: constants.EnvoySubsetNamespace,
+				Key:               k.GetKey(),
+				Value:             k.GetDefaultValue(),
+				Type:              headertometadata.Config_STRING,
+			}
+		}
+		rules = append(rules, rule)
+	}
+	return &headertometadata.Config{RequestRules: rules}
 }
 
 func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {

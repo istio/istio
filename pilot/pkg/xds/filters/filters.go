@@ -29,6 +29,7 @@ import (
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcweb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
 	header_mutationv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_mutation/v3"
+	headertometadata "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_to_metadata/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
@@ -174,6 +175,15 @@ var (
 		Name: util.StatefulSessionFilter,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{}),
+		},
+	}
+	// DisabledHeaderToMetadataFilter is disabled in the filter chain, so it has no cost for most requests.
+	// It is enabled and configured at route level, to select a dynamic subset from request headers.
+	DisabledHeaderToMetadataFilter = &hcm.HttpFilter{
+		Name:     util.HeaderToMetadataFilter,
+		Disabled: true,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&headertometadata.Config{}),
 		},
 	}
 	InferencePoolExtProc = &hcm.HttpFilter{

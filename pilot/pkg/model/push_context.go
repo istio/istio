@@ -111,6 +111,10 @@ type virtualServiceIndex struct {
 
 	// Map of VS hostname -> referenced hostnames
 	referencedDestinations map[string]sets.String
+
+	// Whether any virtual service selects a dynamic subset from request headers. The HTTP filter this
+	// needs is only added to listeners when the feature is in use.
+	usesDynamicSubsetHeaders bool
 }
 
 func newVirtualServiceIndex() virtualServiceIndex {
@@ -1807,11 +1811,17 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) {
 }
 
 // Caches list of virtual services
+// UsesDynamicSubsetHeaders reports whether any virtual service selects a dynamic subset from request headers.
+func (ps *PushContext) UsesDynamicSubsetHeaders() bool {
+	return ps != nil && ps.virtualServiceIndex.usesDynamicSubsetHeaders
+}
+
 func (ps *PushContext) initVirtualServices(env *Environment) {
 	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[types.NamespacedName][]*config.Config{}
 	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[types.NamespacedName][]*config.Config{}
 	ps.virtualServiceIndex.publicByGateway = map[string][]*config.Config{}
 	ps.virtualServiceIndex.referencedDestinations = map[string]sets.String{}
+	ps.virtualServiceIndex.usesDynamicSubsetHeaders = false
 
 	if features.FilterGatewayClusterConfig {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
@@ -1825,6 +1835,14 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		ns := virtualService.Namespace
 		rule := virtualService.Spec.(*networking.VirtualService)
 		gwNames := getGatewayNames(rule)
+		if !ps.virtualServiceIndex.usesDynamicSubsetHeaders {
+			for _, http := range rule.Http {
+				if len(http.GetHeaderToDynamicSubsetKeys()) > 0 {
+					ps.virtualServiceIndex.usesDynamicSubsetHeaders = true
+					break
+				}
+			}
+		}
 		exportToSet := ps.exportToDefaults.virtualService
 		if len(virtualService.ExportTo) > 0 {
 			exportToSet = virtualService.ExportTo

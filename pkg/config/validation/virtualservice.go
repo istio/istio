@@ -22,6 +22,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/validation/agent"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type HTTPRouteType int
@@ -73,6 +74,25 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate, gatewaySemantics bo
 	}
 	for _, name := range http.Headers.GetResponse().GetRemove() {
 		errs = AppendValidation(errs, ValidateHTTPHeaderOperationName(name))
+	}
+
+	// dynamic subset selection
+	subsetKeys := sets.New[string]()
+	for _, k := range http.GetHeaderToDynamicSubsetKeys() {
+		if !validHeaderNameRegex.MatchString(k.GetHeader()) {
+			errs = AppendValidation(errs, fmt.Errorf("headerToDynamicSubsetKeys: %q is not a valid header name", k.GetHeader()))
+		}
+		if k.GetKey() == "" {
+			errs = AppendValidation(errs, fmt.Errorf("headerToDynamicSubsetKeys: key cannot be empty"))
+		} else {
+			errs = AppendValidation(errs, validateDynamicSubsetKey(k.GetKey()))
+		}
+		if subsetKeys.InsertContains(k.GetKey()) {
+			errs = AppendValidation(errs, fmt.Errorf("headerToDynamicSubsetKeys: duplicate key %q", k.GetKey()))
+		}
+		if k.GetDefaultValue() != "" {
+			errs = AppendValidation(errs, ValidateHTTPHeaderValue(k.GetDefaultValue()))
+		}
 	}
 
 	errs = AppendValidation(errs, validateCORSPolicy(http.CorsPolicy))

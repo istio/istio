@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 62827
+releaseNotes:
+  - |
+    **Added** support for `trafficPolicy.loadBalancer.dynamicSubset` in `DestinationRule`. Outbound EDS clusters of
+    such services are configured with Envoy subset load balancing, so a request can select the endpoints matching a
+    set of workload labels, or a single endpoint by address (`%ip%`) or hostname (`%hostname%`), without a cluster
+    per subset. It is not applied together with `backendUtilization`.

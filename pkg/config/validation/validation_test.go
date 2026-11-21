@@ -1944,6 +1944,48 @@ func TestValidateHTTPRoute(t *testing.T) {
 				Destination: nil,
 			}},
 		}, valid: false},
+		{name: "dynamic subset keys", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{
+				{Header: "x-version", Key: "version", DefaultValue: "v1"},
+				{Header: "x-endpoint-ip", Key: "%ip%"},
+			},
+		}, valid: true},
+		{name: "dynamic subset key without header", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{{Key: "version"}},
+		}, valid: false},
+		{name: "dynamic subset key with invalid header", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{{Header: "x version", Key: "version"}},
+		}, valid: false},
+		{name: "dynamic subset key without key", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{{Header: "x-version"}},
+		}, valid: false},
+		{name: "dynamic subset key with unknown built-in key", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{{Header: "x-zone", Key: "%zone%"}},
+		}, valid: false},
+		{name: "dynamic subset duplicate key", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			HeaderToDynamicSubsetKeys: []*networking.HeaderToDynamicSubsetKey{
+				{Header: "x-version", Key: "version"},
+				{Header: "x-other", Key: "version"},
+			},
+		}, valid: false},
 		{name: "weighted", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
@@ -3657,6 +3699,70 @@ func TestValidateLoadBalancer(t *testing.T) {
 		in    *networking.LoadBalancerSettings
 		valid bool
 	}{
+		{
+			name: "valid dynamic subset", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{
+						{Keys: []string{"version", "example.com/stage"}},
+						{Keys: []string{"%ip%"}},
+						{Keys: []string{"%hostname%"}},
+					},
+					FallbackPolicy: networking.DynamicSubsetLB_DEFAULT_SUBSET,
+					DefaultSubset:  map[string]string{"version": "v1"},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "dynamic subset without selectors", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{},
+			},
+			valid: false,
+		},
+		{
+			name: "dynamic subset with unknown built-in key", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{{Keys: []string{"%zone%"}}},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "dynamic subset with built-in key combined with a label", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{{Keys: []string{"version", "%ip%"}}},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "dynamic subset with invalid label name", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{{Keys: []string{"not a label"}}},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "dynamic subset with duplicate selectors", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{
+						{Keys: []string{"version", "stage"}},
+						{Keys: []string{"stage", "version"}},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "dynamic subset with default subset fallback but no default subset", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{{Keys: []string{"version"}}},
+					FallbackPolicy:  networking.DynamicSubsetLB_DEFAULT_SUBSET,
+				},
+			},
+			valid: false,
+		},
 		{
 			name: "valid load balancer with simple load balancing", in: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{

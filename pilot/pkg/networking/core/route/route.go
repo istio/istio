@@ -583,6 +583,12 @@ func TranslateRoute(
 	if in.CorsPolicy != nil {
 		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(node, in.CorsPolicy))
 	}
+	if cfg := util.BuildDynamicSubsetHeaderFilterConfig(in.HeaderToDynamicSubsetKeys); cfg != nil {
+		if out.TypedPerFilterConfig == nil {
+			out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+		}
+		out.TypedPerFilterConfig[util.HeaderToMetadataFilter] = protoconv.MessageToAny(cfg)
+	}
 	var statefulConfig *statefulsession.StatefulSession
 	for _, hostname := range hostnames {
 		svc := opts.LookupService(hostname)
