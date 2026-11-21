@@ -578,7 +578,7 @@ func (c *Controller) reconcileShadowService(
 		pool := inferencePools.GetKey(key.String())
 		if pool == nil {
 			// we'll generally ignore these scenarios, since the InferencePool may have been deleted
-			log.Debugf("inferencepool no longer exists", key.String())
+			log.Debugf("inferencepool %s no longer exists", key.String())
 			return nil
 		}
 

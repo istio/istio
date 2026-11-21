@@ -449,7 +449,7 @@ func GatewayCollection(
 		gatewayServices, err := extractGatewayServices(domainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
-			log.Errorf("failed to translate gwv1", "name", obj.GetName(), "namespace", obj.GetNamespace(), "err", err.message)
+			log.WithLabels("name", obj.GetName(), "namespace", obj.GetNamespace(), "err", err.message).Error("failed to translate gwv1")
 			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error, nil, 0)
 			return status, nil
 		}
