@@ -127,6 +127,14 @@ spec:
         - name: NETWORK
           value: {{ .Values.network | quote }}
         {{- end }}
+        {{- $env := .Values.env | default dict }}
+        {{- $proxyMetadata := .Values.meshConfig.defaultConfig.proxyMetadata | default dict }}
+        {{- if not (or (hasKey $env "CLUSTER_DOMAIN") (hasKey $proxyMetadata "CLUSTER_DOMAIN")) }}
+        {{- with .Values.global.proxy.clusterDomain }}
+        - name: CLUSTER_DOMAIN
+          value: {{ . | quote }}
+        {{- end }}
+        {{- end }}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
         - name: RUST_BACKTRACE

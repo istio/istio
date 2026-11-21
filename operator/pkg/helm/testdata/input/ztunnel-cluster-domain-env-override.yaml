@@ -1,0 +1,7 @@
+spec:
+  values:
+    global:
+      proxy:
+        clusterDomain: multicluster.local
+    env:
+      CLUSTER_DOMAIN: from-env.local

@@ -1,0 +1,9 @@
+spec:
+  values:
+    global:
+      proxy:
+        clusterDomain: multicluster.local
+    meshConfig:
+      defaultConfig:
+        proxyMetadata:
+          CLUSTER_DOMAIN: from-proxy-metadata.local
