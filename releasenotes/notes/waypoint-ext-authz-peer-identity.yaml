@@ -1,0 +1,23 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 62852
+releaseNotes:
+  - |
+    **Fixed** missing caller identity for waypoint HTTP requests checked by a gRPC external authorizer.
+    Istio now overwrites `x-istio-peer-principal` with the authenticated peer's SPIFFE identity
+    immediately before the gRPC authorization check on internal listeners that use peer filter state.
+    Authorizers can read this header from `attributes.request.http.headers`; `attributes.source.principal`
+    remains unavailable because the internal connection has no peer TLS certificate.
+upgradeNotes:
+  - title: Peer identity header for gRPC external authorization on internal listeners
+    content: |
+      On internal listeners that use authenticated peer filter state, including waypoints,
+      HTTP CUSTOM policies with a gRPC provider now reserve `x-istio-peer-principal`.
+      Client-supplied values are overwritten, including when the peer identity is unavailable.
+      Authorizers must reject missing or empty identities when an authenticated caller is required.
+      This header is also visible to the upstream application; applications should only trust it
+      when requests are guaranteed to pass through the enforcing proxy.
+      Direct TLS listeners (including sidecars), HTTP authorization providers, and TCP authorization
+      checks retain their existing behavior.
