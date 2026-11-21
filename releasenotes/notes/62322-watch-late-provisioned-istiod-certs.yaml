@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 62309
+releaseNotes:
+  - |
+    **Fixed** istiod to keep watching for its TLS certificate when none is
+    found at startup and `PILOT_CERT_PROVIDER` does not match a known
+    provider, so a certificate created shortly after by an external source
+    like cert-manager `istio-csr` is picked up without requiring a restart,
+    and the secure discovery service (port 15012) also becomes available
+    once that happens.
