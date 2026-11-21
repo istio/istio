@@ -15,6 +15,7 @@
 package multicluster
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"os"
@@ -75,6 +76,28 @@ func makeSecret(namespace string, secret string, clusterConfigs ...clusterCreden
 		s.Data[config.clusterID] = config.kubeconfig
 	}
 	return s
+}
+
+func TestConfigClusterStopsWithController(t *testing.T) {
+	for _, synced := range []bool{false, true} {
+		t.Run(fmt.Sprintf("synced=%v", synced), func(t *testing.T) {
+			client := kube.NewFakeClient()
+			c := NewController(ControllerOptions{
+				Client:          client,
+				SystemNamespace: secretNamespace,
+				MeshConfig:      meshwatcher.NewTestWatcher(nil),
+			})
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
+			assert.NoError(t, c.Run(ctx.Done()))
+			if synced {
+				client.RunAndWait(ctx.Done())
+				assert.EventuallyEqual(t, c.HasSynced, true)
+			}
+			cancel()
+			assert.EventuallyEqual(t, c.configCluster.Closed, true)
+		})
+	}
 }
 
 func TestKubeConfigOverride(t *testing.T) {

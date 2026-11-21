@@ -23,6 +23,7 @@ import (
 	"time"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
+	certificatesv1 "k8s.io/api/certificates/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -30,9 +31,11 @@ import (
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 
 	"istio.io/istio/pilot/pkg/credentials"
+	"istio.io/istio/pilot/pkg/features"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/clustertrustbundle"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
@@ -61,10 +64,13 @@ const (
 )
 
 type CredentialsController struct {
-	secrets         kclient.Client[*v1.Secret]
-	configMaps      kclient.Client[*v1.ConfigMap]
-	sar             authorizationv1client.SubjectAccessReviewInterface
-	isConfigCluster bool
+	secrets    kclient.Client[*v1.Secret]
+	configMaps kclient.Client[*v1.ConfigMap]
+	// clusterTrustBundles is only set on the config cluster when the feature is enabled.
+	clusterTrustBundles kclient.Informer[*certificatesv1.ClusterTrustBundle]
+	ctbWatcher          *clustertrustbundle.APIWatcher
+	sar                 authorizationv1client.SubjectAccessReviewInterface
+	isConfigCluster     bool
 
 	mu                 sync.RWMutex
 	authorizationCache map[authorizationKey]authorizationResponse
@@ -91,7 +97,14 @@ var SecretsFieldSelector = fields.AndSelectors(
 	fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
 	fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
 
-func NewCredentialsController(kc kube.Client, handlers []func(typ kind.Kind, name string, namespace string), isConfigCluster bool) *CredentialsController {
+// NewCredentialsController builds a controller for a cluster. stop bounds the lifetime of background work that is not tied
+// to the client's informers, such as probing for the ClusterTrustBundle API.
+func NewCredentialsController(
+	kc kube.Client,
+	handlers []func(typ kind.Kind, name string, namespace string),
+	isConfigCluster bool,
+	stop <-chan struct{},
+) *CredentialsController {
 	secrets := kclient.NewFiltered[*v1.Secret](kc, kclient.Filter{
 		FieldSelector: SecretsFieldSelector,
 		ObjectFilter:  kc.ObjectFilter(),
@@ -102,6 +115,14 @@ func NewCredentialsController(kc kube.Client, handlers []func(typ kind.Kind, nam
 		configMaps = kclient.NewFiltered[*v1.ConfigMap](kc, kclient.Filter{
 			ObjectFilter: kc.ObjectFilter(),
 		})
+	}
+
+	var clusterTrustBundles kclient.Informer[*certificatesv1.ClusterTrustBundle]
+	var ctbWatcher *clustertrustbundle.APIWatcher
+	if isConfigCluster && features.EnableGatewayAPIClusterTrustBundle {
+		// Shared with the Gateway API translation so both agree on whether the API is served.
+		ctbWatcher = clustertrustbundle.SharedAPIWatcher(kc, stop)
+		clusterTrustBundles = clustertrustbundle.NewInformer(kc, ctbWatcher)
 	}
 
 	for _, h := range handlers {
@@ -118,14 +139,21 @@ func NewCredentialsController(kc kube.Client, handlers []func(typ kind.Kind, nam
 				}
 			}))
 		}
+		if clusterTrustBundles != nil {
+			clusterTrustBundles.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+				h(kind.ClusterTrustBundle, o.GetName(), "")
+			}))
+		}
 	}
 
 	return &CredentialsController{
-		secrets:            secrets,
-		configMaps:         configMaps,
-		sar:                kc.Kube().AuthorizationV1().SubjectAccessReviews(),
-		isConfigCluster:    isConfigCluster,
-		authorizationCache: make(map[authorizationKey]authorizationResponse),
+		secrets:             secrets,
+		configMaps:          configMaps,
+		clusterTrustBundles: clusterTrustBundles,
+		ctbWatcher:          ctbWatcher,
+		sar:                 kc.Kube().AuthorizationV1().SubjectAccessReviews(),
+		isConfigCluster:     isConfigCluster,
+		authorizationCache:  make(map[authorizationKey]authorizationResponse),
 	}
 }
 
@@ -138,6 +166,9 @@ func (s *CredentialsController) Close() {
 	if s.configMaps != nil {
 		s.configMaps.ShutdownHandlers()
 	}
+	if s.clusterTrustBundles != nil {
+		s.clusterTrustBundles.ShutdownHandlers()
+	}
 }
 
 func (s *CredentialsController) HasSynced() bool {
@@ -148,6 +179,10 @@ func (s *CredentialsController) HasSynced() bool {
 	synced := s.secrets.HasSynced()
 	if s.configMaps != nil {
 		synced = synced && s.configMaps.HasSynced()
+	}
+	if s.clusterTrustBundles != nil {
+		// Unreadable bundles (missing RBAC) must not hold istiod's readiness: they are reported per reference instead.
+		synced = synced && (s.clusterTrustBundles.HasSynced() || s.clusterTrustBundlesUnreadable())
 	}
 	return synced
 }
@@ -264,6 +299,32 @@ func (s *CredentialsController) GetConfigMapCaCert(name, namespace string) (cert
 	}
 
 	return ExtractRootFromString(cm.Data)
+}
+
+func (s *CredentialsController) clusterTrustBundlesUnreadable() bool {
+	return s.ctbWatcher.InformerState(s.clusterTrustBundles.HasSynced) == clustertrustbundle.InformerUnreadable
+}
+
+func (s *CredentialsController) GetClusterTrustBundle(name string) (certInfo *credentials.CertInfo, err error) {
+	if !s.isConfigCluster {
+		return nil, fmt.Errorf("clustertrustbundle access not enabled for remote clusters")
+	}
+	if s.clusterTrustBundles == nil {
+		return nil, fmt.Errorf("clustertrustbundle access is disabled")
+	}
+	ctb := s.clusterTrustBundles.Get(name, "")
+	if ctb == nil {
+		if s.clusterTrustBundlesUnreadable() {
+			return nil, fmt.Errorf("clustertrustbundle %v cannot be read: istiod cannot list/watch "+
+				"clustertrustbundles.certificates.k8s.io (check its RBAC permissions)", name)
+		}
+		return nil, fmt.Errorf("clustertrustbundle %v not found", name)
+	}
+	pem, err := clustertrustbundle.ParseTrustBundle(ctb)
+	if err != nil {
+		return nil, err
+	}
+	return &credentials.CertInfo{Cert: pem}, nil
 }
 
 func (s *CredentialsController) GetDockerCredential(name, namespace string) ([]byte, error) {

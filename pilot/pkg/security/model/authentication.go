@@ -265,6 +265,7 @@ func normalizeCaCertCredentialName(name string) string {
 	if name == "" ||
 		strings.HasSuffix(name, SdsCaSuffix) ||
 		strings.HasPrefix(name, credentials.KubernetesConfigMapTypeURI) ||
+		strings.HasPrefix(name, credentials.KubernetesClusterTrustBundleTypeURI) ||
 		strings.HasPrefix(name, security.SDSExternalCredentialPrefix) ||
 		strings.HasPrefix(name, credentials.InvalidSecretTypeURI) {
 		return name
@@ -293,7 +294,11 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 		if tlsOpts.CredentialName == "" {
 			return
 		}
-		caCert = tlsOpts.CredentialName + SdsCaSuffix
+		caCert = tlsOpts.CredentialName
+		// ClusterTrustBundle names are always used verbatim.
+		if !strings.HasPrefix(caCert, credentials.KubernetesClusterTrustBundleTypeURI) {
+			caCert += SdsCaSuffix
+		}
 	} else {
 		caCert = normalizeCaCertCredentialName(caCert)
 	}

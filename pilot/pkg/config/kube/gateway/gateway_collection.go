@@ -80,6 +80,7 @@ func ListenerSetCollection(
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
+	clusterTrustBundles gatewaycommon.ClusterTrustBundles,
 	domainSuffix string,
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
@@ -168,7 +169,7 @@ func ListenerSetCollection(
 					continue
 				}
 
-				server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces,
+				server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, clusterTrustBundles, grants, namespaces,
 					obj, standardStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
 				standardStatus = updatedStatus
 
@@ -271,6 +272,7 @@ func GatewayCollection(
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
+	clusterTrustBundles gatewaycommon.ClusterTrustBundles,
 	domainSuffix string,
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
@@ -345,7 +347,8 @@ func GatewayCollection(
 				continue
 			}
 
-			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
+			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, clusterTrustBundles, grants, namespaces,
+				obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
 			if programmed {

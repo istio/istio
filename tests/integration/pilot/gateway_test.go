@@ -61,6 +61,7 @@ func TestGateway(t *testing.T) {
 			t.NewSubTest("status").Run(StatusGatewayTest)
 			t.NewSubTest("managed-short-name").Run(ManagedGatewayShortNameTest)
 			t.NewSubTest("insecure-frontend-validation-mode").Run(InsecureFrontendValidationModeTest)
+			t.NewSubTest("frontend-tls-cluster-trust-bundle").Run(FrontendTLSClusterTrustBundleTest)
 		})
 }
 
@@ -305,20 +306,45 @@ spec:
     - group: ""
       kind: ConfigMap
       name: auth-cert
-    hostname: auth.example.com
+    # The echo serving certificate is valid for this name.
+    hostname: server.default.svc
 `).ApplyOrFail(t)
-		apps.A[0].CallOrFail(t, echo.CallOptions{
-			Port: echo.Port{
-				Protocol:    protocol.HTTP,
-				ServicePort: 80,
-			},
-			Scheme: scheme.HTTP,
-			HTTP: echo.HTTP{
-				Headers: headers.New().WithHost("tls.example.com").Build(),
-			},
-			Address: fmt.Sprintf("gateway-%s.%s.svc.cluster.local", i.GatewayClassName, apps.Namespace.Name()),
-			Check:   check.And(check.OK(), check.SNI("auth.example.com")),
-		})
+		call := func(checker echo.Checker) {
+			t.Helper()
+			apps.A[0].CallOrFail(t, echo.CallOptions{
+				Port: echo.Port{
+					Protocol:    protocol.HTTP,
+					ServicePort: 80,
+				},
+				Scheme: scheme.HTTP,
+				HTTP: echo.HTTP{
+					Headers: headers.New().WithHost("tls.example.com").Build(),
+				},
+				Address: fmt.Sprintf("gateway-%s.%s.svc.cluster.local", i.GatewayClassName, apps.Namespace.Name()),
+				Check:   checker,
+			})
+		}
+		call(check.And(check.OK(), check.SNI("server.default.svc")))
+
+		// The backend certificate is not valid for the policy hostname, so the connection must fail.
+		t.ConfigIstio().YAML(apps.Namespace.Name(), `
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: tls-upstream
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: b
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: ConfigMap
+      name: auth-cert
+    hostname: mismatch.example.com
+`).ApplyOrFail(t)
+		call(check5xx())
 	})
 	t.NewSubTest("backend-tls-section-name").Run(func(t framework.TestContext) {
 		ca := file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem"))
@@ -372,7 +398,7 @@ spec:
     - group: ""
       kind: ConfigMap
       name: auth-cert
-    hostname: auth.example.com
+    hostname: server.default.svc
 `).ApplyOrFail(t)
 		apps.A[0].CallOrFail(t, echo.CallOptions{
 			Port: echo.Port{
@@ -396,8 +422,11 @@ spec:
 				Headers: headers.New().WithHost("tls.example.com").Build(),
 			},
 			Address: fmt.Sprintf("gateway-%s.%s.svc.cluster.local", i.GatewayClassName, apps.Namespace.Name()),
-			Check:   check.And(check.OK(), check.SNI("auth.example.com")),
+			Check:   check.And(check.OK(), check.SNI("server.default.svc")),
 		})
+	})
+	t.NewSubTest("backend-tls-cluster-trust-bundle").Run(func(t framework.TestContext) {
+		ManagedGatewayBackendTLSClusterTrustBundleTest(t, i.GatewayClassName)
 	})
 	t.NewSubTest("listenerset").Run(func(t framework.TestContext) {
 		ns := namespace.NewOrFail(t, namespace.Config{Prefix: "listenerset"})

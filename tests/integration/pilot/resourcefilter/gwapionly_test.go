@@ -105,7 +105,7 @@ spec:
     - group: ""
       kind: ConfigMap
       name: auth-cert
-    hostname: auth.example.com
+    hostname: server.default.svc
 `).ApplyOrFail(t)
 		apps.A[0].CallOrFail(t, echo.CallOptions{
 			Port: echo.Port{

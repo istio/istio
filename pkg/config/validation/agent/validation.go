@@ -278,11 +278,15 @@ func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
 	return ValidateProxyAddress(strings.Replace(d.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
 }
 
-// validateConfigMapCredential ensures a configmap:// credential reference matches the namespace of
-// the configuration that references it. An empty configNamespace means the caller has no namespace
-// context (for example ProxyConfig on the agent), in which case the reference cannot be resolved
-// safely and is rejected.
-func validateConfigMapCredential(field, name, configNamespace string) error {
+// validateCACredentialReference checks public CA references. ConfigMaps require a matching, nonempty configNamespace;
+// ClusterTrustBundles are cluster-scoped. Other credential schemes are checked elsewhere.
+func validateCACredentialReference(field, name, configNamespace string) error {
+	if strings.HasPrefix(name, credentials.KubernetesClusterTrustBundleTypeURI) {
+		if _, err := credentials.ParseResourceName(name, configNamespace, "", ""); err != nil {
+			return fmt.Errorf("invalid clustertrustbundle:// %s: %v", field, err)
+		}
+		return nil
+	}
 	if !strings.HasPrefix(name, credentials.KubernetesConfigMapTypeURI) {
 		return nil
 	}
@@ -301,8 +305,12 @@ func ValidateTLS(configNamespace string, settings *networking.ClientTLSSettings)
 		return errs
 	}
 
-	errs = AppendErrors(errs, validateConfigMapCredential("credentialName", settings.CredentialName, configNamespace))
-	errs = AppendErrors(errs, validateConfigMapCredential("caCertCredentialName", settings.CaCertCredentialName, configNamespace))
+	errs = AppendErrors(errs, validateCACredentialReference("credentialName", settings.CredentialName, configNamespace))
+	errs = AppendErrors(errs, validateCACredentialReference("caCertCredentialName", settings.CaCertCredentialName, configNamespace))
+	// A ClusterTrustBundle holds only CA certificates, so it cannot provide the client certificate MUTUAL reads from credentialName.
+	if settings.Mode == networking.ClientTLSSettings_MUTUAL && strings.HasPrefix(settings.CredentialName, credentials.KubernetesClusterTrustBundleTypeURI) {
+		errs = AppendErrors(errs, fmt.Errorf("clustertrustbundle:// credentialName is not supported in MUTUAL mode, use caCertCredentialName"))
+	}
 
 	if settings.GetInsecureSkipVerify().GetValue() {
 		if settings.Mode == networking.ClientTLSSettings_SIMPLE {

@@ -119,8 +119,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	// We do not want to support CredentialName setting in non workloadSelector based DestinationRules, because
 	// that would result in the CredentialName being supplied to all the sidecars which the DestinationRule is scoped to,
 	// resulting in delayed startup of sidecars who do not have access to the credentials.
-	// `filterAuthorizedResources` allows ConfigMap to anyone, so do not exclude a ConfigMap
-	// referenced by CredentialName here. CaCertCredentialName requires a selector for
+	// `filterAuthorizedResources` allows ConfigMap and ClusterTrustBundle to anyone, so do not exclude
+	// one referenced by CredentialName here. CaCertCredentialName requires a selector for
 	// sidecars otherwise it will only be applicable to gateways.
 	//
 	// invalid:// (BackendTLSPolicy's unresolved-CA sentinel) is not privileged either: SDS drops
@@ -128,6 +128,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	// of short-circuiting to no transport socket, which fails open (sidecar sends plaintext).
 	privilegedCredentialLookup := tls.CredentialName != "" &&
 		!strings.HasPrefix(tls.CredentialName, credentials.KubernetesConfigMapTypeURI) &&
+		!strings.HasPrefix(tls.CredentialName, credentials.KubernetesClusterTrustBundleTypeURI) &&
 		tls.CredentialName != credentials.InvalidSecretTypeURI
 	if cb.sidecarProxy() && !opts.isDrWithSelector {
 		// We ignore the CaCertCredentialName for sidecar when the DestinationRule

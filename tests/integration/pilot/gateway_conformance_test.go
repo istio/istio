@@ -100,6 +100,10 @@ func TestGatewayConformance(t *testing.T) {
 
 			supportedFeatures := gateway.SupportedFeatures.Clone().
 				Delete(features.MeshClusterIPMatchingFeature) // https://github.com/istio/istio/issues/44702
+			// ClusterTrustBundle support depends on the installation and the cluster, so it is not in the shared set.
+			if ok, _ := gatewayconformance.ClusterTrustBundleSupported(ctx); ok {
+				supportedFeatures.Insert(features.ClusterTrustBundleFeature)
+			}
 
 			// Standard-only selection goes through SkipTests, leaving supportedFeatures to
 			// advertise what Istio actually implements. Conformance tests read it at runtime

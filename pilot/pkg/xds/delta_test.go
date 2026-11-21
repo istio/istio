@@ -291,6 +291,7 @@ func TestDeltaCredentialUpdatesSkipCDSAndLDS(t *testing.T) {
 	for _, cfg := range []model.ConfigKey{
 		{Kind: kind.Secret, Name: "my-secret", Namespace: "default"},
 		{Kind: kind.ConfigMap, Name: "kube-root-ca.crt", Namespace: "default"},
+		{Kind: kind.ClusterTrustBundle, Name: "my-bundle"},
 	} {
 		s.Discovery.Push(&model.PushRequest{
 			ConfigsUpdated: sets.New(cfg),

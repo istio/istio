@@ -126,10 +126,14 @@ rules:
 {{- end }}
     verbs: ["approve"]
 {{- end}}
+  # Read-only access to ClusterTrustBundles, used to resolve Gateway API caCertificateRefs.
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["clustertrustbundles"]
+    verbs: ["get", "list", "watch"]
 {{- if eq (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
   - apiGroups: ["certificates.k8s.io"]
     resources: ["clustertrustbundles"]
-    verbs: ["update", "create", "delete", "list", "watch", "get"]
+    verbs: ["update", "create", "delete"]
   - apiGroups: ["certificates.k8s.io"]
     resources: ["signers"]
     resourceNames: ["istio.io/istiod-ca"]

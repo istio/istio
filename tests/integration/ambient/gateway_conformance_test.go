@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/tests/integration/pilot/gatewayconformance"
 )
 
 // GatewayConformanceInputs defines inputs to the gateway conformance test.
@@ -100,6 +101,10 @@ func TestGatewayConformance(t *testing.T) {
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
 			supported := gateway.SupportedFeatures.Clone().Delete(gwfeatures.MeshConsumerRouteFeature)
+			// ClusterTrustBundle support depends on the installation and the cluster, so it is not in the shared set.
+			if ok, _ := gatewayconformance.ClusterTrustBundleSupported(ctx); ok {
+				supported.Insert(gwfeatures.ClusterTrustBundleFeature)
+			}
 			opts := suite.ConformanceOptions{
 				ConfigurableOptions: suite.ConfigurableOptions{
 					GatewayClassName:         "istio",

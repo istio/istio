@@ -1,0 +1,31 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - https://gateway-api.sigs.k8s.io/geps/gep-5075/
+
+releaseNotes:
+- |
+  **Added** support for referencing a Kubernetes `ClusterTrustBundle` (`certificates.k8s.io/v1`, available in Kubernetes 1.37+)
+  from `caCertificateRefs` in a Gateway API `BackendTLSPolicy` and in the Gateway frontend TLS validation
+  ([GEP-5075](https://gateway-api.sigs.k8s.io/geps/gep-5075/)). `ClusterTrustBundle` is cluster-scoped, so no `ReferenceGrant` is needed.
+  If the referenced bundle does not exist, is empty or cannot be parsed, the reference is reported as invalid in the resource status and
+  the configuration fails closed. Updates to the bundle are picked up without restarting Istiod.
+  The feature is enabled by default, and only takes effect on clusters that serve the `ClusterTrustBundle` API; it can be turned off with
+  the `PILOT_ENABLE_GATEWAY_API_CLUSTER_TRUST_BUNDLE` Istiod environment variable.
+  The `istio-agentgateway` GatewayClass does not support `ClusterTrustBundle` references yet and reports them as an invalid kind.
+
+  **Added** `clustertrustbundle://<name>` as an accepted value for the `credentialName` and `caCertCredentialName` fields in a
+  `DestinationRule` TLS setting and the `caCertCredentialName` field in a `Gateway` TLS setting, to use the contents of the named
+  `ClusterTrustBundle` as the CA certificates. `credentialName` accepts it only in `SIMPLE` mode.
+  As with Secret and ConfigMap credentials, deleting or invalidating a bundle referenced this way does not revoke trust on proxies
+  already using it; to revoke, replace the bundle contents or change the reference.
+
+upgradeNotes:
+- title: Istiod can read ClusterTrustBundles
+  content: |
+    The Istiod `ClusterRole` now grants read-only (`get`, `list` and `watch`) access to the `clustertrustbundles` resource of
+    the `certificates.k8s.io` API group. Kubernetes grants this access to all service accounts by default. If your cluster
+    removes that default and you manage Istiod's RBAC yourself, add this rule, or set
+    `PILOT_ENABLE_GATEWAY_API_CLUSTER_TRUST_BUNDLE=false`.
