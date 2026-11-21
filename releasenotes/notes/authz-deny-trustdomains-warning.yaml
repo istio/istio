@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 62905
+releaseNotes:
+  - |
+    **Fixed** the AuthorizationPolicy validation warning "will deny all traffic to TCP ports ... due to the use of only
+    HTTP attributes in a DENY rule" being reported for a DENY rule that only sets `from.source.trustDomains` or
+    `from.source.notTrustDomains`. Trust domains are matched on the peer identity, so such a rule also works for TCP traffic.
