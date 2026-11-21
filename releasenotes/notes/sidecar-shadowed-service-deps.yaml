@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** proxies not being pushed when a service they use is updated, if another namespace has a service with the
+    same hostname. For example, a `Sidecar` importing a hostname from different namespaces on different egress listeners
+    was not updated when the second namespace's `ServiceEntry` changed.
+  - |
+    **Improved** pushes of the DNS name table for endpoint changes of headless services with only HTTP ports. Only
+    proxies that use the service are pushed, instead of all proxies.

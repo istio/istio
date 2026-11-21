@@ -1237,3 +1237,67 @@ func TestWaypointNeedsPush(t *testing.T) {
 		assert.Equal(t, waypointNeedsPush(addressUpdate(), waypoint), true)
 	})
 }
+
+// A Sidecar can import a hostname from different namespaces on different egress listeners. Only one service per
+// hostname is kept for CDS, but listeners and the name table still use the others, so updates to them must push.
+func TestShadowedServiceNeedsPush(t *testing.T) {
+	cg := core.NewConfigGenTest(t, core.TestOptions{ConfigString: `
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se
+  namespace: a
+spec:
+  hosts: [h.com]
+  addresses: [240.0.0.1]
+  ports: [{number: 8080, name: http, protocol: HTTP}]
+  resolution: STATIC
+  endpoints: [{address: 1.1.1.1}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se
+  namespace: b
+spec:
+  hosts: [h.com]
+  addresses: [240.0.0.2]
+  ports: [{number: 9090, name: http, protocol: HTTP}]
+  resolution: STATIC
+  endpoints: [{address: 2.2.2.2}]
+---
+apiVersion: networking.istio.io/v1
+kind: Sidecar
+metadata:
+  name: sidecar
+  namespace: default
+spec:
+  egress:
+  - port: {number: 8080, protocol: HTTP, name: http}
+    hosts: [a/h.com]
+  - port: {number: 9090, protocol: HTTP, name: http}
+    hosts: [b/h.com]
+`})
+	proxy := cg.SetupProxy(nil)
+
+	nt := cg.ConfigGen.BuildNameTable(proxy, cg.PushContext())
+	assert.Equal(t, nt.Table["h.com"].GetIps(), []string{"240.0.0.1", "240.0.0.2"})
+
+	for _, tt := range []struct {
+		key  model.ConfigKey
+		want bool
+	}{
+		{model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "a"}, true},
+		{model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "b"}, true},
+		{model.ConfigKey{Kind: kind.DNSName, Name: "h.com", Namespace: "b"}, true},
+		// EDS only uses the merged service, from namespace a.
+		{model.ConfigKey{Kind: kind.Endpoints, Name: "h.com", Namespace: "b"}, false},
+		{model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "unrelated"}, false},
+		{model.ConfigKey{Kind: kind.DNSName, Name: "h.com", Namespace: "unrelated"}, false},
+	} {
+		_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+			Push: cg.PushContext(), ConfigsUpdated: sets.New(tt.key),
+		})
+		assert.Equal(t, needsPush, tt.want, tt.key.String())
+	}
+}
