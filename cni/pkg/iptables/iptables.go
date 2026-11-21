@@ -303,6 +303,28 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		}
 	}
 
+	// Addresses added inside the pod after enrollment (for example a VPN
+	// forwarder's own interface address) are not resolvable by ztunnel: the
+	// inbound listener can only dial the local address, not the DNAT the pod
+	// installs for it. Let the pod's own rules handle traffic to them instead
+	// of capturing it. This must come before the generic inbound redirect.
+	for _, addr := range podOverrides.SecondaryAddresses {
+		// CLI: -t nat -A ISTIO_PRERT -d <secondary> -p tcp -j RETURN
+		if addr.Is4() {
+			iptablesBuilder.AppendRuleV4(ChainInpodPrerouting, "nat",
+				"-d", addr.String(),
+				"-p", "tcp",
+				"-j", "RETURN",
+			)
+		} else {
+			iptablesBuilder.AppendRuleV6(ChainInpodPrerouting, "nat",
+				"-d", addr.String(),
+				"-p", "tcp",
+				"-j", "RETURN",
+			)
+		}
+	}
+
 	// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
 	//
 	// DESC: If we have a packet mark, set a connmark.
