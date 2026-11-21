@@ -47,6 +47,7 @@ var (
 	sidecarScopedKnownConfigTypes = sets.New(
 		kind.Endpoints,
 		kind.ServiceEntry,
+		kind.DNSName,
 		kind.VirtualService,
 		kind.DestinationRule,
 		kind.Sidecar,
@@ -171,9 +172,13 @@ type SidecarScope struct {
 	// services/virtual services in that listener.
 	EgressListeners []*IstioEgressListenerWrapper
 
-	// Union of services imported across all egress listeners for use by CDS code.
+	// Union of services imported across all egress listeners, plus VirtualService destinations they don't
+	// import, for use by CDS calculation. servicesByHostname holds the merged service per hostname of this union.
 	services           []*Service
 	servicesByHostname map[host.Name]*Service
+	// Services selected by egress listeners, per hostname, in listener order. Only set when they differ from
+	// servicesByHostname[h]. A nil value marks a hostname that only comes from a VirtualService. Nil if not collected.
+	unmergedEgressServices map[host.Name][]*Service
 
 	// Destination rules imported across all egress listeners. This
 	// contains the computed set based on public/private destination rules
@@ -293,8 +298,16 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 	}
 
 	servicesAdded := make(map[host.Name]sidecarServiceIndex)
+	// The gateway name table uses every exported service, so they act as its egress listener services.
+	out.unmergedEgressServices = make(map[host.Name][]*Service)
 	for _, s := range services {
+		prev, found := servicesAdded[s.Hostname]
 		out.appendSidecarServices(servicesAdded, s)
+		if unmerged, f := out.unmergedEgressServices[s.Hostname]; f {
+			out.unmergedEgressServices[s.Hostname] = appendEgressService(unmerged, s)
+		} else if found && !sameEgressService(prev.svc, s) {
+			out.unmergedEgressServices[s.Hostname] = []*Service{prev.svc, s}
+		}
 	}
 	out.selectDestinationRules(ps, configNamespace)
 
@@ -419,10 +432,31 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 	if len(sc.servicesByHostname) == 0 {
 		sc.servicesByHostname = make(map[host.Name]*Service, imported)
 	}
+	sc.unmergedEgressServices = make(map[host.Name][]*Service)
+	// appendDestination adds a VirtualService destination, recording the hostname's listener services if it
+	// adds the hostname or replaces its merged service with a different one (not just more ports).
+	appendDestination := func(s *Service) {
+		prev, found := servicesAdded[s.Hostname]
+		sc.appendSidecarServices(servicesAdded, s)
+		if _, f := sc.unmergedEgressServices[s.Hostname]; f {
+			return
+		}
+		if !found {
+			sc.unmergedEgressServices[s.Hostname] = nil
+		} else if !sameEgressService(servicesAdded[s.Hostname].svc, prev.svc) {
+			sc.unmergedEgressServices[s.Hostname] = []*Service{prev.svc}
+		}
+	}
 	for _, ilw := range sc.EgressListeners {
 		// First add the explicitly requested services, which take priority
 		for _, s := range ilw.services {
+			prev, found := servicesAdded[s.Hostname]
 			sc.appendSidecarServices(servicesAdded, s)
+			if services, f := sc.unmergedEgressServices[s.Hostname]; f {
+				sc.unmergedEgressServices[s.Hostname] = appendEgressService(services, s)
+			} else if found && !sameEgressService(prev.svc, s) {
+				sc.unmergedEgressServices[s.Hostname] = []*Service{prev.svc, s}
+			}
 		}
 
 		// Infer more possible destinations from virtual services. These are CDS dependencies,
@@ -440,7 +474,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 				if s, ok := byNamespace[configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
 					if matchedSvc := serviceMatchingVirtualServicePorts(s, ports); matchedSvc != nil {
-						sc.appendSidecarServices(servicesAdded, matchedSvc)
+						appendDestination(matchedSvc)
 					}
 				} else {
 					// We couldn't find the hostname in our config namespace
@@ -458,13 +492,32 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 					}
 					if ns := pickNamespace(ps, byNamespace, configNamespace); ns != "" {
 						if matchedSvc := serviceMatchingVirtualServicePorts(byNamespace[ns], ports); matchedSvc != nil {
-							sc.appendSidecarServices(servicesAdded, matchedSvc)
+							appendDestination(matchedSvc)
 						}
 					}
 				}
 			}
 		}
 	}
+}
+
+// appendEgressService appends s unless it is already present.
+func appendEgressService(services []*Service, s *Service) []*Service {
+	for _, existing := range services {
+		if sameEgressService(existing, s) {
+			return services
+		}
+	}
+	return append(services, s)
+}
+
+// sameEgressService reports whether a and b are the same service, ignoring ports: listeners can select it directly
+// or as copies trimmed to different ports. Services sharing a hostname differ by name, registry or address.
+func sameEgressService(a, b *Service) bool {
+	return a == b || (a.Attributes.Namespace == b.Attributes.Namespace &&
+		a.Attributes.K8sAttributes.ObjectName == b.Attributes.K8sAttributes.ObjectName &&
+		a.Attributes.ServiceRegistry == b.Attributes.ServiceRegistry &&
+		a.DefaultAddress == b.DefaultAddress)
 }
 
 func (sc *SidecarScope) selectAuthnPolicies(ps *PushContext, configNamespace string) {
@@ -728,18 +781,43 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	}
 
 	switch config.Kind {
-	case kind.ServiceEntry, kind.Endpoints:
-		// Both are keyed by service hostname and namespace.
+	case kind.Endpoints:
+		// Only EDS uses endpoints, and only those of the merged service for the hostname.
 		if svc := sc.servicesByHostname[host.Name(config.Name)]; svc != nil && svc.Attributes.Namespace == config.Namespace {
 			return true
 		}
+	case kind.ServiceEntry:
+		// Listeners and the name table also use egress listener services not merged for the hostname.
+		hostname := host.Name(config.Name)
+		if svc := sc.servicesByHostname[hostname]; svc != nil && svc.Attributes.Namespace == config.Namespace {
+			return true
+		}
+		for _, svc := range sc.unmergedEgressServices[hostname] {
+			if svc.Attributes.Namespace == config.Namespace {
+				return true
+			}
+		}
+	case kind.DNSName:
+		// Only the name table uses DNSName, and only with egress listener services, not VirtualService destinations.
+		hostname := host.Name(config.Name)
+		services, f := sc.unmergedEgressServices[hostname]
+		if !f {
+			if svc := sc.servicesByHostname[hostname]; svc != nil {
+				services = []*Service{svc}
+			}
+		}
+		for _, svc := range services {
+			if svc.Attributes.Namespace == config.Namespace {
+				return true
+			}
+		}
 	case kind.DestinationRule:
+		// Only DestinationRules selected for the scope's services.
 		if _, f := sc.destinationRulesByNames[types.NamespacedName{Name: config.Name, Namespace: config.Namespace}]; f {
 			return true
 		}
 	case kind.VirtualService:
-		// Not tracked in configDependencies to avoid duplicating what each EgressListener
-		// already tracks in its own configDependencies; ask them directly instead.
+		// Each EgressListener tracks its own VirtualService dependencies.
 		for _, ilw := range sc.EgressListeners {
 			if ilw.DependsOnConfig(config) {
 				return true

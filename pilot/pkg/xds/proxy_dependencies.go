@@ -93,6 +93,10 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	if features.ScopedAddressPushes && config.Kind == kind.Address {
 		return proxy.GetWatchedResource(v3.AddressType) != nil
 	}
+	// Only NDS uses DNSName.
+	if config.Kind == kind.DNSName && proxy.GetWatchedResource(v3.NameTableType) == nil {
+		return false
+	}
 	// Detailed config dependencies check.
 	switch proxy.Type {
 	case model.Router:
