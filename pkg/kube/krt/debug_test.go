@@ -15,12 +15,18 @@
 package krt
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -163,4 +169,73 @@ func TestDebuggerUnregistrationBeforeSync(t *testing.T) {
 			assert.EventuallyEqual(t, func() int { return debugCount(dh) }, 0)
 		})
 	}
+}
+
+// TestDebugHandlerWriteJSON verifies that the streamed dump is the same as the buffered one.
+func TestDebugHandlerWriteJSON(t *testing.T) {
+	stop := test.NewStop(t)
+	dh := &DebugHandler{}
+	opts := NewOptionsBuilder(stop, "test", dh)
+	a := NewStaticCollection(nil, []dbgNamed{{Name: "a1"}, {Name: "a2"}}, opts.WithName("a")...)
+	_ = MapCollection(a, func(n dbgNamed) dbgNamed { return n }, opts.WithName("b")...)
+	_ = NewStaticCollection(nil, []dbgNamed{{Name: "<c>"}}, opts.WithName("c")...)
+	assert.EventuallyEqual(t, func() int { return debugCount(dh) }, 3)
+
+	dh.mu.RLock()
+	collections := maps.Values(dh.debugCollections)
+	dh.mu.RUnlock()
+
+	// Map order is random, so compare one collection at a time.
+	for _, c := range collections {
+		single := &DebugHandler{debugCollections: map[collectionUID]DebugCollection{c.uid: c}}
+		want, err := json.Marshal(single)
+		assert.NoError(t, err)
+		got := &bytes.Buffer{}
+		assert.NoError(t, single.WriteJSON(context.Background(), got, ""))
+		assert.Equal(t, got.String(), string(want)+"\n")
+	}
+
+	// With several collections, the output must still be valid JSON with every collection.
+	got := &bytes.Buffer{}
+	assert.NoError(t, dh.WriteJSON(context.Background(), got, ""))
+	var parsed []map[string]any
+	assert.NoError(t, json.Unmarshal(got.Bytes(), &parsed))
+	assert.Equal(t, len(parsed), 3)
+
+	t.Run("nil", func(t *testing.T) {
+		var nilHandler *DebugHandler
+		want, err := json.Marshal(nilHandler)
+		assert.NoError(t, err)
+		got := &bytes.Buffer{}
+		assert.NoError(t, nilHandler.WriteJSON(context.Background(), got, ""))
+		assert.Equal(t, got.String(), string(want))
+	})
+
+	t.Run("cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		assert.Error(t, dh.WriteJSON(ctx, &bytes.Buffer{}, ""))
+	})
+}
+
+type dbgBadJSON struct {
+	Name string
+}
+
+func (n dbgBadJSON) ResourceName() string { return n.Name }
+
+func (n dbgBadJSON) MarshalJSON() ([]byte, error) {
+	return nil, fmt.Errorf("cannot marshal %s", n.Name)
+}
+
+// TestDebugHandlerWriteJSONError verifies that an output that fails to marshal stops the dump with an error.
+func TestDebugHandlerWriteJSONError(t *testing.T) {
+	dh := &DebugHandler{}
+	opts := NewOptionsBuilder(test.NewStop(t), "test", dh)
+	_ = NewStaticCollection(nil, []dbgBadJSON{{Name: "bad"}}, opts.WithName("bad")...)
+	assert.EventuallyEqual(t, func() int { return debugCount(dh) }, 1)
+
+	err := dh.WriteJSON(context.Background(), &bytes.Buffer{}, "")
+	assert.Error(t, err)
+	assert.Equal(t, strings.Contains(err.Error(), "cannot marshal bad"), true, err.Error())
 }

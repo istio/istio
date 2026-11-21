@@ -18,7 +18,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -172,6 +175,59 @@ func (r *Runner) Exec(namespace, pod, container, cmdStr string, dryRun bool) (st
 			err, util.ConsolidateLog(stderr), stdout)
 	}
 	return stdout, nil
+}
+
+// ExecToFile runs exec for the given command in the given namespace/pod/container, and streams stdout to
+// the file at path instead of holding it in memory. Use it for commands with large output.
+// As with other bug-report output, no file is written if the command prints only whitespace.
+// If the command fails after printing some output, the partial file is kept.
+func (r *Runner) ExecToFile(namespace, pod, container, cmdStr, path string, dryRun bool) (err error) {
+	if dryRun {
+		log.Infof("Dry run: would be running podExec %s/%s/%s:%s > %s", pod, namespace, container, cmdStr, path)
+		return nil
+	}
+	task := fmt.Sprintf("PodExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
+	r.addRunningTask(task)
+	defer r.removeRunningTask(task)
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	out := &nonSpaceWriter{w: f}
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+		if !out.seen {
+			_ = os.Remove(path)
+		}
+	}()
+	stderr, err := r.Client.PodExecStream(context.Background(), pod, namespace, container, strings.Fields(cmdStr), out)
+	if err != nil {
+		partial := ""
+		if out.seen {
+			partial = fmt.Sprintf("\n\nincomplete output was kept in %s", path)
+		}
+		return fmt.Errorf("podExec error: %s\n\nstderr:\n%s%s", err, util.ConsolidateLog(stderr), partial)
+	}
+	return nil
+}
+
+// nonSpaceWriter records whether any non-whitespace byte was written through it.
+type nonSpaceWriter struct {
+	w    io.Writer
+	seen bool
+}
+
+func (n *nonSpaceWriter) Write(p []byte) (int, error) {
+	if !n.seen && len(bytes.TrimSpace(p)) > 0 {
+		n.seen = true
+	}
+	return n.w.Write(p)
 }
 
 // RunCmd runs the given command in kubectl, adding -n namespace if namespace is not empty.

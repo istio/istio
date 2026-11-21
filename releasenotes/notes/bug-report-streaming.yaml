@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+
+releaseNotes:
+- |
+  **Fixed** `istioctl bug-report` using large amounts of memory in Istiod and `istioctl` on large meshes, which could
+  cause Istiod to be OOM-killed.
