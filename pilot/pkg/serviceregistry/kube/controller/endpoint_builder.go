@@ -63,11 +63,9 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 		podLabels = pod.Labels
 		namespace = pod.Namespace
 		subdomain = pod.Spec.Subdomain
-		if subdomain != "" {
-			hostname = pod.Spec.Hostname
-			if hostname == "" {
-				hostname = pod.Name
-			}
+		hostname = pod.Spec.Hostname
+		if hostname == "" {
+			hostname = pod.Name
 		}
 		ip = pod.Status.PodIP
 		node = pod.Spec.NodeName
