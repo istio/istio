@@ -440,6 +440,62 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 			checkEffectiveRules:  true,
 			expectEffectiveRules: false,
 		},
+		{
+			name: "ALLOW policy mixing namespaces with trustDomains drops the rule",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Rules: []*v1beta1.Rule{
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										Namespaces:   []string{"allowed-ns"},
+										TrustDomains: []string{"cluster.local"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectStatusMessage: &model.StatusMessage{
+				Reason: "UnsupportedValue",
+				Message: "ztunnel does not support HTTP attributes (found: trustDomains). " +
+					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
+					"Within an ALLOW policy, rules matching HTTP attributes are omitted. " +
+					"This will be more restrictive than requested.",
+			},
+			checkEffectiveRules:  true,
+			expectEffectiveRules: false,
+		},
+		{
+			name: "DENY policy with only notTrustDomains results in no effect at ztunnel",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Action: v1beta1.AuthorizationPolicy_DENY,
+					Rules: []*v1beta1.Rule{
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										NotTrustDomains: []string{"cluster.local"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectStatusMessage: &model.StatusMessage{
+				Reason: "UnsupportedValue",
+				Message: "ztunnel does not support HTTP attributes (found: notTrustDomains). " +
+					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
+					"After omitting unsupported HTTP attributes, this DENY policy has no enforceable rules at ztunnel and will have no effect. " +
+					"Deploy a waypoint proxy and use a targetRef to enforce this policy.",
+			},
+			checkEffectiveRules:  true,
+			expectEffectiveRules: false,
+		},
 	}
 
 	for _, tt := range testCases {
