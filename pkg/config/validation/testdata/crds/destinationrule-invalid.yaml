@@ -35,3 +35,30 @@ spec:
       warmup:
         duration: 300s
         aggression: -0.1
+---
+_err: 'spec.trafficPolicy.loadBalancer.dynamicSubset.subsetSelectors: Required value'
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: dynamic-subset-no-selectors
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      dynamicSubset:
+        fallbackPolicy: ANY_ENDPOINT
+---
+_err: 'defaultSubset is required when fallbackPolicy is DEFAULT_SUBSET'
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: dynamic-subset-no-default
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      dynamicSubset:
+        subsetSelectors:
+        - keys:
+          - version
+        fallbackPolicy: DEFAULT_SUBSET

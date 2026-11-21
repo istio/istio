@@ -3658,6 +3658,70 @@ func TestValidateLoadBalancer(t *testing.T) {
 		valid bool
 	}{
 		{
+			name: "valid dynamic subset", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{
+						{Keys: []string{"version", "example.com/stage"}},
+						{Keys: []string{"%ip%"}},
+						{Keys: []string{"%hostname%"}},
+					},
+					FallbackPolicy: networking.DynamicSubsetLB_DEFAULT_SUBSET,
+					DefaultSubset:  map[string]string{"version": "v1"},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "dynamic subset without selectors", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{},
+			},
+			valid: false,
+		},
+		{
+			name: "dynamic subset with unknown built-in key", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{{Keys: []string{"%zone%"}}},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "dynamic subset with built-in key combined with a label", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{{Keys: []string{"version", "%ip%"}}},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "dynamic subset with invalid label name", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{{Keys: []string{"not a label"}}},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "dynamic subset with duplicate selectors", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{
+						{Keys: []string{"version", "stage"}},
+						{Keys: []string{"stage", "version"}},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "dynamic subset with default subset fallback but no default subset", in: &networking.LoadBalancerSettings{
+				DynamicSubset: &networking.DynamicSubsetLB{
+					SubsetSelectors: []*networking.DynamicSubsetLB_SubsetSelector{{Keys: []string{"version"}}},
+					FallbackPolicy:  networking.DynamicSubsetLB_DEFAULT_SUBSET,
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "valid load balancer with simple load balancing", in: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{
 					Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
