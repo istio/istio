@@ -74,7 +74,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		RequireSingleCluster().
 		RequireMultiPrimary().
-		Setup(istio.Setup(&inst, setupConfig, CreateCustomIstiodSecret)).
+		Setup(istio.Setup(&inst, setupConfig, CreateCustomIstiodSecret, createGatewayCRLSecrets)).
 		Setup(namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true})).
 		Setup(func(ctx resource.Context) error {
 			err := setupApps(ctx, namespace.Future(&echo1NS), &customConfig)
@@ -151,6 +151,16 @@ components:
                 secret:
                   secretName: ` + PilotSecretName + `
                   defaultMode: 420
+            - path: spec.template.spec.volumes[102]
+              value: |-
+                name: gateway-crl-certs
+                secret:
+                  secretName: ` + gatewayCertsSecretName + `
+            - path: spec.template.spec.volumes[103]
+              value: |-
+                name: gateway-crl
+                secret:
+                  secretName: ` + gatewayCRLSecretName + `
             - path: spec.template.spec.containers[0].volumeMounts[100]
               value: |-
                 name: server-certs
@@ -159,6 +169,14 @@ components:
               value: |-
                 name: client-certs
                 mountPath: /client-certs
+            - path: spec.template.spec.containers[0].volumeMounts[102]
+              value: |-
+                name: gateway-crl-certs
+                mountPath: /gateway-crl-certs
+            - path: spec.template.spec.containers[0].volumeMounts[103]
+              value: |-
+                name: gateway-crl
+                mountPath: /gateway-crl
 
   pilot:
     enabled: true
@@ -192,6 +210,9 @@ meshConfig:
 values:
   global:
     pilotCertProvider: "mycopki"
+    proxy:
+      # Surface Envoy filesystem reload failures in the CRL rotation test.
+      componentLogLevel: "misc:warning"
   pilot:
     env:
       # We need to turn off the XDS Auth because test certificates only have a fixed/hardcoded identity, but the identity of the actual

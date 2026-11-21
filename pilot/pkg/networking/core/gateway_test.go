@@ -5507,3 +5507,105 @@ func TestGatewayListenerConnectionSettings(t *testing.T) {
 		})
 	}
 }
+
+func TestGatewayFileCRLSDS(t *testing.T) {
+	const (
+		caOnly = "file-root:/ca.pem"
+		caCRL  = "file-root-crl:L2NhLnBlbQ~L2NybC5wZW0"
+	)
+	cases := []struct {
+		name           string
+		version        *pilot_model.IstioVersion
+		mode           networking.ServerTLSSettings_TLSmode
+		ca             string
+		crl            string
+		credentialName string
+		fileSDS        bool
+		wantRoot       string
+		wantCRL        string
+	}{
+		{
+			name: "supported mutual", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caCRL,
+		},
+		{
+			name: "supported optional mutual", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caCRL,
+		},
+		{
+			name: "future version", version: pilot_model.ParseIstioVersion("1.34.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caCRL,
+		},
+		{
+			name: "older agent", version: pilot_model.ParseIstioVersion("1.32.9"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caOnly, wantCRL: "/crl.pem",
+		},
+		{
+			name: "nil version", mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caOnly, wantCRL: "/crl.pem",
+		},
+		{
+			name: "unknown version follows latest convention", version: pilot_model.ParseIstioVersion("unknown"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: caCRL,
+		},
+		{
+			name: "different CRL same CA", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/other.pem", wantRoot: "file-root-crl:L2NhLnBlbQ~L290aGVyLnBlbQ",
+		},
+		{
+			name: "no CRL", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", wantRoot: caOnly,
+		},
+		{
+			name: "no explicit CA", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			crl: "/crl.pem", wantRoot: "ROOTCA", wantCRL: "/crl.pem",
+		},
+		{
+			name: "file SDS socket", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", fileSDS: true, wantRoot: caCRL,
+		},
+		{
+			name: "istio mutual unchanged", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
+			ca: "/ca.pem", crl: "/crl.pem", wantRoot: "ROOTCA", wantCRL: "/crl.pem",
+		},
+		{
+			name: "credential name unchanged", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_MUTUAL,
+			credentialName: "gateway-cert", wantRoot: "kubernetes://gateway-cert-cacert",
+		},
+		{
+			name: "simple unchanged", version: pilot_model.ParseIstioVersion("1.33.0"), mode: networking.ServerTLSSettings_SIMPLE,
+			ca: "/ca.pem", crl: "/crl.pem",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			raw := map[string]any{}
+			if tt.fileSDS {
+				raw["file-credential"] = "true"
+			}
+			node := &pilot_model.Proxy{IstioVersion: tt.version, Metadata: &pilot_model.NodeMetadata{Raw: raw}}
+			settings := &networking.ServerTLSSettings{
+				Mode: tt.mode, CaCertificates: tt.ca, CaCrl: tt.crl, CredentialName: tt.credentialName,
+			}
+			if tt.credentialName == "" {
+				settings.ServerCertificate = "/cert.pem"
+				settings.PrivateKey = "/key.pem"
+			}
+			ctx := BuildListenerTLSContext(settings, node, &pilot_model.PushContext{Mesh: mesh.DefaultMeshConfig()}, istionetworking.TransportProtocolTCP, false)
+			validation := ctx.CommonTlsContext.GetCombinedValidationContext()
+			assert.Equal(t, validation.GetValidationContextSdsSecretConfig().GetName(), tt.wantRoot)
+			assert.Equal(t, validation.GetDefaultValidationContext().GetCrl().GetFilename(), tt.wantCRL)
+			if tt.wantRoot != "" && tt.credentialName == "" {
+				wantCluster := "sds-grpc"
+				if tt.fileSDS {
+					wantCluster = "sds-files-grpc"
+				}
+				assert.Equal(t, validation.GetValidationContextSdsSecretConfig().GetSdsConfig().GetApiConfigSource().
+					GetGrpcServices()[0].GetEnvoyGrpc().GetClusterName(), wantCluster)
+			}
+			if tt.mode != networking.ServerTLSSettings_ISTIO_MUTUAL && tt.credentialName == "" {
+				assert.Equal(t, ctx.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].Name, "file-cert:/cert.pem~/key.pem")
+			}
+		})
+	}
+}
