@@ -330,7 +330,10 @@ func buildSidecarInboundHTTPRouteConfig(svc *model.Service, lb *ListenerBuilder,
 		if svc != nil {
 			if drCfg := lb.node.SidecarScope.DestinationRuleConfig(model.TrafficDirectionInbound, lb.node, svc.Hostname); drCfg != nil {
 				if dr, ok := drCfg.Spec.(*networking.DestinationRule); ok {
-					if ch := dr.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash(); ch != nil {
+					// The cluster applies port level settings over destination level ones, so the route hash
+					// policy must be selected the same way or they will disagree.
+					policy, _ := util.GetPortLevelTrafficPolicy(dr.GetTrafficPolicy(), &model.Port{Port: cc.port.Port})
+					if ch := policy.GetLoadBalancer().GetConsistentHash(); ch != nil {
 						if hp := istio_route.ConsistentHashToHashPolicy(ch); hp != nil {
 							defaultRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hp}
 						}

@@ -2328,6 +2328,66 @@ func TestWaypointInboundRouteHashPolicy(t *testing.T) {
 	}
 }
 
+// The route hash policy must use the effective port-level DestinationRule,
+// matching the cluster policy even when the top-level policy is round-robin.
+func TestWaypointInboundPortLevelHashOverridesGlobal(t *testing.T) {
+	hostname := "helloworld.default.svc.cluster.local"
+	svc := buildHTTPService(hostname, visibility.Public, "", "default", 5000)
+	dr := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.DestinationRule,
+			Name:             "helloworld-dr",
+			Namespace:        "default",
+		},
+		Spec: &networking.DestinationRule{
+			Host: hostname,
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{Number: 5000},
+						LoadBalancer: &networking.LoadBalancerSettings{
+							LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+								ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+									HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName{
+										HttpHeaderName: "x-route-shard",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{svc},
+		Configs:  []config.Config{dr},
+	})
+	proxy := cg.SetupProxy(&model.Proxy{Type: model.Waypoint})
+	lb := NewListenerBuilder(proxy, cg.PushContext())
+	cc := inboundChainConfig{
+		telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: svc.Hostname},
+		port:              model.ServiceInstancePort{ServicePort: &model.Port{Port: 5000}, TargetPort: 5000},
+		clusterName:       model.BuildInboundSubsetKey(5000),
+		hbone:             true,
+	}
+	routeCfg := buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+	xdstest.ValidateRouteConfiguration(t, routeCfg)
+	for _, vh := range routeCfg.VirtualHosts {
+		for _, r := range vh.Routes {
+			hashPolicies := r.GetRoute().GetHashPolicy()
+			if len(hashPolicies) != 1 || hashPolicies[0].GetHeader().GetHeaderName() != "x-route-shard" {
+				t.Fatalf("expected port-level header hash policy, got %v", hashPolicies)
+			}
+		}
+	}
+}
+
 func TestWaypointInboundRouteHashPolicyNilService(t *testing.T) {
 	cg := NewConfigGenTest(t, TestOptions{})
 	proxy := cg.SetupProxy(&model.Proxy{Type: model.Waypoint})
