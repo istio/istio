@@ -1,0 +1,25 @@
+apiVersion: release-notes/v2
+
+kind: feature
+area: security
+issue:
+  - https://github.com/istio/istio/issues/43982
+
+releaseNotes:
+- |
+  **Added** `PERMISSIVE` value to the `presence` field of `JWTRule` in `RequestAuthentication`.
+  In this mode, requests without a token and requests with an invalid token are both allowed,
+  so verification can be done first before enforcement.
+  A present token is still verified, and its claims still populate when valid.
+- |
+  **Added** `failedStatusMetadataKey` string field to `JWTRule` in `RequestAuthentication`.
+  If set, a verification failure is written to dynamic metadata as
+  `filter_metadata["envoy.filters.http.jwt_authn"][<key>] = {code, message}`,
+  e.g. `{"code": 3, "message": "Jwt is expired"}`, such that failures are always observable
+  regardless of the `presence` value. With multiple JWT rules, give each one its own key,
+  otherwise failures can overwrite each other. Telemetry access logs can print the failure
+  with `%DYNAMIC_METADATA(envoy.filters.http.jwt_authn:<key>)%`.
+
+  One caveat: with multiple rules, no failure is recorded for a missing token. Envoy
+  attributes a failure to a rule only when a token is present. With a single rule, a
+  missing token is recorded.
