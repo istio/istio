@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM node:23.11-slim
+FROM node:24.22.3-slim
 
 #hadolint ignore=DL3008
 RUN apt-get update \
@@ -23,7 +23,7 @@ RUN apt-get update \
 ARG service_version
 ENV SERVICE_VERSION=${service_version:-v1}
 
-COPY package.json /opt/microservices/
+COPY package*.json /opt/microservices/
 COPY ratings.js /opt/microservices/
 WORKDIR /opt/microservices
 RUN npm install

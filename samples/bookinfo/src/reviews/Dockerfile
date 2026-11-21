@@ -21,7 +21,7 @@ COPY . /home/gradle
 
 RUN gradle build
 
-FROM open-liberty:24.0.0.12-kernel-slim-java17-openj9
+FROM open-liberty:26.0.0.11-kernel-slim-java17-openj9
 
 ENV SERVERDIRNAME=reviews
 

@@ -49,8 +49,13 @@ server.mount_proc '/details' do |req, res|
         rescue
           raise 'please provide numeric product id'
         end
-        details = get_book_details(id, headers)
-        res.body = details.to_json
+        begin
+          details = get_book_details(id, headers)
+          res.body = details.to_json
+        rescue => error
+          $stderr.puts "Error: unable to fetch details for product #{id}: #{error.inspect}"
+          raise 'unable to fetch book details'
+        end
         res['Content-Type'] = 'application/json'
     rescue => error
         res.body = {'error' => error}.to_json
@@ -85,6 +90,7 @@ def fetch_details_from_external_service(isbn, id, headers)
     uri = URI.parse('https://www.googleapis.com/books/v1/volumes?q=isbn:' + isbn)
     http = Net::HTTP.new(uri.host, ENV['DO_NOT_ENCRYPT'] === 'true' ? 80:443)
     http.read_timeout = 5 # seconds
+    http.open_timeout = 3 # seconds
 
     # DO_NOT_ENCRYPT is used to configure the details service to use either
     # HTTP (true) or HTTPS (false, default) when calling the external service to
@@ -97,7 +103,8 @@ def fetch_details_from_external_service(isbn, id, headers)
     end
 
     request = Net::HTTP::Get.new(uri.request_uri)
-    headers.each { |header, value| request[header] = value }
+    # Do not send the user's session, credentials or identity to the external service.
+    headers.except('cookie', 'authorization', 'jwt', 'end-user').each { |header, value| request[header] = value }
 
     response = http.request(request)
 

@@ -16,6 +16,7 @@
 package application.rest;
 
 import javax.json.Json;
+import javax.json.JsonNumber;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.ws.rs.GET;
@@ -164,6 +165,9 @@ public class LibertyRestEndpoint extends Application {
           try (StringReader stringReader = new StringReader(r.readEntity(String.class));
                JsonReader jsonReader = Json.createReader(stringReader)) {
             return jsonReader.readObject();
+          } catch (RuntimeException e) {
+            System.err.println("Error: unable to parse response from " + ratings_service + " got exception " + e);
+            return null;
           }
         } else {
           System.out.println("Error: unable to contact " + ratings_service + " got status of " + statusCode);
@@ -190,12 +194,12 @@ public class LibertyRestEndpoint extends Application {
       if (ratings_enabled) {
         JsonObject ratingsResponse = getRatings(Integer.toString(productId), requestHeaders);
         if (ratingsResponse != null) {
-          if (ratingsResponse.containsKey("ratings")) {
+          if (ratingsResponse.get("ratings") instanceof JsonObject) {
             JsonObject ratings = ratingsResponse.getJsonObject("ratings");
-            if (ratings.containsKey("Reviewer1")){
+            if (ratings.get("Reviewer1") instanceof JsonNumber){
           	  starsReviewer1 = ratings.getInt("Reviewer1");
             }
-            if (ratings.containsKey("Reviewer2")){
+            if (ratings.get("Reviewer2") instanceof JsonNumber){
               starsReviewer2 = ratings.getInt("Reviewer2");
             }
           }
