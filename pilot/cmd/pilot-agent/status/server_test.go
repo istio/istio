@@ -39,6 +39,8 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/textparse"
 	"go.uber.org/atomic"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
@@ -2464,6 +2466,76 @@ func TestNewServerPrometheusNormalization(t *testing.T) {
 			if !reflect.DeepEqual(s.prometheus.Targets, tt.wantTargets) {
 				t.Errorf("Targets = %v, want %v", s.prometheus.Targets, tt.wantTargets)
 			}
+		})
+	}
+}
+
+// Persistent application failures must not produce an error on every scrape.
+// Scrapes and failure counters must continue, and recovery must reset logging.
+func TestApplicationScrapeFailureLogging(t *testing.T) {
+	core, logs := observer.New(zapcore.DebugLevel)
+	opts := log.DefaultOptions().WithExtension(func(zapcore.Core) (zapcore.Core, func() error, error) {
+		return core, func() error { return nil }, nil
+	})
+	if err := log.Configure(opts); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = log.Configure(log.DefaultOptions()) })
+	for _, tc := range []struct {
+		name    string
+		targets int
+	}{{"single", 1}, {"multiple", 2}} {
+		t.Run(tc.name, func(t *testing.T) {
+			logs.TakeAll()
+			failing := atomic.NewBool(true)
+			calls := atomic.NewInt32(0)
+			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Inc()
+				if failing.Load() {
+					w.WriteHeader(http.StatusServiceUnavailable)
+					return
+				}
+				_, _ = io.WriteString(w, "app_metric 1\n")
+			}))
+			defer app.Close()
+			_, port, err := net.SplitHostPort(strings.TrimPrefix(app.URL, "http://"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := &Server{
+				prometheus:      &PrometheusScrapeConfiguration{Port: port, Path: "/metrics"},
+				config:          Options{NoEnvoy: true},
+				http:            &http.Client{},
+				registry:        TestingRegistry(t),
+				maxAppBodyBytes: defaultMaxAppMetricsBodyBytes,
+			}
+			for i := 0; i < tc.targets; i++ {
+				server.prometheus.Targets = append(server.prometheus.Targets, ScrapeTarget{Port: port, Path: fmt.Sprintf("/metrics/%d", i)})
+			}
+			scrape := func() {
+				t.Helper()
+				rec := httptest.NewRecorder()
+				server.handleStats(rec, &http.Request{})
+				assert.Equal(t, rec.Code, http.StatusOK)
+				if !failing.Load() && !strings.Contains(rec.Body.String(), "app_metric 1") {
+					t.Error("successful application metrics missing")
+				}
+			}
+			errorLogs := func() int { return logs.FilterLevelExact(zapcore.ErrorLevel).Len() }
+			before := appScrapeErrorCount(t, server.registry)
+			scrape()
+			assert.Equal(t, errorLogs(), tc.targets)
+			scrape()
+			if got := errorLogs(); got != tc.targets {
+				t.Errorf("persistent application scrape failure logged repeatedly: got %d error logs, want %d", got, tc.targets)
+			}
+			failing.Store(false)
+			scrape()
+			failing.Store(true)
+			scrape()
+			assert.Equal(t, errorLogs(), 2*tc.targets)
+			assert.Equal(t, calls.Load(), int32(4*tc.targets))
+			assert.Equal(t, appScrapeErrorCount(t, server.registry)-before, float64(3*tc.targets))
 		})
 	}
 }
