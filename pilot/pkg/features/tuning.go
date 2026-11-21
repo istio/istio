@@ -16,9 +16,11 @@ package features
 
 import (
 	"runtime"
+	"strings"
 	"time"
 
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Define performance tuning related features here.
@@ -125,4 +127,23 @@ var (
 
 	XDSCacheIndexClearInterval = env.Register("PILOT_XDS_CACHE_INDEX_CLEAR_INTERVAL", 5*time.Second,
 		"The interval for xds cache index clearing.").Get()
+
+	// EndpointIgnoredPodLabels is the set of pod label keys that are never copied onto endpoints.
+	// A change limited to these labels on a running pod does not recompute Service endpoints.
+	EndpointIgnoredPodLabels = func() sets.String {
+		v := env.Register("PILOT_ENDPOINT_IGNORED_POD_LABELS", "",
+			"Comma separated list of pod label keys that are not copied onto endpoints. "+
+				"A change to only these labels on a running pod does not recompute the endpoints of the Services that select the pod. "+
+				"Use this for labels that a controller rewrites in place on many pods, such as Argo Rollouts ephemeral metadata. "+
+				"Do not list a label that a DestinationRule subset, a failoverPriority setting, a PeerAuthentication selector "+
+				"or a ServiceEntry workloadSelector refers to, because endpoints will no longer carry it.",
+		).Get()
+		out := sets.New[string]()
+		for _, k := range strings.Split(v, ",") {
+			if k = strings.TrimSpace(k); k != "" {
+				out.Insert(k)
+			}
+		}
+		return out
+	}()
 )
