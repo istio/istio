@@ -145,6 +145,8 @@ spec:
             resourceFieldRef:
               resource: requests.cpu
               divisor: "1"
+        - name: TRUST_DOMAINS_PATH
+          value: "/var/run/secrets/istio/trust-domains/trust-domains"
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
@@ -154,6 +156,9 @@ spec:
           name: cni-ztunnel-sock-dir
         - mountPath: /tmp
           name: tmp
+        - mountPath: /var/run/secrets/istio/trust-domains
+          name: trust-domains
+          readOnly: true
       priorityClassName: system-node-critical
       terminationGracePeriodSeconds: 30
       volumes:
@@ -174,3 +179,9 @@ spec:
       # pprof needs a writable /tmp, and we don't have that thanks to `readOnlyRootFilesystem: true`, so mount one
       - name: tmp
         emptyDir: {}
+      # Trust domains peers are accepted from, written by istiod from the mesh config. Optional so ztunnel
+      # starts before it exists; ztunnel picks up the file and any later change without a restart.
+      - name: trust-domains
+        configMap:
+          name: istio-trust-domains
+          optional: true
