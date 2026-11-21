@@ -49,6 +49,8 @@ type clusterCache struct {
 	metadataCerts           *metadataCerts // metadata certificates of proxy
 	endpointBuilder         *endpoints.EndpointBuilder
 
+	gatewayClientCredential string
+
 	// service attributes
 	http2              bool // http2 identifies if the cluster is for an http2 service
 	downstreamAuto     bool
@@ -102,6 +104,9 @@ func (t *clusterCache) Key() any {
 	if t.metadataCerts != nil {
 		h.WriteString(t.metadataCerts.String())
 	}
+	h.Write(Separator)
+
+	h.WriteString(t.gatewayClientCredential)
 	h.Write(Separator)
 
 	if t.service != nil {
@@ -198,6 +203,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		)
 	}
 	return clusterCache{
+		gatewayClientCredential: cb.gatewayClientCredential,
 		clusterName:             clusterName,
 		proxyVersion:            cb.proxyVersion.String(),
 		locality:                cb.locality,

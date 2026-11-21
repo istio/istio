@@ -81,6 +81,8 @@ func sdsNeedsPush(forced bool, updates model.XdsUpdates) bool {
 			return true
 		case kind.ConfigMap:
 			return true
+		case kind.Gateway:
+			return true
 		}
 	}
 	return false
@@ -116,7 +118,9 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	var updatedSecrets sets.Set[model.ConfigKey]
-	if !req.Forced {
+	// Gateway changes can authorize an already-watched credential without a Secret update,
+	// or after the Secret update was processed with the previous Gateway authorization.
+	if !req.Forced && !model.HasConfigsOfKind(req.ConfigsUpdated, kind.Gateway) {
 		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret).Merge(model.ConfigsOfKind(req.ConfigsUpdated, kind.ConfigMap))
 	}
 

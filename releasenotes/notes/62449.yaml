@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/61515
+releaseNotes:
+  - |
+    **Added** support for Gateway API backend client certificates through
+    `Gateway.spec.tls.backend.clientCertificateRef` (GEP-3155). Dedicated
+    Gateway proxies will present the referenced client certificate when
+    connecting to TLS backends, enabling mTLS. Server certificate validation is
+    preserved in `BackendTLSPolicy` configuration.
