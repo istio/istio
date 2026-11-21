@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+releaseNotes:
+  - |
+    **Added** support for the `outputPayloadToMetadata` field in `RequestAuthentication` JWT rules to store
+    the verified JWT payload under a custom key in the request's dynamic metadata. This keeps the payloads of
+    multiple validated tokens from overwriting each other. The new `request.auth.payload[{key}][{claim-name}]`
+    condition in `AuthorizationPolicy` can be used to match the claims of a specific token.

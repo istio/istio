@@ -24,3 +24,4 @@ spec:
     - "custom_scope"
     - "provider.login.scope"
     presence: REQUIRED
+    outputPayloadToMetadata: idp

@@ -7288,6 +7288,34 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: true,
 		},
 		{
+			name:       "output payload to metadata",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:                  "foo.com",
+						JwksUri:                 "https://foo.com/cert",
+						OutputPayloadToMetadata: "idp_1-a",
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "bad output payload to metadata",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:                  "foo.com",
+						JwksUri:                 "https://foo.com/cert",
+						OutputPayloadToMetadata: "idp.key",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name:       "empty jwt rule",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
