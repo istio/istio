@@ -18487,6 +18487,13 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    outputPayloadToMetadata:
+                      description: This field specifies the key under which the payload
+                        of a successfully verified JWT is stored in the request's
+                        dynamic metadata.
+                      maxLength: 64
+                      pattern: ^[-_A-Za-z0-9]+$
+                      type: string
                     presence:
                       description: |-
                         Configures whether the JWT token must be present in the request.
@@ -18784,6 +18791,13 @@ spec:
                     outputPayloadToHeader:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
+                      type: string
+                    outputPayloadToMetadata:
+                      description: This field specifies the key under which the payload
+                        of a successfully verified JWT is stored in the request's
+                        dynamic metadata.
+                      maxLength: 64
+                      pattern: ^[-_A-Za-z0-9]+$
                       type: string
                     presence:
                       description: |-

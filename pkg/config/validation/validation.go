@@ -1821,6 +1821,10 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 			errs = multierror.Append(errs, err)
 		}
 	}
+	if rule.OutputPayloadToMetadata != "" && !jwtPayloadMetadataKeyRegex.MatchString(rule.OutputPayloadToMetadata) {
+		errs = multierror.Append(errs, fmt.Errorf("outputPayloadToMetadata %q must be at most 64 characters and match %s",
+			rule.OutputPayloadToMetadata, jwtPayloadMetadataKeyRegex.String()))
+	}
 	if rule.Timeout != nil {
 		if err := agent.ValidateDuration(rule.Timeout); err != nil {
 			errs = multierror.Append(errs, err)
@@ -1828,6 +1832,8 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	}
 	return errs
 }
+
+var jwtPayloadMetadataKeyRegex = regexp.MustCompile(`^[-_A-Za-z0-9]{1,64}$`)
 
 // ValidatePeerAuthentication checks that peer authentication spec is well-formed.
 var ValidatePeerAuthentication = RegisterValidateFunc("ValidatePeerAuthentication",
