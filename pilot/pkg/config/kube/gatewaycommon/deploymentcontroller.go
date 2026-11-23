@@ -913,7 +913,11 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 	})
 	portNums := sets.New[int32]()
 	usedNames := sets.New("status-port")
-	allListeners := append(slices.Clone(gw.Spec.Listeners), listenerSets...)
+	// Listener set order is not stable; sort so a port's name doesn't flip between reconciles.
+	sortedSets := slices.SortStableFunc(listenerSets, func(a, b gateway.Listener) int {
+		return strings.Compare(string(a.Name), string(b.Name))
+	})
+	allListeners := append(slices.Clone(gw.Spec.Listeners), sortedSets...)
 	for i, l := range allListeners {
 		if portNums.Contains(l.Port) {
 			continue
