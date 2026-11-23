@@ -30,6 +30,7 @@ type mtlsChecker struct {
 	authnPolicies   model.PeerAuthnPolicies
 	svcPort         int
 	destinationRule *networkingapi.ClientTLSSettings_TLSmode
+	policies        map[string]authn.MtlsPolicy
 }
 
 func newMtlsChecker(push *model.PushContext, authnPolicies model.PeerAuthnPolicies, svcPort int, dr *config.Config, subset string) *mtlsChecker {
@@ -60,9 +61,17 @@ func (c *mtlsChecker) checkMtlsEnabled(ep *model.IstioEndpoint, isWaypoint bool)
 		return false
 	}
 
-	return authn.
-		NewMtlsPolicy(c.push, c.authnPolicies, ep.Namespace, ep.Labels, isWaypoint).
-		GetMutualTLSModeForPort(ep.EndpointPort) != model.MTLSDisable
+	// Selecting policies scans every PeerAuthentication in the namespace, so share the result between endpoints with the same labels.
+	key := ep.Namespace + "/" + ep.Labels.String()
+	policy, f := c.policies[key]
+	if !f {
+		policy = authn.NewMtlsPolicy(c.push, c.authnPolicies, ep.Namespace, ep.Labels, isWaypoint)
+		if c.policies == nil {
+			c.policies = make(map[string]authn.MtlsPolicy)
+		}
+		c.policies[key] = policy
+	}
+	return policy.GetMutualTLSModeForPort(ep.EndpointPort) != model.MTLSDisable
 }
 
 func tlsModeForDestinationRule(drc *config.Config, subset string, port int) *networkingapi.ClientTLSSettings_TLSmode {
