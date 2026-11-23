@@ -1133,6 +1133,58 @@ func TestAuthorizationPolicyRevisionFiltering(t *testing.T) {
 	})
 }
 
+func TestIngressAuthorizationPolicyZtunnelStatus(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientStatus, true)
+	s := newAmbientTestServer(t, testC, testNW, "")
+	go s.Run(test.NewStop(t))
+	assert.EventuallyEqual(t, s.HasSynced, true)
+
+	policy := &clientsecurityv1beta1.AuthorizationPolicy{}
+	assert.NoError(t, yaml.Unmarshal([]byte(`
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: ingress-ip-restriction
+  namespace: istio-ingress
+  generation: 10
+spec:
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        remoteIpBlocks: ["1.2.3.4/32"]
+    to:
+    - operation:
+        hosts: ["example.com"]
+`), policy))
+	s.authz.Create(policy)
+
+	client := s.mcController.ConfigCluster().Client().Istio().SecurityV1().AuthorizationPolicies(policy.Namespace)
+	retry.UntilSuccessOrFail(t, func() error {
+		current, err := client.Get(t.Context(), policy.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		for _, condition := range current.Status.Conditions {
+			if condition.Type != string(model.ZtunnelAccepted) {
+				continue
+			}
+			assert.Equal(t, condition.Status, "True")
+			assert.Equal(t, condition.Reason, "UnsupportedValue")
+			assert.Equal(t, condition.ObservedGeneration, policy.Generation)
+			assert.Equal(t, condition.Message, "ztunnel does not support HTTP attributes (found: hosts, remoteIpBlocks). "+
+				"Use a waypoint proxy to enforce HTTP rules for ambient workloads. "+
+				"Ingress gateways can enforce HTTP rules on their own HTTP listeners. "+
+				"At ztunnel, rules matching HTTP attributes are omitted from ALLOW policies. This will be more restrictive than requested.")
+			return nil
+		}
+		return fmt.Errorf("waiting for %s on %s/%s", model.ZtunnelAccepted, policy.Namespace, policy.Name)
+	})
+}
+
 // TODO(nmittler): Consider splitting this into multiple, smaller tests.
 func TestAmbientIndex_Policy(t *testing.T) {
 	cases := []struct {
