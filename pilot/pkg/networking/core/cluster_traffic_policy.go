@@ -73,6 +73,14 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 			cb.applyUpstreamProxyProtocol(&opts, proxyProtocol)
+			if cb.hboneConnectWaitEligible(opts.mutable.cluster, service, opts.policy) {
+				for _, match := range opts.mutable.cluster.TransportSocketMatches {
+					if match.Name == "hbone" {
+						match.TransportSocket = util.FullMetadataPassthroughHBONEOriginationAdapterTransportSocket()
+						applyHBONEConnectWaitPool(opts.mutable.cluster)
+					}
+				}
+			}
 		}
 	}
 

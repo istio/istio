@@ -129,13 +129,8 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	builder.patchListeners()
 	l := builder.getListeners()
 	if features.EnableHBONESend && !builder.node.IsWaypointProxy() {
-		class := istionetworking.ListenerClassSidecarOutbound
-		if node.Type == model.Router {
-			class = istionetworking.ListenerClassGateway
-		}
-		l = append(l, buildConnectOriginateListener(push, node, class))
+		l = append(l, buildConnectOriginateListener(push, node, model.OutboundListenerClass(node.Type)))
 	}
-
 	return l
 }
 
