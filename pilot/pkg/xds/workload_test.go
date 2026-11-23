@@ -329,6 +329,8 @@ func TestWorkload(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			DebounceTime: time.Millisecond * 25,
 		})
+		// ambient uses EndpointSlices to find a Service's pods, which fake clients do not create.
+		clienttest.RunEndpointSliceController(t, s.KubeClient())
 		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 		spamDebugEndpointsToDetectRace(t, s)
 
@@ -408,6 +410,8 @@ func TestWorkload(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			DebounceTime: time.Millisecond * 25,
 		})
+		// ambient uses EndpointSlices to find a Service's pods, which fake clients do not create.
+		clienttest.RunEndpointSliceController(t, s.KubeClient())
 		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 		spamDebugEndpointsToDetectRace(t, s)
 

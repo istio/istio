@@ -23,6 +23,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
@@ -2441,6 +2442,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 			pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
 			authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
 			sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
+			es:    clienttest.NewWriter[*discovery.EndpointSlice](t, cl),
 		},
 	}
 
@@ -2480,6 +2482,8 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	if runClient {
 		// We can run this cleanup safely because the stop will be closed before we wait for informers
 		t.Cleanup(cl.Shutdown)
+		// ambient uses EndpointSlices to find a Service's pods, which fake clients do not create.
+		clienttest.RunEndpointSliceController(t, cl)
 		cl.RunAndWait(test.NewStop(t))
 	}
 

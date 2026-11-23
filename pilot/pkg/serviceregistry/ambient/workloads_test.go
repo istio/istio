@@ -183,13 +183,37 @@ func TestPodWorkloads(t *testing.T) {
 					Service: &workloadapi.Service{
 						Name:      "svc",
 						Namespace: "ns",
-						Hostname:  "hostname",
+						Hostname:  "svc.ns.svc.domain.suffix",
 						Ports: []*workloadapi.Port{{
 							ServicePort: 80,
 							TargetPort:  8080,
 						}},
 					},
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+					Source:        model.TypedObject{Kind: kind.Service},
+				},
+				&discovery.EndpointSlice{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc-123",
+						Namespace: "ns",
+						Labels: map[string]string{
+							discovery.LabelServiceName: "svc",
+						},
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						{
+							Addresses: []string{"1.2.3.4"},
+							Conditions: discovery.EndpointConditions{
+								Ready: ptr.Of(true),
+							},
+							TargetRef: &v1.ObjectReference{
+								Kind:      "Pod",
+								Name:      "name",
+								Namespace: "ns",
+							},
+						},
+					},
 				},
 			},
 			pod: &v1.Pod{
@@ -221,7 +245,7 @@ func TestPodWorkloads(t *testing.T) {
 				Status:            workloadapi.WorkloadStatus_HEALTHY,
 				ClusterId:         testC,
 				Services: map[string]*workloadapi.PortList{
-					"ns/hostname": {
+					"ns/svc.ns.svc.domain.suffix": {
 						Ports: []*workloadapi.Port{{
 							ServicePort: 80,
 							TargetPort:  8080,
@@ -237,7 +261,7 @@ func TestPodWorkloads(t *testing.T) {
 					Service: &workloadapi.Service{
 						Name:      "svc",
 						Namespace: "ns",
-						Hostname:  "hostname",
+						Hostname:  "svc.ns.svc.domain.suffix",
 						Ports: []*workloadapi.Port{
 							{
 								ServicePort: 80,
@@ -262,6 +286,30 @@ func TestPodWorkloads(t *testing.T) {
 						82: {PortName: "82", TargetPortName: "82-target"},
 					},
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+					Source:        model.TypedObject{Kind: kind.Service},
+				},
+				&discovery.EndpointSlice{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc-123",
+						Namespace: "ns",
+						Labels: map[string]string{
+							discovery.LabelServiceName: "svc",
+						},
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						{
+							Addresses: []string{"1.2.3.4"},
+							Conditions: discovery.EndpointConditions{
+								Ready: ptr.Of(true),
+							},
+							TargetRef: &v1.ObjectReference{
+								Kind:      "Pod",
+								Name:      "name",
+								Namespace: "ns",
+							},
+						},
+					},
 				},
 			},
 			pod: &v1.Pod{
@@ -301,7 +349,7 @@ func TestPodWorkloads(t *testing.T) {
 				Status:            workloadapi.WorkloadStatus_HEALTHY,
 				ClusterId:         testC,
 				Services: map[string]*workloadapi.PortList{
-					"ns/hostname": {
+					"ns/svc.ns.svc.domain.suffix": {
 						Ports: []*workloadapi.Port{{
 							ServicePort: 80,
 							TargetPort:  8080,
@@ -738,6 +786,30 @@ func TestPodWorkloads(t *testing.T) {
 					},
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
 					Source:        model.TypedObject{Kind: kind.Service},
+				},
+				// svc-pod123, lists pod-123 at 1.1.1.1
+				&discovery.EndpointSlice{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc-pod123",
+						Namespace: "default",
+						Labels: map[string]string{
+							discovery.LabelServiceName: "svc",
+						},
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						{
+							Addresses: []string{"1.1.1.1"},
+							Conditions: discovery.EndpointConditions{
+								Ready: ptr.Of(true),
+							},
+							TargetRef: &v1.ObjectReference{
+								Kind:      "Pod",
+								Name:      "pod-123",
+								Namespace: "default",
+							},
+						},
+					},
 				},
 				// Another endpointslice exists with the same IP... This should have no impact
 				kubernetesAPIServerEndpoint("1.1.1.1"),

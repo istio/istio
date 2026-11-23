@@ -692,14 +692,17 @@ func podWorkloadBuilder(
 		}
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		policies := buildWorkloadPolicies(ctx, authPoliciesByNs, peerAuthsByNs, meshCfg, p.Labels, p.Namespace)
-		fo := []krt.FetchOption{krt.FilterIndex(workloadServicesNamespaceIndex, p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
-		if !features.EnableServiceEntrySelectPods {
-			fo = append(fo, krt.FilterGeneric(func(a any) bool {
-				return a.(*model.ServiceInfo).Source.Kind == kind.Service
-			}))
+		// EndpointSlice membership is the sole source of truth for which K8s Services a pod belongs to.
+		services := matchingServicesFromEndpointSlices(ctx, p, nil, workloadServices, endpointSlicesAddressIndex, domainSuffix)
+		// ServiceEntries have no EndpointSlices, so they still select pods by label.
+		if features.EnableServiceEntrySelectPods {
+			services = append(services, krt.Fetch(ctx, workloadServices,
+				krt.FilterIndex(workloadServicesNamespaceIndex, p.Namespace),
+				krt.FilterSelectsNonEmpty(p.GetLabels()),
+				krt.FilterGeneric(func(a any) bool {
+					return a.(*model.ServiceInfo).Source.Kind == kind.ServiceEntry
+				}))...)
 		}
-		services := krt.Fetch(ctx, workloadServices, fo...)
-		services = append(services, matchingServicesWithoutSelectors(ctx, p, services, workloadServices, endpointSlicesAddressIndex, domainSuffix)...)
 		// Logic from https://github.com/kubernetes/kubernetes/blob/7c873327b679a70337288da62b96dd610858181d/staging/src/k8s.io/endpointslice/utils.go#L37
 		// Kubernetes has Ready, Serving, and Terminating. We only have a boolean, which is sufficient for our cases
 		status := workloadapi.WorkloadStatus_HEALTHY
@@ -795,14 +798,12 @@ func getPodIPs(p *v1.Pod) []v1.PodIP {
 	return k8sPodIPs
 }
 
-// matchingServicesWithoutSelectors finds all Services that match a given pod that do not use selectors.
-// See https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors for more info.
-// For selector service, we query by the selector elsewhere, so this only handles the services that are NOT already found
-// by a selector.
+// matchingServicesFromEndpointSlices finds all K8s Services (kind.Service) where the pod appears in the
+// service's EndpointSlice. This is the sole mechanism by which a pod is associated with a K8s Service.
 // For EndpointSlices that happen to point to the same IP as the pod, but are not directly bound to the pod (via TargetRef),
 // we ignore them here. These will produce a model.Workload directly from the EndpointSlice, but with limited information;
 // we do not implicitly merge a Pod with an EndpointSlice just based on IP.
-func matchingServicesWithoutSelectors(
+func matchingServicesFromEndpointSlices(
 	ctx krt.HandlerContext,
 	p *v1.Pod,
 	alreadyMatchingServices []*model.ServiceInfo,
