@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -1637,5 +1638,16 @@ func TestExtractServicePortsUniqueNames(t *testing.T) {
 	}
 	if len(ports) != 5 { // status-port + 4 listeners
 		t.Fatalf("expected 5 ports, got %d", len(ports))
+	}
+}
+
+func TestExtractServicePortsStableNameAcrossListenerSetOrder(t *testing.T) {
+	gw := k8s.Gateway{}
+	a := k8s.Listener{Name: "a-host", Port: 443, Protocol: k8s.HTTPSProtocolType}
+	b := k8s.Listener{Name: "b-host", Port: 443, Protocol: k8s.HTTPSProtocolType}
+	first := extractServicePorts(gw, []k8s.Listener{a, b})
+	second := extractServicePorts(gw, []k8s.Listener{b, a})
+	if !reflect.DeepEqual(first, second) {
+		t.Fatalf("port names depend on listener set order: %v vs %v", first, second)
 	}
 }
