@@ -198,6 +198,7 @@ func (wp *WorkerPool) maybeAddWorker() {
 
 			if target == (Resource{}) {
 				// could have been deleted, or could be no items in queue not currently worked on
+				wp.workerCount--
 				wp.lock.Unlock()
 				return
 			}

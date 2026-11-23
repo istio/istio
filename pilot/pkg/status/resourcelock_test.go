@@ -19,12 +19,15 @@ import (
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -195,4 +198,43 @@ func TestWorkerPoolSkipsStaleGeneration(t *testing.T) {
 	workers.Push(stale, c, nil)
 
 	g.Consistently(wrote, 100*time.Millisecond).ShouldNot(Receive())
+}
+
+func TestWorkerPoolReusesSlotAfterQueuedDelete(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		g := NewWithT(t)
+		allowGet := make(chan struct{})
+		writes := make(chan string, 3)
+		workers := NewWorkerPool(func(cfg *config.Config) {
+			writes <- cfg.Name
+		}, func(r Resource) *config.Config {
+			if r.Name == "first" {
+				<-allowGet
+			}
+			return &config.Config{Meta: config.Meta{Name: r.Name, Generation: 1}}
+		}, 1)
+		mgr := &Manager{workers: workers}
+		controller := mgr.CreateIstioStatusController(func(Manipulator, any) {})
+		target := func(name string) Resource {
+			return ResourceFromMetadata(resource.Metadata{
+				Schema:     collections.VirtualService,
+				FullName:   resource.NewFullName("default", resource.LocalName(name)),
+				Generation: 1,
+			})
+		}
+
+		controller.EnqueueStatusUpdateResource(nil, target("first"))
+		synctest.Wait()
+		deleted := target("deleted")
+		controller.EnqueueStatusUpdateResource(nil, deleted)
+		controller.Delete(deleted)
+		close(allowGet)
+		synctest.Wait()
+		g.Expect(writes).To(Receive(Equal("first")))
+		g.Expect(writes).To(BeEmpty())
+
+		controller.EnqueueStatusUpdateResource(nil, target("next"))
+		synctest.Wait()
+		g.Expect(writes).To(Receive(Equal("next")), "status write after deleting queued work")
+	})
 }
