@@ -119,6 +119,7 @@ var rootCmd = &cobra.Command{
 
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
+					CNIAgentRunDir:             cfg.InstallConfig.CNIAgentRunDir,
 					SystemNamespace:            nodeagent.SystemNamespace,
 					Revision:                   nodeagent.Revision,
 					ServerSocket:               cfg.InstallConfig.ZtunnelUDSAddress,
