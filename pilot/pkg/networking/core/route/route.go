@@ -665,6 +665,10 @@ func applyHTTPRouteDestination(
 					// hold `/` in case the entire path is removed
 					Substitution: `/\2`,
 				}
+			} else if model.UseGatewaySemantics(vs) && out.Match.GetPrefix() == "/" {
+				// A root prefix match consumes the separating slash. Restore it in
+				// the replacement so path elements are not concatenated together.
+				action.PrefixRewrite = uri + "/"
 			} else {
 				action.PrefixRewrite = uri
 			}

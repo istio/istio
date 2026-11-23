@@ -1279,7 +1279,23 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routeAction, ok := routes[0].Action.(*envoyroute.Route_Route)
 		g.Expect(ok).NotTo(BeFalse())
-		g.Expect(routeAction.Route.PrefixRewrite).To(Equal("/replace-prefix"))
+		g.Expect(routeAction.Route.PrefixRewrite).To(Equal("/replace-prefix/"))
+	})
+
+	t.Run("for virtual service root prefix path rewrite", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+		vs := virtualServiceWithRewritePrefixPath.DeepCopy()
+		vs.Annotations = nil
+		opts := buildRouteOpts(serviceRegistry, nil)
+		opts.Push = cg.PushContext()
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), vs, 8080, gatewayNames, opts)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+		xdstest.ValidateRoutes(t, routes)
+		// VirtualService rewrites replace the matched prefix literally.
+		g.Expect(routes[0].GetRoute().GetPrefixRewrite()).To(Equal("/replace-prefix"))
 	})
 
 	t.Run("for empty prefix path rewrite", func(t *testing.T) {
@@ -1381,7 +1397,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routeAction, ok := routes[0].Action.(*envoyroute.Route_Route)
 		g.Expect(ok).NotTo(BeFalse())
-		g.Expect(routeAction.Route.PrefixRewrite).To(Equal("/replace-prefix"))
+		g.Expect(routeAction.Route.PrefixRewrite).To(Equal("/replace-prefix/"))
 		// Verify that XForwardedHost is enabled
 		g.Expect(routeAction.Route.AppendXForwardedHost).To(Equal(true))
 	})

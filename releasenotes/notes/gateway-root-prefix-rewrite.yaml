@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** Gateway API URLRewrite filters concatenating path elements when replacing
+  a root (`/`) PathPrefix match with a non-root prefix. For example, rewriting
+  `/productpage` with a replacement prefix of `/bookinfo` now produces
+  `/bookinfo/productpage` instead of `/bookinfoproductpage`.
