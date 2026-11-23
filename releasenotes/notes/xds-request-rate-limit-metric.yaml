@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Added** the `pilot_xds_request_rate_limit_exceeded_total` metric, which
+    counts new XDS streams rejected because `PILOT_MAX_REQUESTS_PER_SECOND` was
+    exceeded.

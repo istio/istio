@@ -645,7 +645,12 @@ func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
 	// instance in best case, or retry with backoff.
 	wait, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	return s.RequestRateLimit.Wait(wait)
+	// Any error here indicates a rate limit hit, including context deadline or cancelled.
+	if err := s.RequestRateLimit.Wait(wait); err != nil {
+		xdsRequestRateLimitExceeded.Increment()
+		return err
+	}
+	return nil
 }
 
 func (s *DiscoveryServer) NextVersion() string {
