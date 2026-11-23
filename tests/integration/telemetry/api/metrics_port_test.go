@@ -69,6 +69,9 @@ func TestSecureMetricsPorts(t *testing.T) {
 		t.NewSubTest("auto-annotation-secure-port").Run(func(t framework.TestContext) {
 			testAutoAnnotation(t, target, "prometheus.istio.io/secure-port", "15092")
 		})
+		t.NewSubTest("auto-annotation-secure-envoy-port").Run(func(t framework.TestContext) {
+			testAutoAnnotation(t, target, "prometheus.istio.io/secure-envoy-port", "15091")
+		})
 	})
 }
 

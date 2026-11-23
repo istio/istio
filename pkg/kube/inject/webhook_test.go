@@ -1639,6 +1639,26 @@ func TestApplySecurePrometheusAnnotation(t *testing.T) {
 
 	t.Run("sidecar: auto-annotates from ENVOY_SECURE_MERGED_METRICS_PORT", func(t *testing.T) {
 		pod := newPod([]corev1.EnvVar{
+			{Name: "ENVOY_SECURE_MERGED_METRICS_PORT", Value: "15092"},
+		}, nil)
+		applySecurePrometheusAnnotation(pod)
+		if got := pod.Annotations["prometheus.istio.io/secure-port"]; got != "15092" {
+			t.Errorf("prometheus.istio.io/secure-port = %q, want 15092", got)
+		}
+	})
+
+	t.Run("sidecar: auto-annotates from ENVOY_SECURE_METRICS_PORT", func(t *testing.T) {
+		pod := newPod([]corev1.EnvVar{
+			{Name: "ENVOY_SECURE_METRICS_PORT", Value: "15091"},
+		}, nil)
+		applySecurePrometheusAnnotation(pod)
+		if got := pod.Annotations["prometheus.istio.io/secure-envoy-port"]; got != "15091" {
+			t.Errorf("prometheus.istio.io/secure-envoy-port = %q, want 15091", got)
+		}
+	})
+
+	t.Run("sidecar: auto-annotates both secure-port and secure-envoy-port", func(t *testing.T) {
+		pod := newPod([]corev1.EnvVar{
 			{Name: "ENVOY_SECURE_METRICS_PORT", Value: "15091"},
 			{Name: "ENVOY_SECURE_MERGED_METRICS_PORT", Value: "15092"},
 		}, nil)
@@ -1646,37 +1666,53 @@ func TestApplySecurePrometheusAnnotation(t *testing.T) {
 		if got := pod.Annotations["prometheus.istio.io/secure-port"]; got != "15092" {
 			t.Errorf("prometheus.istio.io/secure-port = %q, want 15092", got)
 		}
+		if got := pod.Annotations["prometheus.istio.io/secure-envoy-port"]; got != "15091" {
+			t.Errorf("prometheus.istio.io/secure-envoy-port = %q, want 15091", got)
+		}
 	})
 
 	t.Run("gateway: direct env var is picked up (no proxyMetadata annotation needed)", func(t *testing.T) {
 		// Simulates a gateway pod where env is set directly on the container.
 		pod := newPod([]corev1.EnvVar{
+			{Name: "ENVOY_SECURE_METRICS_PORT", Value: "15091"},
 			{Name: "ENVOY_SECURE_MERGED_METRICS_PORT", Value: "15092"},
 		}, nil)
 		applySecurePrometheusAnnotation(pod)
 		if got := pod.Annotations["prometheus.istio.io/secure-port"]; got != "15092" {
 			t.Errorf("prometheus.istio.io/secure-port = %q, want 15092", got)
 		}
+		if got := pod.Annotations["prometheus.istio.io/secure-envoy-port"]; got != "15091" {
+			t.Errorf("prometheus.istio.io/secure-envoy-port = %q, want 15091", got)
+		}
 	})
 
 	t.Run("user-set annotation is not overwritten", func(t *testing.T) {
 		pod := newPod([]corev1.EnvVar{
+			{Name: "ENVOY_SECURE_METRICS_PORT", Value: "15091"},
 			{Name: "ENVOY_SECURE_MERGED_METRICS_PORT", Value: "15092"},
 		}, map[string]string{
-			"prometheus.istio.io/secure-port": "19999",
+			"prometheus.istio.io/secure-port":       "19999",
+			"prometheus.istio.io/secure-envoy-port": "19998",
 		})
 		applySecurePrometheusAnnotation(pod)
 		if got := pod.Annotations["prometheus.istio.io/secure-port"]; got != "19999" {
 			t.Errorf("user annotation overwritten: got %q, want 19999", got)
 		}
+		if got := pod.Annotations["prometheus.istio.io/secure-envoy-port"]; got != "19998" {
+			t.Errorf("user annotation overwritten: got %q, want 19998", got)
+		}
 	})
 
 	t.Run("disabled (port=0) does not annotate", func(t *testing.T) {
 		pod := newPod([]corev1.EnvVar{
+			{Name: "ENVOY_SECURE_METRICS_PORT", Value: "0"},
 			{Name: "ENVOY_SECURE_MERGED_METRICS_PORT", Value: "0"},
 		}, nil)
 		applySecurePrometheusAnnotation(pod)
 		if _, ok := pod.Annotations["prometheus.istio.io/secure-port"]; ok {
+			t.Error("expected no annotation when port is 0, but one was set")
+		}
+		if _, ok := pod.Annotations["prometheus.istio.io/secure-envoy-port"]; ok {
 			t.Error("expected no annotation when port is 0, but one was set")
 		}
 	})
@@ -1688,6 +1724,9 @@ func TestApplySecurePrometheusAnnotation(t *testing.T) {
 		applySecurePrometheusAnnotation(pod)
 		if _, ok := pod.Annotations["prometheus.istio.io/secure-port"]; ok {
 			t.Error("expected no annotation when ENVOY_SECURE_MERGED_METRICS_PORT is absent")
+		}
+		if _, ok := pod.Annotations["prometheus.istio.io/secure-envoy-port"]; ok {
+			t.Error("expected no annotation when ENVOY_SECURE_METRICS_PORT is absent")
 		}
 	})
 

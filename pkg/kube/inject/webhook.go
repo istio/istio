@@ -84,11 +84,12 @@ const (
 	// prometheus will convert annotation to this format
 	// `prometheus.io/scrape` `prometheus.io.scrape` `prometheus-io/scrape` have the same meaning in Prometheus
 	// for more details, please checkout [here](https://github.com/prometheus/prometheus/blob/71a0f42331566a8849863d77078083edbb0b3bc4/util/strutil/strconv.go#L40)
-	prometheusScrapeAnnotation             = "prometheus_io_scrape"
-	prometheusPortAnnotation               = "prometheus_io_port"
-	prometheusPathAnnotation               = "prometheus_io_path"
-	prometheusIstioScrapeTargetsAnnotation = "prometheus_istio_io_scrape_targets"
-	prometheusIstioSecurePortAnnotation    = "prometheus_istio_io_secure_port"
+	prometheusScrapeAnnotation               = "prometheus_io_scrape"
+	prometheusPortAnnotation                 = "prometheus_io_port"
+	prometheusPathAnnotation                 = "prometheus_io_path"
+	prometheusIstioScrapeTargetsAnnotation   = "prometheus_istio_io_scrape_targets"
+	prometheusIstioSecurePortAnnotation      = "prometheus_istio_io_secure_port"
+	prometheusIstioSecureEnvoyPortAnnotation = "prometheus_istio_io_secure_envoy_port"
 
 	watchDebounceDelay = 100 * time.Millisecond
 )
@@ -888,7 +889,8 @@ func mergeOrAppendProbers(previouslyInjected bool, envVars []corev1.EnvVar, newP
 }
 
 // applySecurePrometheusAnnotation auto-populates the "prometheus.istio.io/secure-port"
-// annotation when the istio-proxy container has ENVOY_SECURE_MERGED_METRICS_PORT set.
+// annotation when the istio-proxy container has ENVOY_SECURE_MERGED_METRICS_PORT set, and
+// "prometheus.istio.io/secure-envoy-port" when ENVOY_SECURE_METRICS_PORT is set.
 // This mirrors applyPrometheusMerge's handling of the plain-text port so that users only
 // need to configure the env variable and Prometheus discovery is wired up automatically.
 //
@@ -896,13 +898,22 @@ func mergeOrAppendProbers(previouslyInjected bool, envVars []corev1.EnvVar, newP
 // is expanded into the container env by the injection template) and for injected gateway
 // pods (where the env var is set directly on the istio-proxy container).
 //
-// If the user has already set the annotation explicitly it is left unchanged.
+// If the user has already set an annotation explicitly it is left unchanged.
 func applySecurePrometheusAnnotation(pod *corev1.Pod) {
-	// User already opted in explicitly.
+	hasSecurePortAnnotation := false
+	hasSecureEnvoyPortAnnotation := false
 	for k := range pod.Annotations {
-		if strutil.SanitizeLabelName(k) == prometheusIstioSecurePortAnnotation {
-			return
+		sanitized := strutil.SanitizeLabelName(k)
+		if sanitized == prometheusIstioSecurePortAnnotation {
+			hasSecurePortAnnotation = true
 		}
+		if sanitized == prometheusIstioSecureEnvoyPortAnnotation {
+			hasSecureEnvoyPortAnnotation = true
+		}
+	}
+
+	if hasSecurePortAnnotation && hasSecureEnvoyPortAnnotation {
+		return
 	}
 
 	sidecar := FindSidecar(pod)
@@ -911,9 +922,13 @@ func applySecurePrometheusAnnotation(pod *corev1.Pod) {
 	}
 
 	for _, env := range sidecar.Env {
-		if env.Name == "ENVOY_SECURE_MERGED_METRICS_PORT" && env.Value != "" && env.Value != "0" {
+		if !hasSecurePortAnnotation && env.Name == "ENVOY_SECURE_MERGED_METRICS_PORT" && env.Value != "" && env.Value != "0" {
 			pod.Annotations["prometheus.istio.io/secure-port"] = env.Value
-			return
+			hasSecurePortAnnotation = true
+		}
+		if !hasSecureEnvoyPortAnnotation && env.Name == "ENVOY_SECURE_METRICS_PORT" && env.Value != "" && env.Value != "0" {
+			pod.Annotations["prometheus.istio.io/secure-envoy-port"] = env.Value
+			hasSecureEnvoyPortAnnotation = true
 		}
 	}
 }
