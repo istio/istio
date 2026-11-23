@@ -796,6 +796,10 @@ func TestConvertResources(t *testing.T) {
 			),
 		},
 		{name: "mix-backend-policy"},
+		{
+			name:              "backend-policy-port-retry-budget",
+			validationIgnorer: crdvalidation.NewValidationIgnorer("default/echo-port-budget"),
+		},
 		{name: "backend-tls-policy-ignored"},
 		{name: "backend-traffic-policy-ignored"},
 		{name: "listenerset"},
