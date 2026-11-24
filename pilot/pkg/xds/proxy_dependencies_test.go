@@ -1434,3 +1434,60 @@ spec:
 		}
 	}
 }
+
+// A ServiceEntry or DNSName key that matches neither scope is requeued as DNSName, which only NDS pushes, for a
+// hostname the proxy has a Delta NDS resource for. Neither scope has renamed.com, as when its delete lands a push after
+// the add of the new host.
+func TestStaleNameTableNeedsPush(t *testing.T) {
+	cg := core.NewConfigGenTest(t, core.TestOptions{ConfigString: `
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se
+  namespace: a
+spec:
+  hosts: [h.com]
+  addresses: [240.0.0.1]
+  ports: [{number: 80, name: http, protocol: HTTP}]
+  resolution: STATIC
+  endpoints: [{address: 1.1.1.1}]
+`})
+	for _, sent := range []bool{false, true} {
+		proxy := cg.SetupProxy(&model.Proxy{WatchedResources: map[string]*model.WatchedResource{}})
+		proxy.PrevSidecarScope = proxy.SidecarScope
+		var names []string
+		if sent {
+			names = []string{"h.com", "renamed.com"}
+		}
+		proxy.NewWatchedResource(v3.NameTableType, names)
+		for _, tt := range []struct {
+			key   model.ConfigKey
+			stale bool
+		}{
+			// The old host of a renamed ServiceEntry, no longer in either scope.
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "renamed.com", Namespace: "a"}, true},
+			{model.ConfigKey{Kind: kind.DNSName, Name: "renamed.com", Namespace: "a"}, true},
+			// The removed address of a hostname shared across namespaces.
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "b"}, true},
+			// Routine endpoint churn is not affected.
+			{model.ConfigKey{Kind: kind.Endpoints, Name: "h.com", Namespace: "b"}, false},
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "unknown.com", Namespace: "a"}, false},
+			// Other kinds are not keyed by hostname.
+			{model.ConfigKey{Kind: kind.DestinationRule, Name: "renamed.com", Namespace: "a"}, false},
+		} {
+			msg := fmt.Sprintf("sent=%v %v", sent, tt.key)
+			req, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+				Push: cg.PushContext(), ConfigsUpdated: sets.New(tt.key),
+			})
+			assert.Equal(t, needsPush, sent && tt.stale, msg)
+			if needsPush {
+				want := model.ConfigKey{Kind: kind.DNSName, Name: tt.key.Name, Namespace: tt.key.Namespace}
+				assert.Equal(t, req.ConfigsUpdated, sets.New(want), msg)
+			}
+		}
+		// A key the scope depends on is kept, so every xDS type is pushed.
+		inScope := model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "a"}
+		req, _ := DefaultProxyNeedsPush(proxy, &model.PushRequest{Push: cg.PushContext(), ConfigsUpdated: sets.New(inScope)})
+		assert.Equal(t, req.ConfigsUpdated, sets.New(inScope), fmt.Sprintf("sent=%v", sent))
+	}
+}
