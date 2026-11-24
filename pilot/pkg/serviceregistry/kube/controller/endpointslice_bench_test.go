@@ -53,7 +53,10 @@ func BenchmarkPodEndpointRebuild(b *testing.B) {
 				AddressType: discovery.AddressTypeIPv4, Ports: []discovery.EndpointPort{{Name: &portName, Port: &port}},
 			}
 			for _, pod := range pods[start : start+sliceSize] {
-				slice.Endpoints = append(slice.Endpoints, discovery.Endpoint{Addresses: []string{pod.Status.PodIP}, TargetRef: &corev1.ObjectReference{Kind: "Pod", Name: pod.Name, Namespace: pod.Namespace}})
+				slice.Endpoints = append(slice.Endpoints, discovery.Endpoint{
+					Addresses: []string{pod.Status.PodIP},
+					TargetRef: &corev1.ObjectReference{Kind: "Pod", Name: pod.Name, Namespace: pod.Namespace},
+				})
 			}
 			objects = append(objects, slice)
 		}

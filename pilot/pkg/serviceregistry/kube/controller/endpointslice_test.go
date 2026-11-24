@@ -751,7 +751,10 @@ func TestEndpointSliceContainsPod(t *testing.T) {
 		{"non-pod reference", "ns", "10.0.0.1", &corev1.ObjectReference{Kind: "Node", Name: "node"}, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			slice := &discovery.EndpointSlice{ObjectMeta: metav1.ObjectMeta{Namespace: tt.namespace}, Endpoints: []discovery.Endpoint{{Addresses: []string{tt.address}, TargetRef: tt.ref}}}
+			slice := &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{Namespace: tt.namespace},
+				Endpoints:  []discovery.Endpoint{{Addresses: []string{tt.address}, TargetRef: tt.ref}},
+			}
 			assert.Equal(t, endpointSliceContainsPod(slice, pod), tt.want)
 		})
 	}
