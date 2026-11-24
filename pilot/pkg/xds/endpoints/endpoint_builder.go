@@ -90,6 +90,10 @@ type EndpointBuilder struct {
 	canonicalServiceForMeshExternal bool
 	isSelfDiscoveryCluster          bool
 	supportsUnhealthyEndpoints      bool
+
+	// unknownIdentity is set by BuildClusterLoadAssignment when an mTLS endpoint
+	// uses a service account missing from this push's SAN list. Not part of the key.
+	unknownIdentity bool
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
@@ -316,6 +320,16 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	}
 	h.Write(Separator)
 
+	// CDS takes allowed SANs from the push context. Key endpoints by the same
+	// identities so a push never reuses EDS generated for a different SAN list.
+	if b.push != nil && b.service != nil {
+		for _, sa := range b.push.ServiceAccounts(b.service.Hostname, b.service.Attributes.Namespace) {
+			h.WriteString(sa)
+			h.Write(Slash)
+		}
+	}
+	h.Write(Separator)
+
 	if b.proxyView != nil {
 		h.WriteString(b.proxyView.String())
 	}
@@ -482,6 +496,9 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		return true
 	})
 
+	// Check identities against the same live snapshot that produces these endpoints.
+	b.unknownIdentity = b.hasUnknownIdentity(svcEps)
+
 	localityLbEndpoints := b.generate(svcEps, false)
 	if len(localityLbEndpoints) == 0 {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
@@ -526,6 +543,35 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	}
 	lbSettings.ApplyToLoadAssignment(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, enableFailover)
 	return l
+}
+
+// HasUnknownIdentity reports whether the last BuildClusterLoadAssignment call
+// included an mTLS endpoint whose service account this push's CDS does not allow.
+func (b *EndpointBuilder) HasUnknownIdentity() bool {
+	return b.unknownIdentity
+}
+
+// hasUnknownIdentity reports whether an mTLS endpoint uses a service account that is
+// missing from this push's view of the service. CDS builds the cluster's allowed SANs
+// from that view, but EDS reads the live endpoint index. If endpoints changed identity
+// after the push started, sending them would fail certificate verification
+// (SAN matcher) until the next push, which is always a full push because the
+// service accounts changed.
+func (b *EndpointBuilder) hasUnknownIdentity(eps []*model.IstioEndpoint) bool {
+	if b.push == nil || b.service == nil {
+		return false
+	}
+	known := b.push.ServiceAccounts(b.service.Hostname, b.service.Attributes.Namespace)
+	if len(known) == 0 {
+		// CDS has no SAN restriction to violate.
+		return false
+	}
+	for _, ep := range eps {
+		if ep.TLSMode == model.IstioMutualTLSModeLabel && ep.ServiceAccount != "" && !slices.Contains(known, ep.ServiceAccount) {
+			return true
+		}
+	}
+	return false
 }
 
 // generate endpoints with applies weights, multi-network mapping and other filtering
