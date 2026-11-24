@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an istio-cni node agent that is replaced while still shutting down, for example after a force delete, removing its replacement's plugin socket, ztunnel socket, host ipset and CNI config. No new ambient pod could start on the node until istio-cni was restarted, while the agent kept reporting Ready.
