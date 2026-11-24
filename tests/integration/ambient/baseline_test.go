@@ -360,14 +360,39 @@ func TestServerSideLB(t *testing.T) {
 				for i, r := range result.Responses {
 					hostnames[i] = r.Hostname
 				}
-				unique := sets.SortedList(sets.New(hostnames...))
+				got := sets.New(hostnames...)
+				unique := sets.SortedList(got)
 				want := dst.WorkloadsOrFail(t)
 				wn := []string{}
 				for _, w := range want {
 					wn = append(wn, w.PodName())
 				}
-				if len(unique) != len(wn) {
-					return fmt.Errorf("excepted all destinations (%v), got: %v", wn, unique)
+				if !t.Settings().AmbientMultiNetwork {
+					if len(unique) != len(wn) {
+						return fmt.Errorf("expected all destinations (%v), got: %v", wn, unique)
+					}
+					return nil
+				}
+				// The east-west gateway picks a backend once per tunnel, and the waypoint reuses a few tunnels for
+				// all requests. A pod in a remote network may get no requests no matter how many we send.
+				srcNetwork := src.Config().Cluster.NetworkName()
+				wantNetworks := sets.New[string]()
+				gotNetworks := sets.New[string]()
+				var missingPods []string
+				for _, w := range want {
+					network := w.Cluster().NetworkName()
+					wantNetworks.Insert(network)
+					if got.Contains(w.PodName()) {
+						gotNetworks.Insert(network)
+					} else if network == srcNetwork {
+						missingPods = append(missingPods, w.PodName())
+					}
+				}
+				if len(missingPods) > 0 {
+					return fmt.Errorf("expected all destinations in the source network %v, missing %v, got: %v", srcNetwork, missingPods, unique)
+				}
+				if missing := wantNetworks.Difference(gotNetworks); !missing.IsEmpty() {
+					return fmt.Errorf("expected destinations in all networks, missing networks %v, got: %v", sets.SortedList(missing), unique)
 				}
 				return nil
 			}
