@@ -502,8 +502,15 @@ func buildClient[I controllers.ComparableObject](
 		ObjectFilter: kubetypes.ComposeFilters(kc.ObjectFilter(), c.inRevision),
 	}
 
-	// all other types are filtered by revision, but for gateways we need to select tags as well
-	if res == gvr.KubernetesGateway {
+	// All other types are filtered by revision, but for Gateways (and ListenerSets attached to
+	// them) we need to select tags as well: LabelsInRevision cannot resolve an istio.io/rev tag
+	// (e.g. "default" via an IstioRevisionTag) to a revision, and dropping a resource whose rev
+	// label changed is reported to the config collections as a deletion, causing the
+	// previously-owning control plane to strip the resource's listeners from gateway pods still
+	// running on the old revision (see #59959 and #60388). Ownership is enforced downstream:
+	// status writes are gated by tagWatcher.IsMine in RegisterStatus, and Deployment management
+	// is gated in the deployment controller.
+	if res == gvr.KubernetesGateway || res == gvr.ListenerSet {
 		filter.ObjectFilter = kc.ObjectFilter()
 	}
 
