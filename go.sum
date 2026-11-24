@@ -52,6 +52,8 @@ github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYW
 github.com/antlr4-go/antlr/v4 v4.13.1/go.mod h1:GKmUxMtwp6ZgGwZSva4eWPC5mS6vUAmOABFgjdkM7Nw=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
+github.com/aron-muon/api v0.0.0-20261118183031-c60a85d0a1b7 h1:SxZhb+sic9FGaVYGINr4iUS+ff3Bt0ZEVpbxd6QuY2E=
+github.com/aron-muon/api v0.0.0-20261118183031-c60a85d0a1b7/go.mod h1:+brQWcBHoROuyA6fv8rbgg8Kfn0RCGuqoY0duCMuSLA=
 github.com/aws/aws-sdk-go-v2 v1.47.0 h1:0jsHallhJCeaU0Ko48c/3FK1ctOQ7NpzggxriJOQ8MQ=
 github.com/aws/aws-sdk-go-v2 v1.47.0/go.mod h1:bttEH6JqnUL8LepvDVfdrds/fZ5bCIxzpe3abyUrhDU=
 github.com/aws/aws-sdk-go-v2/config v1.33.4 h1:FzvkXKSzwqHni4U7nDigHg4jjtqMpVUuHgmZfSoJVQ0=
@@ -604,8 +606,6 @@ gotest.tools/v3 v3.5.1 h1:EENdUnS3pdur5nybKYIh2Vfgc8IUNBjxDPSjtiJcOzU=
 gotest.tools/v3 v3.5.1/go.mod h1:isy3WKz7GK6uNw/sbHzfKBLvlvXwUyV06n6brMxxopU=
 helm.sh/helm/v4 v4.3.1 h1:UndCoLe9UPmNoL7IvWzaUXveL7T5t/ijoorEmgJdI9g=
 helm.sh/helm/v4 v4.3.1/go.mod h1:Z663D/wNQG1UsG3X7svSEBPvosFVel4SIw4YIMZwmuY=
-istio.io/api v1.32.0-alpha.0.0.20261111052118-590ccfb34743 h1:XY6J6m4h/wHWTssboUgcq559TmXe2qu6bCRzw5Tbl4M=
-istio.io/api v1.32.0-alpha.0.0.20261111052118-590ccfb34743/go.mod h1:+brQWcBHoROuyA6fv8rbgg8Kfn0RCGuqoY0duCMuSLA=
 istio.io/client-go v1.32.0-alpha.0.0.20261111052518-93c0d1805312 h1:QM0OB0tCtCeo9O+1A0ny7Q/Eb/LJdC/Xcemu80AlUdQ=
 istio.io/client-go v1.32.0-alpha.0.0.20261111052518-93c0d1805312/go.mod h1:kB4pXJOrUTquh/r5Wzn+5P6AC5gKvGGA97Rxnq1+Z60=
 k8s.io/api v0.37.1 h1:l6N77U7tjwB5L056bgrBTJIEdevac/naBZ3iSvDNfpM=
