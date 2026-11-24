@@ -1356,6 +1356,9 @@ func TestValidateMeshConfig(t *testing.T) {
 			RetryOn:       "not-a-policy",
 			PerTryTimeout: durationpb.New(time.Second),
 		},
+		HboneKeepalive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+			Timeout: durationpb.New(time.Second),
+		},
 	}
 
 	warning, err := ValidateMeshConfig(invalid)
@@ -1365,6 +1368,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		wantErrors := []string{
 			"invalid proxy listen port",
 			"invalid connect timeout",
+			"invalid HBONE keepalive: interval is required",
 			"config path must be set",
 			"binary path must be set",
 			"oneof service cluster or tracing service name must be specified",
@@ -2171,6 +2175,31 @@ func TestValidateConnectionSettings(t *testing.T) {
 			err := validateConnectionSettings(tt.cs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateConnectionSettings() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateHBONEKeepalive(t *testing.T) {
+	type keepalive = networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive
+	cases := []struct {
+		name    string
+		in      *keepalive
+		isValid bool
+	}{
+		{name: "unset", in: nil, isValid: true},
+		{name: "valid", in: &keepalive{Interval: durationpb.New(5 * time.Second), Timeout: durationpb.New(3 * time.Second)}, isValid: true},
+		{name: "empty", in: &keepalive{}, isValid: false},
+		{name: "missing interval", in: &keepalive{Timeout: durationpb.New(3 * time.Second)}, isValid: false},
+		{name: "missing timeout", in: &keepalive{Interval: durationpb.New(5 * time.Second)}, isValid: false},
+		{name: "zero interval", in: &keepalive{Interval: durationpb.New(0), Timeout: durationpb.New(3 * time.Second)}, isValid: false},
+		{name: "negative timeout", in: &keepalive{Interval: durationpb.New(5 * time.Second), Timeout: durationpb.New(-time.Second)}, isValid: false},
+		{name: "sub-millisecond interval", in: &keepalive{Interval: durationpb.New(500 * time.Microsecond), Timeout: durationpb.New(3 * time.Second)}, isValid: false},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ValidateHBONEKeepalive(tt.in); (got == nil) != tt.isValid {
+				t.Errorf("got valid=%t, want valid=%t (err: %v)", got == nil, tt.isValid, got)
 			}
 		})
 	}

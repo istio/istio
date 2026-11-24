@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 62334
+releaseNotes:
+  - |
+    **Added** support for the `hboneKeepalive` MeshConfig field, which sets the interval and timeout of the HTTP/2 keepalive pings that ambient waypoints and gateways send on outbound HBONE connections. When unset, the existing 10s interval and 20s timeout apply.

@@ -29,6 +29,7 @@ import (
 	upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -1632,20 +1633,64 @@ spec:
 }
 
 func TestWaypointConnectOriginateHasHTTP2Keepalive(t *testing.T) {
-	g := NewWithT(t)
-	d, p := setupWaypointTest(t, waypointGateway, waypointSvc, waypointInstance)
+	cases := []struct {
+		name         string
+		keepalive    *networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive
+		wantInterval time.Duration
+		wantTimeout  time.Duration
+	}{
+		{
+			name:         "defaults",
+			wantInterval: 10 * time.Second,
+			wantTimeout:  20 * time.Second,
+		},
+		{
+			name: "mesh config",
+			keepalive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+				Interval: durationpb.New(5 * time.Second),
+				Timeout:  durationpb.New(3 * time.Second),
+			},
+			wantInterval: 5 * time.Second,
+			wantTimeout:  3 * time.Second,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			test.SetForTest(t, &features.EnableDualStack, true)
+			test.SetForTest(t, &features.EnableIngressWaypointRouting, true)
+			c := joinYaml(waypointGateway, waypointSvc, waypointInstance)
+			mc := mesh.DefaultMeshConfig()
+			mc.HboneKeepalive = tt.keepalive
+			d := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				ConfigString:           c,
+				KubernetesObjectString: c,
+				MeshConfig:             mc,
+			})
+			p := d.SetupProxy(&model.Proxy{
+				Type:            model.Waypoint,
+				ConfigNamespace: "default",
+				Labels: map[string]string{
+					label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint",
+					label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+				},
+				IPAddresses: []string{"3.0.0.1"},
+			})
 
-	clusters := xdstest.ExtractClusters(d.Clusters(p))
-	c := clusters["connect_originate"]
-	g.Expect(c).NotTo(BeNil())
+			clusters := xdstest.ExtractClusters(d.Clusters(p))
+			co := clusters["connect_originate"]
+			g.Expect(co).NotTo(BeNil())
 
-	po := c.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
-	g.Expect(po).NotTo(BeNil())
-	var httpOptions upstream.HttpProtocolOptions
-	g.Expect(po.UnmarshalTo(&httpOptions)).To(Succeed())
+			po := co.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
+			g.Expect(po).NotTo(BeNil())
+			var httpOptions upstream.HttpProtocolOptions
+			g.Expect(po.UnmarshalTo(&httpOptions)).To(Succeed())
 
-	keepalive := httpOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions().GetConnectionKeepalive()
-	g.Expect(keepalive).NotTo(BeNil(), "connect_originate must send HTTP/2 PINGs to detect dead peers")
-	g.Expect(keepalive.GetInterval().AsDuration()).To(Equal(10 * time.Second))
-	g.Expect(keepalive.GetTimeout().AsDuration()).To(Equal(20 * time.Second))
+			keepalive := httpOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions().GetConnectionKeepalive()
+			g.Expect(keepalive).NotTo(BeNil(), "connect_originate must send HTTP/2 PINGs to detect dead peers")
+			g.Expect(keepalive.GetInterval().AsDuration()).To(Equal(tt.wantInterval))
+			g.Expect(keepalive.GetTimeout().AsDuration()).To(Equal(tt.wantTimeout))
+			g.Expect(keepalive.GetConnectionIdleInterval()).To(BeNil())
+		})
+	}
 }

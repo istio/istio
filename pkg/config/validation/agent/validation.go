@@ -544,6 +544,25 @@ func ValidateConnectTimeout(timeout *durationpb.Duration) error {
 	return err
 }
 
+// ValidateHBONEKeepalive validates the HTTP/2 keepalive settings for outbound HBONE connections.
+// Unset is valid and keeps the defaults; when set, both the interval and the timeout are required.
+func ValidateHBONEKeepalive(keepalive *networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive) (errs error) {
+	if keepalive == nil {
+		return nil
+	}
+	if keepalive.Interval == nil {
+		errs = multierror.Append(errs, errors.New("interval is required"))
+	} else if err := ValidateDuration(keepalive.Interval); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid interval:"))
+	}
+	if keepalive.Timeout == nil {
+		errs = multierror.Append(errs, errors.New("timeout is required"))
+	} else if err := ValidateDuration(keepalive.Timeout); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid timeout:"))
+	}
+	return errs
+}
+
 // ValidateProtocolDetectionTimeout validates the envoy protocol detection timeout
 func ValidateProtocolDetectionTimeout(timeout *durationpb.Duration) error {
 	dur := timeout.AsDuration()
@@ -1071,6 +1090,10 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 
 	if err := ValidateProtocolDetectionTimeout(mesh.ProtocolDetectionTimeout); err != nil {
 		v = AppendValidation(v, multierror.Prefix(err, "invalid protocol detection timeout:"))
+	}
+
+	if err := ValidateHBONEKeepalive(mesh.HboneKeepalive); err != nil {
+		v = AppendValidation(v, multierror.Prefix(err, "invalid HBONE keepalive:"))
 	}
 
 	if mesh.DefaultConfig == nil {

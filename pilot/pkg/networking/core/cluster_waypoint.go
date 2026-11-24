@@ -590,12 +590,21 @@ func (cb *ClusterBuilder) getHBONEIdleTimeout() *durationpb.Duration {
 
 // hboneConnectionKeepalive makes Envoy send HTTP/2 PINGs on outbound HBONE connections, so a
 // peer that disappeared without a FIN/RST is detected even while traffic keeps flowing.
-// Values match ztunnel and the waypoint's inbound listener.
-func hboneConnectionKeepalive() *core.KeepaliveSettings {
-	return &core.KeepaliveSettings{
+// The defaults match ztunnel and the waypoint's inbound listener, and MeshConfig can override them.
+func (cb *ClusterBuilder) hboneConnectionKeepalive() *core.KeepaliveSettings {
+	k := &core.KeepaliveSettings{
 		Interval: durationpb.New(h2KeepaliveInterval),
 		Timeout:  durationpb.New(h2KeepaliveTimeout),
 	}
+	if configured := cb.req.Push.Mesh.GetHboneKeepalive(); configured != nil {
+		if configured.GetInterval() != nil {
+			k.Interval = configured.GetInterval()
+		}
+		if configured.GetTimeout() != nil {
+			k.Timeout = configured.GetTimeout()
+		}
+	}
+	return k
 }
 
 func (cb *ClusterBuilder) h2connectUpgrade() map[string]*anypb.Any {
@@ -608,7 +617,7 @@ func (cb *ClusterBuilder) h2connectUpgrade() map[string]*anypb.Any {
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{
 						AllowConnect:                true,
-						ConnectionKeepalive:         hboneConnectionKeepalive(),
+						ConnectionKeepalive:         cb.hboneConnectionKeepalive(),
 						InitialStreamWindowSize:     features.HBONEInitialStreamWindowSize,
 						InitialConnectionWindowSize: features.HBONEInitialConnectionWindowSize,
 					},
@@ -638,7 +647,7 @@ func (cb *ClusterBuilder) h2connectUpgradeWithNoPooling() map[string]*anypb.Any 
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{
 						AllowConnect:                true,
-						ConnectionKeepalive:         hboneConnectionKeepalive(),
+						ConnectionKeepalive:         cb.hboneConnectionKeepalive(),
 						InitialStreamWindowSize:     features.HBONEInitialStreamWindowSize,
 						InitialConnectionWindowSize: features.HBONEInitialConnectionWindowSize,
 					},
