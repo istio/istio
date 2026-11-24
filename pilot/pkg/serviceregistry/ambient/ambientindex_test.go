@@ -690,6 +690,41 @@ func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
 	}
 }
 
+func TestAmbientIndex_ServiceMembershipFollowsEndpointSlices(t *testing.T) {
+	s := newAmbientTestServer(t, testC, testNW, "")
+
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	s.addPods(t, "127.0.0.2", "pod2", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod2"))
+	s.clearEvents()
+
+	// Write the EndpointSlices for this Service ourselves, rather than deriving them from the selector.
+	s.addService(t, "svc1",
+		map[string]string{},
+		map[string]string{clienttest.ManualEndpointSlicesAnnotation: "true"},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.assertEvent(t, s.svcXdsName("svc1"))
+	// The selector matches both pods, but there is no EndpointSlice yet, so the Service has no backends.
+	s.assertAddresses(t, s.addrXdsName("10.0.0.1"), "svc1")
+
+	s.setEndpointSlice(t, "svc1", "pod1", "pod2")
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"))
+	s.assertAddresses(t, s.addrXdsName("10.0.0.1"), "pod1", "pod2", "svc1")
+
+	// Remove pod2 from the EndpointSlice without changing the pod; it still matches the selector and is Ready.
+	s.setEndpointSlice(t, "svc1", "pod1")
+	s.assertEvent(t, s.podXdsName("pod2"))
+	s.assertAddresses(t, s.addrXdsName("10.0.0.1"), "pod1", "svc1")
+	// pod2 is still a healthy workload; only its Service membership changed.
+	s.assertWorkloads(t, s.addrXdsName("127.0.0.2"), workloadapi.WorkloadStatus_HEALTHY, "pod2")
+
+	// Add pod2 back to the EndpointSlice.
+	s.setEndpointSlice(t, "svc1", "pod1", "pod2")
+	s.assertEvent(t, s.podXdsName("pod2"))
+	s.assertAddresses(t, s.addrXdsName("10.0.0.1"), "pod1", "pod2", "svc1")
+}
+
 func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 	cases := []struct {
 		name         string
@@ -3166,6 +3201,40 @@ func (s *ambientTestServer) addServiceForClient(t *testing.T, name string, label
 	t.Helper()
 	service := generateService(name, testNS, labels, annotations, ports, selector, ip)
 	sc.CreateOrUpdate(service)
+}
+
+// setEndpointSlice writes the EndpointSlice for a Service created with clienttest.ManualEndpointSlicesAnnotation,
+// listing the given pods.
+// nolint: unparam
+func (s *ambientTestServer) setEndpointSlice(t *testing.T, service string, pods ...string) {
+	t.Helper()
+	endpoints := make([]discovery.Endpoint, 0, len(pods))
+	for _, name := range pods {
+		p := s.pc.Get(name, testNS)
+		endpoints = append(endpoints, discovery.Endpoint{
+			Addresses: []string{p.Status.PodIP},
+			Conditions: discovery.EndpointConditions{
+				Ready: ptr.Of(true),
+			},
+			TargetRef: &corev1.ObjectReference{
+				Kind:      gvk.Pod.Kind,
+				Name:      p.Name,
+				Namespace: p.Namespace,
+				UID:       p.UID,
+			},
+		})
+	}
+	s.es.CreateOrUpdate(&discovery.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      service + "-manual",
+			Namespace: testNS,
+			Labels: map[string]string{
+				discovery.LabelServiceName: service,
+			},
+		},
+		AddressType: discovery.AddressTypeIPv4,
+		Endpoints:   endpoints,
+	})
 }
 
 func (s *ambientTestServer) lookup(key string) []model.AddressInfo {
