@@ -3781,9 +3781,11 @@ spec:
 		}
 	}
 	// Workloads opting in to Delta NDS through proxy metadata receive incremental name table updates.
-	deltaNDSClients := echodeployment.New(t, t.AllClusters().Configs()...).WithConfig(echo.Config{
+	// A dedicated StatefulSet, since restarting t.Apps.StatefulSet would affect other tests.
+	const deltaNDSSvc, deltaNDSStatefulSetSvc = "delta-nds", "delta-nds-sts"
+	deltaNDSApps := echodeployment.New(t, t.AllClusters().Configs()...).WithConfig(echo.Config{
 		Namespace: t.Apps.Namespace,
-		Service:   "delta-nds",
+		Service:   deltaNDSSvc,
 		Ports:     t.Apps.A[0].Config().Ports,
 		Subsets: []echo.SubsetConfig{{
 			Labels: map[string]string{istiolabel.SidecarInject.Name: "true"},
@@ -3791,7 +3793,57 @@ spec:
 				annotation.ProxyConfig.Name: `{"proxyMetadata": {"ISTIO_META_DELTA_NDS": "true", "ISTIO_DELTA_XDS": "true"}}`,
 			},
 		}},
+	}).WithConfig(echo.Config{
+		Namespace:      t.Apps.Namespace,
+		Service:        deltaNDSStatefulSetSvc,
+		ServiceAccount: true,
+		Headless:       true,
+		StatefulSet:    true,
+		Ports:          ports.Headless(),
+		Subsets:        []echo.SubsetConfig{{}},
 	}).BuildOrFail(t)
+	deltaNDSClients := match.ServiceName(
+		echo.NamespacedName{Name: deltaNDSSvc, Namespace: t.Apps.Namespace}).GetMatches(deltaNDSApps)
+	deltaNDSStatefulSets := match.ServiceName(
+		echo.NamespacedName{Name: deltaNDSStatefulSetSvc, Namespace: t.Apps.Namespace}).GetMatches(deltaNDSApps)
+	newDNSAsserts := func(ctx framework.TestContext, client echo.Instance) (
+		resolvesTo func(hostname string, expected ...string), doesNotResolve func(hostname string),
+	) {
+		lookup := func(hostname string, checker echo.Checker) {
+			ctx.Helper()
+			retry.UntilSuccessOrFail(ctx, func() error {
+				_, err := client.Call(echo.CallOptions{
+					Scheme:  scheme.DNS,
+					Count:   1,
+					Address: hostname + "?&protocol=udp",
+					Check:   checker,
+				})
+				return err
+			}, retry.Timeout(30*time.Second))
+		}
+		resolvesTo = func(hostname string, expected ...string) {
+			ctx.Helper()
+			lookup(hostname, func(result echo.CallResult, callErr error) error {
+				if callErr != nil {
+					return callErr
+				}
+				if len(result.Responses) == 0 {
+					return fmt.Errorf("no DNS responses for %s", hostname)
+				}
+				for _, response := range result.Responses {
+					if got := sets.New(response.Body()...); !got.Equals(sets.New(expected...)) {
+						return fmt.Errorf("DNS %s: wanted %v, got %v", hostname, expected, response.Body())
+					}
+				}
+				return nil
+			})
+		}
+		doesNotResolve = func(hostname string) {
+			ctx.Helper()
+			lookup(hostname, check.Error())
+		}
+		return
+	}
 	for _, client := range append(flatten(t.Apps.VM, t.Apps.A, t.Apps.Tproxy), deltaNDSClients...) {
 		t.NewSubTest(fmt.Sprintf("incremental/%s/%s", client.Config().Service, client.Config().Cluster.StableName())).Run(
 			func(ctx framework.TestContext) {
@@ -3803,43 +3855,7 @@ spec:
 				const hostA = "delta-a.fake.service.local"
 				const hostB = "delta-b.fake.service.local"
 
-				resolvesTo := func(hostname string, expected ...string) {
-					ctx.Helper()
-					retry.UntilSuccessOrFail(ctx, func() error {
-						_, err := client.Call(echo.CallOptions{
-							Scheme:  scheme.DNS,
-							Count:   1,
-							Address: hostname + "?&protocol=udp",
-							Check: func(result echo.CallResult, callErr error) error {
-								if callErr != nil {
-									return callErr
-								}
-								if len(result.Responses) == 0 {
-									return fmt.Errorf("no DNS responses for %s", hostname)
-								}
-								for _, response := range result.Responses {
-									if got := sets.New(response.Body()...); !got.Equals(sets.New(expected...)) {
-										return fmt.Errorf("DNS %s: wanted %v, got %v", hostname, expected, response.Body())
-									}
-								}
-								return nil
-							},
-						})
-						return err
-					}, retry.Timeout(30*time.Second))
-				}
-				doesNotResolve := func(hostname string) {
-					ctx.Helper()
-					retry.UntilSuccessOrFail(ctx, func() error {
-						_, err := client.Call(echo.CallOptions{
-							Scheme:  scheme.DNS,
-							Count:   1,
-							Address: hostname + "?&protocol=udp",
-							Check:   check.Error(),
-						})
-						return err
-					}, retry.Timeout(30*time.Second))
-				}
+				resolvesTo, doesNotResolve := newDNSAsserts(ctx, client)
 
 				entryA := ctx.ConfigIstio().YAML(t.Apps.Namespace.Name(), makeNamedSE("delta-nds-a", hostA, ipA))
 				entryA.ApplyOrFail(ctx)
@@ -3858,6 +3874,49 @@ spec:
 				entryB.DeleteOrFail(ctx)
 				doesNotResolve(hostB)
 				resolvesTo(hostA, ipA)
+			})
+	}
+	// A headless service has one name table resource whose per-pod names change with its endpoints.
+	for _, client := range deltaNDSClients {
+		name := fmt.Sprintf("incremental-headless/%s/%s", client.Config().Service, client.Config().Cluster.StableName())
+		t.NewSubTest(name).Run(
+			func(ctx framework.TestContext) {
+				resolvesTo, _ := newDNSAsserts(ctx, client)
+				local := match.Cluster(client.Config().Cluster).GetMatches(deltaNDSStatefulSets)
+				if len(local) != 1 {
+					ctx.Fatalf("expected one %s instance in cluster %s, got %d",
+						deltaNDSStatefulSetSvc, client.Config().Cluster.Name(), len(local))
+				}
+				fqdn := local[0].Config().ClusterLocalFQDN()
+				// The service name resolves to every pod in the client's network, the pod name only to its own.
+				current := func() (podHost string, podIPs, svcIPs []string) {
+					ctx.Helper()
+					wl := local[0].WorkloadsOrFail(ctx)
+					if len(wl) != 1 {
+						ctx.Fatalf("expected one %s pod, got %d", deltaNDSStatefulSetSvc, len(wl))
+					}
+					for _, inst := range deltaNDSStatefulSets {
+						if inst.Config().Cluster.NetworkName() == client.Config().Cluster.NetworkName() {
+							svcIPs = append(svcIPs, inst.WorkloadsOrFail(ctx).Addresses()...)
+						}
+					}
+					return wl[0].PodName() + "." + fqdn, wl[0].Addresses(), svcIPs
+				}
+
+				podHost, podIPs, svcIPs := current()
+				resolvesTo(podHost, podIPs...)
+				resolvesTo(fqdn, svcIPs...)
+
+				// The restarted pod keeps its name and usually gets a new IP.
+				if err := local[0].Restart(); err != nil {
+					ctx.Fatalf("failed to restart %s: %v", deltaNDSStatefulSetSvc, err)
+				}
+				newPodHost, newPodIPs, newSvcIPs := current()
+				if sets.New(newPodIPs...).Equals(sets.New(podIPs...)) {
+					ctx.Logf("pod %s kept IPs %v across the restart", newPodHost, podIPs)
+				}
+				resolvesTo(newPodHost, newPodIPs...)
+				resolvesTo(fqdn, newSvcIPs...)
 			})
 	}
 	svcCases := []struct {

@@ -179,8 +179,8 @@ func TestFilterNdsPushCoalescedEndpointUpdates(t *testing.T) {
 func TestSupportsDeltaNDS(t *testing.T) {
 	proxy := func(autoAllocate bool) *model.Proxy {
 		return &model.Proxy{
-			Metadata:     &model.NodeMetadata{DeltaNDS: true, DNSAutoAllocate: model.StringBool(autoAllocate), IstioVersion: "1.32.0"},
-			IstioVersion: model.ParseIstioVersion("1.32.0"),
+			Metadata:     &model.NodeMetadata{DeltaNDS: true, DNSAutoAllocate: model.StringBool(autoAllocate), IstioVersion: "1.33.0"},
+			IstioVersion: model.ParseIstioVersion("1.33.0"),
 		}
 	}
 	tests := []struct {

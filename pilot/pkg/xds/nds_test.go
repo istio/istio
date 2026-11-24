@@ -14,6 +14,8 @@
 package xds_test
 
 import (
+	"fmt"
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -23,14 +25,20 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdspkg "istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -114,6 +122,62 @@ func TestNDS(t *testing.T) {
 	}
 }
 
+var deltaNDSMetadata = model.NodeMetadata{DNSCapture: true, DeltaNDS: true, IstioVersion: "1.33.0"}
+
+func addNDSService(s *xds.FakeDiscoveryServer, hostname, address string) {
+	s.MemRegistry.AddService(&model.Service{
+		Hostname:       host.Name(hostname),
+		DefaultAddress: address,
+		Attributes:     model.ServiceAttributes{Namespace: "default"},
+	})
+}
+
+func ndsTable(t *testing.T, resource *anypb.Any) *dnsProto.NameTable {
+	t.Helper()
+	table := &dnsProto.NameTable{}
+	if err := resource.UnmarshalTo(table); err != nil {
+		t.Fatal(err)
+	}
+	return table
+}
+
+// deltaNDSIPs returns the addresses of each resource's own hostname.
+func deltaNDSIPs(t *testing.T, response *discovery.DeltaDiscoveryResponse) map[string][]string {
+	t.Helper()
+	out := map[string][]string{}
+	for _, resource := range response.Resources {
+		out[resource.Name] = slices.Sort(ndsTable(t, resource.Resource).GetTable()[resource.Name].GetIps())
+	}
+	return out
+}
+
+func ndsServiceEntry(name, namespace, address string, exportTo []string, hosts ...string) config.Config {
+	return config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Name: name, Namespace: namespace},
+		Spec: &networking.ServiceEntry{
+			Hosts:      hosts,
+			Addresses:  []string{address},
+			Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+			Resolution: networking.ServiceEntry_NONE,
+			ExportTo:   exportTo,
+		},
+	}
+}
+
+func ndsSidecar(namespace string, egress ...*networking.IstioEgressListener) config.Config {
+	return config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Name: "sidecar", Namespace: namespace},
+		Spec: &networking.Sidecar{Egress: egress},
+	}
+}
+
+func pushServiceEntryKey(s *xds.FakeDiscoveryServer, hostname, namespace string) {
+	s.Discovery.ConfigUpdate(&model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: namespace}),
+		Reason:         model.NewReasonStats(model.ServiceUpdate),
+	})
+}
+
 func TestNDSDeltaWireFormat(t *testing.T) {
 	newServer := func(t *testing.T) *xds.FakeDiscoveryServer {
 		t.Helper()
@@ -126,11 +190,7 @@ func TestNDSDeltaWireFormat(t *testing.T) {
 
 	t.Run("capable agent receives named resources", func(t *testing.T) {
 		s := newServer(t)
-		ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{
-			DNSCapture:   true,
-			DeltaNDS:     true,
-			IstioVersion: "1.32.0",
-		})
+		ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(deltaNDSMetadata)
 		response := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
 		if len(response.Resources) == 0 {
 			t.Fatal("expected named NDS resources")
@@ -139,26 +199,37 @@ func TestNDSDeltaWireFormat(t *testing.T) {
 			if resource.Name == "" {
 				t.Fatal("delta-capable agent received an unnamed full-table resource")
 			}
-			var table dnsProto.NameTable
-			if err := resource.Resource.UnmarshalTo(&table); err != nil {
-				t.Fatal(err)
-			}
-			if table.GetTable()[resource.Name] == nil {
-				t.Fatalf("resource %q does not contain its own hostname: %v", resource.Name, &table)
+			if table := ndsTable(t, resource.Resource); table.GetTable()[resource.Name] == nil {
+				t.Fatalf("resource %q does not contain its own hostname: %v", resource.Name, table)
 			}
 		}
 	})
 
-	t.Run("configured legacy agent receives unnamed full table", func(t *testing.T) {
-		s := newServer(t)
-		ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{
-			DNSCapture:   true,
-			DeltaNDS:     true,
-			IstioVersion: "1.31.9",
+	for _, version := range []string{"1.32.0", "1.32.9"} {
+		t.Run("configured "+version+" agent receives unnamed full table", func(t *testing.T) {
+			s := newServer(t)
+			metadata := deltaNDSMetadata
+			metadata.IstioVersion = version
+			ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(metadata)
+			response := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+			if len(response.Resources) != 1 || response.Resources[0].Name != "" {
+				t.Fatalf("older agent selected named resources: %v", response.Resources)
+			}
 		})
-		response := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
-		if len(response.Resources) != 1 || response.Resources[0].Name != "" {
-			t.Fatalf("older agent selected named resources: %v", response.Resources)
+	}
+
+	t.Run("SotW stream of a configured agent receives unnamed full table", func(t *testing.T) {
+		s := newServer(t)
+		ads := s.ConnectADS().WithType(v3.NameTableType)
+		response := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+			Node: &core.Node{Id: ads.ID, Metadata: deltaNDSMetadata.ToStruct()},
+		})
+		if len(response.Resources) != 1 {
+			t.Fatalf("expected one full-table resource, got %v", response.Resources)
+		}
+		table := ndsTable(t, response.Resources[0])
+		if diff := cmp.Diff([]string{"9.9.9.9"}, table.GetTable()["random-2.host.example"].GetIps()); diff != "" {
+			t.Fatalf("SotW response is not the full table (-want +got):\n%s", diff)
 		}
 	})
 
@@ -194,7 +265,7 @@ func TestNDSDeltaWireFormat(t *testing.T) {
 			DNSCapture:      true,
 			DNSAutoAllocate: true,
 			DeltaNDS:        true,
-			IstioVersion:    "1.32.0",
+			IstioVersion:    "1.33.0",
 		})
 		response := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
 		if len(response.Resources) != 1 || response.Resources[0].Name != "" {
@@ -206,18 +277,14 @@ func TestNDSDeltaWireFormat(t *testing.T) {
 		s := newServer(t)
 		ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{
 			DNSCapture:   true,
-			IstioVersion: "1.32.0",
+			IstioVersion: "1.33.0",
 		})
 		response := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
 		if len(response.Resources) != 1 || response.Resources[0].Name != "" {
 			t.Fatalf("expected one unnamed compatibility resource, got %v", response.Resources)
 		}
-		var table dnsProto.NameTable
-		if err := response.Resources[0].Resource.UnmarshalTo(&table); err != nil {
-			t.Fatal(err)
-		}
-		if len(table.GetTable()) == 0 {
-			t.Fatalf("legacy response does not contain a full table: %v", &table)
+		if table := ndsTable(t, response.Resources[0].Resource); len(table.GetTable()) == 0 {
+			t.Fatalf("legacy response does not contain a full table: %v", table)
 		}
 	})
 }
@@ -232,20 +299,9 @@ func TestNDSDeltaIncrementalPushes(t *testing.T) {
 
 func testNDSDeltaIncrementalPushes(t *testing.T, nodeType model.NodeType) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	addService := func(name, address string) {
-		s.MemRegistry.AddService(&model.Service{
-			Hostname:       host.Name(name),
-			DefaultAddress: address,
-			Attributes:     model.ServiceAttributes{Namespace: "default"},
-		})
-	}
-	addService("a.example.com", "10.0.0.1")
+	addNDSService(s, "a.example.com", "10.0.0.1")
 	s.EnsureSynced(t)
-	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithNodeType(nodeType).WithMetadata(model.NodeMetadata{
-		DNSCapture:   true,
-		DeltaNDS:     true,
-		IstioVersion: "1.32.0",
-	})
+	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithNodeType(nodeType).WithMetadata(deltaNDSMetadata)
 	assertResourceNames := func(want ...string) {
 		t.Helper()
 		clients := s.Discovery.Clients()
@@ -263,7 +319,7 @@ func testNDSDeltaIncrementalPushes(t *testing.T, nodeType model.NodeType) {
 	ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
 	assertResourceNames("a.example.com")
 
-	addService("b.example.com", "10.0.0.2")
+	addNDSService(s, "b.example.com", "10.0.0.2")
 	response := ads.ExpectResponse()
 	if len(response.Resources) != 1 || response.Resources[0].Name != "b.example.com" {
 		t.Fatalf("service add was not incremental: %v", response.Resources)
@@ -271,15 +327,12 @@ func testNDSDeltaIncrementalPushes(t *testing.T, nodeType model.NodeType) {
 	ads.Request(&discovery.DeltaDiscoveryRequest{ResponseNonce: response.Nonce})
 	assertResourceNames("a.example.com", "b.example.com")
 
-	addService("b.example.com", "10.0.0.3")
+	addNDSService(s, "b.example.com", "10.0.0.3")
 	response = ads.ExpectResponse()
 	if len(response.Resources) != 1 || response.Resources[0].Name != "b.example.com" {
 		t.Fatalf("service update was not incremental: %v", response.Resources)
 	}
-	var updated dnsProto.NameTable
-	if err := response.Resources[0].Resource.UnmarshalTo(&updated); err != nil {
-		t.Fatal(err)
-	}
+	updated := ndsTable(t, response.Resources[0].Resource)
 	if diff := cmp.Diff([]string{"10.0.0.3"}, updated.GetTable()["b.example.com"].GetIps()); diff != "" {
 		t.Fatalf("updated resource has unexpected addresses (-want +got):\n%s", diff)
 	}
@@ -296,17 +349,9 @@ func testNDSDeltaIncrementalPushes(t *testing.T, nodeType model.NodeType) {
 
 func TestNDSDeltaReconnectRemovesStaleResources(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	s.MemRegistry.AddService(&model.Service{
-		Hostname:       host.Name("a.example.com"),
-		DefaultAddress: "10.0.0.1",
-		Attributes:     model.ServiceAttributes{Namespace: "default"},
-	})
+	addNDSService(s, "a.example.com", "10.0.0.1")
 	s.EnsureSynced(t)
-	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{
-		DNSCapture:   true,
-		DeltaNDS:     true,
-		IstioVersion: "1.32.0",
-	})
+	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(deltaNDSMetadata)
 	response := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
 		InitialResourceVersions: map[string]string{"a.example.com": "", "stale.example.com": ""},
 	})
@@ -320,23 +365,12 @@ func TestNDSDeltaReconnectRemovesStaleResources(t *testing.T) {
 
 func TestNDSDeltaNackLifecycle(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	addService := func(name string) {
-		s.MemRegistry.AddService(&model.Service{
-			Hostname:       host.Name(name),
-			DefaultAddress: "10.0.0.1",
-			Attributes:     model.ServiceAttributes{Namespace: "default"},
-		})
-	}
-	addService("a.example.com")
+	addNDSService(s, "a.example.com", "10.0.0.1")
 	s.EnsureSynced(t)
-	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{
-		DNSCapture:   true,
-		DeltaNDS:     true,
-		IstioVersion: "1.32.0",
-	})
+	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(deltaNDSMetadata)
 	ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
 
-	addService("b.example.com")
+	addNDSService(s, "b.example.com", "10.0.0.1")
 	rejected := ads.ExpectResponse()
 	if len(rejected.Resources) != 1 || rejected.Resources[0].Name != "b.example.com" {
 		t.Fatalf("unexpected rejected response: %v", rejected.Resources)
@@ -347,7 +381,7 @@ func TestNDSDeltaNackLifecycle(t *testing.T) {
 	})
 	ads.ExpectNoResponse()
 
-	addService("c.example.com")
+	addNDSService(s, "c.example.com", "10.0.0.1")
 	response := ads.ExpectResponse()
 	if len(response.Resources) != 1 || response.Resources[0].Name != "c.example.com" {
 		t.Fatalf("NACK changed generic delta progression: %v", response.Resources)
@@ -368,24 +402,12 @@ func TestNDSDeltaNackLifecycle(t *testing.T) {
 
 func TestNDSInitialNackContinuesDeltas(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	addService := func(name string) {
-		s.MemRegistry.AddService(&model.Service{
-			Hostname:       host.Name(name),
-			DefaultAddress: "10.0.0.1",
-			Attributes:     model.ServiceAttributes{Namespace: "default"},
-		})
-	}
-	addService("a.example.com")
+	addNDSService(s, "a.example.com", "10.0.0.1")
 	s.EnsureSynced(t)
-	metadata := model.NodeMetadata{
-		DNSCapture:   true,
-		DeltaNDS:     true,
-		IstioVersion: "1.32.0",
-	}
 	rejectedClient := s.ConnectDeltaADS().WithID("sidecar~1.1.1.1~rejected.default~default.svc.cluster.local").
-		WithType(v3.NameTableType).WithMetadata(metadata)
+		WithType(v3.NameTableType).WithMetadata(deltaNDSMetadata)
 	healthyClient := s.ConnectDeltaADS().WithID("sidecar~1.1.1.2~healthy.default~default.svc.cluster.local").
-		WithType(v3.NameTableType).WithMetadata(metadata)
+		WithType(v3.NameTableType).WithMetadata(deltaNDSMetadata)
 
 	rejectedClient.Request(&discovery.DeltaDiscoveryRequest{})
 	rejected := rejectedClient.ExpectResponse()
@@ -396,7 +418,7 @@ func TestNDSInitialNackContinuesDeltas(t *testing.T) {
 	rejectedClient.ExpectNoResponse()
 	healthyClient.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
 
-	addService("b.example.com")
+	addNDSService(s, "b.example.com", "10.0.0.1")
 	delta := rejectedClient.ExpectResponse()
 	if len(delta.Resources) != 1 || delta.Resources[0].Name != "b.example.com" {
 		t.Fatalf("initial NACK changed generic delta progression: %v", delta.Resources)
@@ -495,54 +517,248 @@ spec:
   - route:
     - destination: {host: attached.example.com}
 `})
-	addService := func(name, address string) {
-		s.MemRegistry.AddService(&model.Service{
-			Hostname:       host.Name(name),
-			DefaultAddress: address,
-			Attributes:     model.ServiceAttributes{Namespace: "default"},
-		})
-	}
-	addService("attached.example.com", "10.0.0.1")
-	addService("other.example.com", "10.0.0.2")
+	addNDSService(s, "attached.example.com", "10.0.0.1")
+	addNDSService(s, "other.example.com", "10.0.0.2")
 	s.EnsureSynced(t)
+	gatewayMetadata := deltaNDSMetadata
+	gatewayMetadata.Labels = map[string]string{"istio": "egressgateway"}
+	gatewayMetadata.Namespace = "istio-system"
 	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).
 		WithID("router~10.0.0.1~egressgateway.istio-system~istio-system.svc.cluster.local").
-		WithMetadata(model.NodeMetadata{
-			DNSCapture:   true,
-			DeltaNDS:     true,
-			IstioVersion: "1.32.0",
-			Labels:       map[string]string{"istio": "egressgateway"},
-			Namespace:    "istio-system",
-		})
-	ips := func(response *discovery.DeltaDiscoveryResponse) map[string][]string {
-		t.Helper()
-		out := map[string][]string{}
-		for _, resource := range response.Resources {
-			var table dnsProto.NameTable
-			if err := resource.Resource.UnmarshalTo(&table); err != nil {
-				t.Fatal(err)
-			}
-			out[resource.Name] = table.GetTable()[resource.Name].GetIps()
-		}
-		return out
-	}
-
+		WithMetadata(gatewayMetadata)
 	// The full push includes the unreferenced service.
 	want := map[string][]string{"attached.example.com": {"10.0.0.1"}, "other.example.com": {"10.0.0.2"}}
-	if diff := cmp.Diff(want, ips(ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{}))); diff != "" {
+	if diff := cmp.Diff(want, deltaNDSIPs(t, ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{}))); diff != "" {
 		t.Fatalf("unexpected full push (-want +got):\n%s", diff)
 	}
 
 	// Updates to unreferenced services are not pushed.
-	addService("other.example.com", "10.0.0.20")
-	addService("new.example.com", "10.0.0.30")
+	addNDSService(s, "other.example.com", "10.0.0.20")
+	addNDSService(s, "new.example.com", "10.0.0.30")
 	ads.ExpectNoResponse()
 
 	// A referenced service update only sends its hostname, so other.example.com keeps its old address.
-	addService("attached.example.com", "10.0.0.10")
+	addNDSService(s, "attached.example.com", "10.0.0.10")
 	response := ads.ExpectResponse()
-	if diff := cmp.Diff(map[string][]string{"attached.example.com": {"10.0.0.10"}}, ips(response)); diff != "" {
+	if diff := cmp.Diff(map[string][]string{"attached.example.com": {"10.0.0.10"}}, deltaNDSIPs(t, response)); diff != "" {
 		t.Fatalf("unexpected partial push (-want +got):\n%s", diff)
 	}
 	ads.Request(&discovery.DeltaDiscoveryRequest{ResponseNonce: response.Nonce})
+}
+
+// TestNDSDeltaTrailingDeleteKey covers a delete key pushed after the scope already dropped the service, as when the
+// keys of a host rename are split across pushes.
+func TestNDSDeltaTrailingDeleteKey(t *testing.T) {
+	t.Run("renamed host is removed", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		addNDSService(s, "new.example.com", "10.0.0.1")
+		s.EnsureSynced(t)
+		ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(deltaNDSMetadata)
+		ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+		// The client still has old.example.com after the push of new.example.com.
+		proxy := s.Discovery.Clients()[0].Proxy()
+		proxy.Lock()
+		proxy.WatchedResources[v3.NameTableType].ResourceNames.Insert("old.example.com")
+		proxy.Unlock()
+
+		pushServiceEntryKey(s, "old.example.com", "default")
+		response := ads.ExpectResponse()
+		if len(response.Resources) != 0 || !cmp.Equal(response.RemovedResources, []string{"old.example.com"}) {
+			t.Fatalf("renamed host was not removed: resources=%v removed=%v", response.Resources, response.RemovedResources)
+		}
+	})
+
+	t.Run("same-hostname service in another namespace is dropped", func(t *testing.T) {
+		// Each egress listener imports one of the namespaces, so the name table merges both services.
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{Configs: []config.Config{
+			ndsSidecar("default",
+				&networking.IstioEgressListener{
+					Port:  &networking.SidecarPort{Number: 80, Protocol: "HTTP", Name: "http"},
+					Hosts: []string{"a/*"},
+				},
+				&networking.IstioEgressListener{Hosts: []string{"b/*"}}),
+			ndsServiceEntry("se", "a", "240.0.0.1", nil, "h.example.com"),
+			ndsServiceEntry("se", "b", "240.0.0.2", nil, "h.example.com"),
+		}})
+		ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(deltaNDSMetadata)
+		want := map[string][]string{"h.example.com": {"240.0.0.1", "240.0.0.2"}}
+		if diff := cmp.Diff(want, deltaNDSIPs(t, ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{}))); diff != "" {
+			t.Fatalf("unexpected full push (-want +got):\n%s", diff)
+		}
+
+		if err := s.Store().Delete(gvk.ServiceEntry, "se", "b", nil); err != nil {
+			t.Fatal(err)
+		}
+		want = map[string][]string{"h.example.com": {"240.0.0.1"}}
+		response := ads.ExpectResponse()
+		if diff := cmp.Diff(want, deltaNDSIPs(t, response)); diff != "" {
+			t.Fatalf("unexpected delete push (-want +got):\n%s", diff)
+		}
+		ads.Request(&discovery.DeltaDiscoveryRequest{ResponseNonce: response.Nonce})
+
+		// The delete key again, now that neither scope has b's service.
+		pushServiceEntryKey(s, "h.example.com", "b")
+		if diff := cmp.Diff(want, deltaNDSIPs(t, ads.ExpectResponse())); diff != "" {
+			t.Fatalf("trailing delete key did not rebuild the hostname (-want +got):\n%s", diff)
+		}
+	})
+}
+
+// TestNDSDeltaScopeShrink covers hostnames that leave the proxy's scope while their services still exist.
+func TestNDSDeltaScopeShrink(t *testing.T) {
+	connect := func(t *testing.T) (*xds.FakeDiscoveryServer, *xdspkg.DeltaAdsTest) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{Configs: []config.Config{
+			ndsServiceEntry("local", "default", "240.0.0.1", nil, "local.example.com"),
+			ndsServiceEntry("remote", "other", "240.0.0.2", nil, "remote.example.com"),
+		}})
+		ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(deltaNDSMetadata)
+		want := map[string][]string{"local.example.com": {"240.0.0.1"}, "remote.example.com": {"240.0.0.2"}}
+		if diff := cmp.Diff(want, deltaNDSIPs(t, ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{}))); diff != "" {
+			t.Fatalf("unexpected full push (-want +got):\n%s", diff)
+		}
+		return s, ads
+	}
+
+	t.Run("exportTo narrowed", func(t *testing.T) {
+		s, ads := connect(t)
+		narrowed := ndsServiceEntry("remote", "other", "240.0.0.2", []string{"."}, "remote.example.com")
+		if _, err := s.Store().Update(narrowed); err != nil {
+			t.Fatal(err)
+		}
+		response := ads.ExpectResponse()
+		if len(response.Resources) != 0 || !cmp.Equal(response.RemovedResources, []string{"remote.example.com"}) {
+			t.Fatalf("unexported host was not removed: resources=%v removed=%v", response.Resources, response.RemovedResources)
+		}
+	})
+
+	t.Run("Sidecar applied", func(t *testing.T) {
+		s, ads := connect(t)
+		sidecar := ndsSidecar("default", &networking.IstioEgressListener{Hosts: []string{"./*"}})
+		if _, err := s.Store().Create(sidecar); err != nil {
+			t.Fatal(err)
+		}
+		response := ads.ExpectResponse()
+		if diff := cmp.Diff(map[string][]string{"local.example.com": {"240.0.0.1"}}, deltaNDSIPs(t, response)); diff != "" {
+			t.Fatalf("unexpected full push (-want +got):\n%s", diff)
+		}
+		if diff := cmp.Diff([]string{"remote.example.com"}, response.RemovedResources); diff != "" {
+			t.Fatalf("host outside the Sidecar was not removed (-want +got):\n%s", diff)
+		}
+	})
+}
+
+// TestNDSDeltaMatchesSotW checks that the delta client's tables converge to the SotW table after each random
+// ServiceEntry change.
+func TestNDSDeltaMatchesSotW(t *testing.T) {
+	for seed := int64(1); seed <= 3; seed++ {
+		t.Run(fmt.Sprint(seed), func(t *testing.T) {
+			// nolint: gosec // deterministic seed keeps failures reproducible
+			testNDSDeltaMatchesSotW(t, rand.New(rand.NewSource(seed)))
+		})
+	}
+}
+
+func testNDSDeltaMatchesSotW(t *testing.T, r *rand.Rand) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{Configs: []config.Config{
+		ndsSidecar("app",
+			&networking.IstioEgressListener{
+				Port:  &networking.SidecarPort{Number: 80, Protocol: "HTTP", Name: "http"},
+				Hosts: []string{"ns1/*"},
+			},
+			&networking.IstioEgressListener{
+				Port:  &networking.SidecarPort{Number: 8080, Protocol: "HTTP", Name: "http-alt"},
+				Hosts: []string{"ns2/*"},
+			},
+			&networking.IstioEgressListener{Hosts: []string{"./*"}}),
+		ndsServiceEntry("static", "app", "240.0.0.1", nil, "static.example.com"),
+	}})
+	metadata := deltaNDSMetadata
+	metadata.Namespace = "app"
+	metadata.ClusterID = constants.DefaultClusterName
+	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithID("sidecar~1.1.1.1~client.app~app.svc.cluster.local").
+		WithMetadata(metadata)
+
+	state := map[string]*dnsProto.NameTable{}
+	apply := func(response *discovery.DeltaDiscoveryResponse) {
+		t.Helper()
+		for _, resource := range response.Resources {
+			state[resource.Name] = ndsTable(t, resource.Resource)
+		}
+		for _, name := range response.RemovedResources {
+			delete(state, name)
+		}
+	}
+	accumulated := func() map[string]*dnsProto.NameTable_NameInfo {
+		out := map[string]*dnsProto.NameTable_NameInfo{}
+		for _, table := range state {
+			for name, info := range table.GetTable() {
+				out[name] = info
+			}
+		}
+		return out
+	}
+	sotw := func() map[string]*dnsProto.NameTable_NameInfo {
+		t.Helper()
+		sotwMetadata := metadata
+		sotwMetadata.DeltaNDS = false
+		proxy := s.SetupProxy(&model.Proxy{ConfigNamespace: "app", Metadata: &sotwMetadata})
+		resources, _, err := s.Discovery.Generators[v3.NameTableType].Generate(proxy, nil,
+			&model.PushRequest{Push: s.PushContext(), Forced: true, Start: time.Now()})
+		if err != nil || len(resources) != 1 {
+			t.Fatalf("SotW generation failed: resources=%v err=%v", resources, err)
+		}
+		return ndsTable(t, resources[0].Resource).GetTable()
+	}
+	// Deletes and other updates are published separately, so a step can take more than one push.
+	converge := func(step int) {
+		t.Helper()
+		var diff string
+		defer func() {
+			if t.Failed() {
+				t.Logf("step %d: delta tables differ from SotW (-want +got):\n%s", step, diff)
+			}
+		}()
+		for {
+			s.EnsureSynced(t)
+			diff = cmp.Diff(sotw(), accumulated(), protocmp.Transform(),
+				protocmp.SortRepeated(func(a, b string) bool { return a < b }))
+			if diff == "" {
+				return
+			}
+			response := ads.ExpectResponse()
+			apply(response)
+			ads.Request(&discovery.DeltaDiscoveryRequest{ResponseNonce: response.Nonce})
+		}
+	}
+	apply(ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{}))
+	converge(0)
+
+	type entry struct{ name, namespace string }
+	var entries []entry
+	namespaces := []string{"app", "ns1", "ns2", "ns3"}
+	exportTos := [][]string{nil, {"."}, {"*"}, {"app"}, {"ns1"}}
+	randomServiceEntry := func(e entry, step int) config.Config {
+		hosts := sets.New(fmt.Sprintf("h%d.example.com", r.Intn(5)), fmt.Sprintf("h%d.example.com", r.Intn(5)))
+		return ndsServiceEntry(e.name, e.namespace, fmt.Sprintf("240.1.%d.%d", step/250, step%250+1),
+			exportTos[r.Intn(len(exportTos))], sets.SortedList(hosts)...)
+	}
+	for step := 1; step <= 50; step++ {
+		var err error
+		switch op := r.Intn(3); {
+		case op == 0 || len(entries) == 0:
+			e := entry{fmt.Sprintf("se-%d", step), namespaces[r.Intn(len(namespaces))]}
+			entries = append(entries, e)
+			_, err = s.Store().Create(randomServiceEntry(e, step))
+		case op == 1:
+			_, err = s.Store().Update(randomServiceEntry(entries[r.Intn(len(entries))], step))
+		default:
+			i := r.Intn(len(entries))
+			err = s.Store().Delete(gvk.ServiceEntry, entries[i].name, entries[i].namespace, nil)
+			entries = slices.Delete(entries, i)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		converge(step)
+	}
 }

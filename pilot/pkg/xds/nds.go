@@ -39,7 +39,7 @@ var _ model.XdsResourceGenerator = &NdsGenerator{}
 
 var _ model.XdsDeltaResourceGenerator = &NdsGenerator{}
 
-var minimumDeltaNDSVersion = &model.IstioVersion{Major: 1, Minor: 32, Patch: 0}
+var minimumDeltaNDSVersion = &model.IstioVersion{Major: 1, Minor: 33, Patch: 0}
 
 // Map of all configs that do not impact NDS
 var skippedNdsConfigs = func() sets.Set[kind.Kind] {
