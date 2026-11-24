@@ -176,34 +176,6 @@ func TestFilterNdsPushCoalescedEndpointUpdates(t *testing.T) {
 	}
 }
 
-func TestCanSendPartialNdsPush(t *testing.T) {
-	updates := func(kinds ...kind.Kind) sets.Set[model.ConfigKey] {
-		out := sets.New[model.ConfigKey]()
-		for _, k := range kinds {
-			out.Insert(model.ConfigKey{Kind: k, Name: "a.default.svc.cluster.local", Namespace: "default"})
-		}
-		return out
-	}
-	tests := []struct {
-		name string
-		req  *model.PushRequest
-		want bool
-	}{
-		{name: "service entry", req: &model.PushRequest{ConfigsUpdated: updates(kind.ServiceEntry)}, want: true},
-		{name: "dns name", req: &model.PushRequest{ConfigsUpdated: updates(kind.ServiceEntry, kind.DNSName)}, want: true},
-		{name: "forced", req: &model.PushRequest{Forced: true, ConfigsUpdated: updates(kind.ServiceEntry)}},
-		{name: "no configs", req: &model.PushRequest{}},
-		{name: "non delta-aware kind", req: &model.PushRequest{ConfigsUpdated: updates(kind.ServiceEntry, kind.Sidecar)}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := canSendPartialNdsPush(tt.req); got != tt.want {
-				t.Fatalf("canSendPartialNdsPush() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestSupportsDeltaNDS(t *testing.T) {
 	proxy := func(autoAllocate bool) *model.Proxy {
 		return &model.Proxy{

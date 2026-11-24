@@ -47,16 +47,14 @@ type ConfigGenerator interface {
 	BuildDeltaHTTPRoutes(node *model.Proxy, req *model.PushRequest,
 		watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool)
 
-	// BuildNameTable returns list of hostnames and the associated IPs
+	// BuildNameTable returns list of hostnames and the associated IPs. This is the SotW NDS output.
 	BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable
 
-	// BuildNameTables returns one DNS resource per service hostname. This is the full Delta NDS output.
-	BuildNameTables(node *model.Proxy, push *model.PushContext) []*discovery.Resource
-
-	// BuildDeltaNameTable returns the DNS resources of the updated hostnames and the removed hostnames.
-	// This is the partial Delta NDS output.
+	// BuildDeltaNameTable returns the DNS resources affected by a push (every hostname on a full push, only the
+	// updated ones on a partial push) and the previously sent hostnames that no longer produce any name.
+	// This is the Delta NDS output.
 	BuildDeltaNameTable(proxy *model.Proxy, updates *model.PushRequest,
-		watched *model.WatchedResource) ([]*discovery.Resource, []string)
+		watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool)
 
 	// BuildExtensionConfiguration returns the list of extension configuration for the given proxy and list of names. This is the ECDS output.
 	BuildExtensionConfiguration(node *model.Proxy, push *model.PushContext, extensionConfigNames []string,

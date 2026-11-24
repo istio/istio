@@ -101,19 +101,29 @@ func resourceTables(t *testing.T, resources []*discovery.Resource) map[string]ma
 	return out
 }
 
-func buildFull(proxy *model.Proxy, push *model.PushContext) []*discovery.Resource {
-	return (&ConfigGeneratorImpl{}).BuildNameTables(proxy, push)
+func buildFull(t *testing.T, proxy *model.Proxy, push *model.PushContext) []*discovery.Resource {
+	t.Helper()
+	resources, removed, details, usedDelta := (&ConfigGeneratorImpl{}).BuildDeltaNameTable(proxy, &model.PushRequest{Push: push, Forced: true}, deltaTestWatch())
+	if usedDelta || details.Incremental || removed != nil {
+		t.Fatalf("full push: usedDelta=%v incremental=%v removed=%v, want a full push", usedDelta, details.Incremental, removed)
+	}
+	return resources
 }
 
-func buildDelta(proxy *model.Proxy, req *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, []string) {
-	return (&ConfigGeneratorImpl{}).BuildDeltaNameTable(proxy, req, watched)
+func buildDelta(t *testing.T, proxy *model.Proxy, req *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, []string) {
+	t.Helper()
+	resources, removed, details, usedDelta := (&ConfigGeneratorImpl{}).BuildDeltaNameTable(proxy, req, watched)
+	if !usedDelta || !details.Incremental {
+		t.Fatalf("partial push: usedDelta=%v incremental=%v, want a partial push", usedDelta, details.Incremental)
+	}
+	return resources, removed
 }
 
 func TestBuildDeltaNameTableHandlesNilScope(t *testing.T) {
 	push := deltaTestPush()
 	proxy := deltaTestProxy(push)
 	proxy.SidecarScope = nil
-	if resources := buildFull(proxy, push); len(resources) != 0 {
+	if resources := buildFull(t, proxy, push); len(resources) != 0 {
 		t.Fatalf("unexpected nil-scope response: %v", resources)
 	}
 }
@@ -127,7 +137,7 @@ func TestBuildDeltaNameTableFullPushGroupsByHostname(t *testing.T) {
 		80: {deltaTestPod("db-0", "10.0.0.2"), deltaTestPod("db-1", "10.0.0.3")},
 	})
 
-	resources := buildFull(deltaTestProxy(push), push)
+	resources := buildFull(t, deltaTestProxy(push), push)
 	want := []string{"db.default.svc.cluster.local", "example.com", "reviews.default.svc.cluster.local"}
 	if diff := cmp.Diff(want, slices.Sort(slices.Map(resources, func(r *discovery.Resource) string { return r.Name }))); diff != "" {
 		t.Fatalf("unexpected resource names (-want +got):\n%s", diff)
@@ -157,6 +167,32 @@ func TestBuildDeltaNameTableFullPushGroupsByHostname(t *testing.T) {
 	}
 }
 
+func TestBuildDeltaNameTableFallsBackToFullPush(t *testing.T) {
+	a := deltaTestService("a.default.svc.cluster.local", "10.0.0.1", provider.Kubernetes)
+	b := deltaTestService("b.default.svc.cluster.local", "10.0.0.2", provider.Kubernetes)
+	push := deltaTestPush(a, b)
+	proxy := deltaTestProxy(push)
+	cases := map[string]struct {
+		req     *model.PushRequest
+		watched *model.WatchedResource
+	}{
+		"update not keyed by hostname": {deltaTestRequest(push, kind.Sidecar, "sidecar"), deltaTestWatch(a.Hostname.String())},
+		"no watch":                     {deltaTestRequest(push, kind.ServiceEntry, a.Hostname.String()), nil},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			resources, removed, details, usedDelta := (&ConfigGeneratorImpl{}).BuildDeltaNameTable(proxy, tc.req, tc.watched)
+			if usedDelta || details.Incremental || removed != nil {
+				t.Fatalf("usedDelta=%v incremental=%v removed=%v, want a full push", usedDelta, details.Incremental, removed)
+			}
+			want := []string{a.Hostname.String(), b.Hostname.String()}
+			if diff := cmp.Diff(want, slices.Sort(slices.Map(resources, func(r *discovery.Resource) string { return r.Name }))); diff != "" {
+				t.Fatalf("unexpected resource names (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestBuildDeltaNameTableAliasesDependOnProxy(t *testing.T) {
 	kube := deltaTestService("reviews.default.svc.cluster.local", "10.0.0.1", provider.Kubernetes)
 	push := deltaTestPush(kube)
@@ -175,7 +211,7 @@ func TestBuildDeltaNameTableAliasesDependOnProxy(t *testing.T) {
 			proxy := deltaTestProxy(push)
 			proxy.Metadata.Namespace = tt.namespace
 			proxy.DNSDomain = tt.domain
-			resources := buildFull(proxy, push)
+			resources := buildFull(t, proxy, push)
 			got := resourceTables(t, resources)[kube.Hostname.String()][kube.Hostname.String()].GetAliases()
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Fatalf("unexpected aliases (-want +got):\n%s", diff)
@@ -190,7 +226,7 @@ func TestBuildDeltaNameTablePrefersKubernetesDecorator(t *testing.T) {
 	kube := deltaTestService(hostname, "10.0.0.1", provider.Kubernetes)
 	for _, services := range [][]*model.Service{{external, kube}, {kube, external}} {
 		push := deltaTestPush(services...)
-		resources := buildFull(deltaTestProxy(push), push)
+		resources := buildFull(t, deltaTestProxy(push), push)
 		got := resourceTables(t, resources)[hostname][hostname]
 		if got == nil || got.Registry != string(provider.Kubernetes) || !cmp.Equal(got.Ips, []string{"10.0.0.1"}) {
 			t.Fatalf("Kubernetes service did not override its decorator: %v", got)
@@ -201,7 +237,7 @@ func TestBuildDeltaNameTablePrefersKubernetesDecorator(t *testing.T) {
 func TestBuildDeltaNameTableAddsService(t *testing.T) {
 	service := deltaTestService("reviews.default.svc.cluster.local", "10.0.0.1", provider.Kubernetes)
 	push := deltaTestPush(service)
-	resources, removed := buildDelta(deltaTestProxy(push),
+	resources, removed := buildDelta(t, deltaTestProxy(push),
 		deltaTestRequest(push, kind.ServiceEntry, service.Hostname.String()), deltaTestWatch())
 	if len(removed) != 0 {
 		t.Fatalf("unexpected service-add removals: %v", removed)
@@ -216,7 +252,7 @@ func TestBuildDeltaNameTableMergesSameHostnameServices(t *testing.T) {
 	first := deltaTestService("shared.example.com", "192.0.2.1", provider.External)
 	second := deltaTestService("shared.example.com", "192.0.2.2", provider.External)
 	push := deltaTestPush(first, second)
-	resources, removed := buildDelta(deltaTestProxy(push),
+	resources, removed := buildDelta(t, deltaTestProxy(push),
 		deltaTestRequest(push, kind.ServiceEntry, first.Hostname.String()), deltaTestWatch(first.Hostname.String()))
 	if len(removed) != 0 {
 		t.Fatalf("unexpected same-host removals: %v", removed)
@@ -231,7 +267,7 @@ func TestBuildDeltaNameTableRemovesDeletedService(t *testing.T) {
 	kept := deltaTestService("kept.example.com", "192.0.2.1", provider.External)
 	push := deltaTestPush(kept)
 
-	resources, removed := buildDelta(deltaTestProxy(push),
+	resources, removed := buildDelta(t, deltaTestProxy(push),
 		deltaTestRequest(push, kind.ServiceEntry, "deleted.example.com"), deltaTestWatch("deleted.example.com", kept.Hostname.String()))
 	if len(resources) != 0 {
 		t.Fatalf("unexpected delete resources: %v", resources)
@@ -241,7 +277,7 @@ func TestBuildDeltaNameTableRemovesDeletedService(t *testing.T) {
 	}
 
 	// A hostname the client never received is not removed, and nothing is sent.
-	resources, removed = buildDelta(deltaTestProxy(push),
+	resources, removed = buildDelta(t, deltaTestProxy(push),
 		deltaTestRequest(push, kind.ServiceEntry, "unknown.example.com"), deltaTestWatch(kept.Hostname.String()))
 	if resources != nil || removed != nil {
 		t.Fatalf("unknown hostname produced a response: resources=%v removed=%v", resources, removed)
@@ -257,7 +293,7 @@ func TestBuildDeltaNameTableOnlySendsUpdatedHostnames(t *testing.T) {
 	push := deltaTestPush(db, colliding, external, child)
 	push.AddServiceInstances(db, map[int][]*model.IstioEndpoint{80: {deltaTestPod("db-0", "10.0.0.1")}})
 
-	resources, removed := buildDelta(deltaTestProxy(push),
+	resources, removed := buildDelta(t, deltaTestProxy(push),
 		deltaTestRequest(push, kind.DNSName, db.Hostname.String()),
 		deltaTestWatch(db.Hostname.String(), colliding.Hostname.String(), external.Hostname.String(), child.Hostname.String()))
 	if len(removed) != 0 {
@@ -277,7 +313,7 @@ func TestBuildDeltaNameTableHeadlessScaleDown(t *testing.T) {
 	push := deltaTestPush(headless)
 	push.AddServiceInstances(headless, map[int][]*model.IstioEndpoint{80: {deltaTestPod("db-0", "10.0.0.1")}})
 
-	resources, removed := buildDelta(deltaTestProxy(push),
+	resources, removed := buildDelta(t, deltaTestProxy(push),
 		deltaTestRequest(push, kind.ServiceEntry, headless.Hostname.String()), deltaTestWatch(headless.Hostname.String()))
 	if len(removed) != 0 {
 		t.Fatalf("scale-down must replace the hostname resource: removed=%v", removed)
@@ -292,7 +328,7 @@ func TestBuildDeltaNameTableHeadlessScaleToZero(t *testing.T) {
 	headless := deltaTestHeadless()
 	push := deltaTestPush(headless)
 
-	resources, removed := buildDelta(deltaTestProxy(push),
+	resources, removed := buildDelta(t, deltaTestProxy(push),
 		deltaTestRequest(push, kind.DNSName, headless.Hostname.String()), deltaTestWatch(headless.Hostname.String()))
 	if len(resources) != 0 {
 		t.Fatalf("unexpected resources: %v", resources)
@@ -309,4 +345,32 @@ func stringsBeforeDot(value string) string {
 		}
 	}
 	return value
+}
+
+func TestCanSendPartialNdsPush(t *testing.T) {
+	updates := func(kinds ...kind.Kind) sets.Set[model.ConfigKey] {
+		out := sets.New[model.ConfigKey]()
+		for _, k := range kinds {
+			out.Insert(model.ConfigKey{Kind: k, Name: "a.default.svc.cluster.local", Namespace: "default"})
+		}
+		return out
+	}
+	tests := []struct {
+		name string
+		req  *model.PushRequest
+		want bool
+	}{
+		{name: "service entry", req: &model.PushRequest{ConfigsUpdated: updates(kind.ServiceEntry)}, want: true},
+		{name: "dns name", req: &model.PushRequest{ConfigsUpdated: updates(kind.ServiceEntry, kind.DNSName)}, want: true},
+		{name: "forced", req: &model.PushRequest{Forced: true, ConfigsUpdated: updates(kind.ServiceEntry)}},
+		{name: "no configs", req: &model.PushRequest{}},
+		{name: "non delta-aware kind", req: &model.PushRequest{ConfigsUpdated: updates(kind.ServiceEntry, kind.Sidecar)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := canSendPartialNdsPush(tt.req); got != tt.want {
+				t.Fatalf("canSendPartialNdsPush() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

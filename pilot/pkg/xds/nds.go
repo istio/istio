@@ -41,9 +41,6 @@ var _ model.XdsDeltaResourceGenerator = &NdsGenerator{}
 
 var minimumDeltaNDSVersion = &model.IstioVersion{Major: 1, Minor: 32, Patch: 0}
 
-// Configs whose key name is the hostname of the name table they affect.
-var deltaAwareNdsConfigs = sets.New(kind.ServiceEntry, kind.DNSName)
-
 // Map of all configs that do not impact NDS
 var skippedNdsConfigs = func() sets.Set[kind.Kind] {
 	s := sets.New(
@@ -111,12 +108,8 @@ func (n NdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	if !needsPush {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
-	if watched == nil || !canSendPartialNdsPush(req) {
-		// The xDS server removes the previously sent resources that are not part of a full push.
-		return n.ConfigGenerator.BuildNameTables(proxy, req.Push), nil, model.DefaultXdsLogDetails, false, nil
-	}
-	resources, removed := n.ConfigGenerator.BuildDeltaNameTable(proxy, req, watched)
-	return resources, removed, model.XdsLogDetails{Incremental: true}, true, nil
+	resources, removed, details, usedDelta := n.ConfigGenerator.BuildDeltaNameTable(proxy, req, watched)
+	return resources, removed, details, usedDelta, nil
 }
 
 func supportsDeltaNDS(proxy *model.Proxy) bool {
@@ -127,19 +120,6 @@ func supportsDeltaNDS(proxy *model.Proxy) bool {
 // ServiceEntry when one changes, so only full tables are consistent.
 func usesLegacyAutoAllocation(proxy *model.Proxy) bool {
 	return !features.EnableIPAutoallocate && bool(proxy.Metadata.DNSAutoAllocate)
-}
-
-// canSendPartialNdsPush reports whether a push only needs the name tables of the updated hostnames.
-func canSendPartialNdsPush(req *model.PushRequest) bool {
-	if req.Forced || len(req.ConfigsUpdated) == 0 {
-		return false
-	}
-	for cfg := range req.ConfigsUpdated {
-		if !deltaAwareNdsConfigs.Contains(cfg.Kind) {
-			return false
-		}
-	}
-	return true
 }
 
 // filterNdsPush retains the exact update keys needed to calculate additions and removals.

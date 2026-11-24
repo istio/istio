@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config/schema/kind"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	dnsServer "istio.io/istio/pkg/dns/server"
 	"istio.io/istio/pkg/util/sets"
@@ -32,16 +33,20 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 	return dnsServer.BuildNameTable(nameTableConfig(node, push))
 }
 
-// BuildNameTables returns one NDS resource per service hostname in the proxy's scope, named by that hostname.
-func (configgen *ConfigGeneratorImpl) BuildNameTables(node *model.Proxy, push *model.PushContext) []*discovery.Resource {
-	return toPerHostResources(dnsServer.BuildNameTablesByHostname(nameTableConfig(node, push), nil))
-}
+// Configs whose key name is the hostname of the name table they affect.
+var deltaAwareNdsConfigs = sets.New(kind.ServiceEntry, kind.DNSName)
 
-// BuildDeltaNameTable returns the NDS resources of the hostnames updated by a partial push, and the previously sent
-// hostnames that no longer produce any name.
+// BuildDeltaNameTable returns one NDS resource per hostname affected by the push, named by that hostname, and the
+// previously sent hostnames that no longer produce any name. If the push can't be limited to the updated hostnames,
+// it returns every hostname in the proxy's scope.
 func (configgen *ConfigGeneratorImpl) BuildDeltaNameTable(proxy *model.Proxy, updates *model.PushRequest,
 	watched *model.WatchedResource,
-) ([]*discovery.Resource, []string) {
+) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
+	if watched == nil || !canSendPartialNdsPush(updates) {
+		// The xDS server removes the previously sent resources that are not part of a full push.
+		tables := dnsServer.BuildNameTablesByHostname(nameTableConfig(proxy, updates.Push), nil)
+		return toPerHostResources(tables), nil, model.DefaultXdsLogDetails, false
+	}
 	hostnames := sets.NewWithLength[string](len(updates.ConfigsUpdated))
 	for key := range updates.ConfigsUpdated {
 		hostnames.Insert(key.Name)
@@ -53,10 +58,25 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaNameTable(proxy *model.Proxy, up
 			removed = append(removed, hostname)
 		}
 	}
-	if len(tables) == 0 && len(removed) == 0 {
-		return nil, nil
+	// Nil resources and removals skip the response.
+	var resources []*discovery.Resource
+	if len(tables) > 0 {
+		resources = toPerHostResources(tables)
 	}
-	return toPerHostResources(tables), removed
+	return resources, removed, model.XdsLogDetails{Incremental: true}, true
+}
+
+// canSendPartialNdsPush reports whether a push only needs the name tables of the updated hostnames.
+func canSendPartialNdsPush(req *model.PushRequest) bool {
+	if req.Forced || len(req.ConfigsUpdated) == 0 {
+		return false
+	}
+	for cfg := range req.ConfigsUpdated {
+		if !deltaAwareNdsConfigs.Contains(cfg.Kind) {
+			return false
+		}
+	}
+	return true
 }
 
 func nameTableConfig(node *model.Proxy, push *model.PushContext) dnsServer.Config {
