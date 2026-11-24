@@ -360,7 +360,7 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 			}
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
-			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
+			writeFromCluster(content.WriteIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
 			getIstiodLogs(runner, config, resources, namespace, pod, &mandatoryWg)
 
 		case common.IsOperatorContainer(params.ClusterVersion, container):
@@ -407,6 +407,22 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 			writeFiles(dir, out, params.DryRun)
 		}
 		log.Infof("Done with %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+	}()
+}
+
+// writeFromCluster is like getFromCluster, but f writes its results to files under dir itself.
+func writeFromCluster(f func(params *content.Params, dir string) error, params *content.Params, dir string, wg *sync.WaitGroup) {
+	startTime := time.Now()
+	name := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
+	wg.Add(1)
+	log.Infof("Waiting on %s", name)
+	go func() {
+		defer func() {
+			wg.Done()
+			logRuntime(startTime, "Done getting from cluster for %v", name)
+		}()
+		appendGlobalErr(filterUnknownBinaryErrors(f(params, dir)))
+		log.Infof("Done with %s", name)
 	}()
 }
 

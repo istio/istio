@@ -304,6 +304,10 @@ type NodeMetadata struct {
 	// Note: this only impacts sidecars and gateways; ztunnel and waypoint proxy unconditionally use HBONE.
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
 
+	// EnableHBONEConnectWait delays upstream connection readiness until HBONE CONNECT acceptance.
+	// Requires the contrib Istio HBONE transport socket and connection pool with tunneling support in the proxy.
+	EnableHBONEConnectWait StringBool `json:"ENABLE_HBONE_CONNECT_WAIT,omitempty"`
+
 	// DisableHBONESend, will disable sending HBONE.
 	// Warning: If this is enabled, ambient may break; use with caution.
 	DisableHBONESend StringBool `json:"DISABLE_HBONE_SEND,omitempty"`

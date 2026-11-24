@@ -1109,7 +1109,17 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) krtz(w http.ResponseWriter, req *http.Request) {
-	writeJSON(w, s.krtDebugger, req)
+	w.Header().Set("Content-Type", "application/json")
+	indent := ""
+	if req.URL.Query().Has("pretty") {
+		indent = "    "
+	}
+	if err := s.krtDebugger.WriteJSON(req.Context(), w, indent); err != nil && req.Context().Err() == nil {
+		// The status code is already sent at this point, so instead we abort the response
+		// so the client sees a truncated body rather than a complete-looking one.
+		istiolog.Warnf("failed to write krtz debug response, aborting it: %v", err)
+		panic(http.ErrAbortHandler)
+	}
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {

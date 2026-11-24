@@ -250,7 +250,7 @@ status:
       group: ""
       kind: Service
       name: echo-1
-      port: 8080
+      port: 80
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
@@ -267,7 +267,7 @@ status:
       group: ""
       kind: Service
       name: echo-1
-      port: 80
+      port: 34000
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute

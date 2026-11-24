@@ -204,6 +204,10 @@ type CLIClient interface {
 	// PodExec takes a command and the pod data to run the command in the specified pod.
 	PodExec(podName, podNamespace, container string, command string) (stdout string, stderr string, err error)
 
+	// PodExecStream runs the commands in the specified pod like PodExecCommands, but copies stdout to the
+	// given writer as it arrives instead of buffering it. Use it for commands with large output.
+	PodExecStream(ctx context.Context, podName, podNamespace, container string, commands []string, stdout io.Writer) (stderr string, err error)
+
 	// PodLogs retrieves the logs for the given pod.
 	PodLogs(ctx context.Context, podName string, podNamespace string, container string, previousLog bool) (string, error)
 
@@ -953,6 +957,14 @@ func (c *client) Revision() string {
 }
 
 func (c *client) PodExecCommands(podName, podNamespace, container string, commands []string) (stdout, stderr string, err error) {
+	var stdoutBuf bytes.Buffer
+	stderr, err = c.PodExecStream(context.Background(), podName, podNamespace, container, commands, &stdoutBuf)
+	return stdoutBuf.String(), stderr, err
+}
+
+func (c *client) PodExecStream(ctx context.Context, podName, podNamespace, container string, commands []string,
+	stdout io.Writer,
+) (stderr string, err error) {
 	defer func() {
 		if err != nil {
 			if len(stderr) > 0 {
@@ -982,11 +994,11 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 
 	wrapper, upgrader, err := roundTripperFor(c.config)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	exec, err := remotecommand.NewSPDYExecutorForTransports(wrapper, spdy.NewUpgraderForStreaming(upgrader), "POST", req.URL())
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
 	// Fallback executor is default, unless feature flag is explicitly disabled.
@@ -994,27 +1006,26 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 		// WebSocketExecutor must be "GET" method as described in RFC 6455 Sec. 4.1 (page 17).
 		websocketExec, err := remotecommand.NewWebSocketExecutor(c.config, "GET", req.URL().String())
 		if err != nil {
-			return "", "", err
+			return "", err
 		}
 		exec, err = remotecommand.NewFallbackExecutor(websocketExec, exec, func(err error) bool {
 			return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
 		})
 		if err != nil {
-			return "", "", err
+			return "", err
 		}
 	}
 
-	var stdoutBuf, stderrBuf bytes.Buffer
-	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
+	var stderrBuf bytes.Buffer
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  nil,
-		Stdout: &stdoutBuf,
+		Stdout: stdout,
 		Stderr: &stderrBuf,
 		Tty:    false,
 	})
 
-	stdout = stdoutBuf.String()
 	stderr = stderrBuf.String()
-	return stdout, stderr, err
+	return stderr, err
 }
 
 func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {

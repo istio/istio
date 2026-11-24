@@ -233,6 +233,86 @@ func TestRequestPrincipal(t *testing.T) {
 	}
 }
 
+func TestRequestPayloadGenerator(t *testing.T) {
+	cases := []struct {
+		name    string
+		key     string
+		forTCP  bool
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "single-claim",
+			key:  "request.auth.payload[idp][sub]",
+			want: `
+        metadata:
+          filter: envoy.filters.http.jwt_authn
+          path:
+          - key: idp
+          - key: sub
+          value:
+            or_match:
+              value_matchers:
+              - list_match:
+                  one_of:
+                    string_match:
+                      exact: foo
+              - string_match:
+                  exact: foo
+`,
+		},
+		{
+			name: "nested-claim",
+			key:  "request.auth.payload[idp][a][b]",
+			want: `
+        metadata:
+          filter: envoy.filters.http.jwt_authn
+          path:
+          - key: idp
+          - key: a
+          - key: b
+          value:
+            or_match:
+              value_matchers:
+              - list_match:
+                  one_of:
+                    string_match:
+                      exact: foo
+              - string_match:
+                  exact: foo
+`,
+		},
+		{
+			name:    "missing-claim",
+			key:     "request.auth.payload[idp]",
+			wantErr: true,
+		},
+		{
+			name:    "tcp",
+			key:     "request.auth.payload[idp][sub]",
+			forTCP:  true,
+			wantErr: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := requestPayloadGenerator{}.extendedPrincipal(tc.key, []string{"foo"}, tc.forTCP)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("wanted error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(got, yamlPrincipal(t, tc.want), protocmp.Transform()); diff != "" {
+				t.Errorf("diff detected: %v", diff)
+			}
+		})
+	}
+}
+
 func TestGenerator(t *testing.T) {
 	cases := []struct {
 		name   string

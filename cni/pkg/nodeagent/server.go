@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -47,6 +48,19 @@ type MeshDataplane interface {
 	AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error
 	RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error
 
+	// ReconcileEnrollment checks that each of the given already-enrolled pods still runs in the
+	// network namespace this agent enrolled it in, and re-enrolls the ones that do not. A pod keeps
+	// its UID when its sandbox is replaced, so such a pod produces no add or delete event, and its
+	// redirection rules and its ztunnel proxy stay behind in the network namespace that is already
+	// gone. The informer runs it for a pod whose IPs changed, which is the observable side of a
+	// replaced sandbox, and periodically for all enrolled pods as the backstop for the drift no pod
+	// update reports: a network namespace replaced without a pod IP change, and an add that never
+	// reached this agent.
+	//
+	// The host probe ipset is left alone. Pod adds and removals keep it, and pruning it against the
+	// informer's view of enrolled pods would race adds that view has not caught up with yet.
+	ReconcileEnrollment(ctx context.Context, ambientPods []*corev1.Pod) error
+
 	// SyncHostProbeIPSet ensures an already-enrolled pod's probe IPs are present in the
 	// host probe ipset. It is an idempotent upsert used by the informer to self-heal
 	// entries that may have been pruned by a startup snapshot that ran before the pod's
@@ -66,6 +80,8 @@ type Server struct {
 	isReady *atomic.Value
 
 	cniServerStopFunc func()
+
+	owner agentOwner
 }
 
 func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, args AmbientArgs) (*Server, error) {
@@ -78,6 +94,12 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		ctx:        ctx,
 		kubeClient: client,
 		isReady:    ready,
+	}
+
+	// Claim the node before creating any node state, so an agent that is still shutting
+	// down sees that it has been replaced.
+	if pluginSocket != "" {
+		s.owner = claimAgentOwner(filepath.Dir(pluginSocket), PodName)
 	}
 
 	s.dataplane, err = initMeshDataplane(client, args)
@@ -129,6 +151,17 @@ func (s *Server) Start() {
 func (s *Server) Stop(skipCleanup bool) {
 	s.cniServerStopFunc()
 	s.dataplane.Stop(skipCleanup)
+	if !skipCleanup {
+		s.owner.release()
+	}
+}
+
+// Replaced reports whether a newer node agent has started on this node since this one
+// did. That happens when this agent's pod is replaced while it is still shutting down,
+// for example after a force delete; the node's CNI config, sockets and host rules then
+// belong to the new agent.
+func (s *Server) Replaced() bool {
+	return s.owner.replaced()
 }
 
 // ShouldStopCleanup of istio-cni config and binary when upgrading or on node reboot

@@ -165,12 +165,16 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 	hasRequired := false
 
 	for i, jwtRule := range jwtRules {
+		payloadInMetadata := filters.EnvoyJwtFilterPayload
+		if jwtRule.OutputPayloadToMetadata != "" {
+			payloadInMetadata = jwtRule.OutputPayloadToMetadata
+		}
 		provider := &envoy_jwt.JwtProvider{
 			Issuer:               jwtRule.Issuer,
 			Audiences:            jwtRule.Audiences,
 			Forward:              jwtRule.ForwardOriginalToken,
 			ForwardPayloadHeader: jwtRule.OutputPayloadToHeader,
-			PayloadInMetadata:    filters.EnvoyJwtFilterPayload,
+			PayloadInMetadata:    payloadInMetadata,
 			NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
 				SpaceDelimitedClaims: buildSpaceDelimitedClaims(jwtRule.SpaceDelimitedClaims),
 			},

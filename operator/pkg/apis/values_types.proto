@@ -1055,7 +1055,7 @@ message PilotConfig {
 
   // Pod disruption budget for istiod.
   // See https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-  google.protobuf.Struct pdb = 66;
+  PodDisruptionBudgetConfig pdb = 66;
 
   // Annotations for the istiod deployment.
   google.protobuf.Struct deploymentAnnotations = 67;
@@ -1066,21 +1066,38 @@ message PilotConfig {
   // The name of the ztunnel that istiod should trust for mTLS.
   string trustedZtunnelName = 69;
 
-  // Additional labels for the istiod PodDisruptionBudget.
-  google.protobuf.Struct pdbLabels = 70;
-
   // Minimum number of seconds a newly created Pilot pod must be ready, without any of its containers crashing,
   // for it to be considered available (see `minReadySeconds` here:
   // https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
   // Defaults to 0 (the pod is considered available as soon as it is ready).
   int32 minReadySeconds = 71;
 
+  // Traffic distribution preference for the istiod service.
+  // See https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
+  string trafficDistribution = 72;
+
   // Run one istiod Deployment, and one HorizontalPodAutoscaler, per listed zone instead of a single one.
-  repeated PilotZonalDeployment zonalDeployments = 72;
+  repeated PilotZonalDeployment zonalDeployments = 73;
 
   // Node label each zone in `zonalDeployments` is pinned to through `nodeSelector`.
   // Defaults to `topology.kubernetes.io/zone`.
-  string zonalDeploymentsTopologyKey = 73;
+  string zonalDeploymentsTopologyKey = 74;
+}
+
+// Configuration for the istiod PodDisruptionBudget.
+message PodDisruptionBudgetConfig {
+  // Minimum available pods (integer or percentage string). Ignored if maxUnavailable is set.
+  google.protobuf.Value minAvailable = 1;
+
+  // Maximum unavailable pods (integer or percentage string). Takes precedence over minAvailable.
+  google.protobuf.Value maxUnavailable = 2;
+
+  // Eviction policy for unhealthy pods guarded by the PodDisruptionBudget.
+  // See https://kubernetes.io/blog/2023/01/06/unhealthy-pod-eviction-policy-for-pdbs/
+  string unhealthyPodEvictionPolicy = 3;
+
+  // Additional labels for the istiod PodDisruptionBudget.
+  map<string, string> labels = 4;
 }
 
 message PilotTaintControllerConfig {
@@ -1241,6 +1258,9 @@ message ProxyConfig {
   // Sets the number of successive failed probes before indicating readiness failure.
   uint32 readinessFailureThreshold = 22;
 
+  // Sets the timeout for readiness probes in seconds.
+  uint32 readinessTimeoutSeconds = 44;
+
   // Configures the seccomp profile for the istio-validation and istio-proxy containers.
   //
   // See: https://kubernetes.io/docs/tutorials/security/seccomp/
@@ -1279,6 +1299,9 @@ message ProxyConfig {
 
   // A comma separated list of outbound ports for which traffic is to be redirected to Envoy, regardless of the destination IP.
   string includeOutboundPorts = 39;
+
+  // The variant of the proxy container image to use. Options are "debug" or "distroless". Unset will use global.variant.
+  string variant = 45;
 }
 
 message StartupProbe {

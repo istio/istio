@@ -127,6 +127,10 @@ _internal_defaults_do_not_set:
   ipFamilyPolicy: ""
   ipFamilies: []
 
+  # Traffic distribution preference for the istiod Service.
+  # See https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
+  trafficDistribution: ""
+
   # Ambient mode only.
   # Set this if you install ztunnel to a different namespace from `istiod`.
   # If set, `istiod` will allow connections from trusted node proxy ztunnels
@@ -360,6 +364,10 @@ _internal_defaults_do_not_set:
     proxy:
       image: proxyv2
 
+      # Variant of the proxy image to use. If unset, global.variant is used.
+      # Currently supported are: [debug, distroless]
+      variant: ""
+
       # This controls the 'policy' in the sidecar injector.
       autoInject: enabled
 
@@ -408,6 +416,10 @@ _internal_defaults_do_not_set:
 
       # The period between readiness probes.
       readinessPeriodSeconds: 15
+
+      # The timeout for readiness probes in seconds. It is also passed to the proxy as
+      # PROXY_READINESS_PROBE_TIMEOUT_SECONDS to bound the readiness checks against Envoy.
+      readinessTimeoutSeconds: 3
 
       # Enables or disables a startup probe.
       # For optimal startup times, changing this should be tied to the readiness probe values.

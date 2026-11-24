@@ -5,7 +5,7 @@ This chart installs resources shared by all Istio revisions. This includes Istio
 ## Setup Repo Info
 
 ```console
-helm repo add istio https://istio-release.storage.googleapis.com/charts
+helm repo add istio https://blob.istio.io/istio-release/charts
 helm repo update
 ```
 
@@ -30,6 +30,6 @@ For consistency, the same profiles are used across each chart, even if they do n
 
 Explicitly set values have highest priority, then profile settings, then chart defaults.
 
-As an implementation detail of profiles, the default values for the chart are all nested under `defaults`.
+As an implementation detail of profiles, the default values for the chart are all nested under `_internal_defaults_do_not_set`.
 When configuring the chart, you should not include this.
-That is, `--set some.field=true` should be passed, not `--set defaults.some.field=true`.
+That is, `--set some.field=true` should be passed, not `--set _internal_defaults_do_not_set.some.field=true`.

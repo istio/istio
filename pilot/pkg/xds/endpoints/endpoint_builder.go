@@ -815,14 +815,14 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		meta = e.Metadata()
 	}
 
-	// detect if mTLS is possible for this endpoint, used later during ep filtering
-	// this must be done while converting IstioEndpoints because we still have workload labels
-	if !mtlsEnabled {
+	tunnel := useTunnel(b, e, toServiceWaypoint)
+	// Only direct mTLS endpoints need tlsMode; HBONE endpoints get a tunnel marker below.
+	if !mtlsEnabled || tunnel {
 		meta.TLSMode = ""
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
-	if useTunnel(b, e, toServiceWaypoint) {
+	if tunnel {
 		// Currently, Envoy cannot support tunneling to multiple IP families.
 		// TODO(https://github.com/envoyproxy/envoy/issues/36318)
 		address, port := e.Addresses[0], int(e.EndpointPort)
@@ -863,14 +863,11 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			Address: util.BuildInternalAddressWithIdentifier(innerAddressName, target),
 		}}
 		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
-		if b.dir != model.TrafficDirectionInboundVIP {
-			// Add TLS metadata matcher to indicate we can use HBONE for this endpoint.
-			// We skip this for service waypoint, which doesn't need to dynamically match mTLS vs HBONE.
-			ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
-				},
-			}
+		// Mark HBONE endpoints so the cluster can select the appropriate transport.
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+			},
 		}
 	} else {
 		addr := util.BuildAddress(e.Addresses[0], e.EndpointPort)

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -26,6 +27,8 @@ import (
 type Command struct {
 	Address string
 	Client  *http.Client
+	// Output receives the response body. Defaults to os.Stdout.
+	Output io.Writer
 }
 
 // Do executes an http request using the specified arguments
@@ -42,13 +45,24 @@ func (c *Command) Do(method, path, body string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
 	if resp.StatusCode > 399 && resp.StatusCode != 404 {
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
 		return fmt.Errorf("received unsuccessful status code %v: %v", resp.StatusCode, string(respBody))
 	}
-	fmt.Println(string(respBody))
-	return nil
+	// Copy the body instead of reading it into memory. Some responses (e.g. debug/krtz) can be quite large.
+	if _, err := io.Copy(c.out(), resp.Body); err != nil {
+		return fmt.Errorf("response was cut off, output is incomplete: %w", err)
+	}
+	_, err = fmt.Fprintln(c.out())
+	return err
+}
+
+func (c *Command) out() io.Writer {
+	if c.Output != nil {
+		return c.Output
+	}
+	return os.Stdout
 }
