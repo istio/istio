@@ -480,6 +480,10 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 
 	// Check identities against the same live snapshot that produces these endpoints.
 	b.unknownIdentity = b.hasUnknownIdentity(svcEps)
+	if b.unknownIdentity {
+		// The caller will skip this resource; avoid building an assignment it will discard.
+		return buildEmptyClusterLoadAssignment(b.clusterName)
+	}
 
 	localityLbEndpoints := b.generate(svcEps, false)
 	if len(localityLbEndpoints) == 0 {
