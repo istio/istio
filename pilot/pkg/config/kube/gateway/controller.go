@@ -392,10 +392,10 @@ func NewController(
 	)
 
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
-	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+	status.RegisterStatusWithTagUpdates(c.status, GatewayFinalStatus, GetStatus, c.tagWatcher, opts.WithName("GatewayStatusWithOwnership")...)
 
 	ListenerSetFinalStatus := FinalListenerSetStatusCollection(ListenerSetStatus, RouteAttachments, RouteAttachmentsIndex, opts)
-	status.RegisterStatus(c.status, ListenerSetFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+	status.RegisterStatusWithTagUpdates(c.status, ListenerSetFinalStatus, GetStatus, c.tagWatcher, opts.WithName("ListenerSetStatusWithOwnership")...)
 
 	// Merge HTTP and gRPC base VirtualServices together so routes on the same
 	// gateway+hostname are combined into a single VirtualService, allowing

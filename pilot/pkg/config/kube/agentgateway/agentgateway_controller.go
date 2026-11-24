@@ -339,10 +339,10 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	agwResources, routeAttachments := c.buildAgwResources(gateways, referenceGrants, inferencePolicies, backendTLSPolicies, waypointBindings, opts)
 
 	gatewayFinalStatus := c.buildFinalGatewayStatus(gatewayInitialStatus, routeAttachments, opts)
-	status.RegisterStatus(c.status, gatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+	status.RegisterStatusWithTagUpdates(c.status, gatewayFinalStatus, GetStatus, c.tagWatcher, opts.WithName("GatewayStatusWithOwnership")...)
 
 	listenerSetFinalStatus := c.buildFinalListenerSetStatus(gateways, listenerSetIntialStatus, routeAttachments, opts)
-	status.RegisterStatus(c.status, listenerSetFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+	status.RegisterStatusWithTagUpdates(c.status, listenerSetFinalStatus, GetStatus, c.tagWatcher, opts.WithName("ListenerSetStatusWithOwnership")...)
 
 	httpRoutesByInferencePool := krt.NewIndex(c.inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
 	inferencePoolStatus, _ := InferencePoolCollection(
