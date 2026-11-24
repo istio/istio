@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 62981
+releaseNotes:
+  - |
+    **Fixed** a regression in waypoint tracing with OpenTelemetry and Datadog providers
+    that attributed spans to the waypoint's proxy service-cluster name. Waypoint spans
+    are again attributed to the destination service's fully qualified hostname.
+    OpenTelemetry providers using `serviceAttributeEnrichment: OTEL_SEMANTIC_CONVENTIONS`
+    retain their existing service naming behavior.

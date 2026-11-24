@@ -34,11 +34,19 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
+	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -303,12 +311,130 @@ func TestConfigureTracing(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hcm := &hcm.HttpConnectionManager{}
-			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0)
+			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0, nil)
 			if diff := cmp.Diff(tc.want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 			}
 			assert.Equal(t, tc.want, hcm.Tracing)
 			assert.Equal(t, tc.wantReqIDExtCtx, gotReqIDExtCtx)
+		})
+	}
+}
+
+func TestTracingServiceName(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+	test.SetForTest(t, &clusterLookupFn, func(_ *model.PushContext, _ string, _ int) (string, string, error) {
+		return "collector.example.com", "collector-cluster", nil
+	})
+
+	// Ordinary Kubernetes services, without wildcard hosts or DYNAMIC_DNS resolution.
+	var services []*model.Service
+	for i, name := range []string{"reviews", "ratings"} {
+		svc := &model.Service{
+			Hostname:   host.Name(name + ".default.svc.cluster.local"),
+			Resolution: model.ClientSideLB,
+			Attributes: model.ServiceAttributes{
+				Name:            name,
+				Namespace:       "default",
+				ServiceRegistry: provider.Kubernetes,
+			},
+			Ports: model.PortList{{Name: "http", Port: 80, Protocol: protocol.HTTP}},
+		}
+		svc.ClusterVIPs.SetAddressesFor("cluster-1", []string{fmt.Sprintf("10.0.0.%d", i+1)})
+		services = append(services, svc)
+	}
+
+	semConvProvider := fakeOpenTelemetryGrpc()
+	semConvProvider.GetOpentelemetry().ServiceAttributeEnrichment = meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS
+	for _, tc := range []struct {
+		name         string
+		provider     *meshconfig.MeshConfig_ExtensionProvider
+		nameOverride string
+	}{
+		{name: "datadog", provider: fakeDatadog()},
+		{name: "otel-grpc", provider: fakeOpenTelemetryGrpc()},
+		{name: "otel-http", provider: fakeOpenTelemetryHTTP()},
+		{name: "otel-semantic-conventions", provider: semConvProvider, nameOverride: "proxy-workload"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			meshConfig := mesh.DefaultMeshConfig()
+			meshConfig.ExtensionProviders = []*meshconfig.MeshConfig_ExtensionProvider{tc.provider}
+			meshConfig.DefaultProviders.Tracing = []string{tc.provider.Name}
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: meshConfig, Services: services, ClusterID: "cluster-1"})
+			newProxy := func(nodeType model.NodeType) *model.Proxy {
+				return cg.SetupProxy(&model.Proxy{
+					Type:    nodeType,
+					XdsNode: &core.Node{Cluster: "proxy-cluster"},
+					Metadata: &model.NodeMetadata{
+						ClusterID:    "cluster-1",
+						WorkloadName: "proxy-workload",
+					},
+				})
+			}
+			checkServiceName := func(t *testing.T, cm *hcm.HttpConnectionManager, want string) {
+				t.Helper()
+				if tc.nameOverride != "" {
+					want = tc.nameOverride
+				}
+				cfg := cm.GetTracing().GetProvider().GetTypedConfig()
+				if cfg == nil {
+					t.Fatal("missing tracing provider configuration")
+				}
+				msg, err := cfg.UnmarshalNew()
+				assert.NoError(t, err)
+				switch c := msg.(type) {
+				case *tracingcfg.DatadogConfig:
+					assert.Equal(t, c.ServiceName, want)
+				case *tracingcfg.OpenTelemetryConfig:
+					assert.Equal(t, c.ServiceName, want)
+				default:
+					t.Fatalf("unexpected tracing provider configuration: %T", msg)
+				}
+			}
+
+			t.Run("waypoint services", func(t *testing.T) {
+				lb := NewListenerBuilder(newProxy(model.Waypoint), cg.PushContext())
+				l := lb.buildWaypointInternal(nil, services)
+				for _, svc := range services {
+					t.Run(svc.Attributes.Name, func(t *testing.T) {
+						chainName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, 80)
+						chain := xdstest.ExtractFilterChain(chainName, l)
+						if chain == nil {
+							t.Fatalf("missing service filter chain %q", chainName)
+						}
+						checkServiceName(t, xdstest.ExtractHTTPConnectionManager(t, chain), svc.Hostname.String())
+					})
+				}
+			})
+
+			for _, pc := range []struct {
+				name     string
+				nodeType model.NodeType
+				class    networking.ListenerClass
+				service  *model.Service
+			}{
+				{
+					name: "sidecar with service", nodeType: model.SidecarProxy,
+					class: networking.ListenerClassSidecarOutbound, service: services[0],
+				},
+				{
+					name: "waypoint without service", nodeType: model.Waypoint,
+					class: networking.ListenerClassSidecarInbound,
+				},
+				{
+					name: "gateway", nodeType: model.Router,
+					class: networking.ListenerClassGateway,
+				},
+			} {
+				t.Run(pc.name, func(t *testing.T) {
+					proxy := newProxy(pc.nodeType)
+					lb := NewListenerBuilder(proxy, cg.PushContext())
+					cm := lb.buildHTTPConnectionManager(&httpListenerOpts{
+						class: pc.class, policySvc: pc.service, isWaypoint: proxy.IsWaypointProxy(),
+					})
+					checkServiceName(t, cm, "proxy-cluster")
+				})
+			}
 		})
 	}
 }
@@ -430,7 +556,7 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 			want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
 
 			hcm := &hcm.HttpConnectionManager{}
-			configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
+			configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0, nil)
 
 			if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
@@ -574,7 +700,7 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 	want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
 
 	hcm := &hcm.HttpConnectionManager{}
-	configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
+	configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0, nil)
 
 	if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
 		t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
@@ -2370,7 +2496,7 @@ func TestOtelConfigWithSemanticConventions(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hcmCfg := &hcm.HttpConnectionManager{}
-			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.push, tc.proxy, hcmCfg, 0)
+			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.push, tc.proxy, hcmCfg, 0, nil)
 			if diff := cmp.Diff(tc.want, hcmCfg.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 			}

@@ -66,7 +66,7 @@ func configureTracing(
 	svc *model.Service,
 ) *requestidextension.UUIDRequestIDExtensionContext {
 	tracingCfg := push.Telemetry.Tracing(proxy, svc)
-	return configureTracingFromTelemetry(tracingCfg, push, proxy, httpConnMgr, class)
+	return configureTracingFromTelemetry(tracingCfg, push, proxy, httpConnMgr, class, svc)
 }
 
 func configureTracingFromTelemetry(
@@ -75,6 +75,7 @@ func configureTracingFromTelemetry(
 	proxy *model.Proxy,
 	h *hcm.HttpConnectionManager,
 	class networking.ListenerClass,
+	svc *model.Service,
 ) *requestidextension.UUIDRequestIDExtensionContext {
 	proxyCfg := proxy.Metadata.ProxyConfigOrDefault(push.Mesh.DefaultConfig)
 	// If there is no telemetry config defined, fallback to legacy mesh config.
@@ -104,7 +105,7 @@ func configureTracingFromTelemetry(
 
 	var useCustomSampler bool
 	if spec.Provider != nil {
-		hcmTracing, hasCustomSampler, err := configureFromProviderConfig(push, proxy, spec.Provider)
+		hcmTracing, hasCustomSampler, err := configureFromProviderConfig(push, proxy, spec.Provider, svc)
 		if err != nil {
 			log.Warnf("Not able to configure requested tracing provider %q: %v", spec.Provider.Name, err)
 			return nil
@@ -161,7 +162,7 @@ func configureTracingFromTelemetry(
 const configureFromProviderConfigHandled = 15
 
 func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
-	providerCfg *meshconfig.MeshConfig_ExtensionProvider,
+	providerCfg *meshconfig.MeshConfig_ExtensionProvider, svc *model.Service,
 ) (*hcm.HttpConnectionManager_Tracing, bool, error) {
 	startChildSpan := proxy.Type == model.Router
 	useCustomSampler := false
@@ -169,8 +170,11 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	var maxTagLength uint32
 	var providerConfig typedConfigGenFn
 	var providerName string
-	// Span service name must identify the producer of the span (the proxy), not the destination.
-	if proxy.XdsNode != nil {
+	// Attribute waypoint spans to the service they represent. Other proxies use their
+	// own identity, even when destination service context is available.
+	if proxy.IsWaypointProxy() && svc != nil {
+		serviceCluster = svc.Hostname.String()
+	} else if proxy.XdsNode != nil {
 		serviceCluster = proxy.XdsNode.Cluster
 	}
 	switch provider := providerCfg.Provider.(type) {
