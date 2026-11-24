@@ -223,6 +223,14 @@ func TestNDSDeltaWireFormat(t *testing.T) {
 }
 
 func TestNDSDeltaIncrementalPushes(t *testing.T) {
+	for _, nodeType := range []model.NodeType{model.SidecarProxy, model.Router} {
+		t.Run(string(nodeType), func(t *testing.T) {
+			testNDSDeltaIncrementalPushes(t, nodeType)
+		})
+	}
+}
+
+func testNDSDeltaIncrementalPushes(t *testing.T, nodeType model.NodeType) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addService := func(name, address string) {
 		s.MemRegistry.AddService(&model.Service{
@@ -233,7 +241,7 @@ func TestNDSDeltaIncrementalPushes(t *testing.T) {
 	}
 	addService("a.example.com", "10.0.0.1")
 	s.EnsureSynced(t)
-	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{
+	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithNodeType(nodeType).WithMetadata(model.NodeMetadata{
 		DNSCapture:   true,
 		DeltaNDS:     true,
 		IstioVersion: "1.32.0",
@@ -454,4 +462,87 @@ func TestGenerate(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestNDSDeltaFilteredGateway documents Delta NDS on a gateway with PILOT_FILTER_GATEWAY_CLUSTER_CONFIG. The gateway
+// still gets every exported hostname on a full push, but updates to services that its gateways don't reference are not
+// pushed, as for SotW. Those hostnames stay stale until a full push (SotW catches up on any push), which doesn't
+// affect traffic: the gateway has no clusters for them. Waypoints are not filtered.
+func TestNDSDeltaFilteredGateway(t *testing.T) {
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: `
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: gw
+  namespace: istio-system
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - port: {number: 80, name: http, protocol: HTTP}
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: vs
+  namespace: istio-system
+spec:
+  hosts: ["*"]
+  gateways: ["gw"]
+  http:
+  - route:
+    - destination: {host: attached.example.com}
+`})
+	addService := func(name, address string) {
+		s.MemRegistry.AddService(&model.Service{
+			Hostname:       host.Name(name),
+			DefaultAddress: address,
+			Attributes:     model.ServiceAttributes{Namespace: "default"},
+		})
+	}
+	addService("attached.example.com", "10.0.0.1")
+	addService("other.example.com", "10.0.0.2")
+	s.EnsureSynced(t)
+	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).
+		WithID("router~10.0.0.1~egressgateway.istio-system~istio-system.svc.cluster.local").
+		WithMetadata(model.NodeMetadata{
+			DNSCapture:   true,
+			DeltaNDS:     true,
+			IstioVersion: "1.32.0",
+			Labels:       map[string]string{"istio": "egressgateway"},
+			Namespace:    "istio-system",
+		})
+	ips := func(response *discovery.DeltaDiscoveryResponse) map[string][]string {
+		t.Helper()
+		out := map[string][]string{}
+		for _, resource := range response.Resources {
+			var table dnsProto.NameTable
+			if err := resource.Resource.UnmarshalTo(&table); err != nil {
+				t.Fatal(err)
+			}
+			out[resource.Name] = table.GetTable()[resource.Name].GetIps()
+		}
+		return out
+	}
+
+	// The full push includes the unreferenced service.
+	want := map[string][]string{"attached.example.com": {"10.0.0.1"}, "other.example.com": {"10.0.0.2"}}
+	if diff := cmp.Diff(want, ips(ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{}))); diff != "" {
+		t.Fatalf("unexpected full push (-want +got):\n%s", diff)
+	}
+
+	// Updates to unreferenced services are not pushed.
+	addService("other.example.com", "10.0.0.20")
+	addService("new.example.com", "10.0.0.30")
+	ads.ExpectNoResponse()
+
+	// A referenced service update only sends its hostname, so other.example.com keeps its old address.
+	addService("attached.example.com", "10.0.0.10")
+	response := ads.ExpectResponse()
+	if diff := cmp.Diff(map[string][]string{"attached.example.com": {"10.0.0.10"}}, ips(response)); diff != "" {
+		t.Fatalf("unexpected partial push (-want +got):\n%s", diff)
+	}
+	ads.Request(&discovery.DeltaDiscoveryRequest{ResponseNonce: response.Nonce})
 }
