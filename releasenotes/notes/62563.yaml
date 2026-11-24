@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 62563
+
+releaseNotes:
+  - |
+    **Added** automatic annotation of `prometheus.istio.io/secure-envoy-port` during sidecar injection when `ENVOY_SECURE_METRICS_PORT` is configured on the `istio-proxy` container.
