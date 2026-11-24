@@ -50,6 +50,7 @@ const (
 	attrRequestAudiences  = "request.auth.audiences" // intended audience(s) for this authentication information.
 	attrRequestPresenter  = "request.auth.presenter" // authorized presenter of the credential.
 	attrRequestClaims     = "request.auth.claims"    // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+	attrRequestPayload    = "request.auth.payload"   // metadata key and claim names are surrounded by brackets, e.g. "request.auth.payload[idp][iss]".
 	attrDestIP            = "destination.ip"         // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
 	attrDestPort          = "destination.port"       // must be in the range [0, 65535].
 	attrDestLabel         = "destination.labels"     // label name is surrounded by brackets, e.g. "destination.labels[version]".
@@ -250,6 +251,8 @@ func ValidateAttribute(key string, values []string) error {
 	case isEqual(key, attrRequestPresenter):
 	case hasPrefix(key, attrRequestClaims):
 		return validateMapKey(key)
+	case hasPrefix(key, attrRequestPayload):
+		return validatePayloadKey(key)
 	case isEqual(key, attrDestIP):
 		return ValidateIPs(values)
 	case isEqual(key, attrDestPort):
@@ -315,6 +318,15 @@ func validateMapKey(key string) error {
 		return nil
 	}
 	return fmt.Errorf("bad key (%s): should have format a[b]", key)
+}
+
+var payloadKeyRegex = regexp.MustCompile(`^(\[[^\[\]]+\]){2,}$`)
+
+func validatePayloadKey(key string) error {
+	if payloadKeyRegex.MatchString(strings.TrimPrefix(key, attrRequestPayload)) {
+		return nil
+	}
+	return fmt.Errorf("bad key (%s): should have format %s[key][claim]", key, attrRequestPayload)
 }
 
 // ValidCipherSuites contains a list of all ciphers supported in Gateway.server.tls.cipherSuites

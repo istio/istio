@@ -94,6 +94,10 @@ type MergedGateway struct {
 	// clusters to be sent to the workload
 	ContainsAutoPassthroughGateways bool
 
+	// ContainsIstioMutualTLSGatewayServer determines if there are any ISTIO_MUTUAL TLS servers, which may route to
+	// wildcard DYNAMIC_DNS ServiceEntries through the gateway wildcard TLS internal cluster.
+	ContainsIstioMutualTLSGatewayServer bool
+
 	// AutoPassthroughSNIHosts
 	AutoPassthroughSNIHosts sets.Set[string]
 
@@ -212,6 +216,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
 	autoPassthrough := false
+	istioMutualTLS := false
 
 	log.Debugf("mergeGateways: merging %d gateways", len(gateways))
 	for _, gwAndInstance := range gateways {
@@ -327,6 +332,9 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					tlsServerInfo[s] = &TLSServerInfo{SNIHosts: GetSNIHostsForServer(s), RouteName: routeName}
 					if s.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 						autoPassthrough = true
+					}
+					if s.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL && protocol.Parse(s.Port.Protocol) == protocol.TLS {
+						istioMutualTLS = true
 					}
 				}
 				serverPort := ServerPort{resolvedPort, s.Port.Protocol, s.Bind}
@@ -489,19 +497,20 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	}
 	sortedGatewayNames := sets.SortedList(gatewayNames)
 	return &MergedGateway{
-		MergedServers:                   mergedServers,
-		MergedQUICTransportServers:      mergedQUICServers,
-		ServerPorts:                     serverPorts,
-		GatewayNameForServer:            gatewayNameForServer,
-		GatewayNames:                    sortedGatewayNames,
-		GatewayScopeKey:                 NewGatewayScopeKey(proxy.Type, proxy.ConfigNamespace, sortedGatewayNames),
-		TLSServerInfo:                   tlsServerInfo,
-		ServersByRouteName:              serversByRouteName,
-		HTTP3AdvertisingRoutes:          http3AdvertisingRoutes,
-		ContainsAutoPassthroughGateways: autoPassthrough,
-		AutoPassthroughSNIHosts:         autoPassthroughSNIHosts,
-		PortMap:                         getTargetPortMap(serversByRouteName),
-		VerifiedCertificateReferences:   verifiedCertificateReferences,
+		MergedServers:                       mergedServers,
+		MergedQUICTransportServers:          mergedQUICServers,
+		ServerPorts:                         serverPorts,
+		GatewayNameForServer:                gatewayNameForServer,
+		GatewayNames:                        sortedGatewayNames,
+		GatewayScopeKey:                     NewGatewayScopeKey(proxy.Type, proxy.ConfigNamespace, sortedGatewayNames),
+		TLSServerInfo:                       tlsServerInfo,
+		ServersByRouteName:                  serversByRouteName,
+		HTTP3AdvertisingRoutes:              http3AdvertisingRoutes,
+		ContainsAutoPassthroughGateways:     autoPassthrough,
+		ContainsIstioMutualTLSGatewayServer: istioMutualTLS,
+		AutoPassthroughSNIHosts:             autoPassthroughSNIHosts,
+		PortMap:                             getTargetPortMap(serversByRouteName),
+		VerifiedCertificateReferences:       verifiedCertificateReferences,
 	}
 }
 

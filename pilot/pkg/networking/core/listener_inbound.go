@@ -157,9 +157,10 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		ContinueOnListenerFiltersTimeout: true,
 	}
 
-	// Flush authz cache since we need filter state for the principal.
-	oldBuilder := lb.authzBuilder
+	// Flush authz cache since we need filter state for the principal and source IP.
+	oldBuilder, oldCustomBuilder := lb.authzBuilder, lb.authzCustomBuilder
 	lb.authzBuilder = authz.NewBuilder(authz.Local, lb.push, lb.node, true)
+	lb.authzCustomBuilder = authz.NewBuilder(authz.Custom, lb.push, lb.node, true)
 	inboundChainConfigs := lb.buildInboundChainConfigs()
 	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
@@ -191,7 +192,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 			}},
 		}}
 	}
-	lb.authzBuilder = oldBuilder
+	lb.authzBuilder, lb.authzCustomBuilder = oldBuilder, oldCustomBuilder
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	l.ListenerFilters = append(l.ListenerFilters, xdsfilters.OriginalDestination)
 	// TODO: Exclude inspectors from some inbound ports.
@@ -902,5 +903,5 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound, fcc.policyService)
 	networkFilterstack := buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)
-	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService)
+	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService, fcc.hbone)
 }

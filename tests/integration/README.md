@@ -552,7 +552,7 @@ Tool | Description |
 
 Test suites are defined for each top level directory (such as `pilot` and `telemetry`), so any tests added to these directories will automatically be run in CI.
 
-If you need to add a new test suite, it can be added to the [job configuration](https://github.com/istio/test-infra/blob/master/prow/config/jobs/istio.yaml).
+If you need to add a new test suite, it can be added to the [job configuration](https://github.com/istio/test-infra/blob/master/prow/aws/config/jobs/istio.yaml).
 
 ### Running Tests on Custom Deployment
 

@@ -58,6 +58,17 @@ if [[ "${DEVCONTAINER}" ]]; then
 fi
 export NOMETALBINSTALL="${NOMETALBINSTALL:-}"
 
+# With rootless podman, the kind network lives in podman's rootless network namespace, which is not
+# reachable from the host. Tests talk directly to node and MetalLB IPs, so they are run from within
+# that network namespace (see the test step below).
+ROOTLESS_PODMAN=""
+if [[ "${CONTAINER_CLI:-}" == "podman" ]] && [[ "$(podman info --format '{{.Host.Security.Rootless}}')" == "true" ]]; then
+  ROOTLESS_PODMAN=true
+  export KIND_EXPERIMENTAL_PROVIDER="${KIND_EXPERIMENTAL_PROVIDER:-podman}"
+  # TPROXY interception does not work in rootless kind nodes.
+  export INTEGRATION_TEST_FLAGS="${INTEGRATION_TEST_FLAGS:-} --istio.test.skipTProxy"
+fi
+
 PARAMS=()
 
 while (( "$#" )); do
@@ -251,11 +262,32 @@ if [[ -n "${PARAMS:-}" ]]; then
     # builds under ARTIFACTS -- so it can only ever act on that cluster.
     SINGLE_CLUSTER_KUBECONFIG="${ARTIFACTS}/kubeconfig/${CLUSTER_NAME}"
     mkdir -p "$(dirname "${SINGLE_CLUSTER_KUBECONFIG}")"
-    kind export kubeconfig --name="${CLUSTER_NAME}" ${DEVCONTAINER:+--internal} \
-      --kubeconfig "${SINGLE_CLUSTER_KUBECONFIG}"
+    if [[ -n "${ROOTLESS_PODMAN}" ]]; then
+      # The host-mapped API server port is not reachable from podman's rootless network namespace,
+      # so address the control plane by its IP on the kind network instead.
+      if [[ "${KIND_IP_FAMILY}" == "ipv6" ]]; then
+        control_plane_ip="[$(docker inspect "${CLUSTER_NAME}-control-plane" --format '{{ .NetworkSettings.Networks.kind.GlobalIPv6Address }}')]"
+      else
+        control_plane_ip=$(docker inspect "${CLUSTER_NAME}-control-plane" --format '{{ .NetworkSettings.Networks.kind.IPAddress }}')
+      fi
+      kind get kubeconfig --name="${CLUSTER_NAME}" --internal | \
+        sed "s/${CLUSTER_NAME}-control-plane/${control_plane_ip}/g" > "${SINGLE_CLUSTER_KUBECONFIG}"
+    else
+      kind export kubeconfig --name="${CLUSTER_NAME}" ${DEVCONTAINER:+--internal} \
+        --kubeconfig "${SINGLE_CLUSTER_KUBECONFIG}"
+    fi
     export KUBECONFIG="${SINGLE_CLUSTER_KUBECONFIG}"
   fi
-  trace "test" make "${PARAMS[*]}"
+  if [[ -n "${ROOTLESS_PODMAN}" && "${BUILD_WITH_CONTAINER:-1}" == "1" ]]; then
+    # Attach the build container to the kind network instead of the host network.
+    CONTAINER_OPTIONS="${CONTAINER_OPTIONS:---mount type=bind,source=/tmp,destination=/tmp --net=host}"
+    export CONTAINER_OPTIONS="${CONTAINER_OPTIONS//--net=host/} --net=kind"
+    trace "test" make "${PARAMS[*]}"
+  elif [[ -n "${ROOTLESS_PODMAN}" ]]; then
+    trace "test" podman unshare --rootless-netns make "${PARAMS[*]}"
+  else
+    trace "test" make "${PARAMS[*]}"
+  fi
 fi
 
 # Check if the user is running the clusters in manual mode.

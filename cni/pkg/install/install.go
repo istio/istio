@@ -49,6 +49,7 @@ type Installer struct {
 
 // NewInstaller returns an instance of Installer with the given config
 func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
+	cfg.CNIConfNameDetected = cfg.CNIConfName == ""
 	return &Installer{
 		cfg:                cfg,
 		kubeconfigFilepath: filepath.Join(cfg.CNIAgentRunDir, constants.CNIPluginKubeconfName),
@@ -135,6 +136,23 @@ func removeStaleIstioOwnedConfig(cfg *config.InstallConfig) error {
 	return removePreviousIstioOwnedMarker(cfg)
 }
 
+// removeIstioCNIFromCopies strips istio-cni from any remaining CNI config that still lists it.
+// Another CNI chaining in front of ours (e.g. Antrea writes 05-antrea.conflist from our
+// istio-owned config) keeps istio-cni after our own file is gone, and the runtime then calls
+// a plugin whose binary is about to be removed.
+func removeIstioCNIFromCopies(cfg *config.InstallConfig) {
+	names, err := getConfigFilenames(cfg.MountedCNINetDir, nil)
+	if err != nil {
+		return
+	}
+	for _, name := range names {
+		path := filepath.Join(cfg.MountedCNINetDir, name)
+		if err := removeIstioCNIFromPrimary(path, cfg.CNIConfFileMode()); err != nil {
+			installLog.Warnf("failed to remove istio-cni plugin from CNI config %s: %v", path, err)
+		}
+	}
+}
+
 // removeIstioOwnedFile removes a named CNI config file from the shared CNI net dir if present.
 func removeIstioOwnedFile(cfg *config.InstallConfig, name string) error {
 	path := filepath.Join(cfg.MountedCNINetDir, name)
@@ -187,12 +205,52 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 		installLog.Infof("valid Istio config present in node-level CNI file %s, not modifying", in.cniConfigFilepath)
 	}
 
+	if missing := binDirMissingChainPlugins(in.cfg, in.cniConfigFilepath); len(missing) > 0 {
+		installLog.Warnf("cniBinDir has none of the chain's other plugins %v; if pods fail with "+
+			"\"failed to find plugin istio-cni\", set cniBinDir or global.platform to the runtime's CNI bin dir", missing)
+	}
+
 	// Only remove stale istio-owned config once the current config is in place.
 	if err := removeStaleIstioOwnedConfig(in.cfg); err != nil {
 		return copiedFiles, fmt.Errorf("remove stale istio-owned CNI config: %v", err)
 	}
 
 	return copiedFiles, nil
+}
+
+// binDirMissingChainPlugins returns the other plugins in the chain when none of them are in our bin dir.
+// The runtime must find those plugins somewhere it searches, so their absence usually means
+// cniBinDir is not a dir the runtime searches and istio-cni will not be found either.
+func binDirMissingChainPlugins(cfg *config.InstallConfig, cniConfigFilepath string) []string {
+	if !cfg.ChainedCNIPlugin || cniConfigFilepath == "" {
+		return nil
+	}
+	cniConfigMap, err := util.ReadCNIConfigMap(cniConfigFilepath)
+	if err != nil {
+		return nil
+	}
+	plugins, err := util.GetPlugins(cniConfigMap)
+	if err != nil {
+		return nil
+	}
+	var others []string
+	for _, rawPlugin := range plugins {
+		plugin, err := util.GetPlugin(rawPlugin)
+		if err != nil {
+			continue
+		}
+		pluginType, _ := plugin["type"].(string)
+		if pluginType == "" || pluginType == "istio-cni" {
+			continue
+		}
+		for _, dir := range cfg.CNIBinTargetDirs {
+			if file.Exists(filepath.Join(dir, pluginType)) {
+				return nil
+			}
+		}
+		others = append(others, pluginType)
+	}
+	return others
 }
 
 // Run starts the installation process, verifies the configuration, then sleeps.
@@ -231,6 +289,39 @@ func (in *Installer) Run(ctx context.Context) error {
 // Cleanup removes Istio CNI's config, kubeconfig file, and binaries.
 func (in *Installer) Cleanup() error {
 	installLog.Info("cleaning up CNI installation")
+	cfgErr := in.cleanupCNIConfig()
+	// Another CNI chaining in front of ours (e.g. Antrea) can keep a copy that lists istio-cni,
+	// in owned and non-owned mode, so sweep even if our own config could not be cleaned.
+	removeIstioCNIFromCopies(in.cfg)
+	if cfgErr != nil {
+		// Keep the binary: a config still listing istio-cni without it fails every new sandbox.
+		return cfgErr
+	}
+
+	if err := removePreviousIstioOwnedMarker(in.cfg); err != nil {
+		return fmt.Errorf("failed to remove istio-owned marker file: %w", err)
+	}
+
+	if len(in.kubeconfigFilepath) > 0 && file.Exists(in.kubeconfigFilepath) {
+		installLog.Infof("removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
+		if err := os.Remove(in.kubeconfigFilepath); err != nil {
+			return fmt.Errorf("failed to remove kubeconfig file %s: %w", in.kubeconfigFilepath, err)
+		}
+	}
+
+	for _, targetDir := range in.cfg.CNIBinTargetDirs {
+		if istioCNIBin := filepath.Join(targetDir, "istio-cni"); file.Exists(istioCNIBin) {
+			installLog.Infof("removing binary: %s", istioCNIBin)
+			if err := os.Remove(istioCNIBin); err != nil {
+				return fmt.Errorf("failed to remove binary %s: %w", istioCNIBin, err)
+			}
+		}
+	}
+	return nil
+}
+
+// cleanupCNIConfig removes istio-cni from the primary CNI config, or removes our own config file.
+func (in *Installer) cleanupCNIConfig() error {
 	if len(in.cniConfigFilepath) > 0 && file.Exists(in.cniConfigFilepath) {
 		if in.cfg.ChainedCNIPlugin && !in.cfg.IstioOwnedCNIConfig {
 			installLog.Infof("removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
@@ -265,30 +356,11 @@ func (in *Installer) Cleanup() error {
 			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, fileMode); err != nil {
 				return fmt.Errorf("failed to write updated CNI config to file %s: %w", in.cniConfigFilepath, err)
 			}
+			notifyCloseWrite(in.cniConfigFilepath)
 		} else {
 			installLog.Infof("removing Istio CNI config file: %s", in.cniConfigFilepath)
 			if err := os.Remove(in.cniConfigFilepath); err != nil {
 				return fmt.Errorf("failed to remove CNI config file %s: %w", in.cniConfigFilepath, err)
-			}
-		}
-	}
-
-	if err := removePreviousIstioOwnedMarker(in.cfg); err != nil {
-		return fmt.Errorf("failed to remove istio-owned marker file: %w", err)
-	}
-
-	if len(in.kubeconfigFilepath) > 0 && file.Exists(in.kubeconfigFilepath) {
-		installLog.Infof("removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
-		if err := os.Remove(in.kubeconfigFilepath); err != nil {
-			return fmt.Errorf("failed to remove kubeconfig file %s: %w", in.kubeconfigFilepath, err)
-		}
-	}
-
-	for _, targetDir := range in.cfg.CNIBinTargetDirs {
-		if istioCNIBin := filepath.Join(targetDir, "istio-cni"); file.Exists(istioCNIBin) {
-			installLog.Infof("removing binary: %s", istioCNIBin)
-			if err := os.Remove(istioCNIBin); err != nil {
-				return fmt.Errorf("failed to remove binary %s: %w", istioCNIBin, err)
 			}
 		}
 	}
@@ -403,6 +475,16 @@ func checkValidCNIConfig(cfg *config.InstallConfig, cniConfigFilepath string) er
 			return fmt.Errorf("istio owned CNI config does not exist or is not the highest priority. Got %s instead", firstCNIConfigFilename)
 		}
 		log.Debugf("istio owned CNI config is the highest priority: %s", firstCNIConfigFilename)
+
+		// Another CNI (e.g. Antrea in chaining mode) may write a config that sorts between ours
+		// and the detected primary, chained on top of our config. Follow it, as a restart would,
+		// otherwise its plugins are never run.
+		if cfg.CNIConfNameDetected && len(cfg.CNIConfName) > 0 &&
+			secondCNIConfigFilename != "" && secondCNIConfigFilename != cfg.CNIConfName {
+			previous := cfg.CNIConfName
+			cfg.CNIConfName = secondCNIConfigFilename
+			return fmt.Errorf("primary CNI config changed from %s to %s", previous, secondCNIConfigFilename)
+		}
 	}
 
 	// filepath for the highest priority, valid config
@@ -414,13 +496,15 @@ func checkValidCNIConfig(cfg *config.InstallConfig, cniConfigFilepath string) er
 	// created or rewritten
 	if defaultCNIConfigFilepath != cniConfigFilepath {
 		log.Debugf("cniConfigFilePath mismatch: expected %s but found %s", defaultCNIConfigFilepath, cniConfigFilepath)
-		if len(cfg.CNIConfName) > 0 || !cfg.ChainedCNIPlugin {
+		// A detected CNIConfName is not an override: a config that sorts ahead of it is the one the
+		// runtime uses now, so istio-cni must be written there.
+		if (len(cfg.CNIConfName) > 0 && !cfg.CNIConfNameDetected) || !cfg.ChainedCNIPlugin {
 			// Install was run with overridden CNI config file so don't error out on preempt check
 			// Likely the only use for this is testing the script
 			installLog.Warnf("CNI config file %q preempted by %q", cniConfigFilepath, defaultCNIConfigFilepath)
 		} else {
-			// CNIConfName is guaranteed empty here (see the condition above), so set it to the
-			// default CNI config filename (the primary CNI config file)
+			// CNIConfName is empty or was detected, so set it to the default CNI config filename
+			// (the primary CNI config file)
 			if istioOwned && firstCNIConfigFilename == cfg.IstioOwnedCNIConfigFilename {
 				// Since the Istio owned CNI config is the highest priority, set the CNIConfigName to the config
 				// with the second highest priority. We will copy the configuration in this file to create the

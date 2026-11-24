@@ -140,6 +140,7 @@ type ClusterBuilder struct {
 	passThroughBindIPs []string            // Passthrough IPs to be used while building clusters.
 	supportsIPv4       bool                // Whether Proxy IPs has IPv4 address.
 	supportsIPv6       bool                // Whether Proxy IPs has IPv6 address.
+	hboneConnectWait   bool                // Must also be included in clusterCache.
 	sendHbone          bool                // Does the proxy support HBONE
 	locality           *core.Locality      // Locality information of proxy.
 	proxyLabels        map[string]string   // Proxy labels.
@@ -166,6 +167,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		supportsIPv4:       proxy.SupportsIPv4(),
 		supportsIPv6:       proxy.SupportsIPv6(),
 		sendHbone:          features.EnableHBONESend || proxy.IsWaypointProxy(),
+		hboneConnectWait:   util.HBONEConnectWaitEnabled(proxy),
 		locality:           proxy.Locality,
 		proxyLabels:        proxy.Labels,
 		proxyView:          proxy.GetView(),
@@ -349,6 +351,24 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	return subsetCluster.build()
 }
 
+// buildDFPSubsetCluster builds the DFP cluster of a subset. A DFP cluster has no endpoints to select, so the subset
+// only applies its traffic policy. It shares the DNS cache of the host.
+func (cb *ClusterBuilder) buildDFPSubsetCluster(
+	opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
+) *cluster.Cluster {
+	subsetCluster := cb.buildDFPCluster(
+		model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port), service, opts.port)
+	opts.mutable = subsetCluster
+	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, subset.GetTrafficPolicy(), service, opts.port)
+	opts.policy = util.MergeSubsetTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
+	cb.applyTrafficPolicy(service, opts)
+	cb.applyMetadataExchange(subsetCluster.cluster)
+	subsetCluster.cluster.Metadata = util.AddConfigInfoMetadata(subsetCluster.cluster.Metadata, destRule.Meta)
+	util.AddSubsetToMetadata(subsetCluster.cluster.Metadata, subset.Name)
+	subsetCluster.cluster.Metadata = util.AddALPNOverrideToMetadata(subsetCluster.cluster.Metadata, opts.policy.GetTls().GetMode())
+	return subsetCluster.build()
+}
+
 // applyDestinationRule applies the destination rule if it exists for the Service.
 // It returns the subset clusters if any created as it applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode ClusterMode, service *model.Service,
@@ -417,9 +437,16 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		mc.cluster.Metadata = util.AddALPNOverrideToMetadata(mc.cluster.Metadata, opts.policy.GetTls().GetMode())
 	}
 
-	// DFP clusters don't support subsets - skip subset cluster creation
 	if service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
-		return nil
+		// DFP clusters only support subsets for TLS on gateways, as on waypoints.
+		if cb.proxyType != model.Router || !features.EnableWildcardHostServiceEntriesForTLS || !port.Protocol.IsTLS() {
+			return nil
+		}
+		subsetClusters := make([]*cluster.Cluster, 0, len(destinationRule.GetSubsets()))
+		for _, subset := range destinationRule.GetSubsets() {
+			subsetClusters = append(subsetClusters, cb.buildDFPSubsetCluster(opts, destRule, subset, service))
+		}
+		return subsetClusters
 	}
 
 	subsetClusters := make([]*cluster.Cluster, 0)

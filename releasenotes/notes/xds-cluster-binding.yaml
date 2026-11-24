@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue: []
+releaseNotes:
+  - |
+    **Fixed** istiod accepting a node metadata `CLUSTER_ID` that differs from the cluster the proxy's token was validated against.
+securityNotes:
+  - |
+    __[GHSA-gf6w-6mxv-5fj4](https://github.com/istio/istio/security/advisories/GHSA-gf6w-6mxv-5fj4)__: In multicluster installations, a proxy could claim another cluster's `CLUSTER_ID` and receive that cluster's `kubernetes://` secrets over SDS.
+    - CVSS Score: 6.3 [AV:N/AC:H/PR:L/UI:N/S:C/C:H/I:N/A:N](https://www.first.org/cvss/calculator/3.1#CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:C/C:H/I:N/A:N)
+
+    **Credit**: This vulnerability was discovered and reported by Yonghwa Lee (Xint by Theori).

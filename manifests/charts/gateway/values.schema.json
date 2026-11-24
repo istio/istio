@@ -79,6 +79,9 @@
         "strategy": {
           "type": "object"
         },
+        "updateStrategy": {
+          "type": "object"
+        },
         "minReadySeconds": {
           "type": [ "null", "integer" ]
         },
@@ -348,6 +351,9 @@
         },
         "dnsPolicy": {
           "type": "string"
+        },
+        "hostNetwork": {
+          "type": "boolean"
         },
         "dnsConfig": {
           "type": "object"

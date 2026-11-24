@@ -28,6 +28,7 @@ add rule inet istio-proxy-mangle istio-divert counter meta mark set 1337
 add rule inet istio-proxy-mangle istio-divert counter accept
 add rule inet istio-proxy-mangle istio-tproxy meta l4proto tcp ip daddr != 127.0.0.1/32 tproxy ip to :15006 meta mark set 1337 counter accept
 add rule inet istio-proxy-mangle prerouting meta l4proto tcp counter jump istio-inbound
+add rule inet istio-proxy-mangle istio-inbound meta l4proto tcp tcp flags & (syn | ack) == syn counter jump istio-tproxy
 add rule inet istio-proxy-mangle istio-inbound meta l4proto tcp ct state related,established counter jump istio-divert
 add rule inet istio-proxy-mangle istio-inbound meta l4proto tcp counter jump istio-tproxy
 add rule inet istio-proxy-mangle prerouting meta l4proto tcp mark 1337 counter ct mark set mark

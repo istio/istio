@@ -531,6 +531,27 @@ func TestGetAutoPassthroughSNIHosts(t *testing.T) {
 	}
 }
 
+func TestContainsIstioMutualTLSGatewayServer(t *testing.T) {
+	cases := []struct {
+		name     string
+		protocol string
+		mode     networking.ServerTLSSettings_TLSmode
+		want     bool
+	}{
+		{"TLS ISTIO_MUTUAL", "TLS", networking.ServerTLSSettings_ISTIO_MUTUAL, true},
+		{"HTTPS ISTIO_MUTUAL", "HTTPS", networking.ServerTLSSettings_ISTIO_MUTUAL, false},
+		{"TLS PASSTHROUGH", "TLS", networking.ServerTLSSettings_PASSTHROUGH, false},
+		{"HTTPS SIMPLE", "HTTPS", networking.ServerTLSSettings_SIMPLE, false},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			gw := makeConfig("gateway", "istio-system", "*.example.com", "tls", tt.protocol, 443, "egressgateway", "", tt.mode, nil, "sa")
+			mgw := mergeGateways([]gatewayWithInstances{{gw, true, nil}}, &Proxy{}, makePushContext())
+			assert.Equal(t, mgw.ContainsIstioMutualTLSGatewayServer, tt.want)
+		})
+	}
+}
+
 // TestMergeGatewaysHttpsFirstBug tests the bug where creating HTTPS server first
 // on a port prevents HTTP server from building correct routes on the same port but different bind.
 // This follows the existing test naming conventions: foo-*, not-default namespace, example.com hosts, standard ports.

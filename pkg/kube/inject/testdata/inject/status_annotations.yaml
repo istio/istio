@@ -14,6 +14,7 @@ spec:
         readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
         readiness.status.sidecar.istio.io/periodSeconds: "200"
         readiness.status.sidecar.istio.io/failureThreshold: "300"
+        readiness.status.sidecar.istio.io/timeoutSeconds: "5"
         readiness.status.sidecar.istio.io/applicationPorts: "1,2,3"
       labels:
         app: status

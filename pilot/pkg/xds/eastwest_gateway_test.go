@@ -15,6 +15,7 @@
 package xds_test
 
 import (
+	"strings"
 	"testing"
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -176,4 +177,109 @@ func TestAmbientEastWestGatewayAutoPassthrough(t *testing.T) {
 		assert.Equal(t, xdstest.ExtractCluster(sniDnatCluster, d.Clusters(proxy)) == nil, true,
 			"SNI-DNAT clusters must only be built for AUTO_PASSTHROUGH gateways")
 	})
+}
+
+// TestAmbientEastWestGatewayPassthroughAuthorization checks that the TCP, TLS passthrough and ISTIO_MUTUAL listeners
+// of an ambient east-west gateway, which are real listeners although the proxy is a waypoint, read the downstream peer from the
+// connection: ipBlocks match the direct remote address and principals the TLS peer. See
+// https://github.com/istio/istio/issues/62522.
+func TestAmbientEastWestGatewayPassthroughAuthorization(t *testing.T) {
+	gw := `apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: eastwestgateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: eastwestgateway
+  servers:
+  - port:
+      number: 9000
+      name: tcp
+      protocol: TCP
+    hosts:
+    - "*"
+  - port:
+      number: 8443
+      name: tls
+      protocol: TLS
+    hosts:
+    - app.com
+    tls:
+      mode: PASSTHROUGH
+  - port:
+      number: 9443
+      name: tls-istio-mutual
+      protocol: TLS
+    hosts:
+    - "*"
+    tls:
+      mode: ISTIO_MUTUAL
+`
+	vs := `apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: app
+  namespace: istio-system
+spec:
+  hosts:
+  - app.com
+  gateways:
+  - istio-system/eastwestgateway
+  tcp:
+  - match:
+    - port: 9000
+    route:
+    - destination:
+        host: app.com
+        port:
+          number: 80
+  - match:
+    - port: 9443
+    route:
+    - destination:
+        host: app.com
+        port:
+          number: 80
+  tls:
+  - match:
+    - port: 8443
+      sniHosts:
+      - app.com
+    route:
+    - destination:
+        host: app.com
+        port:
+          number: 80
+`
+	policy := `apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: source-ip
+  namespace: istio-system
+spec:
+  selector:
+    matchLabels:
+      istio: eastwestgateway
+  action: DENY
+` + sourceIPPolicyRules + `  - from:
+    - source:
+        principals: ["cluster.local/ns/default/sa/client"]
+`
+	d, proxy := setupAmbientEastWestGatewayTest(t, gw, vs, policy, eastWestAppServiceEntry, eastWestSidecarWorkloadEntry)
+	listeners := d.Listeners(proxy)
+
+	// 9443 terminates ISTIO_MUTUAL on the gateway, so principals can match its client certificate.
+	for _, name := range []string{"0.0.0.0_9000", "0.0.0.0_8443", "0.0.0.0_9443"} {
+		l := xdstest.ExtractListener(name, listeners)
+		assertSourceIPMatching(t, l, false)
+		for _, cfg := range rbacConfigs(t, l) {
+			if !strings.Contains(cfg, "source-ip") {
+				continue
+			}
+			if strings.Contains(cfg, `"io.istio.peer_principal"`) || !strings.Contains(cfg, `"authenticated"`) {
+				t.Fatalf("%s: principals must match the TLS peer of the connection:\n%s", name, cfg)
+			}
+		}
+	}
 }

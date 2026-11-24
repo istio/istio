@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	set "istio.io/istio/cni/pkg/addressset"
+	"istio.io/istio/cni/pkg/routing"
 	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/util/sets"
@@ -34,6 +35,7 @@ type meshDataplane struct {
 	netServer          MeshDataplane
 	hostTrafficManager trafficmanager.TrafficRuleManager
 	hostAddrSet        set.AddressSetManager
+	hostProbeRoutes    *routing.HostProbeRoutes
 
 	// branchENIRules tracks the branch ENI routing info we added rules for,
 	// keyed by pod IP. We cache it at add time so teardown can delete the rules
@@ -53,6 +55,20 @@ func (s *meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.P
 	}
 
 	return s.netServer.ConstructInitialSnapshot(existingAmbientPods)
+}
+
+func (s *meshDataplane) ReconcileEnrollment(ctx context.Context, ambientPods []*corev1.Pod) error {
+	err := s.netServer.ReconcileEnrollment(ctx, ambientPods)
+	errs := []error{err}
+	for _, failure := range reEnrollFailures(err) {
+		if errors.Is(failure, ErrNonRetryableAdd) {
+			continue
+		}
+		if err := util.AnnotatePartiallyEnrolledPod(s.kubeClient, &failure.pod.ObjectMeta); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // ConstructInitialSnapshot should always be invoked before this function.
@@ -84,6 +100,13 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 		})
 	}
 
+	if s.hostProbeRoutes != nil {
+		if err := util.RunAsHost(func() error {
+			return s.hostProbeRoutes.Close(!skipCleanup)
+		}); err != nil {
+			log.Errorf("failed to stop host probe local routing: %v", err)
+		}
+	}
 	s.netServer.Stop(skipCleanup)
 }
 

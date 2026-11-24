@@ -52,6 +52,7 @@ updates:
       - dependency-name: "github.com/prometheus/prometheus"
       - dependency-name: "helm.sh/helm/v3"
       - dependency-name: "github.com/moby/buildkit"
+      - dependency-name: "github.com/containernetworking/plugins"
     groups:
       all-dependencies:
         patterns:
@@ -64,6 +65,7 @@ updates:
           - "github.com/prometheus/prometheus"
           - "helm.sh/helm/v3"
           - "github.com/moby/buildkit"
+          - "github.com/containernetworking/plugins"
 
   - package-ecosystem: "gomod"
     directories:
@@ -83,6 +85,7 @@ updates:
       - dependency-name: "github.com/prometheus/prometheus"
       - dependency-name: "helm.sh/helm/v3"
       - dependency-name: "github.com/moby/buildkit"
+      - dependency-name: "github.com/containernetworking/plugins"
     groups:
       all-dependencies:
         patterns:
@@ -95,6 +98,7 @@ updates:
           - "github.com/prometheus/prometheus"
           - "helm.sh/helm/v3"
           - "github.com/moby/buildkit"
+          - "github.com/containernetworking/plugins"
 
   - package-ecosystem: "gomod"
     directories:
@@ -114,6 +118,7 @@ updates:
       - dependency-name: "github.com/prometheus/prometheus"
       - dependency-name: "helm.sh/helm/v3"
       - dependency-name: "github.com/moby/buildkit"
+      - dependency-name: "github.com/containernetworking/plugins"
       - dependency-name: "github.com/quic-go/quic-go"
       - dependency-name: "golang.org/x/*"
       - dependency-name: "cloud.google.com/go/compute/metadata"
@@ -132,6 +137,7 @@ updates:
           - "github.com/prometheus/prometheus"
           - "helm.sh/helm/v3"
           - "github.com/moby/buildkit"
+          - "github.com/containernetworking/plugins"
           - "github.com/quic-go/quic-go"
           - "golang.org/x/*"
           - "cloud.google.com/go/compute/metadata"

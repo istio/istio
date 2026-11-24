@@ -63,6 +63,12 @@ var (
 			Key: filters.RequestSourceFilterStateKey,
 		}),
 	}
+	GatewayWildcardTLSTargetFilterStateInput = &xds.TypedExtensionConfig{
+		Name: "gateway-wildcard-tls-target-filter-state",
+		TypedConfig: protoconv.MessageToAny(&network.FilterStateInput{
+			Key: filters.GatewayWildcardTLSTargetFilterStateKey,
+		}),
+	}
 )
 
 type Mapper struct {

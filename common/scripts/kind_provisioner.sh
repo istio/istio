@@ -37,6 +37,9 @@ DEFAULT_KIND_IMAGE="registry.istio.io/testing/kind-node:v1.36.0"
 # the default kind cluster should be ipv4 if not otherwise specified
 KIND_IP_FAMILY="${KIND_IP_FAMILY:-ipv4}"
 
+# KIND_KUBE_PROXY_MODE selects the kube-proxy mode (iptables, nftables or ipvs). If unset, KinD's default is used.
+KIND_KUBE_PROXY_MODE="${KIND_KUBE_PROXY_MODE:-}"
+
 # COMMON_SCRIPTS contains the directory this file is in.
 COMMON_SCRIPTS=$(dirname "${BASH_SOURCE:-$0}")
 
@@ -185,8 +188,11 @@ function setup_kind_cluster() {
   fi
 
   # Create KinD cluster
-  if ! (yq eval "${CONFIG}" --expression ".networking.disableDefaultCNI = ${KIND_DISABLE_CNI}" \
-    --expression ".networking.ipFamily = \"${KIND_IP_FAMILY}\"" | \
+  local KIND_CONFIG_PATCH=".networking.disableDefaultCNI = ${KIND_DISABLE_CNI} | .networking.ipFamily = \"${KIND_IP_FAMILY}\""
+  if [[ -n "${KIND_KUBE_PROXY_MODE}" ]]; then
+    KIND_CONFIG_PATCH+=" | .networking.kubeProxyMode = \"${KIND_KUBE_PROXY_MODE}\""
+  fi
+  if ! (yq eval "${CONFIG}" --expression "${KIND_CONFIG_PATCH}" | \
     kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" ${KIND_WAIT_FLAG:+"$KIND_WAIT_FLAG"} --config -); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     return 9

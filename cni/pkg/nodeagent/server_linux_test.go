@@ -17,10 +17,14 @@ package nodeagent
 import (
 	"context"
 	"errors"
+	"net"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,10 +34,101 @@ import (
 
 	"istio.io/api/annotation"
 	set "istio.io/istio/cni/pkg/addressset"
+	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/ipset"
+	"istio.io/istio/cni/pkg/routing"
+	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+func TestInitMeshDataplaneHostProbeRouteGating(t *testing.T) {
+	test.SetForTest(t, &pconstants.HostNetNSPath, filepath.Join(t.TempDir(), "missing-netns"))
+	_, hostErr := createHostNetworkAddrSetManager(false, false)
+	assert.Error(t, hostErr)
+
+	for _, tt := range []struct {
+		name      string
+		enabled   bool
+		stateFile string
+	}{
+		{name: "disabled"},
+		{name: "enabled", enabled: true},
+		{name: "cleanup", stateFile: "host-probe-routes"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &EnableHostProbeLocalRoute, tt.enabled)
+			dir := t.TempDir()
+			if tt.stateFile != "" {
+				assert.NoError(t, os.WriteFile(filepath.Join(dir, tt.stateFile), []byte("{"), 0o600))
+			}
+			_, err := initMeshDataplane(nil, AmbientArgs{CNIAgentRunDir: dir})
+			assert.Error(t, err)
+			prefix := "error initializing host probe local routing: "
+			if !tt.enabled && tt.stateFile == "" {
+				// Neither probe configuration nor empty rollback may enter host netns.
+				prefix = "error initializing host addressSet manager: "
+			}
+			assert.Equal(t, err.Error(), prefix+hostErr.Error())
+		})
+	}
+}
+
+func TestMeshDataplaneStopHostProbeRoutes(t *testing.T) {
+	for _, skipCleanup := range []bool{false, true} {
+		name := "cleanup"
+		if skipCleanup {
+			name = "safe-upgrade"
+		}
+		t.Run(name, func(t *testing.T) {
+			setup(t)
+			dir := t.TempDir()
+			ipv4, ipv6 := netip.MustParseAddr("169.254.240.1"), netip.MustParseAddr("fd16::1")
+			routes, err := routing.ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
+			assert.NoError(t, err)
+			t.Cleanup(func() { assert.NoError(t, routes.Close(true)) })
+
+			deps := ipset.FakeNLDeps()
+			if !skipCleanup {
+				deps.On("flush", "probe-v4").Return(nil).Once()
+				deps.On("destroySet", "probe-v4").Return(nil).Once()
+			}
+			dp := &meshDataplane{
+				netServer:          &fakeServer{},
+				hostTrafficManager: &trafficmanager.IptablesTrafficManager{},
+				hostAddrSet:        set.NewIPSetWrapper(ipset.IPSet{V4Name: "probe-v4", Deps: deps}),
+				hostProbeRoutes:    routes,
+			}
+			dp.Stop(skipCleanup)
+			deps.AssertExpectations(t)
+
+			for _, address := range []netip.Addr{ipv4, ipv6} {
+				family := unix.AF_INET
+				if address.Is6() {
+					family = unix.AF_INET6
+				}
+				actual, err := netlink.RouteListFiltered(family, &netlink.Route{
+					Table: unix.RT_TABLE_LOCAL,
+					Dst: &net.IPNet{
+						IP: net.IP(address.AsSlice()), Mask: net.CIDRMask(address.BitLen(), address.BitLen()),
+					},
+				}, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_DST)
+				assert.NoError(t, err)
+				want := 0
+				if skipCleanup {
+					want = 1
+				}
+				assert.Equal(t, len(actual), want)
+			}
+
+			// Stop must release the locks so a replacement agent can start.
+			next, err := routing.ConfigureHostProbeRoutes(dir, ipv4, ipv6, true, true)
+			assert.NoError(t, err)
+			t.Cleanup(func() { assert.NoError(t, next.Close(true)) })
+		})
+	}
+}
 
 func TestMeshDataplaneAddsAnnotationOnAdd(t *testing.T) {
 	pod := &corev1.Pod{
@@ -673,6 +768,55 @@ func TestMeshDataplaneSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 	err := m.syncHostAddrSets([]*corev1.Pod{pod})
 	assert.NoError(t, err)
 	fakeIPSetDeps.AssertExpectations(t)
+}
+
+// The enrollment check must not prune the host probe ipset: an add puts a pod's IPs there before the
+// informer sees that pod as enrolled, and a prune against the informer's view would evict them.
+func TestMeshDataplaneReconcileEnrollmentLeavesHostIPSetAlone(t *testing.T) {
+	pod := buildConvincingPod(false)
+
+	fakeCtx := context.Background()
+	server := &fakeServer{}
+	server.On("ReconcileEnrollment", fakeCtx, []*corev1.Pod{pod}).Return(nil)
+	fakeClientSet := fake.NewClientset()
+
+	// No ipset calls are expected: an add, list or clear fails the test.
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	ipsetInstance := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+	setWrapper := set.NewIPSetWrapper(ipsetInstance)
+	m := getFakeDPWithAddressSet(server, fakeClientSet, setWrapper)
+
+	assert.NoError(t, m.ReconcileEnrollment(fakeCtx, []*corev1.Pod{pod}))
+	server.AssertExpectations(t)
+	fakeIPSetDeps.AssertExpectations(t)
+}
+
+func TestMeshDataplaneReconcileEnrollmentAnnotatesPartialReEnrollment(t *testing.T) {
+	unacknowledged := podWithAnnotation()
+	unacknowledged.Name = "unacknowledged"
+	unredirected := podWithAnnotation()
+	unredirected.Name = "unredirected"
+
+	fakeCtx := context.Background()
+	server := &fakeServer{}
+	server.On("ReconcileEnrollment", fakeCtx, []*corev1.Pod{unacknowledged, unredirected}).Return(errors.Join(
+		&reEnrollError{pod: unacknowledged, inner: errors.New("ztunnel not connected")},
+		&reEnrollError{pod: unredirected, inner: NewErrNonRetryableAdd(errors.New("iptables failed"))},
+	))
+	fakeClientSet := fake.NewClientset(unacknowledged, unredirected)
+	m := getFakeDP(server, fakeClientSet)
+
+	assert.Error(t, m.ReconcileEnrollment(fakeCtx, []*corev1.Pod{unacknowledged, unredirected}))
+	server.AssertExpectations(t)
+
+	for name, redirection := range map[string]string{
+		unacknowledged.Name: constants.AmbientRedirectionPending,
+		unredirected.Name:   constants.AmbientRedirectionEnabled,
+	} {
+		pod, err := fakeClientSet.CoreV1().Pods("test").Get(fakeCtx, name, metav1.GetOptions{})
+		assert.NoError(t, err)
+		assert.Equal(t, pod.Annotations[annotation.AmbientRedirection.Name], redirection)
+	}
 }
 
 func podWithAnnotation() *corev1.Pod {

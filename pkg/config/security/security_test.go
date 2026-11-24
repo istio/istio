@@ -264,6 +264,29 @@ func TestValidateCondition(t *testing.T) {
 			wantError: true,
 		},
 		{
+			key:    "request.auth.payload[idp][sub]",
+			values: []string{"123"},
+		},
+		{
+			key:    "request.auth.payload[idp][nested][claim]",
+			values: []string{"123"},
+		},
+		{
+			key:       "request.auth.payload[idp]",
+			values:    []string{"123"},
+			wantError: true,
+		},
+		{
+			key:       "request.auth.payload[idp][]",
+			values:    []string{"123"},
+			wantError: true,
+		},
+		{
+			key:       "request.auth.payload",
+			values:    []string{"123"},
+			wantError: true,
+		},
+		{
 			key:    "destination.ip",
 			values: []string{"1.2.3.4", "5.6.7.0/24"},
 		},

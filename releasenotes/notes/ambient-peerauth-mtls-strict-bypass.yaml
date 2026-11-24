@@ -1,0 +1,20 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue: []
+releaseNotes:
+  - |
+    **Fixed** an mTLS bypass in ambient mode where a port-level `STRICT`
+    `PeerAuthentication` could be left unenforced. An operator-precedence error caused
+    the mesh-wide `STRICT` check to be evaluated without the guard requiring the
+    workload-level mode to be unset, so a STRICT port on a workload whose top-level
+    mode was `PERMISSIVE` or `DISABLE`, in a namespace with no STRICT policy and under
+    a mesh-wide `STRICT` `PeerAuthentication`, was wrongly skipped and plaintext
+    traffic could reach it.
+securityNotes:
+  - |
+    _[GHSA-rr2c-p22p-6r9r](https://github.com/istio/istio/security/advisories/GHSA-rr2c-p22p-6r9r)_: In ambient mode, an operator-precedence error let a port-level STRICT PeerAuthentication be skipped when the workload mode was PERMISSIVE/DISABLE under a mesh-wide STRICT policy, allowing plaintext traffic to reach a port that required mTLS.
+    
+    - CVSS Score: 8.2 [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N](https://www.first.org/cvss/calculator/3.1#CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N)
+
+    **Credit**: This vulnerability was discovered and reported by Ravikanth Reddy.

@@ -1085,7 +1085,18 @@ func validateTrafficPolicy(configNamespace string, policy *networking.TrafficPol
 		agent.ValidateTLS(configNamespace, policy.Tls),
 		validatePortTrafficPolicies(configNamespace, policy.PortLevelSettings),
 		validateTunnelSettings(policy.Tunnel),
-		validateProxyProtocol(policy.ProxyProtocol))
+		validateProxyProtocol(policy.ProxyProtocol),
+		validateRetryBudget(policy.RetryBudget))
+}
+
+func validateRetryBudget(retryBudget *networking.TrafficPolicy_RetryBudget) (errs error) {
+	if retryBudget == nil {
+		return errs
+	}
+	if p := retryBudget.Percent; p != nil && (p.GetValue() < 0 || p.GetValue() > 100) {
+		errs = appendErrors(errs, fmt.Errorf("retry budget percent must be between 0 and 100: %v", p.GetValue()))
+	}
+	return errs
 }
 
 func validateProxyProtocol(proxyProtocol *networking.TrafficPolicy_ProxyProtocol) (errs error) {
@@ -1351,13 +1362,14 @@ func validatePortTrafficPolicies(configNamespace string, pls []*networking.Traff
 			errs = appendErrors(errs, fmt.Errorf("portTrafficPolicy must have valid port"))
 		}
 		if t.OutlierDetection == nil && t.ConnectionPool == nil &&
-			t.LoadBalancer == nil && t.Tls == nil {
+			t.LoadBalancer == nil && t.Tls == nil && t.RetryBudget == nil {
 			errs = appendErrors(errs, fmt.Errorf("port traffic policy must have at least one field"))
 		} else {
 			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
 				validateConnectionPool(t.ConnectionPool),
 				validateLoadBalancer(t.LoadBalancer, t.OutlierDetection),
-				agent.ValidateTLS(configNamespace, t.Tls))
+				agent.ValidateTLS(configNamespace, t.Tls),
+				validateRetryBudget(t.RetryBudget))
 		}
 	}
 	return errs
@@ -1821,6 +1833,10 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 			errs = multierror.Append(errs, err)
 		}
 	}
+	if rule.OutputPayloadToMetadata != "" && !jwtPayloadMetadataKeyRegex.MatchString(rule.OutputPayloadToMetadata) {
+		errs = multierror.Append(errs, fmt.Errorf("outputPayloadToMetadata %q must be at most 64 characters and match %s",
+			rule.OutputPayloadToMetadata, jwtPayloadMetadataKeyRegex.String()))
+	}
 	if rule.Timeout != nil {
 		if err := agent.ValidateDuration(rule.Timeout); err != nil {
 			errs = multierror.Append(errs, err)
@@ -1828,6 +1844,8 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	}
 	return errs
 }
+
+var jwtPayloadMetadataKeyRegex = regexp.MustCompile(`^[-_A-Za-z0-9]{1,64}$`)
 
 // ValidatePeerAuthentication checks that peer authentication spec is well-formed.
 var ValidatePeerAuthentication = RegisterValidateFunc("ValidatePeerAuthentication",

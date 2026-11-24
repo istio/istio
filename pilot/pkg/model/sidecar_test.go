@@ -3004,39 +3004,13 @@ func TestServicesForEgressHostname(t *testing.T) {
 		}
 	}
 	for _, hostname := range []host.Name{single.Hostname, multiPort.Hostname, duplicate.Hostname} {
-		if _, f := sc.unmergedEgressServices[hostname]; f {
-			t.Errorf("%s has a single unmerged service and must not be stored separately", hostname)
+		if _, f := sc.shadowedServicesByHostname[hostname]; f {
+			t.Errorf("%s has no shadowed services and must not be stored separately", hostname)
 		}
 	}
-	// Gateway scopes have no egress listener services.
-	if got := DefaultSidecarScopeForGateway(ps, "ns").ServicesForEgressHostname(single.Hostname); got != nil {
-		t.Errorf("gateway scope: got %v, want none", got)
-	}
-}
-
-func TestDependsOnConfigUnmergedEgressServices(t *testing.T) {
-	const hostname = "shared.example.com"
-	newEntry := func(ns string) *Service {
-		return &Service{
-			Hostname:   hostname,
-			Ports:      port7443,
-			Attributes: ServiceAttributes{Name: hostname, Namespace: ns, ServiceRegistry: provider.External},
-		}
-	}
-	ps := NewPushContext()
-	ps.Mesh = mesh.DefaultMeshConfig()
-	sc := &SidecarScope{
-		Namespace:       "a",
-		EgressListeners: []*IstioEgressListenerWrapper{{services: []*Service{newEntry("a"), newEntry("b")}}},
-	}
-	sc.collectImportedServices(ps, "a")
-
-	for _, k := range []kind.Kind{kind.ServiceEntry, kind.Endpoints, kind.DNSName} {
-		for ns, want := range map[string]bool{"a": true, "b": true, "c": false} {
-			if got := sc.DependsOnConfig(ConfigKey{k, hostname, ns}, ps.Mesh.RootNamespace); got != want {
-				t.Errorf("%v %s/%s: got %v, want %v", k, ns, hostname, got, want)
-			}
-		}
+	// Gateway scopes use every exported service.
+	if got := DefaultSidecarScopeForGateway(ps, "ns").ServicesForEgressHostname(single.Hostname); !slices.Equal(got, []*Service{single}) {
+		t.Errorf("gateway scope: got %v, want %v", got, []*Service{single})
 	}
 }
 
@@ -3518,6 +3492,149 @@ func TestContainsEgressDependencies(t *testing.T) {
 			for k, v := range tt.contains {
 				if ok := sidecarScope.DependsOnConfig(k, ps.Mesh.RootNamespace); ok != v {
 					t.Fatalf("Expected contains %v-%v, but no match", k, v)
+				}
+			}
+		})
+	}
+}
+
+func TestShadowedServiceDependencies(t *testing.T) {
+	const hostname = "h.com"
+	svc := func(ns string, registry provider.ID, port int) *Service {
+		return &Service{
+			Hostname:   hostname,
+			Ports:      PortList{{Name: "http", Port: port, Protocol: protocol.HTTP}},
+			Resolution: ClientSideLB,
+			Attributes: ServiceAttributes{Namespace: ns, Name: hostname, ServiceRegistry: registry},
+		}
+	}
+	withAddress := func(s *Service, address string) *Service {
+		s.DefaultAddress = address
+		return s
+	}
+	listener := func(port uint32, hosts ...string) *networking.IstioEgressListener {
+		l := &networking.IstioEgressListener{Hosts: hosts}
+		if port != 0 {
+			l.Port = &networking.SidecarPort{Number: port, Protocol: "HTTP", Name: "http"}
+		}
+		return l
+	}
+	// Endpoints are only a dependency in the namespace of the merged service, which EDS uses. DNSName is not a
+	// dependency for services only selected as VirtualService destinations, which the name table does not use.
+	deps := func(merged string, want map[string]bool, destinationOnly ...string) map[ConfigKey]bool {
+		out := map[ConfigKey]bool{}
+		for ns, v := range want {
+			out[ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: ns}] = v
+			out[ConfigKey{Kind: kind.DNSName, Name: hostname, Namespace: ns}] = v && !slices.Contains(destinationOnly, ns)
+			out[ConfigKey{Kind: kind.Endpoints, Name: hostname, Namespace: ns}] = ns == merged
+		}
+		return out
+	}
+	newPushContext := func(services []*Service, vs *config.Config) *PushContext {
+		ps := NewPushContext()
+		ps.Mesh = mesh.DefaultMeshConfig()
+		ps.initDefaultExportMaps()
+		ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
+		for _, s := range services {
+			if ps.ServiceIndex.HostnameAndNamespace[s.Hostname] == nil {
+				ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
+			}
+			ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+		}
+		if vs != nil {
+			ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = []*config.Config{vs}
+		}
+		return ps
+	}
+	routeTo := &config.Config{
+		Meta: config.Meta{Name: "vs", Namespace: "vs"},
+		Spec: &networking.VirtualService{
+			Hosts: []string{"vs.com"},
+			Http:  []*networking.HTTPRoute{{Route: []*networking.HTTPRouteDestination{{Destination: &networking.Destination{Host: hostname}}}}},
+		},
+	}
+
+	cases := []struct {
+		name      string
+		listeners []*networking.IstioEgressListener
+		services  []*Service
+		vs        *config.Config
+		gateway   bool
+		want      map[ConfigKey]bool
+	}{
+		{
+			name:      "listeners import a hostname from different namespaces",
+			listeners: []*networking.IstioEgressListener{listener(8080, "a/"+hostname), listener(9090, "b/"+hostname)},
+			services:  []*Service{svc("a", provider.External, 8080), svc("b", provider.External, 9090)},
+			want:      deps("a", map[string]bool{"a": true, "b": true, "other": false}),
+		},
+		{
+			name:      "Kubernetes service in a later listener replaces a listener service",
+			listeners: []*networking.IstioEgressListener{listener(8080, "a/"+hostname), listener(9090, "b/"+hostname)},
+			services:  []*Service{svc("a", provider.External, 8080), svc("b", provider.Kubernetes, 9090)},
+			want:      deps("b", map[string]bool{"a": true, "b": true}),
+		},
+		{
+			name:      "VirtualService destination replaces a listener service",
+			listeners: []*networking.IstioEgressListener{listener(0, "a/"+hostname, "vs/*")},
+			services:  []*Service{svc("a", provider.External, 8080), svc("default", provider.Kubernetes, 8080)},
+			vs:        routeTo,
+			want:      deps("default", map[string]bool{"a": true, "default": true}, "default"),
+		},
+		{
+			name:      "VirtualService-only destination",
+			listeners: []*networking.IstioEgressListener{listener(0, "vs/*")},
+			services:  []*Service{svc("default", provider.External, 8080)},
+			vs:        routeTo,
+			want:      deps("default", map[string]bool{"default": true, "other": false}, "default"),
+		},
+		{
+			name:      "ignored VirtualService destination is not a dependency",
+			listeners: []*networking.IstioEgressListener{listener(0, "a/"+hostname, "vs/*")},
+			services:  []*Service{svc("a", provider.External, 8080), svc("default", provider.External, 8080)},
+			vs:        routeTo,
+			want:      deps("a", map[string]bool{"a": true, "default": false}),
+		},
+		{
+			name:      "listener service replaces a VirtualService-only destination",
+			listeners: []*networking.IstioEgressListener{listener(8080, "vs/*"), listener(9090, "b/"+hostname)},
+			services:  []*Service{svc("default", provider.External, 8080), svc("b", provider.Kubernetes, 9090)},
+			vs:        routeTo,
+			want:      deps("b", map[string]bool{"default": false, "b": true}),
+		},
+		{
+			name:      "multi-address ServiceEntry in one namespace",
+			listeners: []*networking.IstioEgressListener{listener(8080, "a/*"), listener(9090, "b/"+hostname)},
+			services: []*Service{
+				withAddress(svc("a", provider.External, 8080), "240.0.0.1"),
+				withAddress(svc("a", provider.External, 8080), "240.0.0.2"),
+				svc("b", provider.External, 9090),
+			},
+			want: deps("a", map[string]bool{"a": true, "b": true, "other": false}),
+		},
+		{
+			name:     "gateway",
+			services: []*Service{svc("a", provider.External, 8080), svc("b", provider.External, 8080)},
+			gateway:  true,
+			want:     deps("a", map[string]bool{"a": true, "b": true, "other": false}),
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			ps := newPushContext(tt.services, tt.vs)
+			var sidecarScope *SidecarScope
+			if tt.gateway {
+				sidecarScope = DefaultSidecarScopeForGateway(ps, "default")
+			} else {
+				sidecarScope = convertToSidecarScope(ps, &config.Config{
+					Meta: config.Meta{Name: "sidecar", Namespace: "default"},
+					Spec: &networking.Sidecar{Egress: tt.listeners},
+				}, "default")
+				sidecarScope.initFunc()
+			}
+			for k, v := range tt.want {
+				if got := sidecarScope.DependsOnConfig(k, ps.Mesh.RootNamespace); got != v {
+					t.Errorf("DependsOnConfig(%v) = %v, want %v", k, got, v)
 				}
 			}
 		})
