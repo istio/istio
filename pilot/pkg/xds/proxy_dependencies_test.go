@@ -1308,7 +1308,7 @@ spec:
 }
 
 // Gateway routes use the service in the VirtualService's namespace, so they depend on same-hostname services that
-// are not merged even without an NDS watch.
+// are shadowed by the merged one even without an NDS watch.
 func TestShadowedServiceNeedsPushGatewayRoute(t *testing.T) {
 	setup := func(bPort int) (*core.ConfigGenTest, *model.Proxy) {
 		cg := core.NewConfigGenTest(t, core.TestOptions{ConfigString: fmt.Sprintf(`
