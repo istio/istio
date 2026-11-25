@@ -45,6 +45,7 @@ import (
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -1083,6 +1084,103 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 		certSdsConfig := tlsContext.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()
 		g.Expect(certSdsConfig).To(HaveLen(1))
 		g.Expect(certSdsConfig[0].GetName()).To(Equal("file-cert:/clientCertFromNodeMetadata.pem~/clientKeyFromNodeMetadata.pem"))
+	}
+}
+
+func TestGatewayBackendClientClusterCache(t *testing.T) {
+	test.SetForTest(t, &features.EnableCDSCaching, true)
+	test.SetForTest(t, &features.EnableUnsafeAssertions, false)
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
+	test.SetForTest(t, &features.EnableHBONESend, false)
+	const backend = "backend.default.svc.cluster.local"
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{buildServiceWithPort(backend, 443, protocol.HTTP, time.Unix(1, 0))},
+		ConfigString: `
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: backend
+  namespace: default
+spec:
+  host: backend.default.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      credentialName: configmap://default/backend-ca
+      sni: backend.example.com
+      subjectAltNames: [backend.example.com]
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+`,
+	})
+	newProxy := func(id string) *model.Proxy {
+		return cg.SetupProxy(&model.Proxy{
+			ID: id, Type: model.Router,
+			Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/metadata/client.pem",
+				TLSClientKey:       "/metadata/client-key.pem",
+				TLSClientRootCert:  "/metadata/ca.pem",
+			},
+		})
+	}
+	a, b := newProxy("gateway-a"), newProxy("gateway-b")
+	generator := NewConfigGenerator(model.NewXdsCache())
+	for _, tt := range []struct {
+		name       string
+		proxy      *model.Proxy
+		credential string
+	}{
+		{"first Gateway", a, "kubernetes-gateway://default/client-a"},
+		{"second Gateway", b, "kubernetes-gateway://default/client-b"},
+		{"invalid reference", a, credentials.InvalidSecretTypeURI},
+		{"removed reference", a, ""},
+		{"restored reference", a, "kubernetes-gateway://default/client-a"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.proxy.MergedGateway = &model.MergedGateway{BackendClientCredential: tt.credential}
+			for attempt := 0; attempt < 2; attempt++ {
+				resources, details := generator.BuildClusters(tt.proxy, &model.PushRequest{
+					Push: cg.PushContext(), Start: time.Now(),
+				})
+				if attempt == 1 {
+					assert.Equal(t, details.AdditionalInfo, "cached:2/2", "exercise cache hits, not just regeneration")
+				}
+				found := sets.New[string]()
+				for _, resource := range resources {
+					if !strings.HasPrefix(resource.Name, "outbound|") {
+						continue
+					}
+					found.Insert(resource.Name)
+					c := xdstest.UnmarshalAny[cluster.Cluster](t, resource.Resource)
+					assert.Equal(t, c.GetEdsClusterConfig().GetServiceName(), c.Name)
+					ctx := getTLSContext(t, c)
+					if ctx == nil {
+						t.Fatalf("cluster %s lost backend TLS", c.Name)
+					}
+					assert.Equal(t, ctx.Sni, "backend.example.com")
+					validation := ctx.CommonTlsContext.GetCombinedValidationContext()
+					wantCA := "configmap://default/backend-ca"
+					if tt.credential == "" {
+						wantCA += credentials.SdsCaSuffix
+					}
+					assert.Equal(t, validation.GetValidationContextSdsSecretConfig().GetName(), wantCA)
+					assert.Equal(t, validation.GetDefaultValidationContext().GetMatchSubjectAltNames(),
+						util.StringToExactMatch([]string{"backend.example.com"}))
+					var wantClients []string
+					if tt.credential != "" {
+						wantClients = []string{tt.credential}
+					}
+					var gotClients []string
+					for _, cert := range ctx.CommonTlsContext.TlsCertificateSdsSecretConfigs {
+						gotClients = append(gotClients, cert.Name)
+					}
+					assert.Equal(t, gotClients, wantClients, c.Name)
+				}
+				assert.Equal(t, found, sets.New("outbound|443||"+backend, "outbound|443|v1|"+backend))
+			}
+		})
 	}
 }
 

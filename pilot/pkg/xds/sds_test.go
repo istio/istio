@@ -30,6 +30,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	credentials "istio.io/istio/pilot/pkg/credentials/kube"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
@@ -38,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -482,6 +484,52 @@ func TestCaching(t *testing.T) {
 	raw = xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	if len(raw) != 0 {
 		t.Fatalf("failed to get expected secrets for unauthorized proxy: %v", raw)
+	}
+}
+
+func TestGatewayUpdateRefreshesWatchedCredential(t *testing.T) {
+	test.SetForTest(t, &features.EnableUnsafeAssertions, false)
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{KubernetesObjects: []runtime.Object{genericCert}})
+	s.EnsureSynced(t)
+	proxy := s.SetupProxy(&model.Proxy{
+		Type:             model.Router,
+		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		Metadata:         &model.NodeMetadata{ClusterID: constants.DefaultClusterName},
+	})
+	const credential = "kubernetes-gateway://istio-system/generic"
+	watch := &model.WatchedResource{ResourceNames: sets.New(credential)}
+	gen := s.Discovery.Generators[v3.SecretType]
+	for _, tt := range []struct {
+		name       string
+		authorized bool
+		mixed      bool
+		cache      string
+	}{
+		{"not authorized", false, false, "cached:0/0"},
+		{"authorized by Gateway update", true, false, "cached:0/1"},
+		{"mixed Gateway and unrelated Secret update", true, true, "cached:1/1"},
+		{"revoked with cached Secret", false, false, "cached:0/0"},
+		{"restored without Secret change", true, false, "cached:1/1"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			allowed := sets.New[string]()
+			if tt.authorized {
+				allowed.Insert(credential)
+			}
+			proxy.MergedGateway = &model.MergedGateway{VerifiedCertificateReferences: allowed}
+			updates := sets.New(model.ConfigKey{Kind: kind.Gateway, Name: "edge", Namespace: "istio-system"})
+			if tt.mixed {
+				updates.Insert(model.ConfigKey{Kind: kind.Secret, Name: "unrelated", Namespace: "istio-system"})
+			}
+			resources, details, err := gen.Generate(proxy, watch, &model.PushRequest{Start: time.Now(), ConfigsUpdated: updates})
+			assert.NoError(t, err)
+			got := sets.New[string]()
+			for _, resource := range resources {
+				got.Insert(resource.Name)
+			}
+			assert.Equal(t, got, allowed)
+			assert.Equal(t, details.AdditionalInfo, tt.cache)
+		})
 	}
 }
 

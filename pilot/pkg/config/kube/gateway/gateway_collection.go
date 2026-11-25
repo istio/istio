@@ -53,6 +53,16 @@ func (g Gateway) Equals(other Gateway) bool {
 		g.Valid == other.Valid // TODO: ok to ignore parent/parentInfo?
 }
 
+type BackendTLSSettings struct {
+	ParentGateway types.NamespacedName
+	BackendTLS    *gatewayv1.GatewayBackendTLS
+	Error         *ConfigError
+}
+
+func (b BackendTLSSettings) ResourceName() string {
+	return b.ParentGateway.String()
+}
+
 type ListenerSet struct {
 	*config.Config `json:"config"`
 	Parent         parentKey            `json:"parent"`
@@ -193,6 +203,7 @@ func ListenerSetCollection(
 				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
+				meta[constants.InternalGatewayParent] = config.NamespacedName(parentGwObj).String()
 
 				// For unmanaged (manual deployment) parent Gateways, we have no idea what service accounts
 				// the gateway workloads will use, so we must not enforce service account restrictions.
@@ -278,6 +289,7 @@ func GatewayCollection(
 ) (
 	krt.StatusCollection[*gatewayv1.Gateway, gatewayv1.GatewayStatus],
 	krt.Collection[Gateway],
+	krt.Collection[BackendTLSSettings],
 ) {
 	listenerIndex := krt.NewIndex(listenerSets, "gatewayParent", func(o ListenerSet) []types.NamespacedName {
 		return []types.NamespacedName{o.GatewayParent}
@@ -434,7 +446,20 @@ func GatewayCollection(
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
-	return statusCol, gw
+	// Create a collection for Gateway Backend TLS configuration, which is not preserved in the Gateway collection.
+	gatewayBackendTLS := krt.NewCollection(gateways, func(ctx krt.HandlerContext, obj *gatewayv1.Gateway) *BackendTLSSettings {
+		if obj.Spec.TLS == nil || obj.Spec.TLS.Backend == nil || obj.Spec.TLS.Backend.ClientCertificateRef == nil {
+			return nil
+		}
+		backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
+		return &BackendTLSSettings{
+			ParentGateway: config.NamespacedName(obj),
+			BackendTLS:    obj.Spec.TLS.Backend,
+			Error:         backendTLSErr,
+		}
+	}, opts.WithName("GatewayBackendTLS")...)
+
+	return statusCol, gw, gatewayBackendTLS
 }
 
 // FinalGatewayStatusCollection finalizes a Gateway status. There is a circular logic between Gateways and Routes to determine

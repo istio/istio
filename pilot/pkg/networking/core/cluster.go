@@ -995,6 +995,12 @@ type buildClusterOpts struct {
 	isDrWithSelector          bool
 	credentialSocketExist     bool
 	fileCredentialSocketExist bool
+	// gatewayClientCredential is the client credential used in mTLS
+	// authentication with an upstream backend. Used only when there is a backend
+	// policy that already establishes server-only TLS.
+	gatewayClientCredential string
+	// Set during Gateway TLS composition to disable the implicit CA lookup from CredentialName.
+	credentialNameForClientOnly bool
 }
 
 func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {
