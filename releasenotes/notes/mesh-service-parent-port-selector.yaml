@@ -19,5 +19,5 @@ upgradeNotes:
     now reported `Accepted=False` with reason `NoMatchingParent` and stop routing.
 
     Before upgrading, check mesh routes for `sectionName` values that do not match a port name on the parent
-    Service. For a `Service` parent, `sectionName` selects a port by name and `port` selects a port by
-    number; remove the selector to attach to every port.
+    Service. Update the value to a port name the Service declares, replace it with `port` and the port
+    number, or remove it to attach the route to every port.
