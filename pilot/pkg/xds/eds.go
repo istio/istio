@@ -92,8 +92,8 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 	istioEndpoints []*model.IstioEndpoint,
 ) {
 	inboundEDSUpdates.Increment()
-	// Update the endpoint shards
-	s.Env.EndpointIndex.UpdateServiceEndpoints(shard, serviceName, namespace, istioEndpoints, false)
+	// The caller handles pushing, so there is no need to diff endpoints to determine the push type.
+	s.Env.EndpointIndex.ReplaceServiceEndpoints(shard, serviceName, namespace, istioEndpoints, false)
 }
 
 func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {

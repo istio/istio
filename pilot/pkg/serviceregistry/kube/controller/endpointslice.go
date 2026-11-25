@@ -358,7 +358,9 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 }
 
 // updateEndpointCacheForPod rebuilds only slices whose endpoint metadata may depend on pod.
-// Preserve the cached endpoint pointers in other slices so EDS can skip deep comparisons.
+// Preserve cached endpoints in other slices to avoid rebuilding metadata unrelated to this pod.
+// Node locality changes in those slices are not refreshed here.
+// TODO: Rebuild affected endpoints on node label changes; onNodeEvent currently does not do this.
 func (esc *endpointSliceController) updateEndpointCacheForPod(svc *model.Service, pod *corev1.Pod) {
 	for _, slice := range esc.slices.List(svc.Attributes.Namespace, endpointSliceSelectorForService(svc.Attributes.Name)) {
 		if endpointSliceContainsPod(slice, pod) {
