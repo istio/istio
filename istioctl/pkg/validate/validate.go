@@ -109,29 +109,26 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 		return warnings, err
 	}
 
-	var errs error
 	if un.IsList() {
+		// A List, such as the output of `kubectl get <kind> -o yaml`: validate every item the
+		// same way a standalone document is validated.
+		var errs error
+		var warnings validation.Warning
 		_ = un.EachListItem(func(item runtime.Object) error {
 			castItem := item.(*unstructured.Unstructured)
-			if castItem.GetKind() == gvk.Service.Kind {
-				err := v.validateServicePortPrefix(istioNamespace, castItem)
-				if err != nil {
-					errs = multierror.Append(errs, err)
-				}
+			prefix := fmt.Sprintf("%s/%s/%s:", castItem.GetKind(), castItem.GetNamespace(), castItem.GetName())
+			warning, err := v.validateResource(istioNamespace, defaultNamespace, castItem, writer)
+			if err != nil {
+				errs = multierror.Append(errs, multierror.Prefix(err, prefix))
 			}
-			if castItem.GetKind() == gvk.Deployment.Kind {
-				err := v.validateDeploymentLabel(istioNamespace, castItem, writer)
-				if err != nil {
-					errs = multierror.Append(errs, err)
-				}
+			if warning != nil {
+				warnings = multierror.Append(warnings, multierror.Prefix(warning, prefix))
 			}
 			return nil
 		})
+		return warnings, errs
 	}
 
-	if errs != nil {
-		return nil, errs
-	}
 	if un.GetKind() == gvk.Service.Kind {
 		return nil, v.validateServicePortPrefix(istioNamespace, un)
 	}
