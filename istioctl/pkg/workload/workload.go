@@ -657,6 +657,9 @@ func convertToUnsignedInt32Map(s []string) (map[string]uint32, error) {
 		if !found {
 			return nil, fmt.Errorf("invalid port %q: expected <name>=<port>", l)
 		}
+		if k == "" {
+			return nil, fmt.Errorf("invalid port %q: missing port name", l)
+		}
 		u64, err := strconv.ParseUint(v, 10, 32)
 		if err != nil {
 			return nil, fmt.Errorf("invalid port %q: %q is not a valid port number", l, v)

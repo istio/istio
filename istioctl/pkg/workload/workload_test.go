@@ -125,6 +125,12 @@ func TestWorkloadGroupCreate(t *testing.T) {
 			expectedOutput:    "Error: invalid port \"http\": expected <name>=<port>\n",
 		},
 		{
+			description:       "Invalid ports - entry without a port name",
+			args:              strings.Split("group create --name foo --namespace bar --ports =80", " "),
+			expectedException: true,
+			expectedOutput:    "Error: invalid port \"=80\": missing port name\n",
+		},
+		{
 			description:       "Invalid ports - port is not a number",
 			args:              strings.Split("group create --name foo --namespace bar --ports grpc=3550,http=abc", " "),
 			expectedException: true,
@@ -496,6 +502,7 @@ func TestConvertToUnsignedInt32Map(t *testing.T) {
 		{name: "two", arg: []string{"grpc=3550", "http=8080"}, want: map[string]uint32{"grpc": 3550, "http": 8080}},
 		{name: "min-and-max-port", arg: []string{"a=1", "b=65535"}, want: map[string]uint32{"a": 1, "b": 65535}},
 		{name: "no-equals", arg: []string{"http"}, wantErr: `invalid port "http": expected <name>=<port>`},
+		{name: "empty-name", arg: []string{"=80"}, wantErr: `invalid port "=80": missing port name`},
 		{name: "empty-port", arg: []string{"http="}, wantErr: `invalid port "http=": "" is not a valid port number`},
 		{name: "not-a-number", arg: []string{"http=abc"}, wantErr: `invalid port "http=abc": "abc" is not a valid port number`},
 		{name: "negative", arg: []string{"http=-1"}, wantErr: `invalid port "http=-1": "-1" is not a valid port number`},
