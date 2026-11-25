@@ -175,7 +175,7 @@ func NewController(
 	)
 	status.RegisterStatus(c.status, Status, func(ingress *knetworking.Ingress) knetworking.IngressStatus {
 		return ingress.Status
-	}, c.tagWatcher.AccessUnprotected())
+	}, c.tagWatcher, opts.WithName("IngressStatusWithOwnership")...)
 
 	_, RuleHostIndex := RuleCollection(
 		SupportedIngresses,

@@ -262,7 +262,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	}, opts.WithName("AgentgatewayGatewayClasses")...)
 
 	gatewayClassStatus, gatewayClasses := gatewaycommon.GatewayClassesCollection(agwGatewayClasses, opts)
-	status.RegisterStatus(c.status, gatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+	status.RegisterStatus(c.status, gatewayClassStatus, GetStatus, c.tagWatcher, opts.WithName("GatewayClassStatusWithOwnership")...)
 
 	referenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
 	gatewayListenerConflicts := gatewaycommon.GatewayListenerConflictCollection(
@@ -334,15 +334,15 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		DomainSuffix:       c.domainSuffix,
 	}
 	backendTLSStatus, backendTLSPolicies := BackendTLSPolicyCollection(backendTLSInputs, opts)
-	status.RegisterStatus(c.status, backendTLSStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+	status.RegisterStatus(c.status, backendTLSStatus, GetStatus, c.tagWatcher, opts.WithName("BackendTLSPolicyStatusWithOwnership")...)
 
 	agwResources, routeAttachments := c.buildAgwResources(gateways, referenceGrants, inferencePolicies, backendTLSPolicies, waypointBindings, opts)
 
 	gatewayFinalStatus := c.buildFinalGatewayStatus(gatewayInitialStatus, routeAttachments, opts)
-	status.RegisterStatusWithTagUpdates(c.status, gatewayFinalStatus, GetStatus, c.tagWatcher, opts.WithName("GatewayStatusWithOwnership")...)
+	status.RegisterStatus(c.status, gatewayFinalStatus, GetStatus, c.tagWatcher, opts.WithName("GatewayStatusWithOwnership")...)
 
 	listenerSetFinalStatus := c.buildFinalListenerSetStatus(gateways, listenerSetIntialStatus, routeAttachments, opts)
-	status.RegisterStatusWithTagUpdates(c.status, listenerSetFinalStatus, GetStatus, c.tagWatcher, opts.WithName("ListenerSetStatusWithOwnership")...)
+	status.RegisterStatus(c.status, listenerSetFinalStatus, GetStatus, c.tagWatcher, opts.WithName("ListenerSetStatusWithOwnership")...)
 
 	httpRoutesByInferencePool := krt.NewIndex(c.inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
 	inferencePoolStatus, _ := InferencePoolCollection(
@@ -354,7 +354,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		opts,
 	)
 	if features.EnableGatewayAPIInferenceExtension {
-		status.RegisterStatus(c.status, inferencePoolStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+		status.RegisterStatus(c.status, inferencePoolStatus, GetStatus, c.tagWatcher, opts.WithName("InferencePoolStatusWithOwnership")...)
 	}
 
 	// TODO(jaellio): Source addresses from the ambientindex so the agentgateway proxies get the same

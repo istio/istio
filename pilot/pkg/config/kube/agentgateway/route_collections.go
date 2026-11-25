@@ -165,7 +165,7 @@ func AgwRouteCollection(
 		}, func(status gatewayv1.RouteStatus) gatewayv1.HTTPRouteStatus {
 			return gatewayv1.HTTPRouteStatus{RouteStatus: status}
 		})
-	status.RegisterStatus(queue, httpRouteStatus, GetStatus, tagWatcher.AccessUnprotected())
+	status.RegisterStatus(queue, httpRouteStatus, GetStatus, tagWatcher, krtopts.WithName("HTTPRouteStatusWithOwnership")...)
 
 	// Create gRPCRoutes collection
 	grpcRouteStatus, grpcRoutes := createRouteCollection(grpcRouteCol, inputs, krtopts, "GRPCRoutes",
@@ -183,7 +183,7 @@ func AgwRouteCollection(
 		}, func(status gatewayv1.RouteStatus) gatewayv1.GRPCRouteStatus {
 			return gatewayv1.GRPCRouteStatus{RouteStatus: status}
 		})
-	status.RegisterStatus(queue, grpcRouteStatus, GetStatus, tagWatcher.AccessUnprotected())
+	status.RegisterStatus(queue, grpcRouteStatus, GetStatus, tagWatcher, krtopts.WithName("GRPCRouteStatusWithOwnership")...)
 
 	// Create TCPRoutes collection
 	tcpRouteStatus, tcpRoutes := createTCPRouteCollection(tcpRouteCol, inputs, krtopts, "TCPRoutes",
@@ -201,7 +201,7 @@ func AgwRouteCollection(
 		}, func(status gatewayv1.RouteStatus) gatewayv1.TCPRouteStatus {
 			return gatewayv1.TCPRouteStatus{RouteStatus: status}
 		})
-	status.RegisterStatus(queue, tcpRouteStatus, GetStatus, tagWatcher.AccessUnprotected())
+	status.RegisterStatus(queue, tcpRouteStatus, GetStatus, tagWatcher, krtopts.WithName("TCPRouteStatusWithOwnership")...)
 
 	// Create TLSRoutes collection
 	tlsRouteStatus, tlsRoutes := createTCPRouteCollection(tlsRouteCol, inputs, krtopts, "TLSRoutes",
@@ -219,7 +219,7 @@ func AgwRouteCollection(
 		}, func(status gatewayv1.RouteStatus) gatewayv1.TLSRouteStatus {
 			return gatewayv1.TLSRouteStatus{RouteStatus: status}
 		})
-	status.RegisterStatus(queue, tlsRouteStatus, GetStatus, tagWatcher.AccessUnprotected())
+	status.RegisterStatus(queue, tlsRouteStatus, GetStatus, tagWatcher, krtopts.WithName("TLSRouteStatusWithOwnership")...)
 
 	// Join all the route types into a single collection
 	routes := krt.JoinCollection([]krt.Collection[AgwResource]{httpRoutes, grpcRoutes, tcpRoutes, tlsRoutes}, krtopts.WithName("ADPRoutes")...)

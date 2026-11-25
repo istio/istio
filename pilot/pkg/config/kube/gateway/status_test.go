@@ -84,7 +84,7 @@ func TestStatusAfterRevisionTagRepoint(t *testing.T) {
 	setAndWait(t, c, q)
 	for _, written := range q.Statuses() {
 		switch written.(type) {
-		case *gw.GatewayStatus, *gw.ListenerSetStatus:
+		case *gw.GatewayStatus, *gw.ListenerSetStatus, *gw.HTTPRouteStatus:
 			t.Fatalf("unexpected status write before ownership transfer: %+v", written)
 		}
 	}
@@ -126,6 +126,32 @@ func TestStatusAfterRevisionTagRepoint(t *testing.T) {
 			return "no corrected ListenerSet status"
 		}, "corrected ListenerSet status")
 	})
+	t.Run("HTTPRoute", func(t *testing.T) {
+		assert.EventuallyEqual(t, func() string {
+			for _, written := range q.Statuses() {
+				if s, ok := written.(*gw.HTTPRouteStatus); ok &&
+					len(s.Parents) == 1 && meta.IsStatusConditionTrue(s.Parents[0].Conditions, "Accepted") {
+					return "corrected HTTPRoute status"
+				}
+			}
+			return "no corrected HTTPRoute status"
+		}, "corrected HTTPRoute status")
+	})
+	t.Run("loses ownership", func(t *testing.T) {
+		tag = tag.DeepCopy()
+		tag.Labels[label.IoIstioRev.Name] = "stable"
+		clienttest.NewWriter[*admissionv1.MutatingWebhookConfiguration](t, c.client).Update(tag)
+		assert.EventuallyEqual(t, func() bool {
+			return c.tagWatcher.AccessUnprotected().IsMine(gateway.ObjectMeta)
+		}, false)
+
+		// A revision that lost the tag must stop writing status for the tagged namespace.
+		before := len(q.Statuses())
+		mutated := gateway.DeepCopy()
+		mutated.Spec.Listeners[0].Name = "renamed"
+		clienttest.NewWriter[*gw.Gateway](t, c.client).Update(mutated)
+		assert.Equal(t, len(q.Statuses()), before)
+	})
 	assert.Equal(t, listConfigs(), gatewayConfigs)
 }
 
@@ -146,7 +172,7 @@ func TestStatusCollections(t *testing.T) {
 	fakeCol := krt.NewMutableCollection[Status](nil, []Status{obj1}, krt.WithStop(stop))
 	status.RegisterStatus(c.status, fakeCol.AsCollection(), func(i *v1.ConfigMap) string {
 		return ""
-	}, c.tagWatcher.AccessUnprotected())
+	}, c.tagWatcher, krt.WithStop(stop))
 
 	sq1 := &TestStatusQueue{state: map[status.Resource]any{}}
 	setAndWait(t, c, sq1)

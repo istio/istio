@@ -75,32 +75,10 @@ func (s *StatusCollections) SetQueue(queue Queue) []krt.Syncer {
 // krt.ObjectWithStatus, in theory, can contain anything in the "object" field. This function requires it to contain
 // the current live *status*, and a passed in getStatus to extract it from the object.
 // It will then compare the live status to the desired status to determine whether to write or not.
+// Status is also reconciled when this revision gains ownership through a tag update. Ownership lives
+// in the status registration so that a tag change can generate a status event even when the resource,
+// desired status and config are identical.
 func RegisterStatus[I controllers.Object, IS any](
-	s *StatusCollections,
-	statusCol krt.StatusCollection[I, IS],
-	getStatus func(I) IS,
-	tagWatcher revisions.TagWatcher,
-) {
-	s.Register(func(statusWriter Queue) krt.HandlerRegistration {
-		return statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[I, IS]]) {
-			reconcileStatus(statusWriter, o.Latest(), o.Event, getStatus, tagWatcher)
-		})
-	})
-}
-
-type statusWithOwnership[I controllers.Object, IS any] struct {
-	krt.ObjectWithStatus[I, IS]
-	Owned bool
-}
-
-func (s statusWithOwnership[I, IS]) Equals(other statusWithOwnership[I, IS]) bool {
-	return s.Owned == other.Owned && s.ObjectWithStatus.Equals(other.ObjectWithStatus)
-}
-
-// RegisterStatusWithTagUpdates also reconciles status when this revision gains ownership
-// through a tag update. Ownership lives in the status registration so that a tag change
-// can generate a status event even when the resource, desired status and config are identical.
-func RegisterStatusWithTagUpdates[I controllers.Object, IS any](
 	s *StatusCollections,
 	statusCol krt.StatusCollection[I, IS],
 	getStatus func(I) IS,
@@ -124,6 +102,15 @@ func RegisterStatusWithTagUpdates[I controllers.Object, IS any](
 	})
 }
 
+type statusWithOwnership[I controllers.Object, IS any] struct {
+	krt.ObjectWithStatus[I, IS]
+	Owned bool
+}
+
+func (s statusWithOwnership[I, IS]) Equals(other statusWithOwnership[I, IS]) bool {
+	return s.Owned == other.Owned && s.ObjectWithStatus.Equals(other.ObjectWithStatus)
+}
+
 func reconcileStatus[I controllers.Object, IS any](
 	statusWriter Queue,
 	desired krt.ObjectWithStatus[I, IS],
@@ -132,6 +119,10 @@ func reconcileStatus[I controllers.Object, IS any](
 	tagWatcher revisions.TagWatcher,
 ) {
 	if krt.Equal(getStatus(desired.Obj), desired.Status) {
+		// We want the same status we already have! No need for a write so skip this.
+		// Note: the Equals() function on ObjectWithStatus does not compare these. It only compares "old live + desired" == "new live + desired".
+		// So if either the live OR the desired status changes, this callback will trigger.
+		// Here, we do smarter filtering and can just check whether we meet the desired state.
 		log.Debugf("suppress change for %v %v", desired.ResourceName(), desired.Obj.GetResourceVersion())
 		return
 	}
@@ -141,6 +132,7 @@ func reconcileStatus[I controllers.Object, IS any](
 	}
 	wanted := &desired.Status
 	if event == controllers.EventDelete {
+		// if the object is being deleted, we should not reset status
 		var empty IS
 		wanted = &empty
 	}
