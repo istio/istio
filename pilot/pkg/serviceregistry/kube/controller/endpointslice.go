@@ -44,6 +44,7 @@ import (
 type endpointSliceController struct {
 	endpointCache *endpointSliceCache
 	slices        kclient.Client[*v1.EndpointSlice]
+	slicesByPod   kclient.Index[types.NamespacedName, *v1.EndpointSlice]
 	c             *Controller
 }
 
@@ -59,6 +60,23 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 		slices:        slices,
 		endpointCache: newEndpointSliceCache(),
 	}
+	// Match getPod's lookup semantics: Pod references take precedence over IPs.
+	out.slicesByPod = kclient.CreateIndex(slices, "endpointSlicePod", func(slice *v1.EndpointSlice) []types.NamespacedName {
+		if !endpointSliceSelector.Matches(klabels.Set(slice.Labels)) {
+			return nil
+		}
+		keys := sets.New[types.NamespacedName]()
+		for _, endpoint := range slice.Endpoints {
+			if ref := endpoint.TargetRef; ref != nil && ref.Kind == kind.Pod.String() {
+				keys.Insert(types.NamespacedName{Namespace: ref.Namespace, Name: "pod/" + ref.Name})
+			} else {
+				for _, address := range endpoint.Addresses {
+					keys.Insert(types.NamespacedName{Namespace: slice.Namespace, Name: "ip/" + address})
+				}
+			}
+		}
+		return keys.UnsortedList()
+	})
 	registerHandlers[*v1.EndpointSlice](c, slices, "EndpointSlice", out.onEvent, endpointSliceUnchanged)
 	return out
 }
@@ -355,6 +373,27 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 		}
 	}
 	esc.endpointCache.Update(hostName, epSlice.Name, endpoints)
+}
+
+// updateEndpointCacheForPod rebuilds only slices whose endpoint metadata can
+// depend on this pod. Service and export changes still rebuild the whole cache.
+func (esc *endpointSliceController) updateEndpointCacheForPod(svc *model.Service, pod *corev1.Pod) {
+	keys := []types.NamespacedName{
+		{Namespace: pod.Namespace, Name: "pod/" + pod.Name},
+		{Namespace: pod.Namespace, Name: "ip/" + pod.Status.PodIP},
+	}
+	updated := sets.New[string]()
+	for _, key := range keys {
+		for _, slice := range esc.slicesByPod.Lookup(key) {
+			if slice.Namespace != svc.Attributes.Namespace || serviceNameForEndpointSlice(slice.Labels) != svc.Attributes.Name {
+				continue
+			}
+			if updated.InsertContains(slice.Name) {
+				continue
+			}
+			esc.updateEndpointCacheForSlice(svc.Hostname, slice)
+		}
+	}
 }
 
 func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, hostName host.Name, updateCache bool) []*model.IstioEndpoint {

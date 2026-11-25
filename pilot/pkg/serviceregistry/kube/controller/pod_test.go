@@ -21,6 +21,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,6 +29,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -520,5 +522,68 @@ func TestGetPortMapNativeSidecar(t *testing.T) {
 	// Regular init container port should NOT be included.
 	if _, ok := pmap["init-port"]; ok {
 		t.Error("regular init container port should not be in port map")
+	}
+}
+
+// A relabel must refresh endpoint metadata without rebuilding unrelated slices.
+// Pointer identity measures rebuild work deterministically, without timing thresholds.
+func TestPodLabelUpdateOnlyRebuildsContainingSlices(t *testing.T) {
+	for _, targetRef := range []bool{true, false} {
+		t.Run(fmt.Sprintf("targetRef=%v", targetRef), func(t *testing.T) {
+			c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+			initTestEnv(t, c.client.Kube(), fx)
+			for i := 0; i < 2; i++ {
+				pod := generatePod([]string{fmt.Sprintf("128.0.0.%d", i+1)}, fmt.Sprintf("pod%d", i), "nsa", "", "",
+					map[string]string{"app": "test", "role": "canary"}, nil)
+				addPods(t, c, fx, pod)
+			}
+			writer := clienttest.NewWriter[*discovery.EndpointSlice](t, c.client)
+			for _, name := range []string{"stable", "canary"} {
+				createServiceWait(c, name, "nsa", []string{"10.0.0.1"}, nil, nil, []int32{8080}, map[string]string{"app": "test"}, t)
+				for i := 0; i < 2; i++ {
+					portName, port := "tcp-port", int32(8080)
+					endpoint := discovery.Endpoint{Addresses: []string{fmt.Sprintf("128.0.0.%d", i+1)}}
+					if targetRef {
+						endpoint.TargetRef = &v1.ObjectReference{Kind: "Pod", Name: fmt.Sprintf("pod%d", i), Namespace: "nsa"}
+					}
+					writer.CreateOrUpdate(&discovery.EndpointSlice{
+						ObjectMeta:  metav1.ObjectMeta{Name: fmt.Sprintf("%s-%d", name, i), Namespace: "nsa", Labels: map[string]string{discovery.LabelServiceName: name}},
+						AddressType: discovery.AddressTypeIPv4,
+						Endpoints:   []discovery.Endpoint{endpoint},
+						Ports:       []discovery.EndpointPort{{Name: &portName, Port: &port}},
+					})
+					fx.WaitOrFail(t, "eds")
+				}
+			}
+			fx.Clear()
+			snapshot := func(name string) map[string]*model.IstioEndpoint {
+				result := map[string]*model.IstioEndpoint{}
+				for _, ep := range c.endpoints.endpointCache.Get(kube.ServiceHostname(name, "nsa", c.opts.DomainSuffix)) {
+					result[ep.FirstAddressOrNil()] = ep
+				}
+				return result
+			}
+			before := map[string]map[string]*model.IstioEndpoint{}
+			for _, name := range []string{"stable", "canary"} {
+				before[name] = snapshot(name)
+				assert.Equal(t, len(before[name]), 2)
+			}
+			// Exercise the actual informer producer and serial pod event handler, twice.
+			for _, role := range []string{"stable", "canary"} {
+				pod := c.pods.getPodByKey(types.NamespacedName{Name: "pod0", Namespace: "nsa"}).DeepCopy()
+				pod.Labels["role"] = role
+				clienttest.Wrap(t, c.podsClient).Update(pod)
+				fx.WaitOrFail(t, "xds")
+				for _, name := range []string{"stable", "canary"} {
+					after := snapshot(name)
+					assert.Equal(t, len(after), 2)
+					assert.Equal(t, after["128.0.0.1"].Labels["role"], role)
+					assert.Equal(t, after["128.0.0.2"].Labels["role"], "canary")
+					if after["128.0.0.2"] != before[name]["128.0.0.2"] {
+						t.Errorf("%s: pod label update rebuilt endpoint in unrelated slice", name)
+					}
+				}
+			}
+		})
 	}
 }

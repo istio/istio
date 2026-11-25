@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62899
+releaseNotes:
+  - |
+    **Optimized** pod metadata updates to rebuild only EndpointSlices containing the
+    changed pod, avoiding endpoint reconstruction in unrelated slices of a Service.
