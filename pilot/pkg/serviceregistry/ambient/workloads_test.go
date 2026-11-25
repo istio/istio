@@ -214,6 +214,13 @@ func TestPodWorkloads(t *testing.T) {
 							},
 						},
 					},
+					Ports: []discovery.EndpointPort{
+						{
+							Name:     ptr.Of(""),
+							Protocol: ptr.Of(v1.ProtocolTCP),
+							Port:     ptr.Of(int32(8080)),
+						},
+					},
 				},
 			},
 			pod: &v1.Pod{
@@ -308,6 +315,18 @@ func TestPodWorkloads(t *testing.T) {
 								Name:      "name",
 								Namespace: "ns",
 							},
+						},
+					},
+					Ports: []discovery.EndpointPort{
+						{
+							Name:     ptr.Of("80"),
+							Protocol: ptr.Of(v1.ProtocolTCP),
+							Port:     ptr.Of(int32(8080)),
+						},
+						{
+							Name:     ptr.Of("81"),
+							Protocol: ptr.Of(v1.ProtocolTCP),
+							Port:     ptr.Of(int32(9090)),
 						},
 					},
 				},
@@ -808,6 +827,13 @@ func TestPodWorkloads(t *testing.T) {
 								Name:      "pod-123",
 								Namespace: "default",
 							},
+						},
+					},
+					Ports: []discovery.EndpointPort{
+						{
+							Name:     ptr.Of("80"),
+							Protocol: ptr.Of(v1.ProtocolTCP),
+							Port:     ptr.Of(int32(80)),
 						},
 					},
 				},

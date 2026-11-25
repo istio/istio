@@ -3237,6 +3237,13 @@ func (s *ambientTestServer) setEndpointSlice(t *testing.T, service string, pods 
 		},
 		AddressType: discovery.AddressTypeIPv4,
 		Endpoints:   endpoints,
+		Ports: []discovery.EndpointPort{
+			{
+				Name:     ptr.Of("tcp-port"),
+				Protocol: ptr.Of(corev1.ProtocolTCP),
+				Port:     ptr.Of(int32(80)),
+			},
+		},
 	})
 }
 
