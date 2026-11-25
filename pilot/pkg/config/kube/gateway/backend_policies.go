@@ -443,11 +443,13 @@ func backendResourceTLSSettings(
 // backendTLSSubjectAltNames returns the names the backend certificate must match. Gateway API authenticates the
 // backend against Hostname unless SubjectAltNames are set, in which case Hostname is only used as SNI.
 func backendTLSSubjectAltNames(validation gw.BackendTLSPolicyValidation) []string {
-	if len(validation.SubjectAltNames) == 0 {
-		if validation.Hostname == "" {
-			return nil
+	if features.EnableGatewayAPITLSHostnameValidation {
+		if len(validation.SubjectAltNames) == 0 {
+			if validation.Hostname == "" {
+				return nil
+			}
+			return []string{string(validation.Hostname)}
 		}
-		return []string{string(validation.Hostname)}
 	}
 	return slices.MapFilter(validation.SubjectAltNames, func(e gw.SubjectAltName) *string {
 		switch e.Type {

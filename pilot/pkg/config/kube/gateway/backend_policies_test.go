@@ -19,10 +19,13 @@ import (
 
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestBackendTLSSubjectAltNames(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPITLSHostnameValidation, true)
 	cases := []struct {
 		name       string
 		validation k8s.BackendTLSPolicyValidation
@@ -56,4 +59,17 @@ func TestBackendTLSSubjectAltNames(t *testing.T) {
 			assert.Equal(t, backendTLSSubjectAltNames(tt.validation), tt.want)
 		})
 	}
+}
+
+func TestBackendTLSSubjectAltNamesHostnameValidationDisabled(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPITLSHostnameValidation, false)
+	validation := k8s.BackendTLSPolicyValidation{Hostname: "auth.example.com"}
+	assert.Equal(t, backendTLSSubjectAltNames(validation), []string(nil))
+
+	validation.SubjectAltNames = []k8s.SubjectAltName{
+		{Type: k8s.HostnameSubjectAltNameType, Hostname: "other.example.com"},
+		{Type: k8s.URISubjectAltNameType, URI: "spiffe://example.com/backend"},
+	}
+	assert.Equal(t, backendTLSSubjectAltNames(validation), []string{"other.example.com", "spiffe://example.com/backend"})
+	assert.Equal(t, backendTLSSubjectAltNames(k8s.BackendTLSPolicyValidation{}), []string(nil))
 }

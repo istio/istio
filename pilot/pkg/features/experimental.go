@@ -249,4 +249,10 @@ var (
 			"This value should be a comma-separated list of resources names."+
 			"Items on this list can be prefixed with a '*.' meaning a whole group should be included regardless of the ignore list.",
 	).Get()
+
+	EnableGatewayAPITLSHostnameValidation = env.Register(
+		"ENABLE_GATEWAY_API_TLS_HOSTNAME_VALIDATION",
+		true,
+		"If enabled, verify the backend certificate against validation.hostname for BackendTLSPolicy and XBackend when no subjectAltNames are specified.",
+	).Get()
 )

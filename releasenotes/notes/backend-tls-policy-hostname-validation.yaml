@@ -13,4 +13,7 @@ upgradeNotes:
     A `BackendTLSPolicy` (or `XBackend` TLS validation) without `subjectAltNames` now requires the backend certificate to be
     valid for `validation.hostname`. Previously any certificate signed by the configured CA was accepted. Connections to
     backends whose certificate does not match fail with a 503 response after the upgrade. To keep using a `hostname` that is
-    not in the certificate, list the names the certificate is valid for in `validation.subjectAltNames`.
+    not in the certificate, list the names the certificate is valid for in `validation.subjectAltNames`. Alternatively, set
+    the istiod environment variable `ENABLE_GATEWAY_API_TLS_HOSTNAME_VALIDATION=false` to restore the previous behavior.
+    This disables verification against `validation.hostname` when `subjectAltNames` is not specified, weakening backend
+    identity verification.
