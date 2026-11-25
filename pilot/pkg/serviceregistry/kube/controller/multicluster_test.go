@@ -17,6 +17,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -36,13 +38,16 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -538,4 +543,85 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 
 	// Test - Verify that the remote controller has been removed.
 	verifyControllers(t, mc, 1, "delete remote controller 2")
+}
+
+type closeNotifier struct {
+	closed chan struct{}
+}
+
+func (c closeNotifier) Close()          { close(c.closed) }
+func (c closeNotifier) HasSynced() bool { return true }
+
+// xDS streams are still open when the multicluster controller stops, so stopping must not
+// remove the config cluster's registry or endpoint shard, or push to proxies.
+func TestConfigClusterKeptOnShutdown(t *testing.T) {
+	clusterID := cluster.ID("cluster-1")
+	mockserviceController := newMockserviceController()
+	clientset := kube.NewFakeClient(&v1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns"},
+		Spec:       v1.ServiceSpec{ClusterIP: "10.0.0.1", Ports: []v1.ServicePort{{Name: "http", Port: 80}}},
+	}, &discovery.EndpointSlice{
+		ObjectMeta:  metav1.ObjectMeta{Name: "svc", Namespace: "ns", Labels: map[string]string{discovery.LabelServiceName: "svc"}},
+		AddressType: discovery.AddressTypeIPv4,
+		Endpoints:   []discovery.Endpoint{{Addresses: []string{"10.1.0.1"}}},
+		Ports:       []discovery.EndpointPort{{Name: ptr.Of("http"), Port: ptr.Of(int32(80))}},
+	})
+	stop := make(chan struct{})
+	closeStop := sync.OnceFunc(func() { close(stop) })
+	t.Cleanup(closeStop)
+	s := server.New()
+	xdsUpdater := xdsfake.NewFakeXDS()
+	mcc := initController(clientset, stop)
+	mc := NewMulticluster("pilot-abc-123", Options{
+		ClusterID:             clusterID,
+		DomainSuffix:          DomainSuffix,
+		MeshWatcher:           meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
+		MeshNetworksWatcher:   meshwatcher.NewFixedNetworksWatcher(nil),
+		MeshServiceController: mockserviceController,
+		XDSUpdater:            xdsUpdater,
+	}, nil, nil, "default", false, nil, s, mcc)
+	// Components are stopped in registration order, so this one reports when the registry is done.
+	stopped := closeNotifier{closed: make(chan struct{})}
+	multicluster.BuildMultiClusterComponent(mcc, func(*multicluster.Cluster) closeNotifier { return stopped })
+	assert.NoError(t, mcc.Run(stop))
+	go mockserviceController.Run(stop)
+	clientset.RunAndWait(stop)
+	kube.WaitForCacheSync("test", stop, mcc.HasSynced)
+	_ = s.Start(stop)
+	verifyControllers(t, mc, 1, "create local controller")
+	hostname := host.Name("svc.ns.svc." + DomainSuffix)
+	assert.EventuallyEqual(t, func() bool { return mockserviceController.GetService(hostname) != nil }, true)
+	for len(xdsUpdater.WaitOrFail(t, "eds").Endpoints) == 0 {
+	}
+	registries := len(mockserviceController.GetRegistries())
+	kc := *mc.component.ForCluster(clusterID)
+	xdsUpdater.Clear()
+
+	closeStop()
+	select {
+	case <-stopped.closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for shutdown")
+	}
+
+	select {
+	case <-kc.queue.Closed():
+	default:
+		t.Fatal("registry queue still running after shutdown")
+	}
+	verifyControllers(t, mc, 1, "local controller kept")
+	assert.Equal(t, len(mockserviceController.GetRegistries()), registries)
+	assert.Equal(t, mockserviceController.GetService(hostname) != nil, true)
+	for {
+		select {
+		case e := <-xdsUpdater.Events:
+			emptied := strings.HasPrefix(e.Type, "eds") && len(e.Endpoints) == 0
+			if emptied || e.Type == "removeShard" || e.Type == "pruneShard" || strings.HasPrefix(e.Type, "xds") {
+				t.Fatalf("unexpected %q event on shutdown", e.Type)
+			}
+			continue
+		default:
+		}
+		break
+	}
 }
