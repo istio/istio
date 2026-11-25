@@ -2273,6 +2273,9 @@ func TestPolicyAfterPod(t *testing.T) {
 			s.assertEvent(t, s.svcXdsName("svc1"))
 			s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 			s.assertEvent(t, s.podXdsName("pod1"))
+			// Wait for pod1 to join svc1, which happens once its EndpointSlice is written.
+			s.assertAddresses(t, s.addrXdsName("10.0.0.1"), "pod1", "svc1")
+			s.clearEvents()
 			s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, nil)
 			s.assertEvent(t, s.podXdsName("pod1"))
 			assert.Equal(t, s.lookup(s.svcXdsName("svc1"))[1].GetWorkload().GetAuthorizationPolicies(), []string{"ns1/selector"})
