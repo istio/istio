@@ -239,6 +239,8 @@ type Controller struct {
 	meshConfig          krt.Singleton[meshwatcher.RestrictedMeshConfig]
 
 	podsClient kclient.Client[*v1.Pod]
+	// podsByNode indexes pods by spec.nodeName, used to refresh endpoint locality on node label changes.
+	podsByNode kclient.Index[string, *v1.Pod]
 
 	networksHandlerRegistration   *mesh.WatcherHandlerRegistration
 	meshConfigHandlerRegistration krt.HandlerRegistration
@@ -317,6 +319,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		c.queue.Push(func() error {
 			return c.endpoints.podArrived(key.Name, key.Namespace)
 		})
+	})
+	c.podsByNode = kclient.CreateStringIndex(c.podsClient, "spec.nodeName", func(pod *v1.Pod) []string {
+		if pod.Spec.NodeName == "" {
+			return nil
+		}
+		return []string{pod.Spec.NodeName}
 	})
 	registerHandlers(c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
@@ -580,7 +588,11 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 	return endpoints
 }
 
-func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
+func (c *Controller) onNodeEvent(old, node *v1.Node, event model.Event) error {
+	if event == model.EventUpdate && old != nil && nodeLocality(old) != nodeLocality(node) {
+		c.recomputeServicesForNode(node.Name)
+	}
+
 	var updatedNeeded bool
 	if event == model.EventDelete {
 		updatedNeeded = true
@@ -618,6 +630,49 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 		})
 	}
 	return nil
+}
+
+// recomputeServicesForNode rebuilds endpoints for all services selecting pods scheduled on the given node.
+// Endpoint locality is derived from node labels, so it must be refreshed when the node's locality changes.
+func (c *Controller) recomputeServicesForNode(nodeName string) {
+	pods := c.podsByNode.Lookup(nodeName)
+	if len(pods) == 0 {
+		return
+	}
+	shard := model.ShardKeyFromRegistry(c)
+	cu := sets.New[model.ConfigKey]()
+	servicesByNamespace := map[string][]*v1.Service{}
+	for _, pod := range pods {
+		// Pods with an explicit locality label do not depend on node locality.
+		if pm.GetLocalityLabel(pod.Labels) != "" {
+			continue
+		}
+		allServices, f := servicesByNamespace[pod.Namespace]
+		if !f {
+			allServices = c.services.List(pod.Namespace, klabels.Everything())
+			servicesByNamespace[pod.Namespace] = allServices
+		}
+		for _, svc := range getPodServices(allServices, pod) {
+			// Includes the clusterset.local service when MCS is enabled, which has its own endpoint cache entry.
+			for _, conv := range c.servicesForNamespacedName(config.NamespacedName(svc)) {
+				key := model.ConfigKey{Kind: kind.Endpoints, Name: string(conv.Hostname), Namespace: svc.Namespace}
+				if cu.Contains(key) {
+					continue
+				}
+				endpoints := c.buildEndpointsForService(conv, true)
+				if len(endpoints) > 0 {
+					c.opts.XDSUpdater.EDSCacheUpdate(shard, string(conv.Hostname), svc.Namespace, endpoints)
+				}
+				cu.Insert(key)
+			}
+		}
+	}
+	if len(cu) > 0 {
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			ConfigsUpdated: cu,
+			Reason:         model.NewReasonStats(model.EndpointUpdate),
+		})
+	}
 }
 
 // FilterOutFunc func for filtering out objects during update callback
@@ -779,6 +834,11 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 		return ""
 	}
 
+	return nodeLocality(node)
+}
+
+// nodeLocality returns the locality derived from the node's topology labels.
+func nodeLocality(node *v1.Node) string {
 	region := getLabelValue(node.ObjectMeta, NodeRegionLabelGA, NodeRegionLabel)
 	zone := getLabelValue(node.ObjectMeta, NodeZoneLabelGA, NodeZoneLabel)
 	subzone := getLabelValue(node.ObjectMeta, label.TopologySubzone.Name, "")
