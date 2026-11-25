@@ -15,11 +15,15 @@
 package xds
 
 import (
+	"fmt"
 	"testing"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
@@ -202,24 +206,15 @@ func TestRdsNeedsPushCoalescedHeadlessUpdate(t *testing.T) {
 	}
 }
 
-func TestEDSUpdateInferredMTLSChangeAcrossClusters(t *testing.T) {
-	env := model.NewEnvironment()
-	push := model.NewPushContext()
-	for name, resolution := range map[string]model.Resolution{"headless.default.svc": model.Passthrough, "clusterip.default.svc": model.ClientSideLB} {
-		push.ServiceIndex.HostnameAndNamespace[host.Name(name)] = map[string]*model.Service{
-			"default": {Hostname: host.Name(name), Resolution: resolution, Attributes: model.ServiceAttributes{Namespace: "default"}},
-		}
+func TestEDSUpdateInferredMTLSChange(t *testing.T) {
+	newServer := func(services map[string]model.Resolution, destRules ...*networking.DestinationRule) *DiscoveryServer {
+		env := model.NewEnvironment()
+		env.SetPushContext(newInferredMTLSPushContext(services, destRules...))
+		s := NewDiscoveryServer(env, nil, nil)
+		t.Cleanup(s.Shutdown)
+		return s
 	}
-	env.SetPushContext(push)
-	s := NewDiscoveryServer(env, nil, nil)
-	defer s.Shutdown()
-
-	local := model.ShardKey{Cluster: "local"}
-	remote := model.ShardKey{Cluster: "remote"}
-	endpoint := func(ip, tlsMode string) *model.IstioEndpoint {
-		return &model.IstioEndpoint{Addresses: []string{ip}, ServicePortName: "tcp", TLSMode: tlsMode, HealthStatus: model.Healthy}
-	}
-	mtlsChange := func() bool {
+	mtlsChange := func(s *DiscoveryServer) bool {
 		changed := false
 		for {
 			select {
@@ -230,26 +225,89 @@ func TestEDSUpdateInferredMTLSChangeAcrossClusters(t *testing.T) {
 			}
 		}
 	}
-
-	steps := []struct {
+	endpoint := func(ip, tlsMode string) []*model.IstioEndpoint {
+		return []*model.IstioEndpoint{{Addresses: []string{ip}, ServicePortName: "tcp", TLSMode: tlsMode, HealthStatus: model.Healthy}}
+	}
+	type step struct {
 		name  string
 		svc   string
 		shard model.ShardKey
 		eps   []*model.IstioEndpoint
 		want  bool
-	}{
-		{"remote mTLS endpoint appears", "headless.default.svc", remote, []*model.IstioEndpoint{endpoint("10.0.0.1", model.IstioMutualTLSModeLabel)}, true},
-		{"local plaintext endpoint appears", "headless.default.svc", local, []*model.IstioEndpoint{endpoint("10.0.1.1", model.DisabledTLSModeLabel)}, true},
-		{"local plaintext endpoint goes away", "headless.default.svc", local, nil, true},
-		{"local mTLS endpoint appears", "headless.default.svc", local, []*model.IstioEndpoint{endpoint("10.0.1.1", model.IstioMutualTLSModeLabel)}, false},
-		{"remote endpoint goes away", "headless.default.svc", remote, nil, false},
-		{"last endpoint goes away", "headless.default.svc", local, nil, true},
-		{"not passthrough", "clusterip.default.svc", local, []*model.IstioEndpoint{endpoint("10.0.2.1", model.IstioMutualTLSModeLabel)}, false},
 	}
-	for _, st := range steps {
-		s.EDSUpdate(st.shard, st.svc, "default", st.eps)
-		if got := mtlsChange(); got != st.want {
-			t.Fatalf("%s: EndpointMTLSChange = %v, want %v", st.name, got, st.want)
+	run := func(t *testing.T, s *DiscoveryServer, steps []step) {
+		for _, st := range steps {
+			s.EDSUpdate(st.shard, st.svc, "default", st.eps)
+			if got := mtlsChange(s); got != st.want {
+				t.Fatalf("%s: EndpointMTLSChange = %v, want %v", st.name, got, st.want)
+			}
 		}
+	}
+	local := model.ShardKey{Cluster: "local"}
+	remote := model.ShardKey{Cluster: "remote"}
+	mtls, plaintext := model.IstioMutualTLSModeLabel, model.DisabledTLSModeLabel
+
+	t.Run("headless across clusters", func(t *testing.T) {
+		s := newServer(map[string]model.Resolution{"headless.default.svc": model.Passthrough, "clusterip.default.svc": model.ClientSideLB})
+		run(t, s, []step{
+			{"remote mTLS endpoint appears", "headless.default.svc", remote, endpoint("10.0.0.1", mtls), true},
+			{"local plaintext endpoint appears", "headless.default.svc", local, endpoint("10.0.1.1", plaintext), true},
+			{"local plaintext endpoint goes away", "headless.default.svc", local, nil, true},
+			{"local mTLS endpoint appears", "headless.default.svc", local, endpoint("10.0.1.1", mtls), false},
+			{"remote endpoint goes away", "headless.default.svc", remote, nil, false},
+			{"last endpoint goes away", "headless.default.svc", local, nil, true},
+			{"not passthrough", "clusterip.default.svc", local, endpoint("10.0.2.1", mtls), false},
+		})
+	})
+
+	t.Run("passthrough destination rule", func(t *testing.T) {
+		s := newServer(
+			map[string]model.Resolution{"top.default.svc": model.ClientSideLB, "subset.default.svc": model.ClientSideLB},
+			&networking.DestinationRule{
+				Host:          "top.default.svc",
+				TrafficPolicy: &networking.TrafficPolicy{LoadBalancer: passthroughLB()},
+			},
+			&networking.DestinationRule{
+				Host:    "subset.default.svc",
+				Subsets: []*networking.Subset{{Name: "v1", TrafficPolicy: &networking.TrafficPolicy{LoadBalancer: passthroughLB()}}},
+			},
+		)
+		run(t, s, []step{
+			{"top level endpoint appears", "top.default.svc", local, endpoint("10.0.0.1", mtls), true},
+			{"top level endpoint goes away", "top.default.svc", local, nil, true},
+			{"subset endpoint appears", "subset.default.svc", local, endpoint("10.0.1.1", mtls), true},
+			{"subset endpoint goes away", "subset.default.svc", local, nil, true},
+		})
+	})
+
+	t.Run("service registered after its endpoints", func(t *testing.T) {
+		s := newServer(nil)
+		run(t, s, []step{{"unknown service endpoint appears", "late.default.svc", local, endpoint("10.0.0.1", mtls), false}})
+		s.Env.SetPushContext(newInferredMTLSPushContext(map[string]model.Resolution{"late.default.svc": model.Passthrough}))
+		run(t, s, []step{{"last endpoint goes away", "late.default.svc", local, nil, true}})
+	})
+}
+
+func newInferredMTLSPushContext(services map[string]model.Resolution, destRules ...*networking.DestinationRule) *model.PushContext {
+	push := model.NewPushContext()
+	for name, resolution := range services {
+		push.ServiceIndex.HostnameAndNamespace[host.Name(name)] = map[string]*model.Service{
+			"default": {Hostname: host.Name(name), Resolution: resolution, Attributes: model.ServiceAttributes{Namespace: "default"}},
+		}
+	}
+	configs := make([]config.Config, 0, len(destRules))
+	for i, dr := range destRules {
+		configs = append(configs, config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.DestinationRule, Name: fmt.Sprintf("dr%d", i), Namespace: "default"},
+			Spec: dr,
+		})
+	}
+	push.SetDestinationRulesForTesting(configs)
+	return push
+}
+
+func passthroughLB() *networking.LoadBalancerSettings {
+	return &networking.LoadBalancerSettings{
+		LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
 	}
 }

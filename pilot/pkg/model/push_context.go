@@ -133,6 +133,8 @@ type destinationRuleIndex struct {
 	//  exportedByNamespace contains all dest rules pertaining to a service exported by a namespace.
 	exportedByNamespace map[string]*consolidatedDestRules
 	rootNamespaceLocal  *consolidatedDestRules
+	// passthroughHosts are the hosts of dest rules whose traffic policy, or a subset's, uses a PASSTHROUGH load balancer.
+	passthroughHosts []host.Name
 }
 
 func newDestinationRuleIndex() destinationRuleIndex {
@@ -2100,11 +2102,15 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	namespaceLocalDestRules := make(map[string]*consolidatedDestRules)
 	exportedDestRulesByNamespace := make(map[string]*consolidatedDestRules)
 	rootNamespaceLocalDestRules := newConsolidatedDestRules()
+	var passthroughHosts []host.Name
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
+		if hasPassthroughLoadBalancer(rule) {
+			passthroughHosts = append(passthroughHosts, host.Name(rule.Host))
+		}
 		var exportToSet sets.Set[visibility.Instance]
 
 		// destination rules with workloadSelector should not be exported to other namespaces
@@ -2157,6 +2163,25 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	ps.destinationRuleIndex.namespaceLocal = namespaceLocalDestRules
 	ps.destinationRuleIndex.exportedByNamespace = exportedDestRulesByNamespace
 	ps.destinationRuleIndex.rootNamespaceLocal = rootNamespaceLocalDestRules
+	ps.destinationRuleIndex.passthroughHosts = passthroughHosts
+}
+
+// hasPassthroughLoadBalancer mirrors the traffic policies cluster building passes to BestEffortInferServiceMTLSMode.
+func hasPassthroughLoadBalancer(rule *networking.DestinationRule) bool {
+	if rule.GetTrafficPolicy().GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH {
+		return true
+	}
+	for _, subset := range rule.GetSubsets() {
+		if subset.GetTrafficPolicy().GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH {
+			return true
+		}
+	}
+	return false
+}
+
+// HasPassthroughDestinationRule reports whether any DestinationRule for the hostname uses a PASSTHROUGH load balancer.
+func (ps *PushContext) HasPassthroughDestinationRule(hostname host.Name) bool {
+	return slices.ContainsFunc(ps.destinationRuleIndex.passthroughHosts, hostname.SubsetOf)
 }
 
 // pre computes all AuthorizationPolicies per namespace
