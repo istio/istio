@@ -583,7 +583,11 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					watchedResources.Insert(fmt.Sprintf("outbound|80||foo-%d.com", svc))
 				}
 				wr := &model.WatchedResource{ResourceNames: watchedResources}
-				c, _, _ = s.Discovery.Generators[v3.EndpointType].Generate(proxy, wr, &model.PushRequest{Push: s.PushContext()})
+				// Forced, like a full push; otherwise edsNeedsPush skips generation entirely.
+				c, _, _ = s.Discovery.Generators[v3.EndpointType].Generate(proxy, wr, &model.PushRequest{Push: s.PushContext(), Forced: true})
+			}
+			if len(c) != tt.services {
+				b.Fatalf("generated %d resources, want %d", len(c), tt.services)
 			}
 			logDebug(b, c)
 		})

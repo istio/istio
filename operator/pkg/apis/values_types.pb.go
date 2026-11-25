@@ -3339,11 +3339,13 @@ type PilotConfig struct {
 	// Traffic distribution preference for the istiod service.
 	// See https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
 	TrafficDistribution string `protobuf:"bytes,72,opt,name=trafficDistribution,proto3" json:"trafficDistribution,omitempty"`
+	// The terminationMessagePolicy of the discovery container.
+	TerminationMessagePolicy string `protobuf:"bytes,73,opt,name=terminationMessagePolicy,proto3" json:"terminationMessagePolicy,omitempty"`
 	// Run one istiod Deployment, and one HorizontalPodAutoscaler, per listed zone instead of a single one.
-	ZonalDeployments []*PilotZonalDeployment `protobuf:"bytes,73,rep,name=zonalDeployments,proto3" json:"zonalDeployments,omitempty"`
+	ZonalDeployments []*PilotZonalDeployment `protobuf:"bytes,74,rep,name=zonalDeployments,proto3" json:"zonalDeployments,omitempty"`
 	// Node label each zone in `zonalDeployments` is pinned to through `nodeSelector`.
 	// Defaults to `topology.kubernetes.io/zone`.
-	ZonalDeploymentsTopologyKey string `protobuf:"bytes,74,opt,name=zonalDeploymentsTopologyKey,proto3" json:"zonalDeploymentsTopologyKey,omitempty"`
+	ZonalDeploymentsTopologyKey string `protobuf:"bytes,75,opt,name=zonalDeploymentsTopologyKey,proto3" json:"zonalDeploymentsTopologyKey,omitempty"`
 	unknownFields               protoimpl.UnknownFields
 	sizeCache                   protoimpl.SizeCache
 }
@@ -3726,6 +3728,13 @@ func (x *PilotConfig) GetMinReadySeconds() int32 {
 func (x *PilotConfig) GetTrafficDistribution() string {
 	if x != nil {
 		return x.TrafficDistribution
+	}
+	return ""
+}
+
+func (x *PilotConfig) GetTerminationMessagePolicy() string {
+	if x != nil {
+		return x.TerminationMessagePolicy
 	}
 	return ""
 }
@@ -5635,8 +5644,11 @@ type Values struct {
 	Experimental *ExperimentalConfig `protobuf:"bytes,44,opt,name=experimental,proto3" json:"experimental,omitempty"`
 	// Configuration for Gateway Classes
 	GatewayClasses *structpb.Value `protobuf:"bytes,45,opt,name=gatewayClasses,proto3" json:"gatewayClasses,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Specifies the platform the charts are installed on, selecting a platform profile.
+	// See manifests/helm-profiles/platform-*.yaml for the supported platforms.
+	Platform      string `protobuf:"bytes,46,opt,name=platform,proto3" json:"platform,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Values) Reset() {
@@ -5802,6 +5814,13 @@ func (x *Values) GetGatewayClasses() *structpb.Value {
 		return x.GatewayClasses
 	}
 	return nil
+}
+
+func (x *Values) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
 }
 
 // ExperimentalConfig is a placeholder for experimental installation features.
@@ -6323,7 +6342,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04mode\x18\x02 \x01(\x0e29.istio.operator.v1alpha1.OutboundTrafficPolicyConfig.ModeR\x04mode\"(\n" +
 	"\x04Mode\x12\r\n" +
 	"\tALLOW_ANY\x10\x00\x12\x11\n" +
-	"\rREGISTRY_ONLY\x10\x01\"\xb9\x18\n" +
+	"\rREGISTRY_ONLY\x10\x01\"\xf5\x18\n" +
 	"\vPilotConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12F\n" +
 	"\x10autoscaleEnabled\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
@@ -6377,9 +6396,10 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"!sidecarInjectorWebhookAnnotations\x18D \x01(\v2\x17.google.protobuf.StructR!sidecarInjectorWebhookAnnotations\x12.\n" +
 	"\x12trustedZtunnelName\x18E \x01(\tR\x12trustedZtunnelName\x12(\n" +
 	"\x0fminReadySeconds\x18G \x01(\x05R\x0fminReadySeconds\x120\n" +
-	"\x13trafficDistribution\x18H \x01(\tR\x13trafficDistribution\x12Y\n" +
-	"\x10zonalDeployments\x18I \x03(\v2-.istio.operator.v1alpha1.PilotZonalDeploymentR\x10zonalDeployments\x12@\n" +
-	"\x1bzonalDeploymentsTopologyKey\x18J \x01(\tR\x1bzonalDeploymentsTopologyKey\"\xea\x02\n" +
+	"\x13trafficDistribution\x18H \x01(\tR\x13trafficDistribution\x12:\n" +
+	"\x18terminationMessagePolicy\x18I \x01(\tR\x18terminationMessagePolicy\x12Y\n" +
+	"\x10zonalDeployments\x18J \x03(\v2-.istio.operator.v1alpha1.PilotZonalDeploymentR\x10zonalDeployments\x12@\n" +
+	"\x1bzonalDeploymentsTopologyKey\x18K \x01(\tR\x1bzonalDeploymentsTopologyKey\"\xea\x02\n" +
 	"\x19PodDisruptionBudgetConfig\x12:\n" +
 	"\fminAvailable\x18\x01 \x01(\v2\x16.google.protobuf.ValueR\fminAvailable\x12>\n" +
 	"\x0emaxUnavailable\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x0emaxUnavailable\x12>\n" +
@@ -6521,7 +6541,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\rinjectionPath\x18\x02 \x01(\tR\rinjectionPath\x12,\n" +
 	"\x11injectionCABundle\x18\x03 \x01(\tR\x11injectionCABundle\x124\n" +
 	"\aenabled\x18\x05 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12Z\n" +
-	"\x1aenabledLocalInjectorIstiod\x18\x06 \x01(\v2\x1a.google.protobuf.BoolValueR\x1aenabledLocalInjectorIstiod\"\xd7\b\n" +
+	"\x1aenabledLocalInjectorIstiod\x18\x06 \x01(\v2\x1a.google.protobuf.BoolValueR\x1aenabledLocalInjectorIstiod\"\xf3\b\n" +
 	"\x06Values\x124\n" +
 	"\x03cni\x18\x02 \x01(\v2\".istio.operator.v1alpha1.CNIConfigR\x03cni\x12C\n" +
 	"\bgateways\x18\x05 \x01(\v2'.istio.operator.v1alpha1.GatewaysConfigR\bgateways\x12=\n" +
@@ -6544,7 +6564,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\aprofile\x18* \x01(\tR\aprofile\x122\n" +
 	"\x14compatibilityVersion\x18+ \x01(\tR\x14compatibilityVersion\x12O\n" +
 	"\fexperimental\x18, \x01(\v2+.istio.operator.v1alpha1.ExperimentalConfigR\fexperimental\x12>\n" +
-	"\x0egatewayClasses\x18- \x01(\v2\x16.google.protobuf.ValueR\x0egatewayClasses\"h\n" +
+	"\x0egatewayClasses\x18- \x01(\v2\x16.google.protobuf.ValueR\x0egatewayClasses\x12\x1a\n" +
+	"\bplatform\x18. \x01(\tR\bplatform\"h\n" +
 	"\x12ExperimentalConfig\x12R\n" +
 	"\x16stableValidationPolicy\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\x16stableValidationPolicy\"\x8c\x01\n" +
 	"\vIntOrString\x12\x12\n" +

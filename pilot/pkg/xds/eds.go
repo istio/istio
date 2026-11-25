@@ -233,6 +233,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	empty := 0
 	cached := 0
 	regenerated := 0
+	unknownIdentity := 0
 
 	for clusterName := range w.ResourceNames {
 		affected := affectedService(proxy, edsUpdatedServices, clusterName)
@@ -287,6 +288,15 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		}
 
 		l := builder.BuildClusterLoadAssignment(eds.EndpointIndex)
+		if builder.HasUnknownIdentity() {
+			// The endpoint index changed identity after this push context was built, so
+			// this push's CDS would reject the new endpoints' certificates. Keep Envoy's
+			// previous, consistent endpoints; the service account change already queued
+			// a full push that sends matching CDS and EDS. Do not cache this result.
+			unknownIdentity++
+			log.Debugf("skipping EDS for %s: endpoints use identities not yet in this push's SAN list", clusterName)
+			continue
+		}
 		regenerated++
 
 		if len(l.Endpoints) == 0 {
@@ -301,7 +311,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	}
 	return resources, model.XdsLogDetails{
 		Incremental:    len(edsUpdatedServices) != 0,
-		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
+		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v unknown-identity:%v", empty, cached, cached+regenerated, unknownIdentity),
 	}
 }
 

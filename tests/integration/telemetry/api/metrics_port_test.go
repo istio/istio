@@ -69,6 +69,9 @@ func TestSecureMetricsPorts(t *testing.T) {
 		t.NewSubTest("auto-annotation-secure-port").Run(func(t framework.TestContext) {
 			testAutoAnnotation(t, target, "prometheus.istio.io/secure-port", "15092")
 		})
+		t.NewSubTest("auto-annotation-secure-envoy-port").Run(func(t framework.TestContext) {
+			testAutoAnnotation(t, target, "prometheus.istio.io/secure-envoy-port", "15091")
+		})
 	})
 }
 
@@ -123,9 +126,7 @@ func testHTTPBlocked(t framework.TestContext, target echo.Instances, port int) {
 	}
 }
 
-// testAutoAnnotation verifies that the sidecar injector automatically sets the given annotation
-// on the pod when ENVOY_SECURE_MERGED_METRICS_PORT is configured via proxyMetadata.
-// This exercises applySecurePrometheusAnnotation end-to-end in a real cluster.
+// testAutoAnnotation verifies that the sidecar injector automatically sets the given annotation on the pod.
 func testAutoAnnotation(t framework.TestContext, target echo.Instances, annotation, wantValue string) {
 	for _, inst := range target {
 		for _, w := range inst.WorkloadsOrFail(t) {
@@ -137,7 +138,7 @@ func testAutoAnnotation(t framework.TestContext, target echo.Instances, annotati
 			}
 			got := pod.Annotations[annotation]
 			if got != wantValue {
-				t.Errorf("pod %s: annotation %s = %q, want %q (should be auto-set by injector from ENVOY_SECURE_MERGED_METRICS_PORT)",
+				t.Errorf("pod %s: annotation %s = %q, want %q",
 					w.PodName(), annotation, got, wantValue)
 			}
 		}

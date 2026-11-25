@@ -1237,3 +1237,200 @@ func TestWaypointNeedsPush(t *testing.T) {
 		assert.Equal(t, waypointNeedsPush(addressUpdate(), waypoint), true)
 	})
 }
+
+// A Sidecar can import a hostname from different namespaces on different egress listeners. Only one service per
+// hostname is kept for CDS, but listeners and the name table still use the others, so updates to them must push.
+func TestShadowedServiceNeedsPush(t *testing.T) {
+	cg := core.NewConfigGenTest(t, core.TestOptions{ConfigString: `
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se
+  namespace: a
+spec:
+  hosts: [h.com]
+  addresses: [240.0.0.1]
+  ports: [{number: 8080, name: http, protocol: HTTP}]
+  resolution: STATIC
+  endpoints: [{address: 1.1.1.1}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se
+  namespace: b
+spec:
+  hosts: [h.com]
+  addresses: [240.0.0.2]
+  ports: [{number: 9090, name: http, protocol: HTTP}]
+  resolution: STATIC
+  endpoints: [{address: 2.2.2.2}]
+---
+apiVersion: networking.istio.io/v1
+kind: Sidecar
+metadata:
+  name: sidecar
+  namespace: default
+spec:
+  egress:
+  - port: {number: 8080, protocol: HTTP, name: http}
+    hosts: [a/h.com]
+  - port: {number: 9090, protocol: HTTP, name: http}
+    hosts: [b/h.com]
+`})
+	nt := cg.ConfigGen.BuildNameTable(cg.SetupProxy(nil), cg.PushContext())
+	assert.Equal(t, nt.Table["h.com"].GetIps(), []string{"240.0.0.1", "240.0.0.2"})
+
+	for _, nds := range []bool{false, true} {
+		proxy := cg.SetupProxy(&model.Proxy{WatchedResources: map[string]*model.WatchedResource{}})
+		if nds {
+			proxy.NewWatchedResource(v3.NameTableType, nil)
+		}
+		for _, tt := range []struct {
+			key  model.ConfigKey
+			want bool
+		}{
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "a"}, true},
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "b"}, true},
+			// Only NDS uses DNSName.
+			{model.ConfigKey{Kind: kind.DNSName, Name: "h.com", Namespace: "b"}, nds},
+			// EDS only uses the merged service, from namespace a.
+			{model.ConfigKey{Kind: kind.Endpoints, Name: "h.com", Namespace: "b"}, false},
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "unrelated"}, false},
+			{model.ConfigKey{Kind: kind.DNSName, Name: "h.com", Namespace: "unrelated"}, false},
+		} {
+			_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+				Push: cg.PushContext(), ConfigsUpdated: sets.New(tt.key),
+			})
+			assert.Equal(t, needsPush, tt.want, fmt.Sprintf("nds=%v %v", nds, tt.key))
+		}
+	}
+}
+
+// Gateway routes use the service in the VirtualService's namespace, so they depend on same-hostname services that
+// are shadowed by the merged one even without an NDS watch.
+func TestShadowedServiceNeedsPushGatewayRoute(t *testing.T) {
+	setup := func(bPort int) (*core.ConfigGenTest, *model.Proxy) {
+		cg := core.NewConfigGenTest(t, core.TestOptions{ConfigString: fmt.Sprintf(`
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: gw
+  namespace: gw
+spec:
+  selector: {istio: ingressgateway}
+  servers: [{port: {number: 80, name: http, protocol: HTTP}, hosts: ["*/*"]}]
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: vs
+  namespace: b
+spec:
+  hosts: [vs.com]
+  gateways: [gw/gw]
+  http: [{route: [{destination: {host: h.com}}]}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se
+  namespace: a
+spec:
+  hosts: [h.com]
+  ports: [{number: 8080, name: http, protocol: HTTP}, {number: 9090, name: http2, protocol: HTTP}]
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se
+  namespace: b
+spec:
+  hosts: [h.com]
+  ports: [{number: %d, name: http, protocol: HTTP}]
+  resolution: DNS
+`, bPort)})
+		proxy := cg.SetupProxy(&model.Proxy{
+			Type:             model.Router,
+			ConfigNamespace:  "gw",
+			Labels:           map[string]string{"istio": "ingressgateway"},
+			Metadata:         &model.NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
+			WatchedResources: map[string]*model.WatchedResource{},
+		})
+		assert.Equal(t, proxy.SidecarScope.GetService("h.com").Attributes.Namespace, "a")
+		return cg, proxy
+	}
+	routeCluster := func(cg *core.ConfigGenTest, proxy *model.Proxy) string {
+		for _, rc := range cg.Routes(proxy) {
+			for _, vh := range rc.GetVirtualHosts() {
+				for _, r := range vh.GetRoutes() {
+					if c := r.GetRoute().GetCluster(); c != "" {
+						return c
+					}
+				}
+			}
+		}
+		return ""
+	}
+
+	for port, want := range map[int]string{8080: "outbound|8080||h.com", 9090: "outbound|9090||h.com"} {
+		cg, proxy := setup(port)
+		assert.Equal(t, routeCluster(cg, proxy), want)
+		_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+			Push: cg.PushContext(), ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "b"}),
+		})
+		assert.Equal(t, needsPush, true)
+	}
+}
+
+// A gateway name table uses every service exported to its namespace. DNSName updates only push gateways with an
+// NDS watch.
+func TestShadowedServiceNeedsPushGatewayNameTable(t *testing.T) {
+	cg := core.NewConfigGenTest(t, core.TestOptions{ConfigString: `
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se
+  namespace: a
+spec:
+  hosts: [h.com]
+  addresses: [240.0.0.1]
+  ports: [{number: 8080, name: http, protocol: HTTP}]
+  resolution: STATIC
+  endpoints: [{address: 1.1.1.1}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se
+  namespace: b
+spec:
+  hosts: [h.com]
+  addresses: [240.0.0.2]
+  ports: [{number: 8080, name: http, protocol: HTTP}]
+  resolution: STATIC
+  endpoints: [{address: 2.2.2.2}]
+`})
+	for _, nds := range []bool{false, true} {
+		proxy := cg.SetupProxy(&model.Proxy{Type: model.Router, WatchedResources: map[string]*model.WatchedResource{}})
+		if nds {
+			proxy.NewWatchedResource(v3.NameTableType, nil)
+		}
+		for _, tt := range []struct {
+			key  model.ConfigKey
+			want bool
+		}{
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "a"}, true},
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "b"}, true},
+			{model.ConfigKey{Kind: kind.DNSName, Name: "h.com", Namespace: "a"}, nds},
+			{model.ConfigKey{Kind: kind.DNSName, Name: "h.com", Namespace: "b"}, nds},
+			{model.ConfigKey{Kind: kind.ServiceEntry, Name: "h.com", Namespace: "unrelated"}, false},
+		} {
+			_, needsPush := DefaultProxyNeedsPush(proxy, &model.PushRequest{
+				Push: cg.PushContext(), ConfigsUpdated: sets.New(tt.key),
+			})
+			assert.Equal(t, needsPush, tt.want, fmt.Sprintf("nds=%v %v", nds, tt.key))
+		}
+	}
+}

@@ -1076,12 +1076,15 @@ message PilotConfig {
   // See https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
   string trafficDistribution = 72;
 
+  // The terminationMessagePolicy of the discovery container.
+  string terminationMessagePolicy = 73;
+
   // Run one istiod Deployment, and one HorizontalPodAutoscaler, per listed zone instead of a single one.
-  repeated PilotZonalDeployment zonalDeployments = 73;
+  repeated PilotZonalDeployment zonalDeployments = 74;
 
   // Node label each zone in `zonalDeployments` is pinned to through `nodeSelector`.
   // Defaults to `topology.kubernetes.io/zone`.
-  string zonalDeploymentsTopologyKey = 74;
+  string zonalDeploymentsTopologyKey = 75;
 }
 
 // Configuration for the istiod PodDisruptionBudget.
@@ -1596,6 +1599,10 @@ message Values {
 
   // Configuration for Gateway Classes
   google.protobuf.Value gatewayClasses = 45;
+
+  // Specifies the platform the charts are installed on, selecting a platform profile.
+  // See manifests/helm-profiles/platform-*.yaml for the supported platforms.
+  string platform = 46;
 }
 
 // ExperimentalConfig is a placeholder for experimental installation features.
