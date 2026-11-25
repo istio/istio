@@ -61,7 +61,7 @@ func (f *FakeEndpointIndexUpdater) push(pushType PushType, serviceName string, n
 }
 
 func (f *FakeEndpointIndexUpdater) EDSCacheUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
-	f.Index.UpdateServiceEndpoints(shard, serviceName, namespace, eps, false)
+	f.Index.ReplaceServiceEndpoints(shard, serviceName, namespace, eps, false)
 }
 
 func (f *FakeEndpointIndexUpdater) SvcUpdate(shard ShardKey, hostname string, namespace string, event Event) {
