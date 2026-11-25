@@ -35,14 +35,15 @@ func EqualUnordered[E comparable](s1, s2 []E) bool {
 	if len(s1) != len(s2) {
 		return false
 	}
-	first := make(map[E]struct{}, len(s1))
+	first := make(map[E]int, len(s1))
 	for _, c := range s1 {
-		first[c] = struct{}{}
+		first[c]++
 	}
 	for _, c := range s2 {
-		if _, f := first[c]; !f {
+		if first[c] == 0 {
 			return false
 		}
+		first[c]--
 	}
 	return true
 }

@@ -55,6 +55,29 @@ func TestEqual(t *testing.T) {
 	}
 }
 
+func TestEqualUnordered(t *testing.T) {
+	tests := []struct {
+		name string
+		s1   []int
+		s2   []int
+		want bool
+	}{
+		{"empty", nil, []int{}, true},
+		{"reordered", []int{1, 2, 3}, []int{3, 1, 2}, true},
+		{"different lengths", []int{1}, []int{1, 1}, false},
+		{"different elements", []int{1, 2}, []int{1, 3}, false},
+		{"equal duplicates", []int{1, 2, 1}, []int{2, 1, 1}, true},
+		{"missing element", []int{1, 2}, []int{1, 1}, false},
+		{"different counts", []int{1, 1, 2}, []int{1, 2, 2}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, EqualUnordered(tt.s1, tt.s2), tt.want)
+			assert.Equal(t, EqualUnordered(tt.s2, tt.s1), tt.want)
+		})
+	}
+}
+
 func TestEqualFunc(t *testing.T) {
 	tests := []struct {
 		name string
