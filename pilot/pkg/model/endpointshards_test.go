@@ -321,7 +321,7 @@ func BenchmarkUpdateServiceEndpoints(b *testing.B) {
 	// Info logs go to stdout, where they displace benchmark result lines.
 	log.SetOutputLevel(istiolog.WarnLevel)
 	shardKey := ShardKey{Cluster: "c1"}
-	for _, n := range []int{100, 2000} {
+	for _, n := range []int{100, 2000, 8000} {
 		states := [2][]*IstioEndpoint{}
 		for i := range n {
 			ep := &IstioEndpoint{
