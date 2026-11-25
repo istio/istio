@@ -20,8 +20,8 @@
 #         prometheus.istio.io/secure-port annotation (auto-set by the injector
 #         when ENVOY_SECURE_MERGED_METRICS_PORT is configured on the workload).
 #       istio-secure-envoy-metrics: scrapes the port from the
-#         prometheus.istio.io/secure-envoy-port annotation (must be set manually
-#         on workloads that configure ENVOY_SECURE_METRICS_PORT).
+#         prometheus.istio.io/secure-envoy-port annotation (auto-set by the injector
+#         when ENVOY_SECURE_METRICS_PORT is configured on the workload).
 #
 # See: https://istio.io/latest/docs/tasks/observability/metrics/secure-metrics/
 ---
@@ -91,8 +91,7 @@ data:
         insecure_skip_verify: true
     - job_name: istio-secure-envoy-metrics
       # Discovers pods annotated with prometheus.istio.io/secure-envoy-port.
-      # This annotation is NOT automatically set; add it manually to workloads
-      # that configure ENVOY_SECURE_METRICS_PORT.
+      # Auto-set by the injector when ENVOY_SECURE_METRICS_PORT is configured on the workload.
       kubernetes_sd_configs:
       - role: pod
       relabel_configs:
