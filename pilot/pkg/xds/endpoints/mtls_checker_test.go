@@ -111,15 +111,38 @@ func TestMtlsCheckerKeyIgnoresLabelOrder(t *testing.T) {
 	}
 }
 
+func TestMtlsCheckerSkipsLabelsWithoutSelectorPolicies(t *testing.T) {
+	push := newMtlsTestPush(t, 3)
+	c := newMtlsChecker(push, push.AuthnPolicies, 8080, nil, "")
+	ep := func(ns string, labels map[string]string) *model.IstioEndpoint {
+		return &model.IstioEndpoint{Namespace: ns, Labels: labels, TLSMode: model.IstioMutualTLSModeLabel, EndpointPort: 8080}
+	}
+	// "other" has no PeerAuthentications, so labels cannot affect the result.
+	c.checkMtlsEnabled(ep("other", map[string]string{"app": "a"}), false)
+	c.checkMtlsEnabled(ep("other", map[string]string{"app": "b"}), false)
+	if got := len(c.policies); got != 1 {
+		t.Fatalf("expected one cached policy for namespace without selector policies, got %d", got)
+	}
+	c.checkMtlsEnabled(ep("ns", map[string]string{"app": "svc-0"}), false)
+	c.checkMtlsEnabled(ep("ns", map[string]string{"app": "svc-1"}), false)
+	if got := len(c.policies); got != 3 {
+		t.Fatalf("expected per-label policies in namespace with selector policies, got %d", got)
+	}
+}
+
 func BenchmarkCheckMtlsEnabled(b *testing.B) {
-	for _, policies := range []int{30, 300, 3000} {
+	for _, policies := range []int{0, 30, 300, 3000} {
 		push := newMtlsTestPush(b, policies)
 		for _, labelSets := range []int{1, 10, 100} {
 			// One checker per cluster build, endpoints spread across labelSets distinct label sets.
 			eps := make([]*model.IstioEndpoint, 1000)
 			for i := range eps {
+				lbls := map[string]string{"app": fmt.Sprintf("svc-%d", i%labelSets)}
+				for j := 0; j < 9; j++ {
+					lbls[fmt.Sprintf("label-%d", j)] = "v"
+				}
 				eps[i] = &model.IstioEndpoint{
-					Namespace: "ns", Labels: map[string]string{"app": fmt.Sprintf("svc-%d", i%labelSets)},
+					Namespace: "ns", Labels: lbls,
 					TLSMode: model.IstioMutualTLSModeLabel, EndpointPort: 8080,
 				}
 			}
