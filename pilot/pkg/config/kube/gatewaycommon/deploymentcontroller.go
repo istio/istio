@@ -17,6 +17,7 @@ package gatewaycommon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -458,14 +459,75 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		log.Errorf("error rendering templates: %v", err)
 		return nil
 	}
+	keep := sets.New(input.DeploymentName, input.ServiceAccount)
 	for _, t := range rendered {
 		if err := d.apply(gi.Controller, t, input); err != nil {
 			return fmt.Errorf("apply failed: %v", err)
 		}
+		var obj metav1.PartialObjectMetadata
+		if err := yaml.Unmarshal([]byte(t), &obj); err == nil {
+			keep.Insert(obj.Name)
+		}
+	}
+
+	// The names of the generated resources depend on the GatewayClass and on the name annotations.
+	// When one of them changes, the resources created under the old names are not deleted by their
+	// ownerReferences, because the Gateway still exists. Remove them now that the new ones are applied.
+	if err := d.pruneStaleResources(log, gw, keep); err != nil {
+		return fmt.Errorf("prune failed: %v", err)
 	}
 
 	log.Info("gateway updated")
 	return nil
+}
+
+// pruneStaleResources deletes resources that this controller generated for the Gateway under a name
+// it no longer renders, for example after the Gateway moved to another GatewayClass.
+// Only resources labeled as managed by us and owned by this Gateway (matched by UID) are deleted.
+func (d *DeploymentController) pruneStaleResources(log *istiolog.Scope, gw gateway.Gateway, keep sets.String) error {
+	if gw.UID == "" {
+		// Without a UID we cannot tell which resources the Gateway owns.
+		return nil
+	}
+	selector := klabels.SelectorFromValidatedSet(map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: gw.Name})
+	return errors.Join(
+		pruneStale(log, d.deployments, gw, selector, keep),
+		pruneStale(log, d.services, gw, selector, keep),
+		pruneStale(log, d.serviceAccounts, gw, selector, keep),
+		pruneStale(log, d.hpas, gw, selector, keep),
+		pruneStale(log, d.pdbs, gw, selector, keep),
+	)
+}
+
+func pruneStale[T controllers.ComparableObject](
+	log *istiolog.Scope,
+	c kclient.Client[T],
+	gw gateway.Gateway,
+	selector klabels.Selector,
+	keep sets.String,
+) error {
+	if c == nil {
+		return nil
+	}
+	var errs []error
+	for _, o := range c.List(gw.Namespace, selector) {
+		if keep.Contains(o.GetName()) {
+			continue
+		}
+		if _, managed := o.GetLabels()[label.GatewayManaged.Name]; !managed {
+			continue
+		}
+		if !slices.ContainsFunc(o.GetOwnerReferences(), func(ref metav1.OwnerReference) bool {
+			return ref.UID == gw.UID
+		}) {
+			continue
+		}
+		log.Infof("deleting stale %T %s/%s", o, o.GetNamespace(), o.GetName())
+		if err := controllers.IgnoreNotFound(c.Delete(o.GetName(), o.GetNamespace())); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (d *DeploymentController) setLabelOverrides(gw gateway.Gateway, input TemplateInput) {

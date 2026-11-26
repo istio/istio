@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62498
+releaseNotes:
+  - |
+    **Fixed** an issue where changing a Gateway's `gatewayClassName`, or the `gateway.istio.io/name-override` or
+    `gateway.istio.io/service-account` annotations, left the Deployment, Service, ServiceAccount,
+    HorizontalPodAutoscaler and PodDisruptionBudget generated under the old name running. Istio now deletes them
+    once the resources for the new name are applied.
