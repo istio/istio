@@ -912,6 +912,8 @@ data:
             {{- if eq .Values.global.pilotCertProvider "istiod" }}
             - mountPath: /var/run/secrets/istio
               name: istiod-ca-cert
+            - mountPath: /var/run/secrets/istio/crl
+              name: istio-ca-crl
             {{- end }}
             - mountPath: /var/lib/istio/data
               name: istio-data
@@ -985,6 +987,10 @@ data:
               name: {{ .Values.global.trustBundleName | default "istio-ca-root-cert" }}
           {{- end }}
           {{- end }}
+          - name: istio-ca-crl
+            configMap:
+              name: {{ .Values.pilot.crlConfigMapName | default "istio-ca-crl" }}
+              optional: true
           {{- if .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
@@ -1644,6 +1650,8 @@ data:
                   name: workload-socket
                 - mountPath: /var/run/secrets/istio
                   name: istiod-ca-cert
+                - mountPath: /var/run/secrets/istio/crl
+                  name: istio-ca-crl
                 - mountPath: /var/lib/istio/data
                   name: istio-data
                 - mountPath: /etc/istio/proxy
@@ -1692,6 +1700,10 @@ data:
                 configMap:
                   name: {{ .Values.global.trustBundleName | default "istio-ca-root-cert" }}
               {{- end }}
+              - name: istio-ca-crl
+                configMap:
+                  name: {{ (.Values.pilot).crlConfigMapName | default "istio-ca-crl" }}
+                  optional: true
               {{- if .Values.global.imagePullSecrets }}
               imagePullSecrets:
                 {{- range .Values.global.imagePullSecrets }}
@@ -2046,6 +2058,8 @@ data:
                 {{- if eq .Values.global.pilotCertProvider "istiod" }}
                 - mountPath: /var/run/secrets/istio
                   name: istiod-ca-cert
+                - mountPath: /var/run/secrets/istio/crl
+                  name: istio-ca-crl
                 {{- end }}
                 - mountPath: /var/lib/istio/data
                   name: istio-data
@@ -2104,6 +2118,10 @@ data:
                   name: {{ .Values.global.trustBundleName | default "istio-ca-root-cert" }}
               {{- end }}
               {{- end }}
+              - name: istio-ca-crl
+                configMap:
+                  name: {{ (.Values.pilot).crlConfigMapName | default "istio-ca-crl" }}
+                  optional: true
               {{- if .Values.global.imagePullSecrets }}
               imagePullSecrets:
                 {{- range .Values.global.imagePullSecrets }}
