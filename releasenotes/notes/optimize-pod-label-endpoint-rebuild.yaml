@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+- |
+  **Optimized** endpoint processing in istiod when pod labels change by rebuilding only
+  the EndpointSlices containing the changed pod, reducing CPU usage and allocations
+  for Services with large numbers of endpoints.

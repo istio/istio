@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -647,4 +648,114 @@ func TestEndpointSliceMetadataOnlyUpdate(t *testing.T) {
 	es.Endpoints = append(es.Endpoints, discovery.Endpoint{Addresses: []string{"128.0.0.2"}})
 	esClient.Update(es)
 	fx.MatchOrFail(t, xdsfake.Event{Type: "xds full", ID: host})
+}
+
+// A pod metadata update must refresh every affected slice without replacing
+// endpoint objects in unrelated slices, including across selecting Services.
+func TestPodLabelUpdatePreservesUnchangedSlices(t *testing.T) {
+	for _, withRef := range []bool{true, false} {
+		t.Run(fmt.Sprintf("targetRef=%v", withRef), func(t *testing.T) {
+			c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+			pod := generatePod([]string{"128.0.0.1"}, "changed", "nsa", "", "", map[string]string{"app": "test", "version": "old"}, nil)
+			other := generatePod([]string{"128.0.0.2"}, "unchanged", "nsa", "", "", map[string]string{"app": "test"}, nil)
+			addPods(t, c, fx, pod, other)
+			writer := clienttest.NewWriter[*discovery.EndpointSlice](t, c.client)
+			hosts := []host.Name{}
+			for _, service := range []string{"first", "second"} {
+				createServiceWait(c, service, "nsa", []string{"10.0.0.1"}, nil, nil, []int32{8080}, map[string]string{"app": "test"}, t)
+				hostname := kube.ServiceHostname(service, "nsa", c.opts.DomainSuffix)
+				hosts = append(hosts, hostname)
+				// Two slices reference the changed pod to cover duplicate membership during movement.
+				for i, p := range []*corev1.Pod{pod, other, pod} {
+					var ref *corev1.ObjectReference
+					if withRef {
+						ref = &corev1.ObjectReference{Kind: "Pod", Namespace: p.Namespace, Name: p.Name}
+					}
+					portName, port := "tcp-port", int32(8080)
+					writer.CreateOrUpdate(&discovery.EndpointSlice{
+						ObjectMeta:  metav1.ObjectMeta{Name: fmt.Sprintf("%s-%d", service, i), Namespace: "nsa", Labels: map[string]string{discovery.LabelServiceName: service}},
+						AddressType: discovery.AddressTypeIPv4,
+						Ports:       []discovery.EndpointPort{{Name: &portName, Port: &port}},
+						Endpoints:   []discovery.Endpoint{{Addresses: []string{p.Status.PodIP}, TargetRef: ref}},
+					})
+				}
+			}
+			snapshot := func() map[string]*model.IstioEndpoint {
+				cache := c.endpoints.endpointCache
+				cache.mu.RLock()
+				defer cache.mu.RUnlock()
+				result := map[string]*model.IstioEndpoint{}
+				for _, hostname := range hosts {
+					for name, endpoints := range cache.endpointsByServiceAndSlice[hostname] {
+						if len(endpoints) == 1 {
+							result[name] = endpoints[0]
+						}
+					}
+				}
+				return result
+			}
+			assert.EventuallyEqual(t, func() int { return len(snapshot()) }, 6)
+			before := snapshot()
+			updated := pod.DeepCopy()
+			updated.Labels["version"] = "new"
+			clienttest.Wrap(t, c.podsClient).CreateOrUpdate(updated)
+			assert.EventuallyEqual(t, func() int {
+				count := 0
+				for _, ep := range snapshot() {
+					if ep.Labels["version"] == "new" {
+						count++
+					}
+				}
+				return count
+			}, 4)
+			after := snapshot()
+			for _, service := range []string{"first", "second"} {
+				name := service + "-1"
+				if before[name] != after[name] {
+					t.Errorf("unchanged slice %s had its endpoint rebuilt", name)
+				}
+			}
+			for _, hostname := range hosts {
+				assert.Equal(t, len(c.endpoints.endpointCache.Get(hostname)), 2)
+				assert.EventuallyEqual(t, func() int { return len(GetEndpoints(c.GetService(hostname), c.Endpoints)) }, 2)
+				assert.EventuallyEqual(t, func() int {
+					count := 0
+					for _, ep := range GetEndpoints(c.GetService(hostname), c.Endpoints) {
+						if ep.Labels["version"] == "new" {
+							count++
+						}
+					}
+					return count
+				}, 1)
+			}
+		})
+	}
+}
+
+func TestEndpointSliceContainsPod(t *testing.T) {
+	pod := generatePod([]string{"10.0.0.1", "2001:db8::1"}, "pod", "ns", "", "", nil, nil)
+	for _, tt := range []struct {
+		name      string
+		namespace string
+		address   string
+		ref       *corev1.ObjectReference
+		want      bool
+	}{
+		{"pod reference", "ns", "10.0.0.99", &corev1.ObjectReference{Kind: "Pod", Name: "pod", Namespace: "ns"}, true},
+		{"different pod same IP", "ns", "10.0.0.1", &corev1.ObjectReference{Kind: "Pod", Name: "other", Namespace: "ns"}, false},
+		{"different reference namespace", "ns", "10.0.0.1", &corev1.ObjectReference{Kind: "Pod", Name: "pod", Namespace: "other"}, false},
+		{"manual IPv4", "ns", "10.0.0.1", nil, true},
+		{"manual IPv6", "ns", "2001:db8::1", nil, true},
+		{"manual other namespace", "other", "10.0.0.1", nil, false},
+		{"manual other address", "ns", "10.0.0.2", nil, false},
+		{"non-pod reference", "ns", "10.0.0.1", &corev1.ObjectReference{Kind: "Node", Name: "node"}, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			slice := &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{Namespace: tt.namespace},
+				Endpoints:  []discovery.Endpoint{{Addresses: []string{tt.address}, TargetRef: tt.ref}},
+			}
+			assert.Equal(t, endpointSliceContainsPod(slice, pod), tt.want)
+		})
+	}
 }
