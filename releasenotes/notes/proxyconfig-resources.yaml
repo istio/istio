@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 62780
+releaseNotes:
+- |
+    **Added** support for the `resources` field of `ProxyConfig`, to set the CPU and memory requests
+    and limits of the injected `istio-proxy` sidecar per namespace or per workload. Values are resolved
+    per resource: `sidecar.istio.io/proxyCPU`, `proxyMemory`, `proxyCPULimit` and `proxyMemoryLimit` pod
+    annotations win, then the workload `ProxyConfig`, the namespace `ProxyConfig`, the root namespace
+    `ProxyConfig`, and finally `values.global.proxy.resources`. Workloads must be restarted to pick up a change.
