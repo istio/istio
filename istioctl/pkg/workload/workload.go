@@ -136,6 +136,10 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			workloadPorts, err := convertToUnsignedInt32Map(ports)
+			if err != nil {
+				return err
+			}
 			u := &unstructured.Unstructured{
 				Object: map[string]any{
 					"apiVersion": gvk.WorkloadGroup.GroupVersion(),
@@ -152,7 +156,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 					Annotations: convertToStringMap(annotations),
 				},
 				Template: &networkingv1alpha3.WorkloadEntry{
-					Ports:          convertToUnsignedInt32Map(ports),
+					Ports:          workloadPorts,
 					ServiceAccount: serviceAccount,
 					Network:        network,
 					Locality:       locality,
@@ -645,17 +649,27 @@ func unstructureIstioType(spec any) (map[string]any, error) {
 	return iSpec, nil
 }
 
-func convertToUnsignedInt32Map(s []string) map[string]uint32 {
+// convertToUnsignedInt32Map converts a list of <name>=<port> entries into a map from port name to port number.
+func convertToUnsignedInt32Map(s []string) (map[string]uint32, error) {
 	out := make(map[string]uint32, len(s))
 	for _, l := range s {
-		k, v, _ := strings.Cut(l, "=")
+		k, v, found := strings.Cut(l, "=")
+		if !found {
+			return nil, fmt.Errorf("invalid port %q: expected <name>=<port>", l)
+		}
+		if k == "" {
+			return nil, fmt.Errorf("invalid port %q: missing port name", l)
+		}
 		u64, err := strconv.ParseUint(v, 10, 32)
 		if err != nil {
-			log.Errorf("failed to convert to uint32: %v", err)
+			return nil, fmt.Errorf("invalid port %q: %q is not a valid port number", l, v)
+		}
+		if err := agent.ValidatePort(int(u64)); err != nil {
+			return nil, fmt.Errorf("invalid port %q: %v", l, err)
 		}
 		out[k] = uint32(u64)
 	}
-	return out
+	return out, nil
 }
 
 func convertToStringMap(s []string) map[string]string {
