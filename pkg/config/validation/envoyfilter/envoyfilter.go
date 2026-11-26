@@ -75,11 +75,6 @@ func validateEnvoyFilter(cfg config.Config, errs Validation) (Warning, error) {
 			continue
 		}
 
-		if cp.Match != nil && cp.Match.Context == networking.EnvoyFilter_WAYPOINT {
-			// TODO(zirain): Add validation for waypoint proxy
-			continue
-		}
-
 		if cp.ApplyTo == networking.EnvoyFilter_INVALID {
 			errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: stylecheck
 			continue
@@ -109,65 +104,109 @@ func validateEnvoyFilter(cfg config.Config, errs Validation) (Warning, error) {
 				continue
 			}
 		}
-		// ensure that applyTo, match and patch all line up
-		switch cp.ApplyTo {
-		case networking.EnvoyFilter_LISTENER,
-			networking.EnvoyFilter_FILTER_CHAIN,
-			networking.EnvoyFilter_NETWORK_FILTER,
-			networking.EnvoyFilter_HTTP_FILTER:
-			if cp.Match != nil && cp.Match.ObjectTypes != nil {
-				if cp.Match.GetListener() == nil {
-					errs = validation.AppendValidation(errs,
-						fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: stylecheck
+
+		if cp.Match != nil && cp.Match.Context == networking.EnvoyFilter_WAYPOINT {
+			if cp.Match.GetWaypoint() == nil {
+				errs = validation.AppendValidation(errs,
+					fmt.Errorf("Envoy filter: only support waypoint match when context is WAYPOINT")) // nolint: stylecheck
+				continue
+			}
+			wp := cp.Match.GetWaypoint()
+			if wp.PortNumber > 65535 {
+				errs = validation.AppendValidation(errs,
+					fmt.Errorf("Envoy filter: port must be between 1-65535")) // nolint: stylecheck
+			}
+			if wp.Filter != nil {
+				if wp.Filter.Name == "" {
+					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: stylecheck
 					continue
+				} else if wp.Filter.SubFilter != nil {
+					if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
+						errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: stylecheck
+						continue
+					}
+					if wp.Filter.Name != wellknown.HTTPConnectionManager &&
+						wp.Filter.Name != "envoy.http_connection_manager" {
+						errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: stylecheck
+							wellknown.HTTPConnectionManager))
+						continue
+					}
+					if wp.Filter.SubFilter.Name == "" {
+						errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: stylecheck
+						continue
+					}
+					errs = validation.AppendValidation(errs, validateListenerMatchName(wp.Filter.GetName()))
+					errs = validation.AppendValidation(errs, validateListenerMatchName(wp.Filter.GetSubFilter().GetName()))
+				} else {
+					errs = validation.AppendValidation(errs, validateListenerMatchName(wp.Filter.GetName()))
 				}
-				listenerMatch := cp.Match.GetListener()
-				if listenerMatch.FilterChain != nil {
-					if listenerMatch.FilterChain.Filter != nil {
-						if cp.ApplyTo == networking.EnvoyFilter_LISTENER || cp.ApplyTo == networking.EnvoyFilter_FILTER_CHAIN {
-							// This would be an error but is a warning for backwards compatibility
-							errs = validation.AppendValidation(errs, validation.WrapWarning(
-								fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) // nolint: stylecheck
+			}
+		} else {
+			if cp.Match != nil && cp.Match.GetWaypoint() != nil {
+				errs = validation.AppendValidation(errs,
+					fmt.Errorf("Envoy filter: only support waypoint match when context is WAYPOINT")) // nolint: stylecheck
+				continue
+			}
+			// ensure that applyTo, match and patch all line up
+			switch cp.ApplyTo {
+			case networking.EnvoyFilter_LISTENER,
+				networking.EnvoyFilter_FILTER_CHAIN,
+				networking.EnvoyFilter_NETWORK_FILTER,
+				networking.EnvoyFilter_HTTP_FILTER:
+				if cp.Match != nil && cp.Match.ObjectTypes != nil {
+					if cp.Match.GetListener() == nil {
+						errs = validation.AppendValidation(errs,
+							fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: stylecheck
+						continue
+					}
+					listenerMatch := cp.Match.GetListener()
+					if listenerMatch.FilterChain != nil {
+						if listenerMatch.FilterChain.Filter != nil {
+							if cp.ApplyTo == networking.EnvoyFilter_LISTENER || cp.ApplyTo == networking.EnvoyFilter_FILTER_CHAIN {
+								// This would be an error but is a warning for backwards compatibility
+								errs = validation.AppendValidation(errs, validation.WrapWarning(
+									fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) // nolint: stylecheck
+							}
+							// filter names are required if network filter matches are being made
+							if listenerMatch.FilterChain.Filter.Name == "" {
+								errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: stylecheck
+								continue
+							} else if listenerMatch.FilterChain.Filter.SubFilter != nil {
+								// sub filter match is supported only for applyTo HTTP_FILTER
+								if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
+									errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: stylecheck
+									continue
+								}
+								// sub filter match requires the network filter to match to envoy http connection manager
+								if listenerMatch.FilterChain.Filter.Name != wellknown.HTTPConnectionManager &&
+									listenerMatch.FilterChain.Filter.Name != "envoy.http_connection_manager" {
+									errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: stylecheck
+										wellknown.HTTPConnectionManager))
+									continue
+								}
+								if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
+									errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: stylecheck
+									continue
+								}
+							}
+							errs = validation.AppendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetName()))
+							errs = validation.AppendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetSubFilter().GetName()))
 						}
-						// filter names are required if network filter matches are being made
-						if listenerMatch.FilterChain.Filter.Name == "" {
-							errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: stylecheck
-							continue
-						} else if listenerMatch.FilterChain.Filter.SubFilter != nil {
-							// sub filter match is supported only for applyTo HTTP_FILTER
-							if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
-								errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: stylecheck
-								continue
-							}
-							// sub filter match requires the network filter to match to envoy http connection manager
-							if listenerMatch.FilterChain.Filter.Name != wellknown.HTTPConnectionManager &&
-								listenerMatch.FilterChain.Filter.Name != "envoy.http_connection_manager" {
-								errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: stylecheck
-									wellknown.HTTPConnectionManager))
-								continue
-							}
-							if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
-								errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: stylecheck
-								continue
-							}
-						}
-						errs = validation.AppendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetName()))
-						errs = validation.AppendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetSubFilter().GetName()))
 					}
 				}
-			}
-		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST, networking.EnvoyFilter_HTTP_ROUTE:
-			if cp.Match != nil && cp.Match.ObjectTypes != nil {
-				if cp.Match.GetRouteConfiguration() == nil {
-					errs = validation.AppendValidation(errs,
-						fmt.Errorf("Envoy filter: applyTo for http route class objects cannot have non route configuration match")) // nolint: stylecheck
+			case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST, networking.EnvoyFilter_HTTP_ROUTE:
+				if cp.Match != nil && cp.Match.ObjectTypes != nil {
+					if cp.Match.GetRouteConfiguration() == nil {
+						errs = validation.AppendValidation(errs,
+							fmt.Errorf("Envoy filter: applyTo for http route class objects cannot have non route configuration match")) // nolint: stylecheck
+					}
 				}
-			}
 
-		case networking.EnvoyFilter_CLUSTER:
-			if cp.Match != nil && cp.Match.ObjectTypes != nil {
-				if cp.Match.GetCluster() == nil {
-					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: stylecheck
+			case networking.EnvoyFilter_CLUSTER:
+				if cp.Match != nil && cp.Match.ObjectTypes != nil {
+					if cp.Match.GetCluster() == nil {
+						errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: stylecheck
+					}
 				}
 			}
 		}
