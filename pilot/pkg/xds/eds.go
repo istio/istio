@@ -68,6 +68,13 @@ func (s *DiscoveryServer) EDSReplace(shard model.ShardKey, serviceName string, n
 }
 
 func (s *DiscoveryServer) edsPush(pushType model.PushType, serviceName string, namespace string) {
+	reason := model.NewReasonStats(model.EndpointUpdate)
+	// Track every service, since it may only become passthrough after its endpoints arrive.
+	// Endpoints are stored even when no push is needed, and they can still flip the inferred mode.
+	if s.Env.EndpointIndex.UpdateInferredMTLS(serviceName, namespace) && s.infersMTLSFromEndpoints(serviceName, namespace) {
+		pushType = model.FullPush
+		reason.Add(model.EndpointMTLSChange)
+	}
 	if pushType != model.NoPush {
 		configKind := kind.Endpoints
 		if pushType == model.FullPush {
@@ -76,9 +83,19 @@ func (s *DiscoveryServer) edsPush(pushType model.PushType, serviceName string, n
 		// Trigger a push
 		s.ConfigUpdate(&model.PushRequest{
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: configKind, Name: serviceName, Namespace: namespace}),
-			Reason:         model.NewReasonStats(model.EndpointUpdate),
+			Reason:         reason,
 		})
 	}
+}
+
+// infersMTLSFromEndpoints mirrors the passthrough check in PushContext.BestEffortInferServiceMTLSMode.
+func (s *DiscoveryServer) infersMTLSFromEndpoints(serviceName, namespace string) bool {
+	ps := s.globalPushContext()
+	svc := ps.ServiceIndex.HostnameAndNamespace[host.Name(serviceName)][namespace]
+	if svc == nil || svc.MeshExternal {
+		return false
+	}
+	return svc.Resolution == model.Passthrough || ps.HasPassthroughDestinationRule(svc.Hostname)
 }
 
 // EDSCacheUpdate computes destination address membership across all clusters and networks.
@@ -94,6 +111,7 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 	inboundEDSUpdates.Increment()
 	// The caller handles pushing, so there is no need to diff endpoints to determine the push type.
 	s.Env.EndpointIndex.ReplaceServiceEndpoints(shard, serviceName, namespace, istioEndpoints, false)
+	s.Env.EndpointIndex.UpdateInferredMTLS(serviceName, namespace)
 }
 
 func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
