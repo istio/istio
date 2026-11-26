@@ -15,6 +15,7 @@
 package gatewaycommon
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -912,7 +913,15 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 	})
 	portNums := sets.New[int32]()
 	usedNames := sets.New("status-port")
-	allListeners := append(slices.Clone(gw.Spec.Listeners), listenerSets...)
+	// Listener set order is not stable; sort so a port's name doesn't flip between reconciles.
+	sortedSets := slices.SortFunc(slices.Clone(listenerSets), func(a, b gateway.Listener) int {
+		return cmp.Or(
+			strings.Compare(string(a.Name), string(b.Name)),
+			cmp.Compare(a.Port, b.Port),
+			strings.Compare(string(a.Protocol), string(b.Protocol)),
+		)
+	})
+	allListeners := append(slices.Clone(gw.Spec.Listeners), sortedSets...)
 	for i, l := range allListeners {
 		if portNums.Contains(l.Port) {
 			continue
