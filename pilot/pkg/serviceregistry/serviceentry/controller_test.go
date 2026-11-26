@@ -242,16 +242,18 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	createConfigs([]*config.Config{httpDNS}, store, t)
 	expectEvents(
 		t, fx,
-		Event{Type: "xds", ID: "*.google.com"},
+		Event{Type: "xds", ID: "*.google.com"}, // service added: pushServiceUpdates
 		Event{Type: "service", ID: "*.google.com", Namespace: httpDNS.Namespace},
 		Event{Type: "eds", ID: "*.google.com", Namespace: httpDNS.Namespace},
+		Event{Type: "xds", ID: "*.google.com"}, // DNS endpoints added: pushServiceEndpointUpdates (ADD)
 	)
 	createConfigs([]*config.Config{httpDNSRR}, store, t)
 	expectEvents(
 		t, fx,
-		Event{Type: "xds", ID: "*.istio.io"},
+		Event{Type: "xds", ID: "*.istio.io"}, // service added: pushServiceUpdates
 		Event{Type: "service", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
 		Event{Type: "eds", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
+		Event{Type: "xds", ID: "*.istio.io"}, // DNS endpoints added: pushServiceEndpointUpdates (ADD)
 	)
 	createConfigs([]*config.Config{tcpStatic}, store, t)
 	expectEvents(
@@ -644,7 +646,9 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "tcpdns.com", Namespace: tcpDNS.Namespace},
 			Event{Type: "eds", ID: "tcpdns.com", Namespace: tcpDNS.Namespace},
-			Event{Type: "xds", ID: "tcpdns.com"}) // service added
+			Event{Type: "xds", ID: "tcpdns.com"}, // service added: pushServiceUpdates
+			Event{Type: "xds", ID: "tcpdns.com"}, // DNS endpoints added: pushServiceEndpointUpdates (ADD)
+		)
 
 		// now update the config
 		createConfigs([]*config.Config{tcpDNSUpdated}, store, t)
@@ -731,7 +735,8 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		t, events,
 		Event{Type: "service", ID: "example.com", Namespace: se1.Namespace},
 		Event{Type: "eds", ID: "example.com", Namespace: se1.Namespace, EndpointCount: len(expectedPrimary)},
-		Event{Type: "xds", ID: se1.Spec.(*networking.ServiceEntry).Hosts[0]},
+		Event{Type: "xds", ID: se1.Spec.(*networking.ServiceEntry).Hosts[0]}, // service added: pushServiceUpdates
+		Event{Type: "xds", ID: "example.com"},                                // DNS endpoints added: pushServiceEndpointUpdates (ADD)
 	)
 
 	createConfigs([]*config.Config{seMulti}, store, t)
@@ -743,7 +748,8 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		t, events,
 		Event{Type: "service", ID: "muladdrs.example.com", Namespace: seMulti.Namespace},
 		Event{Type: "eds", ID: "muladdrs.example.com", Namespace: seMulti.Namespace, EndpointCount: len(expectedMul)},
-		Event{Type: "xds", ID: seMulti.Spec.(*networking.ServiceEntry).Hosts[0]},
+		Event{Type: "xds", ID: seMulti.Spec.(*networking.ServiceEntry).Hosts[0]}, // service added: pushServiceUpdates
+		Event{Type: "xds", ID: "muladdrs.example.com"},                           // DNS endpoints added: pushServiceEndpointUpdates (ADD)
 	)
 
 	otherNs := ptr.Of(dnsRoundRobinLBSE1.DeepCopy())
