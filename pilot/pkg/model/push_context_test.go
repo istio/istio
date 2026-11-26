@@ -4030,3 +4030,40 @@ func TestResolveServiceAliases(t *testing.T) {
 		})
 	}
 }
+
+func TestHasPassthroughDestinationRule(t *testing.T) {
+	passthrough := &networking.TrafficPolicy{LoadBalancer: &networking.LoadBalancerSettings{
+		LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
+	}}
+	roundRobin := &networking.TrafficPolicy{LoadBalancer: &networking.LoadBalancerSettings{
+		LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_ROUND_ROBIN},
+	}}
+	ps := NewPushContext()
+	ps.SetDestinationRulesForTesting([]config.Config{
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.DestinationRule, Name: "wildcard", Namespace: "ns1"},
+			Spec: &networking.DestinationRule{Host: "*.ns1.svc.cluster.local", TrafficPolicy: passthrough},
+		},
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.DestinationRule, Name: "subset", Namespace: "ns2"},
+			Spec: &networking.DestinationRule{
+				Host:    "a.ns2.svc.cluster.local",
+				Subsets: []*networking.Subset{{Name: "v1", TrafficPolicy: passthrough}},
+			},
+		},
+		{
+			Meta: config.Meta{GroupVersionKind: gvk.DestinationRule, Name: "rr", Namespace: "ns2"},
+			Spec: &networking.DestinationRule{Host: "b.ns2.svc.cluster.local", TrafficPolicy: roundRobin},
+		},
+	})
+	for h, want := range map[host.Name]bool{
+		"a.ns1.svc.cluster.local": true,
+		"a.ns2.svc.cluster.local": true,
+		"b.ns2.svc.cluster.local": false,
+		"c.ns2.svc.cluster.local": false,
+	} {
+		if got := ps.HasPassthroughDestinationRule(h); got != want {
+			t.Errorf("HasPassthroughDestinationRule(%s) = %v, want %v", h, got, want)
+		}
+	}
+}
