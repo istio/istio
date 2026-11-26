@@ -23,7 +23,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -593,7 +592,7 @@ func (c *Controller) onNodeEvent(old, node *v1.Node, event model.Event) error {
 	switch {
 	case event == model.EventUpdate && old != nil && nodeLocality(old) != nodeLocality(node):
 		c.onNodeLocalityChange(node.Name)
-	case event == model.EventAdd && c.HasSynced():
+	case event == model.EventAdd && c.queue.HasSynced():
 		// A node added after the initial sync may be a deleted node re-added with different labels, while pods
 		// scheduled on it survived and still carry the old locality. Pods on a brand new node are rare, so
 		// this is cheap; during the initial sync endpoints are built with the current node labels anyway.
@@ -673,55 +672,18 @@ func (c *Controller) onNodeLocalityChange(nodeName string) {
 // pushes the affected services. Slices are matched directly rather than through service selectors, so selectorless
 // services with manually managed slices are covered, and only the slices containing the pods are rebuilt.
 func (c *Controller) recomputeEndpointsForPods(pods []*v1.Pod) {
-	type podRefs struct {
-		names sets.String
-		ips   sets.String
-	}
-	byNamespace := map[string]*podRefs{}
-	for _, pod := range pods {
-		refs := byNamespace[pod.Namespace]
-		if refs == nil {
-			refs = &podRefs{names: sets.New[string](), ips: sets.New[string]()}
-			byNamespace[pod.Namespace] = refs
-		}
-		refs.names.Insert(pod.Name)
-		if pod.Status.PodIP != "" {
-			refs.ips.Insert(pod.Status.PodIP)
-		}
-		for _, ip := range pod.Status.PodIPs {
-			refs.ips.Insert(ip.IP)
-		}
-	}
-	// Mirrors endpointSliceContainsPod, matching a set of pods at once.
-	sliceContainsPods := func(slice *discovery.EndpointSlice, refs *podRefs) bool {
-		for _, ep := range slice.Endpoints {
-			if ref := ep.TargetRef; ref != nil && ref.Kind == kind.Pod.String() {
-				if ref.Namespace == slice.Namespace && refs.names.Contains(ref.Name) {
-					return true
-				}
-				continue
-			}
-			for _, address := range ep.Addresses {
-				if refs.ips.Contains(address) {
-					return true
-				}
-			}
-		}
-		return false
-	}
-
+	refs := newPodRefs(pods...)
 	updated := map[host.Name]*model.Service{}
-	for ns, refs := range byNamespace {
-		for _, slice := range c.endpoints.slices.List(ns, endpointSliceSelector) {
-			svcName := serviceNameForEndpointSlice(slice.Labels)
-			if svcName == "" || !sliceContainsPods(slice, refs) {
-				continue
-			}
-			// Includes the clusterset.local service when MCS is enabled, which has its own endpoint cache entry.
-			for _, svc := range c.servicesForNamespacedName(types.NamespacedName{Namespace: ns, Name: svcName}) {
-				c.endpoints.updateEndpointCacheForSlice(svc.Hostname, slice)
-				updated[svc.Hostname] = svc
-			}
+	// List slices in all namespaces, as a slice may reference a pod in another namespace.
+	for _, slice := range c.endpoints.slices.List(metav1.NamespaceAll, endpointSliceSelector) {
+		svcName := serviceNameForEndpointSlice(slice.Labels)
+		if svcName == "" || !endpointSliceContainsPods(slice, refs) {
+			continue
+		}
+		// Includes the clusterset.local service when MCS is enabled, which has its own endpoint cache entry.
+		for _, svc := range c.servicesForNamespacedName(types.NamespacedName{Namespace: slice.Namespace, Name: svcName}) {
+			c.endpoints.updateEndpointCacheForSlice(svc.Hostname, slice)
+			updated[svc.Hostname] = svc
 		}
 	}
 	if len(updated) == 0 {
