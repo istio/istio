@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** istiod repeatedly renaming a Gateway Service port when several listener sets attach listeners with
+  different names to the same port. Unrelated listener set changes no longer cause Service updates.
