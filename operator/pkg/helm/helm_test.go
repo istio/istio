@@ -191,7 +191,8 @@ func TestRender(t *testing.T) {
 			releaseName: "istio-shared",
 			namespace:   "istio-system",
 			chartName:   "istio-control/istio-discovery",
-			diffSelect:  "Deployment:*:*,HorizontalPodAutoscaler:*:*,Service:*:*,PodDisruptionBudget:*:*,ServiceAccount:*:*,Role:*:*,RoleBinding:*:*,ClusterRole:*,ClusterRoleBinding:*,MutatingWebhookConfiguration:*:*,ValidatingWebhookConfiguration:*:*",
+			diffSelect: "Deployment:*:*,HorizontalPodAutoscaler:*:*,Service:*:*,PodDisruptionBudget:*:*,ServiceAccount:*:*,Role:*:*,RoleBinding:*:*," +
+				"ClusterRole:*,ClusterRoleBinding:*,MutatingWebhookConfiguration:*:*,ValidatingWebhookConfiguration:*:*",
 		},
 		{
 			desc:        "istiod-resource-group-workload",
