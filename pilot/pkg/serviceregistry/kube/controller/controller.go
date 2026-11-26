@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -589,8 +590,14 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 }
 
 func (c *Controller) onNodeEvent(old, node *v1.Node, event model.Event) error {
-	if event == model.EventUpdate && old != nil && nodeLocality(old) != nodeLocality(node) {
-		c.recomputeServicesForNode(node.Name)
+	switch {
+	case event == model.EventUpdate && old != nil && nodeLocality(old) != nodeLocality(node):
+		c.onNodeLocalityChange(node.Name)
+	case event == model.EventAdd && c.HasSynced():
+		// A node added after the initial sync may be a deleted node re-added with different labels, while pods
+		// scheduled on it survived and still carry the old locality. Pods on a brand new node are rare, so
+		// this is cheap; during the initial sync endpoints are built with the current node labels anyway.
+		c.onNodeLocalityChange(node.Name)
 	}
 
 	var updatedNeeded bool
@@ -632,47 +639,108 @@ func (c *Controller) onNodeEvent(old, node *v1.Node, event model.Event) error {
 	return nil
 }
 
-// recomputeServicesForNode rebuilds endpoints for all services selecting pods scheduled on the given node.
-// Endpoint locality is derived from node labels, so it must be refreshed when the node's locality changes.
-func (c *Controller) recomputeServicesForNode(nodeName string) {
-	pods := c.podsByNode.Lookup(nodeName)
-	if len(pods) == 0 {
+// onNodeLocalityChange refreshes everything derived from the locality of pods scheduled on the given node:
+// the endpoints of services backed by those pods, workload instances (used by ServiceEntry workloadSelector),
+// and the locality of the proxies themselves, which is only recomputed on connect or on a proxy update.
+func (c *Controller) onNodeLocalityChange(nodeName string) {
+	var affected []*v1.Pod
+	for _, pod := range c.podsByNode.Lookup(nodeName) {
+		// Pods with an explicit locality label do not depend on node locality.
+		if pm.GetLocalityLabel(pod.Labels) == "" {
+			affected = append(affected, pod)
+		}
+	}
+	if len(affected) == 0 {
 		return
 	}
-	shard := model.ShardKeyFromRegistry(c)
-	cu := sets.New[model.ConfigKey]()
-	servicesByNamespace := map[string][]*v1.Service{}
-	for _, pod := range pods {
-		// Pods with an explicit locality label do not depend on node locality.
-		if pm.GetLocalityLabel(pod.Labels) != "" {
+
+	c.recomputeEndpointsForPods(affected)
+
+	for _, pod := range affected {
+		// Only pods tracked by the pod cache have workload instances and may have connected proxies.
+		ip := c.pods.getIPByPod(config.NamespacedName(pod))
+		if ip == "" {
 			continue
 		}
-		allServices, f := servicesByNamespace[pod.Namespace]
-		if !f {
-			allServices = c.services.List(pod.Namespace, klabels.Everything())
-			servicesByNamespace[pod.Namespace] = allServices
+		// Refresh workload instances, e.g. for ServiceEntries selecting this pod via workloadSelector.
+		c.pods.notifyWorkloadHandlers(pod, model.EventUpdate, ip)
+		// Push the proxy so its locality is recomputed from the new node labels.
+		c.opts.XDSUpdater.ProxyUpdate(c.Cluster(), ip)
+	}
+}
+
+// recomputeEndpointsForPods rebuilds the cached endpoints of every EndpointSlice referencing one of the pods and
+// pushes the affected services. Slices are matched directly rather than through service selectors, so selectorless
+// services with manually managed slices are covered, and only the slices containing the pods are rebuilt.
+func (c *Controller) recomputeEndpointsForPods(pods []*v1.Pod) {
+	type podRefs struct {
+		names sets.String
+		ips   sets.String
+	}
+	byNamespace := map[string]*podRefs{}
+	for _, pod := range pods {
+		refs := byNamespace[pod.Namespace]
+		if refs == nil {
+			refs = &podRefs{names: sets.New[string](), ips: sets.New[string]()}
+			byNamespace[pod.Namespace] = refs
 		}
-		for _, svc := range getPodServices(allServices, pod) {
+		refs.names.Insert(pod.Name)
+		if pod.Status.PodIP != "" {
+			refs.ips.Insert(pod.Status.PodIP)
+		}
+		for _, ip := range pod.Status.PodIPs {
+			refs.ips.Insert(ip.IP)
+		}
+	}
+	// Mirrors endpointSliceContainsPod, matching a set of pods at once.
+	sliceContainsPods := func(slice *discovery.EndpointSlice, refs *podRefs) bool {
+		for _, ep := range slice.Endpoints {
+			if ref := ep.TargetRef; ref != nil && ref.Kind == kind.Pod.String() {
+				if ref.Namespace == slice.Namespace && refs.names.Contains(ref.Name) {
+					return true
+				}
+				continue
+			}
+			for _, address := range ep.Addresses {
+				if refs.ips.Contains(address) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	updated := map[host.Name]*model.Service{}
+	for ns, refs := range byNamespace {
+		for _, slice := range c.endpoints.slices.List(ns, endpointSliceSelector) {
+			svcName := serviceNameForEndpointSlice(slice.Labels)
+			if svcName == "" || !sliceContainsPods(slice, refs) {
+				continue
+			}
 			// Includes the clusterset.local service when MCS is enabled, which has its own endpoint cache entry.
-			for _, conv := range c.servicesForNamespacedName(config.NamespacedName(svc)) {
-				key := model.ConfigKey{Kind: kind.Endpoints, Name: string(conv.Hostname), Namespace: svc.Namespace}
-				if cu.Contains(key) {
-					continue
-				}
-				endpoints := c.buildEndpointsForService(conv, true)
-				if len(endpoints) > 0 {
-					c.opts.XDSUpdater.EDSCacheUpdate(shard, string(conv.Hostname), svc.Namespace, endpoints)
-				}
-				cu.Insert(key)
+			for _, svc := range c.servicesForNamespacedName(types.NamespacedName{Namespace: ns, Name: svcName}) {
+				c.endpoints.updateEndpointCacheForSlice(svc.Hostname, slice)
+				updated[svc.Hostname] = svc
 			}
 		}
 	}
-	if len(cu) > 0 {
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			ConfigsUpdated: cu,
-			Reason:         model.NewReasonStats(model.EndpointUpdate),
-		})
+	if len(updated) == 0 {
+		return
 	}
+
+	shard := model.ShardKeyFromRegistry(c)
+	cu := sets.New[model.ConfigKey]()
+	for hostname, svc := range updated {
+		ns := svc.Attributes.Namespace
+		if endpoints := c.buildEndpointsForService(svc, false); len(endpoints) > 0 {
+			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(hostname), ns, endpoints)
+		}
+		cu.Insert(model.ConfigKey{Kind: kind.Endpoints, Name: string(hostname), Namespace: ns})
+	}
+	c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+		ConfigsUpdated: cu,
+		Reason:         model.NewReasonStats(model.EndpointUpdate),
+	})
 }
 
 // FilterOutFunc func for filtering out objects during update callback

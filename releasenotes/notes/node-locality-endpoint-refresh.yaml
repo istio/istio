@@ -3,7 +3,8 @@ kind: bug-fix
 area: traffic-management
 releaseNotes:
   - |
-    **Fixed** an issue where endpoint locality was not updated when a node's topology labels
-    (`topology.kubernetes.io/region`, `topology.kubernetes.io/zone`, `topology.istio.io/subzone`) changed.
-    Endpoints for pods on the relabeled node now pick up the new locality without waiting for an unrelated
-    endpoint or pod update.
+    **Fixed** an issue where locality was not updated when a node's topology labels
+    (`topology.kubernetes.io/region`, `topology.kubernetes.io/zone`, `topology.istio.io/subzone`) changed,
+    or when a node was deleted and re-added with different labels. Endpoints for pods on the node (including
+    those in manually managed EndpointSlices and ServiceEntry `workloadSelector` workloads) and the locality of
+    sidecars running on the node now pick up the new locality without waiting for a reconnect or an unrelated update.
