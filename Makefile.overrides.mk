@@ -22,7 +22,12 @@ BUILD_WITH_CONTAINER ?= 1
 # Container options for the build container. Can be customized for different container runtimes.
 # Example for podman on macOS: CONTAINER_OPTIONS="--mount type=bind,source=/tmp,destination=/tmp --net=host --security-opt label=disable"
 # Note: --security-opt label=disable disables SELinux labeling (safer than --privileged)
+# When SELinux is enabled, run.sh already mounts a tmpfs on /tmp, so a second /tmp mount would be a duplicate.
+ifeq ($(shell selinuxenabled 2>/dev/null && echo yes),yes)
+CONTAINER_OPTIONS ?= --net=host
+else
 CONTAINER_OPTIONS ?= --mount type=bind,source=/tmp,destination=/tmp --net=host
+endif
 
 export COMMONFILES_POSTPROCESS = tools/commonfiles-postprocess.sh
 
