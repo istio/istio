@@ -206,7 +206,7 @@ metadata:
 rules:
   - apiGroups: ["apps"]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
-    resources: [ "deployments" ]
+    resources: [ "deployments", "daemonsets" ]
   - apiGroups: ["autoscaling"]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "horizontalpodautoscalers" ]
