@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** istiod no longer re-evaluates every workload-selector PeerAuthentication in a namespace for each endpoint when deciding mTLS. The result is now cached per set of workload labels.

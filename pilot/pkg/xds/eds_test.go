@@ -36,6 +36,8 @@ import (
 	uatomic "go.uber.org/atomic"
 
 	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
+	typev1beta1 "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -224,6 +226,100 @@ func TestIncrementalPush(t *testing.T) {
 			t.Fatalf("Expected no EDS push, got %v", upd)
 		}
 	})
+}
+
+func TestPeerAuthenticationUpdateAppliesToExistingEndpoints(t *testing.T) {
+	const (
+		hostname = "foo.com"
+		ns       = "default"
+		clusterN = "outbound|80||foo.com"
+	)
+	makePA := func(mode security.PeerAuthentication_MutualTLS_Mode) config.Config {
+		return config.Config{
+			Meta: config.Meta{Name: "pa", Namespace: ns, GroupVersionKind: gvk.PeerAuthentication},
+			Spec: &security.PeerAuthentication{
+				Selector: &typev1beta1.WorkloadSelector{MatchLabels: map[string]string{"app": "a"}},
+				Mtls:     &security.PeerAuthentication_MutualTLS{Mode: mode},
+			},
+		}
+	}
+	se := config.Config{
+		Meta: config.Meta{Name: "foo", Namespace: ns, GroupVersionKind: gvk.ServiceEntry},
+		Spec: &networking.ServiceEntry{
+			Hosts:      []string{hostname},
+			Ports:      []*networking.ServicePort{{Number: 80, Protocol: "HTTP", Name: "http"}},
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+	}
+	ep := func(ip, app string) *model.IstioEndpoint {
+		return &model.IstioEndpoint{
+			Addresses:       []string{ip},
+			EndpointPort:    8080,
+			ServicePortName: "http",
+			Labels:          map[string]string{"app": app},
+			TLSMode:         model.IstioMutualTLSModeLabel,
+			HealthStatus:    model.Healthy,
+			Namespace:       ns,
+		}
+	}
+	shard := model.ShardKey{Cluster: cluster.ID("Kubernetes"), Provider: provider.Kubernetes}
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{Configs: []config.Config{se, makePA(security.PeerAuthentication_MutualTLS_DISABLE)}})
+	s.Discovery.EDSCacheUpdate(shard, hostname, ns, []*model.IstioEndpoint{ep("10.0.0.1", "a"), ep("10.0.0.2", "a"), ep("10.0.0.3", "b")})
+	eds := s.Discovery.Generators[v3.EndpointType].(*xds.EdsGenerator)
+	w := &model.WatchedResource{TypeUrl: v3.EndpointType, ResourceNames: sets.New(clusterN)}
+	proxy := s.SetupProxy(&model.Proxy{Type: model.Router, ID: "gw." + ns, IPAddresses: []string{"1.1.1.1"}})
+
+	// mtls returns whether each endpoint is marked for the mTLS transport socket.
+	mtls := func() map[string]bool {
+		t.Helper()
+		req := &model.PushRequest{
+			Push:           s.PushContext(),
+			Forced:         true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "pa", Namespace: ns}),
+			Start:          time.Now(),
+		}
+		s.Discovery.Cache.Clear(req.ConfigsUpdated)
+		proxy.SetSidecarScope(req.Push)
+		res, _, err := eds.Generate(proxy, w, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cla := &endpoint.ClusterLoadAssignment{}
+		if err := res[0].Resource.UnmarshalTo(cla); err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]bool{}
+		for _, le := range cla.Endpoints {
+			for _, lb := range le.LbEndpoints {
+				addr := lb.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
+				md := lb.GetMetadata().GetFilterMetadata()[util.EnvoyTransportSocketMetadataKey]
+				out[addr] = md.GetFields()[model.TLSModeLabelShortname].GetStringValue() == model.IstioMutualTLSModeLabel
+			}
+		}
+		return out
+	}
+	assertMTLS := func(step string, want map[string]bool) {
+		t.Helper()
+		retry.UntilSuccessOrFail(t, func() error {
+			if got := mtls(); !reflect.DeepEqual(got, want) {
+				return fmt.Errorf("%s: got %v, want %v", step, got, want)
+			}
+			return nil
+		}, retry.Timeout(5*time.Second))
+	}
+
+	assertMTLS("DISABLE", map[string]bool{"10.0.0.1": false, "10.0.0.2": false, "10.0.0.3": true})
+
+	if _, err := s.Store().Update(makePA(security.PeerAuthentication_MutualTLS_STRICT)); err != nil {
+		t.Fatal(err)
+	}
+	assertMTLS("STRICT", map[string]bool{"10.0.0.1": true, "10.0.0.2": true, "10.0.0.3": true})
+
+	if _, err := s.Store().Update(makePA(security.PeerAuthentication_MutualTLS_DISABLE)); err != nil {
+		t.Fatal(err)
+	}
+	assertMTLS("DISABLE again", map[string]bool{"10.0.0.1": false, "10.0.0.2": false, "10.0.0.3": true})
 }
 
 // Regression test for https://github.com/istio/istio/issues/38709
