@@ -476,8 +476,8 @@ func (c *Controller) deleteService(svc *model.Service) {
 
 // recomputeServiceForPod is called when a pod changes and service endpoints need to be recomputed.
 // Most of Pod is immutable, so once it has been created we are ok to cache the internal representation.
-// However, a few fields (labels) are mutable. When these change, we call recomputeServiceForPod and rebuild the cache
-// for all service's the pod is a part of and push an update.
+// However, a few fields (labels) are mutable. When these change, we call recomputeServiceForPod and rebuild the
+// slices containing the pod for each selecting service, then push an update.
 func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
 	allServices := c.services.List(pod.Namespace, klabels.Everything())
 	cu := sets.New[model.ConfigKey]()
@@ -491,7 +491,8 @@ func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
 			return
 		}
 		shard := model.ShardKeyFromRegistry(c)
-		endpoints := c.buildEndpointsForService(conv, true)
+		c.endpoints.updateEndpointCacheForPod(conv, pod)
+		endpoints := c.buildEndpointsForService(conv, false)
 		if len(endpoints) > 0 {
 			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(hostname), svc.Namespace, endpoints)
 		}
