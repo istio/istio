@@ -15,9 +15,11 @@
 package file
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/util/assert"
@@ -68,6 +70,37 @@ func TestAtomicWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Equal(t, body, data)
+}
+
+type onceErrReader struct {
+	r   io.Reader
+	err error
+}
+
+func (o *onceErrReader) Read(p []byte) (int, error) {
+	n, err := o.r.Read(p)
+	if err == io.EOF && o.err != nil {
+		err, o.err = o.err, nil
+	}
+	return n, err
+}
+
+func TestAtomicWriteReaderError(t *testing.T) {
+	d := t.TempDir()
+	file := filepath.Join(d, "test")
+	old := []byte("old content")
+	if err := os.WriteFile(file, old, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// The read error is reported once; a second read sees EOF.
+	r := &onceErrReader{r: strings.NewReader("partial"), err: errors.New("read failed")}
+	err := AtomicWriteReader(file, r, 0o644)
+	assert.Error(t, err)
+	body, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, body, old)
 }
 
 func TestExists(t *testing.T) {

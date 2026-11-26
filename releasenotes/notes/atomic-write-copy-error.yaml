@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** an issue where a failed copy during an atomic file write (used for the CNI plugin binaries and configuration)
+    could be ignored, renaming a partially written file over the existing one.
