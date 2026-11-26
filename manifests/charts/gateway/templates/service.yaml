@@ -1,3 +1,4 @@
+{{- if include "gateway.renderShared" . }}
 {{- if not (eq .Values.service.type "None") }}
 apiVersion: v1
 kind: Service
@@ -70,4 +71,5 @@ spec:
 {{- end }}
   selector:
     {{- include "gateway.serviceSelectorLabels" . | nindent 4 }}
+{{- end }}
 {{- end }}

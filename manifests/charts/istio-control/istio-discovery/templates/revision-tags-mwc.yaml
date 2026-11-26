@@ -34,6 +34,7 @@ a unique prefix to each. */}}
   admissionReviewVersions: ["v1"]
 {{- end }}
 
+{{- if include "istiod.renderShared" . }}
 {{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 {{- if not .Values.global.operatorManageWebhooks }}
 {{- range $tagName := $.Values.revisionTags }}
@@ -161,6 +162,7 @@ webhooks:
 
 {{- end }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

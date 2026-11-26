@@ -1,3 +1,4 @@
+{{- if include "istiod.renderShared" . }}
 {{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # This file is only used for remote
 {{- if and .Values.global.remotePilotAddress .Values.istiodRemote.enabled }}
@@ -39,5 +40,6 @@ spec:
 {{- end }}
 {{- end }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}

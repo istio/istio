@@ -1,3 +1,4 @@
+{{- if include "istiod.renderShared" . }}
 {{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{ range $key, $value := .Values.gatewayClasses }}
 apiVersion: v1
@@ -20,4 +21,5 @@ data:
 {{ end }}
 ---
 {{ end }}
+{{- end }}
 {{- end }}

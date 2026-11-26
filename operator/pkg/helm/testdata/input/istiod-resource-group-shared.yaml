@@ -1,0 +1,6 @@
+spec:
+  values:
+    revision: prod
+    resourceGroup: shared
+    trafficDistribution: PreferSameZone
+    autoscaleMin: 2

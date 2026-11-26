@@ -1,3 +1,4 @@
+{{- if include "gateway.renderShared" . }}
 {{- if .Values.podDisruptionBudget }}
 # a workaround for https://github.com/kubernetes/kubernetes/issues/93476
 {{- if or (and .Values.autoscaling.enabled  (gt (int .Values.autoscaling.minReplicas) 1)) (and (not .Values.autoscaling.enabled) (gt (int .Values.replicaCount) 1)) }}
@@ -17,5 +18,6 @@ spec:
   {{- with .Values.podDisruptionBudget }}
     {{- toYaml . | nindent 2 }}
   {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

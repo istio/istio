@@ -1,4 +1,5 @@
 # Created if cluster resources are not omitted. Used for multicluster remote secret workflows.
+{{- if include "istiod.renderShared" . }}
 {{- if and (or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster")) (dig "global" "enableReaderRBAC" true .Values) }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -21,5 +22,6 @@ subjects:
 {{- else }}
     name: istio-reader-service-account
     namespace: {{ .Values.global.istioNamespace | quote }}
+{{- end }}
 {{- end }}
 {{- end }}

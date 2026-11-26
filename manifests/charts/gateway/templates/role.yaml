@@ -1,3 +1,4 @@
+{{- if include "gateway.renderShared" . }}
 {{/*Set up roles for Istio Gateway. Not required for gateway-api*/}}
 {{- if .Values.rbac.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -34,4 +35,5 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ include "gateway.serviceAccountName" . }}
+{{- end }}
 {{- end }}

@@ -1,4 +1,5 @@
 # Created if cluster resources are not omitted. Used for multicluster remote secret workflows.
+{{- if include "istiod.renderShared" . }}
 {{- if and (or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster")) (dig "global" "enableReaderRBAC" true .Values) }}
 {{ $mcsAPIGroup := or .Values.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -68,4 +69,5 @@ rules:
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
 {{- end}}
+{{- end }}
 {{- end }}

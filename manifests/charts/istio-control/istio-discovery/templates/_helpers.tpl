@@ -47,15 +47,26 @@ Render resource requirements, omitting any nil values.
 {{- end }}
 {{- end -}}
 
-{{- define "istiod.zones" -}}
-{{- if .Values.zonalDeployments -}}
-{{- range .Values.zonalDeployments -}}
-{{- if not (and (kindIs "map" .) .name) -}}
-{{- fail "every entry in zonalDeployments must be a map with a name" -}}
+{{- define "istiod.resourceGroup" -}}
+{{- $group := .Values.resourceGroup | default "default" -}}
+{{- if not (has $group (list "default" "shared" "workload")) -}}
+{{- fail (printf "resourceGroup must be one of default, shared or workload, got %q" $group) -}}
 {{- end -}}
-{{- end -}}
-{{- toJson .Values.zonalDeployments -}}
+{{- $group -}}
+{{- end }}
+
+{{- define "istiod.renderShared" -}}
+{{- if ne (include "istiod.resourceGroup" .) "workload" -}}true{{- end -}}
+{{- end }}
+
+{{- define "istiod.renderWorkload" -}}
+{{- if ne (include "istiod.resourceGroup" .) "shared" -}}true{{- end -}}
+{{- end }}
+
+{{- define "istiod.workloadName" -}}
+{{- if eq (include "istiod.resourceGroup" .) "workload" -}}
+{{- .Release.Name -}}
 {{- else -}}
-{{- toJson (list (dict "name" "")) -}}
+istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- end -}}
-{{- end -}}
+{{- end }}
