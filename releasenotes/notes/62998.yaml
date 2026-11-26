@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 62998
+releaseNotes:
+- |
+  **Fixed** an issue where, after an istiod restart in meshes with many `ServiceEntry` resources,
+  clusters for `ServiceEntry` hosts with `resolution: DNS` could be missing from every proxy's
+  configuration (requests failed with `503 cluster_not_found`) until an unrelated configuration change
+  or proxy reconnect.
