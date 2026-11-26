@@ -46,8 +46,9 @@ selinux_relabel() {
 	return
     fi
 
-    local arg volume
+    local arg volume mount src dst
     volume=false
+    mount=false
     for arg; do
 	if $volume; then
 	    if [[ "$arg" =~ .*:.*:.* ]]; then
@@ -56,16 +57,24 @@ selinux_relabel() {
 		printf "%s:z " "$arg"
 	    fi
 	    volume=false
+	elif $mount; then
+	    src=$(printf '%s' "$arg" | sed -n 's/.*source=\([^,]*\).*/\1/p')
+	    dst=$(printf '%s' "$arg" | sed -n 's/.*\(destination\|dst\|target\)=\([^,]*\).*/\2/p')
+	    if [ -n "$src" ] && [ -n "$dst" ]; then
+		printf -- "-v %s:%s:z " "$src" "$dst"
+	    else
+		printf -- "--mount %s " "$arg"
+		printf "WARNING: could not parse source/destination from --mount arg '%s', passing through without SELinux relabel\n" "$arg" 1>&2
+	    fi
+	    mount=false
 	elif [ "$arg" = --volume ] || [ "$arg" = "-v" ]; then
 	    printf "%s " "$arg"
-	    # Process the next argument
 	    volume=true
+	elif [ "$arg" = --mount ]; then
+	    mount=true
 	else
 	    printf "%s " "$arg"
 	    volume=false
-	fi
-	if [[ "$arg" =~ ^type=bind ]]; then
-	    printf -- "--mount type=bind can't be configured for SELinux\nPlease convert '%s' to --volume\n" "$arg" 1>&2
 	fi
     done
 }
@@ -80,6 +89,7 @@ selinux_relabel() {
     --init \
     --sig-proxy=true \
     --cap-add=SYS_ADMIN \
+    $(if selinuxenabled 2>/dev/null; then printf -- "--tmpfs /tmp"; fi) \
     $(selinux_relabel ${DOCKER_SOCKET_MOUNT:--v /var/run/docker.sock:/var/run/docker.sock}) \
     -e DOCKER_HOST=${DOCKER_SOCKET_HOST:-unix:///var/run/docker.sock} \
     $CONTAINER_OPTIONS \
