@@ -7,5 +7,17 @@ releaseNotes:
 - |
   **Fixed** an issue where a route attached to a mesh `Service` parent ignored `parentRefs[].sectionName`.
   A `sectionName` names a Service port, so the route is now scoped to that port instead of every port the
-  Service exposes, and a `sectionName` or `port` that matches no Service port is now reported
-  `Accepted=False, Reason=NoMatchingParent` instead of `Accepted=True` with no routing effect.
+  Service exposes. A `sectionName` that matches no Service port name previously attached the route to every
+  port and routed traffic; it is now reported `Accepted=False, Reason=NoMatchingParent` and routes nothing.
+  A `port` that matches no Service port was already routing nothing and is now also reported
+  `Accepted=False, Reason=NoMatchingParent`.
+upgradeNotes:
+- title: Mesh Service parentRef port selectors are now enforced
+  content: |
+    A route whose `parentRefs` entry names a `Service` previously ignored `sectionName`: a value matching
+    no port name on the Service still attached the route to every port and routed traffic. Such routes are
+    now reported `Accepted=False` with reason `NoMatchingParent` and stop routing.
+
+    Before upgrading, check mesh routes for `sectionName` values that do not match a port name on the parent
+    Service. Fix each one in one of three ways: set `sectionName` to a port name the Service declares, use
+    the `port` field with a port number instead, or remove the selector so the route attaches to every port.
