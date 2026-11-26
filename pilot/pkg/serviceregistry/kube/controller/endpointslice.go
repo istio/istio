@@ -357,6 +357,43 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	esc.endpointCache.Update(hostName, epSlice.Name, endpoints)
 }
 
+// updateEndpointCacheForPod rebuilds only slices whose endpoint metadata may depend on pod.
+// Preserve cached endpoints in other slices to avoid rebuilding metadata unrelated to this pod.
+func (esc *endpointSliceController) updateEndpointCacheForPod(svc *model.Service, pod *corev1.Pod) {
+	for _, slice := range esc.slices.List(svc.Attributes.Namespace, endpointSliceSelectorForService(svc.Attributes.Name)) {
+		if endpointSliceContainsPod(slice, pod) {
+			esc.updateEndpointCacheForSlice(svc.Hostname, slice)
+		}
+	}
+}
+
+func endpointSliceContainsPod(slice *v1.EndpointSlice, pod *corev1.Pod) bool {
+	for _, endpoint := range slice.Endpoints {
+		// Match getPod's name-based lookup when an explicit Pod reference is present.
+		if ref := endpoint.TargetRef; ref != nil && ref.Kind == kind.Pod.String() {
+			if ref.Name == pod.Name && ref.Namespace == pod.Namespace {
+				return true
+			}
+			continue
+		}
+		// Manually managed endpoints use an IP lookup scoped to the slice namespace.
+		if slice.Namespace != pod.Namespace {
+			continue
+		}
+		for _, address := range endpoint.Addresses {
+			if address == pod.Status.PodIP {
+				return true
+			}
+			for _, ip := range pod.Status.PodIPs {
+				if address == ip.IP {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, hostName host.Name, updateCache bool) []*model.IstioEndpoint {
 	esLabelSelector := endpointSliceSelectorForService(name)
 	slices := esc.slices.List(namespace, esLabelSelector)
