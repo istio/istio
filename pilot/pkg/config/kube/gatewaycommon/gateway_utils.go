@@ -43,18 +43,18 @@ func GetDefaultName(name string, kgw *gatewayv1.GatewaySpec, disableNameSuffix b
 // IsManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
 // This is based on the address field of the spec. If address is set with a Hostname type, it should point to an existing
 // Service that handles the gateway traffic. If it is not set, or refers to only a single IP, we will consider it managed and provision the Service.
-// If there is an IP, we will set the `loadBalancerIP` type.
+// IP addresses are provisioned on the Service (see PlanService): as loadBalancerIP, or as ClusterIPs for `Cluster` routability.
 // While there is no defined standard for this in the API yet, it is tracked in https://github.com/kubernetes-sigs/gateway-api/issues/892.
 // So far, this mirrors how out of clusters work (address set means to use existing IP, unset means to provision one),
 // and there has been growing consensus on this model for in cluster deployments.
 //
 // Currently, the supported options are:
 // * 1 Hostname value. This can be short Service name ingress, or FQDN ingress.ns.svc.cluster.local, example.com. If its a non-k8s FQDN it is a ServiceEntry.
-// * 1 IP address. This is managed, with IP explicit
+// * 1 or more IP addresses. This is managed, with IP explicit
 // * Nothing. This is managed, with IP auto assigned
 //
 // Not supported:
-// Multiple hostname/IP - It is feasible but preference is to create multiple Gateways. This would also break the 1:1 mapping of GW:Service
+// Multiple hostnames - It is feasible but preference is to create multiple Gateways. This would also break the 1:1 mapping of GW:Service
 // Mixed hostname and IP - doesn't make sense; user should define the IP in service
 // NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations,
 //
@@ -68,13 +68,13 @@ func IsManaged(gw *gatewayv1.GatewaySpec) bool {
 	if len(gw.Addresses) == 0 {
 		return true
 	}
-	if len(gw.Addresses) > 1 {
-		return false
+	// Multiple IP entries are managed, since GatewayAddressRoutability allows e.g. a default and a Cluster entry together.
+	for _, a := range gw.Addresses {
+		if a.Type != nil && *a.Type != gatewayv1.IPAddressType {
+			return false
+		}
 	}
-	if t := gw.Addresses[0].Type; t == nil || *t == gatewayv1.IPAddressType {
-		return true
-	}
-	return false
+	return true
 }
 
 // NamespaceNameLabel represents that label added automatically to namespaces is newer Kubernetes clusters

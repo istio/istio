@@ -19,6 +19,7 @@ import (
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -135,9 +136,10 @@ type Outputs struct {
 type Inputs struct {
 	Namespaces krt.Collection[*corev1.Namespace]
 
-	Services   krt.Collection[*corev1.Service]
-	Secrets    krt.Collection[*corev1.Secret]
-	ConfigMaps krt.Collection[*corev1.ConfigMap]
+	Services     krt.Collection[*corev1.Service]
+	ServiceCIDRs krt.Collection[*networkingv1.ServiceCIDR]
+	Secrets      krt.Collection[*corev1.Secret]
+	ConfigMaps   krt.Collection[*corev1.ConfigMap]
 
 	GatewayClasses       krt.Collection[*gatewayv1.GatewayClass]
 	Gateways             krt.Collection[*gatewayv1.Gateway]
@@ -222,6 +224,7 @@ func NewController(
 		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
 		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
 	}
+	inputs.ServiceCIDRs = krt.WrapClient(kclient.New[*networkingv1.ServiceCIDR](kc), opts.WithName("informer/ServiceCIDRs")...)
 	if flags.EnableAlphaGatewayAPI {
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
 		inputs.Backends = buildClient[*gatewayx.XBackend](c, kc, gvr.XBackend, opts, "informer/XBackend")
@@ -286,6 +289,7 @@ func NewController(
 		ReferenceGrants,
 		inputs.ConfigMaps,
 		inputs.Secrets,
+		inputs.ServiceCIDRs,
 		c.domainSuffix,
 		c.gatewayContext,
 		c.tagWatcher,

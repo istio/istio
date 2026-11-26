@@ -27,6 +27,7 @@ import (
 	"go.uber.org/atomic"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -160,6 +161,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 		ignore                   bool
 		copyLabelsAnnotations    *bool
 		enableQUICListeners      bool
+		// serviceCIDR, when set, creates a ServiceCIDR with this CIDR.
+		serviceCIDR string
 	}{
 		{
 			name: "simple",
@@ -760,6 +763,45 @@ metadata:
 			objects:               defaultObjects,
 			copyLabelsAnnotations: &copyLabelsAnnotationsEnabled,
 		},
+		{
+			name:                     "routability-cluster-only",
+			gw:                       routabilityGateway(k8s.GatewaySpecAddress{Routability: k8s.GatewayAddressRoutabilityCluster}),
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
+		},
+		{
+			name: "routability-default-and-cluster",
+			gw: routabilityGateway(
+				k8s.GatewaySpecAddress{Type: ptr.Of(k8s.IPAddressType), Value: "1.2.3.4"},
+				k8s.GatewaySpecAddress{Type: ptr.Of(k8s.IPAddressType), Value: "10.96.0.5", Routability: k8s.GatewayAddressRoutabilityCluster},
+				k8s.GatewaySpecAddress{Routability: k8s.GatewayAddressRoutabilityCluster},
+			),
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
+			serviceCIDR:              "10.96.0.0/16",
+		},
+		{
+			name:                     "routability-cluster-static",
+			gw:                       routabilityGateway(k8s.GatewaySpecAddress{Value: "10.96.0.5", Routability: k8s.GatewayAddressRoutabilityCluster}),
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
+			serviceCIDR:              "10.96.0.0/16",
+		},
+		{
+			name:                     "routability-cluster-static-out-of-cidr",
+			gw:                       routabilityGateway(k8s.GatewaySpecAddress{Value: "192.0.2.20", Routability: k8s.GatewayAddressRoutabilityCluster}),
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
+			serviceCIDR:              "10.96.0.0/16",
+			ignore:                   true,
+		},
+		{
+			name:                     "routability-unsupported",
+			gw:                       routabilityGateway(k8s.GatewaySpecAddress{Routability: "testing.x-k8s.io/unsupported"}),
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
+			ignore:                   true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -770,7 +812,14 @@ metadata:
 				test.SetForTest(t, &features.EnableQUICListeners, tt.enableQUICListeners)
 			}
 			buf := &bytes.Buffer{}
-			client := kube.NewFakeClient(tt.objects...)
+			objects := tt.objects
+			if tt.serviceCIDR != "" {
+				objects = append(slices.Clone(objects), &networkingv1.ServiceCIDR{
+					ObjectMeta: metav1.ObjectMeta{Name: "kubernetes"},
+					Spec:       networkingv1.ServiceCIDRSpec{CIDRs: []string{tt.serviceCIDR}},
+				})
+			}
+			client := kube.NewFakeClient(objects...)
 			kube.SetObjectFilter(client, tt.discoveryNamespaceFilter)
 			client.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: "28"}
 			kclient.NewWriteClient[*k8s.GatewayClass](client).Create(customClass)
@@ -1637,5 +1686,20 @@ func TestExtractServicePortsUniqueNames(t *testing.T) {
 	}
 	if len(ports) != 5 { // status-port + 4 listeners
 		t.Fatalf("expected 5 ports, got %d", len(ports))
+	}
+}
+
+func routabilityGateway(addrs ...k8s.GatewaySpecAddress) k8s.Gateway {
+	return k8s.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "default",
+			Namespace:   "default",
+			Annotations: map[string]string{annotation.GatewayNameOverride.Name: "default"},
+		},
+		Spec: k8s.GatewaySpec{
+			GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+			Addresses:        addrs,
+			Listeners:        []k8s.Listener{{Name: "http", Port: k8s.PortNumber(80), Protocol: k8s.HTTPProtocolType}},
+		},
 	}
 }

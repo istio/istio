@@ -102,6 +102,10 @@ rules:
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses/status"]
     verbs: ["*"]
+  # Gateway address routability validates static Cluster addresses against the ServiceCIDRs
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["servicecidrs"]
+    verbs: ["list", "watch"]
 
   # required for CA's namespace controller
   - apiGroups: [""]

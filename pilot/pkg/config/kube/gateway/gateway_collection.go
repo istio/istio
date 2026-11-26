@@ -20,6 +20,7 @@ import (
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -271,6 +272,7 @@ func GatewayCollection(
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
+	serviceCIDRs krt.Collection[*networkingv1.ServiceCIDR],
 	domainSuffix string,
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
@@ -291,6 +293,7 @@ func GatewayCollection(
 			return nil, nil
 		}
 		result := []Gateway{}
+		cidrs := gatewaycommon.ServiceCIDRPrefixes(krt.Fetch(ctx, serviceCIDRs))
 		kgw := obj.Spec
 		status := obj.Status.DeepCopy()
 		class := gatewaycommon.FetchGatewayClass(ctx, gatewayClasses, kgw.GatewayClassName)
@@ -314,7 +317,7 @@ func GatewayCollection(
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err, backendTLSErr, 0)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err, backendTLSErr, 0, cidrs)
 			return status, nil
 		}
 
@@ -430,7 +433,7 @@ func GatewayCollection(
 		}
 
 		backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), err, backendTLSErr, validListeners)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), err, backendTLSErr, validListeners, cidrs)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 

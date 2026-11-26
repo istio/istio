@@ -27,6 +27,7 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -43,6 +44,10 @@ func extractGatewayServices(domainSuffix string, kgw *gatewayv1.Gateway, info ga
 		if addr.Type != nil && *addr.Type != gatewayv1.HostnameAddressType {
 			// We only support HostnameAddressType. Keep track of invalid ones so we can report in status.
 			skippedAddresses = append(skippedAddresses, addr.Value)
+			continue
+		}
+		if addr.Routability != "" {
+			// Routability cannot be guaranteed for an existing Service; the entry is unsatisfied.
 			continue
 		}
 		// TODO: For now we are using Addresses. There has been some discussion of allowing inline
@@ -90,6 +95,7 @@ func reportGatewayStatus(
 	gatewayErr *ConfigError,
 	backendTLSErr *ConfigError,
 	validListeners int,
+	serviceCIDRs []netip.Prefix,
 ) {
 	// TODO: we lose address if servers is empty due to an error
 	internal, internalIP, external, pending, warnings, allUsable := r.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
@@ -185,21 +191,18 @@ func reportGatewayStatus(
 			}
 		}
 	}
-	// Do not report an address until we are ready. But once we are ready, never remove the address.
-	if len(addressesToReport) > 0 {
-		gs.Addresses = make([]gatewayv1.GatewayStatusAddress, 0, len(addressesToReport))
-		for _, addr := range addressesToReport {
-			var addrType gatewayv1.AddressType
-			if _, err := netip.ParseAddr(addr); err == nil {
-				addrType = gatewayv1.IPAddressType
-			} else {
-				addrType = gatewayv1.HostnameAddressType
-			}
-			gs.Addresses = append(gs.Addresses, gatewayv1.GatewayStatusAddress{
-				Value: addr,
-				Type:  &addrType,
-			})
+	assigned, progErr := gatewaycommon.ReportAddresses(r, obj, gs, serviceCIDRs, gatewayServices, addressesToReport, internal, external, pending, warnings)
+	if progErr != nil {
+		gatewayConditions[string(gatewayv1.GatewayConditionProgrammed)].error = &ConfigError{Reason: progErr.Reason, Message: progErr.Message}
+	}
+	if assigned != nil {
+		gatewayConditions[string(gatewayv1.GatewayConditionAddressesAssigned)] = &Condition{
+			status:  assigned.Status,
+			reason:  assigned.Reason,
+			message: assigned.Message,
 		}
+	} else {
+		gs.Conditions = kstatus.RemoveCondition(gs.Conditions, string(gatewayv1.GatewayConditionAddressesAssigned))
 	}
 	// Prune listeners that have been removed
 	haveListeners := getListenerNames(&obj.Spec)

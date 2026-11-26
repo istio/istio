@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -90,7 +91,28 @@ var inferencePoolPorts = []*model.Port{
 	},
 }
 
+func routabilityService(name string, svcType corev1.ServiceType, clusterIPs, external []string) *model.Service {
+	svc := &model.Service{
+		Attributes: model.ServiceAttributes{Name: name + "-istio", Namespace: "default", Type: string(svcType)},
+		Ports:      []*model.Port{{Name: "http", Port: 80, Protocol: "HTTP"}},
+		Hostname:   host.Name(name + "-istio.default.svc.domain.suffix"),
+		ClusterVIPs: model.AddressMap{Addresses: map[cluster.ID][]string{
+			"": clusterIPs,
+		}},
+	}
+	if len(external) > 0 {
+		svc.Attributes.ClusterExternalAddresses = model.AddressMap{Addresses: map[cluster.ID][]string{"": external}}
+	}
+	return svc
+}
+
 var services = []*model.Service{
+	routabilityService("rt-cluster", corev1.ServiceTypeClusterIP, []string{"10.96.0.10", "fd00:10:96::10"}, nil),
+	routabilityService("rt-mixed", corev1.ServiceTypeLoadBalancer, []string{"10.96.0.11"}, []string{"203.0.113.10"}),
+	routabilityService("rt-pending", corev1.ServiceTypeLoadBalancer, []string{"10.96.0.12"}, nil),
+	routabilityService("rt-static", corev1.ServiceTypeClusterIP, []string{"10.96.0.20"}, nil),
+	routabilityService("rt-partial", corev1.ServiceTypeLoadBalancer, []string{"10.96.0.13"}, []string{"203.0.113.11"}),
+	routabilityService("rt-default", corev1.ServiceTypeLoadBalancer, []string{"10.96.0.14"}, []string{"203.0.113.12"}),
 	{
 		Attributes: model.ServiceAttributes{
 			Name:      "istio-ingressgateway",
@@ -848,6 +870,7 @@ func TestConvertResources(t *testing.T) {
 			),
 		},
 		{name: "xbackend"},
+		{name: "gateway-address-routability"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
@@ -857,6 +880,11 @@ func TestConvertResources(t *testing.T) {
 			t.Parallel()
 			stop := test.NewStop(t)
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator, tt.validationIgnorer)
+			// ServiceCIDR is a builtin, which the CRD validator in readConfig does not know about.
+			input = append(input, &networkingv1.ServiceCIDR{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubernetes"},
+				Spec:       networkingv1.ServiceCIDRSpec{CIDRs: []string{"10.96.0.0/16", "fd00:10:96::/112"}},
+			})
 			kc := kube.NewFakeClient(input...)
 			setupClientCRDs(t, kc)
 			// Setup a few preconfigured services

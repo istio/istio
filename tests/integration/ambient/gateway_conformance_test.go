@@ -97,6 +97,10 @@ func TestGatewayConformance(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			// TODO: once the gateway-api bump adds UsableClusterNetworkAddresses, UnusableClusterNetworkAddresses and
+			// ServiceCIDRs to suite.ConfigurableOptions (absent in v1.7.0), set them here and un-skip the routability
+			// features: usable = the address at offset 200 in the first discovered ServiceCIDR,
+			// unusable = 192.0.2.20 (IPv4) or 2001:db8::20 (IPv6).
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
 			supported := gateway.SupportedFeatures.Clone().Delete(gwfeatures.MeshConsumerRouteFeature)
