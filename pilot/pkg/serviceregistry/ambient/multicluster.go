@@ -432,6 +432,10 @@ func (a *index) buildGlobalCollections(
 	})
 
 	globalServiceVIPs := krt.NewCollection(localIPAddresses, func(ctx krt.HandlerContext, addr *netv1.IPAddress) *globalServiceAddress {
+		if _, retired := addr.Annotations[constants.RemoteServiceRetiredAtAnnotation]; retired {
+			log.Debugf("Skipping retired IP address %q for service %s/%s", addr.Name, addr.Labels[constants.RemoteServiceNamespaceLabel], addr.Labels[constants.RemoteServiceNameLabel])
+			return nil
+		}
 		name := addr.Labels[constants.RemoteServiceNameLabel]
 		namespace := addr.Labels[constants.RemoteServiceNamespaceLabel]
 		if name == "" || namespace == "" {

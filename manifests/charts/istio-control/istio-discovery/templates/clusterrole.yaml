@@ -67,7 +67,7 @@ rules:
     verbs: ["get", "list", "watch"]
 
   - apiGroups: ["networking.k8s.io"]
-    verbs: [ "get", "list", "watch", "create", "delete" ]
+    verbs: [ "get", "list", "watch", "create", "delete", "update" ]
     resources: [ "ipaddresses" ]
 
   - apiGroups: ["networking.k8s.io"]

@@ -2,19 +2,26 @@ package ambient
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	clientfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+	clienttesting "k8s.io/client-go/testing"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
@@ -22,6 +29,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -205,6 +213,7 @@ func TestIPAllocatorReconcileGlobalService(t *testing.T) {
 			stop := test.NewStop(t)
 			addresses := krt.NewStaticCollection[*networking.IPAddress](nil, nil, krt.WithStop(stop))
 			ipallocator := &IPAllocator{
+				globalServices:      krt.NewStaticCollection[GlobalService](nil, nil, krt.WithStop(stop)),
 				ipAddressWriter:     kclient.NewWriteClient[*networking.IPAddress](client),
 				v4Allocator:         allocator{cidrIndex: make(map[netip.Prefix]int)},
 				usedAddresses:       make(map[netip.Addr]bool),
@@ -268,6 +277,292 @@ func TestIPAllocatorRun(t *testing.T) {
 		return err == nil
 	}, true)
 	assert.EventuallyEqual(t, ipallocator.queue.HasSynced, true)
+}
+
+func TestIPAllocatorCleanupRetired(t *testing.T) {
+	expired := time.Now().UTC().Add(-2 * time.Hour).Format(time.RFC3339)
+	recent := time.Now().UTC().Format(time.RFC3339)
+	service := GlobalService{
+		service: types.NamespacedName{Namespace: "default", Name: "httpbin"},
+		cluster: "remote-cluster", network: "remote-network", serviceScope: model.Global,
+	}
+	for _, tt := range []struct {
+		name        string
+		timeout     time.Duration
+		timestamp   string
+		unmanaged   bool
+		reactivated bool
+		remaining   []GlobalService
+		deleteError error
+		wantDeleted bool
+	}{
+		{name: "expired", timeout: time.Hour, timestamp: expired, wantDeleted: true},
+		{name: "still quarantined", timeout: time.Hour, timestamp: recent},
+		{name: "disabled", timestamp: expired},
+		{name: "negative timeout disables cleanup", timeout: -time.Hour, timestamp: expired},
+		{name: "active", timeout: time.Hour},
+		{name: "invalid timestamp", timeout: time.Hour, timestamp: "invalid"},
+		{name: "unmanaged", timeout: time.Hour, timestamp: expired, unmanaged: true},
+		{name: "reactivated since cache update", timeout: time.Hour, timestamp: expired, reactivated: true},
+		{name: "still needed by a global definition", timeout: time.Hour, timestamp: expired, remaining: []GlobalService{service}},
+		{
+			name: "delete conflict", timeout: time.Hour, timestamp: expired,
+			deleteError: apierrors.NewConflict(networking.Resource("ipaddresses"), "10.0.0.42", fmt.Errorf("resource version changed")),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.AmbientRemoteServiceIPRetirementTimeout, tt.timeout)
+			stop := test.NewStop(t)
+			address := &networking.IPAddress{ObjectMeta: metav1.ObjectMeta{
+				Name: "10.0.0.42", UID: "allocation", ResourceVersion: "1",
+				Labels: map[string]string{
+					networking.LabelManagedBy:             "remote-service-controller.istio.io",
+					constants.RemoteServiceNamespaceLabel: service.service.Namespace,
+					constants.RemoteServiceNameLabel:      service.service.Name,
+					constants.RemoteServiceNetworkLabel:   string(service.network),
+				},
+				Annotations: map[string]string{constants.RemoteServiceRetiredAtAnnotation: tt.timestamp},
+			}}
+			if tt.unmanaged {
+				address.Labels[networking.LabelManagedBy] = "another-controller"
+			}
+			current := address.DeepCopy()
+			if tt.reactivated {
+				delete(current.Annotations, constants.RemoteServiceRetiredAtAnnotation)
+				current.ResourceVersion = "2"
+			}
+			client := kube.NewFakeClient(current)
+			t.Cleanup(client.Shutdown)
+			fake := client.Kube().(*clientfake.Clientset)
+			if tt.deleteError != nil {
+				fake.PrependReactor("delete", "ipaddresses", func(clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, tt.deleteError
+				})
+			}
+			ipallocator := &IPAllocator{
+				ipAddressCollection: krt.NewStaticCollection(nil, []*networking.IPAddress{address}, krt.WithStop(stop)),
+				ipAddressClient:     client.Kube().NetworkingV1beta1().IPAddresses(),
+				globalServices:      krt.NewStaticCollection(nil, tt.remaining, krt.WithStop(stop)),
+				usedAddresses:       map[netip.Addr]bool{netip.MustParseAddr(address.Name): true},
+			}
+			assert.NoError(t, ipallocator.reconcile(retiredIPAddressCleanup{}))
+			_, err := ipallocator.ipAddressClient.Get(context.Background(), address.Name, metav1.GetOptions{})
+			assert.Equal(t, apierrors.IsNotFound(err), tt.wantDeleted)
+			assert.Equal(t, ipallocator.usedAddresses[netip.MustParseAddr(address.Name)], true)
+			for _, action := range fake.Actions() {
+				if action.GetVerb() == "delete" {
+					preconditions := action.(clienttesting.DeleteAction).GetDeleteOptions().Preconditions
+					assert.Equal(t, preconditions.UID, &current.UID)
+					assert.Equal(t, preconditions.ResourceVersion, &current.ResourceVersion)
+				}
+			}
+			if tt.wantDeleted {
+				events := []krt.Event[*networking.IPAddress]{{Event: controllers.EventDelete, Old: &address}}
+				assert.NoError(t, ipallocator.reconcile(&events))
+				assert.Equal(t, len(ipallocator.usedAddresses), 0)
+			}
+		})
+	}
+}
+
+func TestIPAllocatorReactivate(t *testing.T) {
+	service := GlobalService{
+		service:      types.NamespacedName{Namespace: "default", Name: "httpbin"},
+		cluster:      "remote-cluster",
+		network:      "remote-network",
+		serviceScope: model.Global,
+	}
+	localScope := service
+	localScope.serviceScope = model.Local
+	localNetwork := service
+	localNetwork.network = "local-network"
+	const retiredAt = "2026-01-01T00:00:00Z"
+	for _, tt := range []struct {
+		name          string
+		event         krt.Event[GlobalService]
+		initialMarker string
+		wantMarker    string
+	}{
+		{
+			name: "recreated global service", initialMarker: retiredAt,
+			event: krt.Event[GlobalService]{Event: controllers.EventAdd, New: &service},
+		},
+		{
+			name: "local to global scope", initialMarker: retiredAt,
+			event: krt.Event[GlobalService]{Event: controllers.EventUpdate, Old: &localScope, New: &service},
+		},
+		{
+			name:  "already active addresses",
+			event: krt.Event[GlobalService]{Event: controllers.EventAdd, New: &service},
+		},
+		{
+			name: "local scope stays retired", initialMarker: retiredAt, wantMarker: retiredAt,
+			event: krt.Event[GlobalService]{Event: controllers.EventAdd, New: &localScope},
+		},
+		{
+			name: "local network stays retired", initialMarker: retiredAt, wantMarker: retiredAt,
+			event: krt.Event[GlobalService]{Event: controllers.EventAdd, New: &localNetwork},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			stop := test.NewStop(t)
+			var addresses []*networking.IPAddress
+			var objects []runtime.Object
+			used := make(map[netip.Addr]bool)
+			for _, name := range []string{"10.0.0.42", "fd00::42", "10.0.0.43"} {
+				address := &networking.IPAddress{ObjectMeta: metav1.ObjectMeta{
+					Name: name,
+					Labels: map[string]string{
+						networking.LabelManagedBy:             "remote-service-controller.istio.io",
+						constants.RemoteServiceNamespaceLabel: service.service.Namespace,
+						constants.RemoteServiceNameLabel:      service.service.Name,
+						constants.RemoteServiceNetworkLabel:   string(service.network),
+					},
+					Annotations: map[string]string{"preserved": "annotation"},
+				}}
+				if tt.initialMarker != "" {
+					address.Annotations[constants.RemoteServiceRetiredAtAnnotation] = tt.initialMarker
+				}
+				if name == "10.0.0.43" {
+					address.Labels[constants.RemoteServiceNamespaceLabel] = "other"
+				}
+				addresses = append(addresses, address)
+				objects = append(objects, address.DeepCopy())
+				used[netip.MustParseAddr(name)] = true
+			}
+			client := kube.NewFakeClient(objects...)
+			t.Cleanup(client.Shutdown)
+			collection := krt.NewStaticCollection(nil, addresses, krt.WithStop(stop))
+			ipallocator := &IPAllocator{
+				ipAddressWriter:     kclient.NewWriteClient[*networking.IPAddress](client),
+				usedAddresses:       used,
+				v4Allocator:         allocator{cidrIndex: make(map[netip.Prefix]int)},
+				v6Allocator:         allocator{cidrIndex: make(map[netip.Prefix]int)},
+				localClusterNetwork: krt.NewStatic(&clusterNetwork{network: "local-network"}, true, krt.WithStop(stop)),
+				serviceAddressIndex: krt.NewIndex(collection, "serviceAddressIndex", func(address *networking.IPAddress) []GlobalService {
+					return []GlobalService{{
+						service: types.NamespacedName{
+							Namespace: address.Labels[constants.RemoteServiceNamespaceLabel],
+							Name:      address.Labels[constants.RemoteServiceNameLabel],
+						},
+						network: network.ID(address.Labels[constants.RemoteServiceNetworkLabel]),
+					}}
+				}),
+			}
+			ipallocator.addServiceCIDR(&networking.ServiceCIDR{Spec: networking.ServiceCIDRSpec{CIDRs: []string{"10.0.0.0/24", "fd00::/120"}}})
+			events := []krt.Event[GlobalService]{tt.event}
+			assert.NoError(t, ipallocator.reconcile(&events))
+			retained, err := client.Kube().NetworkingV1beta1().IPAddresses().List(context.Background(), metav1.ListOptions{})
+			assert.NoError(t, err)
+			assert.Equal(t, len(retained.Items), len(addresses))
+			for _, address := range retained.Items {
+				wantMarker := tt.wantMarker
+				if address.Name == "10.0.0.43" {
+					wantMarker = tt.initialMarker
+				}
+				assert.Equal(t, address.Annotations[constants.RemoteServiceRetiredAtAnnotation], wantMarker)
+				_, hasMarker := address.Annotations[constants.RemoteServiceRetiredAtAnnotation]
+				assert.Equal(t, hasMarker, wantMarker != "")
+				assert.Equal(t, address.Annotations["preserved"], "annotation")
+				assert.Equal(t, ipallocator.usedAddresses[netip.MustParseAddr(address.Name)], true)
+			}
+			for _, cached := range addresses {
+				assert.Equal(t, cached.Annotations[constants.RemoteServiceRetiredAtAnnotation], tt.initialMarker)
+				for _, address := range retained.Items {
+					if cached.Name == address.Name {
+						assert.Equal(t, address.Labels, cached.Labels)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestIPAllocatorRetire(t *testing.T) {
+	service := GlobalService{
+		service:      types.NamespacedName{Namespace: "default", Name: "httpbin"},
+		cluster:      "remote-cluster",
+		network:      "remote-network",
+		serviceScope: model.Global,
+	}
+	for _, tt := range []struct {
+		name        string
+		remaining   []GlobalService
+		retiredAt   string
+		wantRetired bool
+	}{
+		{name: "last global definition removed", wantRetired: true},
+		{name: "preserve retirement time", retiredAt: "2026-01-01T00:00:00Z", wantRetired: true},
+		{
+			name: "another cluster still advertises a global definition",
+			remaining: []GlobalService{{
+				service: service.service, cluster: "other-cluster", network: service.network, serviceScope: model.Global,
+			}},
+		},
+		{
+			name: "remaining definition is local",
+			remaining: []GlobalService{{
+				service: service.service, cluster: service.cluster, network: service.network, serviceScope: model.Local,
+			}},
+			wantRetired: true,
+		},
+		{
+			name: "global definition on another network",
+			remaining: []GlobalService{{
+				service: service.service, cluster: "other-cluster", network: "other-network", serviceScope: model.Global,
+			}},
+			wantRetired: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			stop := test.NewStop(t)
+			var addresses []*networking.IPAddress
+			var objects []runtime.Object
+			used := make(map[netip.Addr]bool)
+			for _, name := range []string{"10.0.0.42", "fd00::42"} {
+				address := &networking.IPAddress{ObjectMeta: metav1.ObjectMeta{
+					Name: name, Labels: map[string]string{"preserved": "label"},
+					Annotations: map[string]string{"preserved": "annotation"},
+				}}
+				if tt.retiredAt != "" {
+					address.Annotations[constants.RemoteServiceRetiredAtAnnotation] = tt.retiredAt
+				}
+				addresses = append(addresses, address)
+				objects = append(objects, address.DeepCopy())
+				used[netip.MustParseAddr(name)] = true
+			}
+			client := kube.NewFakeClient(objects...)
+			t.Cleanup(client.Shutdown)
+			collection := krt.NewStaticCollection(nil, addresses, krt.WithStop(stop))
+			ipallocator := &IPAllocator{
+				ipAddressWriter: kclient.NewWriteClient[*networking.IPAddress](client),
+				usedAddresses:   used,
+				globalServices:  krt.NewStaticCollection(nil, tt.remaining, krt.WithStop(stop)),
+				serviceAddressIndex: krt.NewIndex(collection, "serviceAddressIndex", func(*networking.IPAddress) []GlobalService {
+					return []GlobalService{{service: service.service, network: service.network}}
+				}),
+			}
+			ipallocator.removeGlobalService(&service)
+			for _, address := range addresses {
+				retained, err := client.Kube().NetworkingV1beta1().IPAddresses().Get(context.Background(), address.Name, metav1.GetOptions{})
+				assert.NoError(t, err)
+				timestamp := retained.Annotations[constants.RemoteServiceRetiredAtAnnotation]
+				assert.Equal(t, timestamp != "", tt.wantRetired)
+				if tt.wantRetired {
+					parsed, err := time.Parse(time.RFC3339, timestamp)
+					assert.NoError(t, err)
+					assert.Equal(t, parsed.Location() == time.UTC, true)
+				}
+				if tt.retiredAt != "" {
+					assert.Equal(t, timestamp, tt.retiredAt)
+				}
+				assert.Equal(t, retained.Labels, address.Labels)
+				assert.Equal(t, retained.Annotations["preserved"], "annotation")
+				assert.Equal(t, address.Annotations[constants.RemoteServiceRetiredAtAnnotation], tt.retiredAt)
+				assert.Equal(t, ipallocator.usedAddresses[netip.MustParseAddr(address.Name)], true)
+			}
+		})
+	}
 }
 
 func TestIPAllocatorRelease(t *testing.T) {

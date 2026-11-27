@@ -1,15 +1,19 @@
 package ambient
 
 import (
+	"context"
 	"fmt"
 	"net/netip"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	typednetworking "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -268,6 +272,7 @@ type IPAllocator struct {
 	queue                 controllers.Queue
 	ipAddressCollection   krt.Collection[*networking.IPAddress]
 	ipAddressWriter       kclient.Writer[*networking.IPAddress]
+	ipAddressClient       typednetworking.IPAddressInterface
 	serviceCidrCollection krt.Collection[*networking.ServiceCIDR]
 	v4Allocator           allocator
 	v6Allocator           allocator
@@ -276,6 +281,8 @@ type IPAllocator struct {
 	localClusterNetwork   krt.Singleton[clusterNetwork]
 	serviceAddressIndex   krt.Index[GlobalService, *networking.IPAddress]
 }
+
+type retiredIPAddressCleanup struct{}
 
 func NewIPAllocator(client kube.Client, stop <-chan struct{}, mc *multicluster.Controller, meshConfig krt.Singleton[MeshConfig]) *IPAllocator {
 	if client == nil {
@@ -292,6 +299,7 @@ func NewIPAllocator(client kube.Client, stop <-chan struct{}, mc *multicluster.C
 	ipallocator := IPAllocator{
 		ipAddressCollection:   krt.WrapClient(kclient.New[*networking.IPAddress](client), krt.WithStop(stop)),
 		ipAddressWriter:       kclient.NewWriteClient[*networking.IPAddress](client),
+		ipAddressClient:       client.Kube().NetworkingV1beta1().IPAddresses(),
 		serviceCidrCollection: krt.WrapClient(kclient.New[*networking.ServiceCIDR](client), krt.WithStop(stop)),
 		v4Allocator:           allocator{cidrIndex: make(map[netip.Prefix]int)},
 		v6Allocator:           allocator{cidrIndex: make(map[netip.Prefix]int)},
@@ -357,6 +365,21 @@ func (a *IPAllocator) Run(stop <-chan struct{}) {
 		}
 		a.usedAddresses[addr] = true
 	}
+	if features.AmbientRemoteServiceIPRetirementTimeout > 0 {
+		a.queue.Add(retiredIPAddressCleanup{})
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					a.queue.Add(retiredIPAddressCleanup{})
+				case <-stop:
+					return
+				}
+			}
+		}()
+	}
 	ipalog.WithLabels("ipv4CIDRs", len(a.v4Allocator.cidrs), "ipv6CIDRs", len(a.v6Allocator.cidrs), "usedAddresses", len(a.usedAddresses)).Debug("starting IP allocator queue with warmed state")
 	a.queue.Run(stop)
 	_ = a.queue.WaitForClose(0)
@@ -365,6 +388,8 @@ func (a *IPAllocator) Run(stop <-chan struct{}) {
 func (a *IPAllocator) reconcile(item any) error {
 	ipalog.Debugf("processing queued allocator batch of type %T", item)
 	switch events := item.(type) {
+	case retiredIPAddressCleanup:
+		a.cleanupRetiredIPAddresses()
 	case *[]krt.Event[GlobalService]:
 		a.handleGlobalServiceEvents(*events)
 	case *[]krt.Event[*networking.ServiceCIDR]:
@@ -373,6 +398,67 @@ func (a *IPAllocator) reconcile(item any) error {
 		a.handleIPAddressEvents(*events)
 	}
 	return nil
+}
+
+func (a *IPAllocator) cleanupRetiredIPAddresses() {
+	timeout := features.AmbientRemoteServiceIPRetirementTimeout
+	if timeout <= 0 {
+		return
+	}
+	cutoff := time.Now().UTC().Add(-timeout)
+	for _, cached := range a.ipAddressCollection.List() {
+		if cached.Labels[networking.LabelManagedBy] != "remote-service-controller.istio.io" {
+			continue
+		}
+		timestamp := cached.Annotations[constants.RemoteServiceRetiredAtAnnotation]
+		if timestamp == "" {
+			continue
+		}
+		retiredAt, err := time.Parse(time.RFC3339, timestamp)
+		if err != nil {
+			ipalog.Warnf("cannot expire IPAddress %s: invalid retirement timestamp %q: %v", cached.Name, timestamp, err)
+			continue
+		}
+		if retiredAt.After(cutoff) {
+			continue
+		}
+		address, err := a.ipAddressClient.Get(context.Background(), cached.Name, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			ipalog.Warnf("failed to check retired IPAddress %s before deletion: %v", cached.Name, err)
+			continue
+		}
+		if address.UID != cached.UID || address.Labels[networking.LabelManagedBy] != "remote-service-controller.istio.io" ||
+			address.Annotations[constants.RemoteServiceRetiredAtAnnotation] != timestamp {
+			continue
+		}
+		needed := false
+		for _, service := range a.globalServices.List() {
+			if service.serviceScope == model.Global &&
+				service.service.Namespace == address.Labels[constants.RemoteServiceNamespaceLabel] &&
+				service.service.Name == address.Labels[constants.RemoteServiceNameLabel] &&
+				string(service.network) == address.Labels[constants.RemoteServiceNetworkLabel] {
+				needed = true
+				break
+			}
+		}
+		if needed {
+			continue
+		}
+		err = a.ipAddressClient.Delete(context.Background(), address.Name, metav1.DeleteOptions{
+			Preconditions: &metav1.Preconditions{
+				UID:             ptr.Of(address.UID),
+				ResourceVersion: ptr.Of(address.ResourceVersion),
+			},
+		})
+		if err != nil && !apierrors.IsNotFound(err) {
+			ipalog.Warnf("failed to delete expired retired IPAddress %s: %v", address.Name, err)
+			continue
+		}
+		ipalog.WithLabels("address", address.Name, "retiredAt", timestamp).Debug("deleted expired retired IPAddress")
+	}
 }
 
 func (a *IPAllocator) handleGlobalServiceEvents(events []krt.Event[GlobalService]) {
@@ -442,6 +528,19 @@ func (a *IPAllocator) addGlobalService(service *GlobalService, localClusterNetwo
 	}
 	currentIPs := a.serviceAddressIndex.Lookup(*service)
 	if len(currentIPs) > 0 {
+		for _, address := range currentIPs {
+			if _, retired := address.Annotations[constants.RemoteServiceRetiredAtAnnotation]; !retired {
+				continue
+			}
+			active := address.DeepCopy()
+			delete(active.Annotations, constants.RemoteServiceRetiredAtAnnotation)
+			if _, err := a.ipAddressWriter.Update(active); err != nil {
+				ipalog.Warnf("failed to reactivate IPAddress %s: %v", address.Name, err)
+				continue
+			}
+			ipalog.WithLabels("service", service.service.String(), "network", service.network,
+				"address", address.Name).Debug("reactivated IPAddress")
+		}
 		ipalog.WithLabels("service", service.service.String(), "network", service.network,
 			"addresses", len(currentIPs)).Debug("skipping IP allocation: addresses already exist")
 		return
@@ -450,7 +549,27 @@ func (a *IPAllocator) addGlobalService(service *GlobalService, localClusterNetwo
 }
 
 func (a *IPAllocator) removeGlobalService(service *GlobalService) {
-
+	// Note that we're not particularly capturing the case where two clusters
+	// in the same network can advertise the same service. So here there's a
+	// chance we might mark an IP as retired even though another cluster in the
+	// same network still advertises the service.
+	retiredAt := time.Now().UTC().Format(time.RFC3339)
+	for _, address := range a.serviceAddressIndex.Lookup(GlobalService{service: service.service, network: service.network}) {
+		if address.Annotations[constants.RemoteServiceRetiredAtAnnotation] != "" {
+			continue
+		}
+		retired := address.DeepCopy()
+		if retired.Annotations == nil {
+			retired.Annotations = make(map[string]string)
+		}
+		retired.Annotations[constants.RemoteServiceRetiredAtAnnotation] = retiredAt
+		if _, err := a.ipAddressWriter.Update(retired); err != nil {
+			ipalog.Warnf("failed to mark IPAddress %s as retired: %v", address.Name, err)
+			continue
+		}
+		ipalog.WithLabels("service", service.service.String(), "network", service.network,
+			"address", address.Name, "retiredAt", retiredAt).Debug("marked IPAddress as retired")
+	}
 }
 
 func (a *IPAllocator) addServiceCIDR(serviceCidr *networking.ServiceCIDR) {

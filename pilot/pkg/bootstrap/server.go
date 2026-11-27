@@ -1241,15 +1241,6 @@ func (s *Server) initIPAutoallocateController(args *PilotArgs) {
 	})
 }
 
-type RemoteService struct {
-	ClusterID cluster.ID
-	Service   *corev1.Service
-}
-
-func (s RemoteService) ResourceName() string {
-	return string(s.ClusterID) + "/" + s.Service.Namespace + "/" + s.Service.Name
-}
-
 func (s *Server) initRemoteServicesController(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return

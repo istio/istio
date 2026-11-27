@@ -787,14 +787,38 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	allocatedV6 := &netv1.IPAddress{ObjectMeta: metav1.ObjectMeta{
 		Name: "2001:db8::1",
 		Labels: map[string]string{
-			"istio.io/original-service-name":      "svc2",
-			"istio.io/original-service-namespace": testNS,
+			constants.RemoteServiceNameLabel:      "svc2",
+			constants.RemoteServiceNamespaceLabel: testNS,
 		},
 	}}
 	ipAddresses.Create(allocatedV6)
-	assert.EventuallyEqual(t, serviceAddresses, slices.Sort(append(slices.Clone(withAllocatedV4), string(testNW)+"/2001:db8::1")))
+	withAllocatedV6 := append(slices.Clone(withAllocatedV4), string(testNW)+"/2001:db8::1")
+	assert.EventuallyEqual(t, serviceAddresses, slices.Sort(withAllocatedV6))
 	s.assertEvent(t, s.svcXdsName("svc2"))
-	allocatedV6.Labels["istio.io/original-service-namespace"] = "other"
+	for _, address := range []*netv1.IPAddress{allocatedV4, allocatedV6} {
+		address.Annotations = map[string]string{constants.RemoteServiceRetiredAtAnnotation: "2026-11-27T00:00:00Z"}
+		ipAddresses.Update(address)
+		wantAddresses := slices.Clone(baseAddresses)
+		if address == allocatedV4 {
+			wantAddresses = append(wantAddresses, string(testNW)+"/2001:db8::1")
+		}
+		assert.EventuallyEqual(t, serviceAddresses, slices.Sort(wantAddresses))
+		s.assertEvent(t, s.svcXdsName("svc2"))
+		retained, err := s.mcController.ConfigCluster().Client().Kube().NetworkingV1beta1().IPAddresses().Get(t.Context(), address.Name, metav1.GetOptions{})
+		assert.NoError(t, err)
+		assert.Equal(t, retained.Annotations[constants.RemoteServiceRetiredAtAnnotation], address.Annotations[constants.RemoteServiceRetiredAtAnnotation])
+	}
+	for _, address := range []*netv1.IPAddress{allocatedV4, allocatedV6} {
+		delete(address.Annotations, constants.RemoteServiceRetiredAtAnnotation)
+		ipAddresses.Update(address)
+		wantAddresses := withAllocatedV4
+		if address == allocatedV6 {
+			wantAddresses = withAllocatedV6
+		}
+		assert.EventuallyEqual(t, serviceAddresses, slices.Sort(wantAddresses))
+		s.assertEvent(t, s.svcXdsName("svc2"))
+	}
+	allocatedV6.Labels[constants.RemoteServiceNamespaceLabel] = "other"
 	ipAddresses.Update(allocatedV6)
 	assert.EventuallyEqual(t, serviceAddresses, slices.Sort(withAllocatedV4))
 	ipAddresses.Delete(allocatedV4.Name, "")

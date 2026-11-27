@@ -134,6 +134,8 @@ const (
 	RemoteServiceNameLabel      = "networking.istio.io/remote-service"
 	RemoteServiceNetworkLabel   = "networking.istio.io/remote-network"
 
+	RemoteServiceRetiredAtAnnotation = "networking.istio.io/retired-at"
+
 	// InternalParentNames declares the original resources of an internally-generated config.
 	// This is used by k8s gateway-api.
 	// It is a comma separated list. For example, "HTTPRoute/foo.default,HTTPRoute/bar.default"
