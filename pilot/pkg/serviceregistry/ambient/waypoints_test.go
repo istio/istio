@@ -31,6 +31,74 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
+func TestWaypointServiceAccounts(t *testing.T) {
+	gateway := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "waypoint", Namespace: "ns"}}
+	tests := []struct {
+		name     string
+		before   []string
+		after    []string
+		want     []string
+		wantSame bool
+	}{
+		{
+			name:     "same service account scales up",
+			before:   []string{"sa-a"},
+			after:    []string{"sa-a", "sa-a"},
+			want:     []string{"sa-a"},
+			wantSame: true,
+		},
+		{
+			name:     "same service account scales down",
+			before:   []string{"sa-a", "sa-a"},
+			after:    []string{"sa-a"},
+			want:     []string{"sa-a"},
+			wantSame: true,
+		},
+		{
+			name:     "replica counts and input order change",
+			before:   []string{"sa-b", "sa-a", "sa-a"},
+			after:    []string{"sa-b", "sa-b", "sa-a"},
+			want:     []string{"sa-a", "sa-b"},
+			wantSame: true,
+		},
+		{
+			name:   "new service account added",
+			before: []string{"sa-a"},
+			after:  []string{"sa-b", "sa-a", "sa-b"},
+			want:   []string{"sa-a", "sa-b"},
+		},
+		{
+			name:   "last replica of a service account removed",
+			before: []string{"sa-a", "sa-b", "sa-b"},
+			after:  []string{"sa-a"},
+			want:   []string{"sa-a"},
+		},
+		{
+			name:   "service account replaced",
+			before: []string{"sa-a"},
+			after:  []string{"sa-b"},
+			want:   []string{"sa-b"},
+		},
+		{
+			name:  "first service account added",
+			after: []string{"sa-a"},
+			want:  []string{"sa-a"},
+		},
+		{
+			name:   "last service account removed",
+			before: []string{"sa-a"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := makeWaypoint(gateway, nil, tt.before, constants.AllTraffic, "")
+			after := makeWaypoint(gateway, nil, tt.after, constants.AllTraffic, "")
+			assert.Equal(t, after.ServiceAccounts, tt.want)
+			assert.Equal(t, before.Equals(*after), tt.wantSame)
+		})
+	}
+}
+
 func TestMakeAllowedRoutes(t *testing.T) {
 	istioWaypointClass := &gatewayv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
