@@ -221,6 +221,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 		gateways := maps.Keys(gatewayWeights)
 		gateways = model.SortGateways(gateways)
 
+		// Keep the locality so failover priorities rank the gateway endpoints by zone.
+		locality := util.LocalityToString(ep.llbEndpoints.Locality)
+
 		// Create endpoints for the gateways.
 		for _, gw := range gateways {
 			epWeight := gatewayWeights[gw]
@@ -232,9 +235,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			gwIstioEp := &model.IstioEndpoint{
 				Network: gw.Network,
 				Locality: model.Locality{
+					Label:     locality,
 					ClusterID: gw.Cluster,
 				},
-				Labels: labelutil.AugmentLabels(nil, gw.Cluster, "", "", gw.Network),
+				Labels: labelutil.AugmentLabels(nil, gw.Cluster, locality, "", gw.Network),
 			}
 
 			// Here we generate the EDS endpoint for the E/W gateways that replace the original endpoint.
