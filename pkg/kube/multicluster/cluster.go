@@ -408,7 +408,10 @@ func (c *Cluster) buildMeshConfigCollection(
 ) krt.Singleton[meshwatcher.RestrictedMeshConfig] {
 	client := optionalMeshClient{Client: c.Client, factory: factory}
 	source := kubemesh.NewConfigMapSource(client, c.systemNamespace, c.meshConfigMapName, kubemesh.MeshConfigKey, opts)
-	remote := meshwatcher.NewCollection(opts, source)
+	// The remote cluster may not have a mesh ConfigMap for this revision (e.g. during a revision upgrade or when
+	// clusters run different revisions). Treat that as "unknown" so the local mesh config is used as the fallback,
+	// rather than the default mesh config, whose trust domain (cluster.local) may not match the mesh.
+	remote := meshwatcher.NewOptionalCollection(opts, source)
 	return meshwatcher.NewRestrictedCollection(mesh, remote, features.RemoteClusterTimeout, opts)
 }
 
