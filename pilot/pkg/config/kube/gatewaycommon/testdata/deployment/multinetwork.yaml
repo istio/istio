@@ -229,6 +229,10 @@ spec:
               audience: <no value>
               expirationSeconds: 43200
               path: istio-token
+      - configMap:
+          name: istio-ca-crl
+          optional: true
+        name: istio-ca-crl
 ---
 apiVersion: v1
 kind: Service
