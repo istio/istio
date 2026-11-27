@@ -408,7 +408,7 @@ func BuildHTTPRoutesForVirtualService(
 
 	out := make([]*route.Route, 0, len(vs.Http))
 
-	origins, err := httpRouteOrigins(virtualService, len(vs.Http))
+	origins, err := HTTPRouteOrigins(virtualService, len(vs.Http))
 	if err != nil {
 		return nil, err
 	}
@@ -421,14 +421,14 @@ func BuildHTTPRoutesForVirtualService(
 		}
 		if len(http.Match) == 0 {
 			if r := TranslateRoute(node, http, nil, listenPort, virtualService, gatewayNames, opts); r != nil {
-				applyPerRouteAuthPolicy(r, origin, opts)
+				ApplyPerRouteAuthPolicy(r, origin, opts)
 				out = append(out, r)
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
 				if r := TranslateRoute(node, http, match, listenPort, virtualService, gatewayNames, opts); r != nil {
-					applyPerRouteAuthPolicy(r, origin, opts)
+					ApplyPerRouteAuthPolicy(r, origin, opts)
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just stop sending any more routes here.
@@ -450,9 +450,9 @@ func BuildHTTPRoutesForVirtualService(
 	return out, nil
 }
 
-// httpRouteOrigins returns the HTTPRoute each of the VirtualService's routes was generated from,
+// HTTPRouteOrigins returns the HTTPRoute each of the VirtualService's routes was generated from,
 // or nil for VirtualServices that did not come from an HTTPRoute.
-func httpRouteOrigins(virtualService config.Config, routeCount int) ([]types.NamespacedName, error) {
+func HTTPRouteOrigins(virtualService config.Config, routeCount int) ([]types.NamespacedName, error) {
 	if !features.EnableGatewayAPIHTTPRouteAuth {
 		return nil, nil
 	}
@@ -472,7 +472,7 @@ func httpRouteOrigins(virtualService config.Config, routeCount int) ([]types.Nam
 	return origins, nil
 }
 
-func applyPerRouteAuthPolicy(r *route.Route, origin types.NamespacedName, opts RouteOptions) {
+func ApplyPerRouteAuthPolicy(r *route.Route, origin types.NamespacedName, opts RouteOptions) {
 	if opts.BuildPerRouteAuthConfig == nil {
 		return
 	}
