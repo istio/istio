@@ -207,6 +207,28 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		}
 	}
 
+	// Addresses added inside the pod after enrollment (for example a VPN
+	// forwarder's own interface address) are not resolvable by ztunnel: the
+	// inbound listener can only dial the local address, not the DNAT the pod
+	// installs for it. Let the pod's own rules handle traffic to them instead
+	// of capturing it. This must come before the generic inbound redirect.
+	for _, addr := range podOverrides.SecondaryAddresses {
+		// CLI: nft add rule inet istio-ambient-nat istio-prerouting ip daddr <secondary> meta l4proto tcp counter return
+		if addr.Is4() {
+			rb.AppendRule(IstioPreroutingChain, AmbientNatTable,
+				"ip daddr", addr.String(),
+				"meta l4proto tcp", Counter,
+				"return",
+			)
+		} else {
+			rb.AppendV6RuleIfSupported(IstioPreroutingChain, AmbientNatTable,
+				"ip6 daddr", addr.String(),
+				"meta l4proto tcp", Counter,
+				"return",
+			)
+		}
+	}
+
 	// CLI: nft add rule inet istio-ambient-mangle istio-prerouting meta mark & 0xfff == 0x539 counter ct mark set ct mark & 0xfffff000 | 0x111
 	// DESC: If we have a packet mark, set a connmark.
 	rb.AppendRule(IstioPreroutingChain, AmbientMangleTable,
