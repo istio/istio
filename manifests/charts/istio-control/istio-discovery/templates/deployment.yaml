@@ -1,10 +1,11 @@
+{{- if include "istiod.renderWorkload" . }}
 {{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # Not created if istiod is running remotely
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: {{ include "istiod.workloadName" . }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
     app: istiod
@@ -42,6 +43,9 @@ spec:
       istio.io/rev: {{ .Values.revision | default "default" | quote }}
       {{- else }}
       istio: pilot
+      {{- end }}
+      {{- if eq (include "istiod.resourceGroup" .) "workload" }}
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
       {{- end }}
   template:
     metadata:
@@ -323,5 +327,6 @@ spec:
       {{- end }}
 
 ---
+{{- end }}
 {{- end }}
 {{- end }}

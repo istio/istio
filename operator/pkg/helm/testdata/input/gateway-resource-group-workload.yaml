@@ -1,0 +1,9 @@
+spec:
+  values:
+    name: istio-ingress
+    resourceGroup: workload
+    nodeSelector:
+      topology.kubernetes.io/zone: us-east-1a
+    autoscaling:
+      minReplicas: 1
+      maxReplicas: 5

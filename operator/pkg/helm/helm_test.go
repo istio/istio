@@ -110,6 +110,20 @@ func TestRender(t *testing.T) {
 			diffSelect:  "Deployment:*:istio-ingress",
 		},
 		{
+			desc:        "gateway-resource-group-shared",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "*:*:*",
+		},
+		{
+			desc:        "gateway-resource-group-workload",
+			releaseName: "istio-ingress-us-east-1a",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "*:*:*",
+		},
+		{
 			desc:        "gateway-daemonset-update-strategy",
 			releaseName: "istio-ingress",
 			namespace:   "istio-ingress",
@@ -171,6 +185,21 @@ func TestRender(t *testing.T) {
 			namespace:   "istio-system",
 			chartName:   "istio-control/istio-discovery",
 			diffSelect:  "Service:*:istiod",
+		},
+		{
+			desc:        "istiod-resource-group-shared",
+			releaseName: "istio-shared",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect: "Deployment:*:*,HorizontalPodAutoscaler:*:*,Service:*:*,PodDisruptionBudget:*:*,ServiceAccount:*:*,Role:*:*,RoleBinding:*:*," +
+				"ClusterRole:*,ClusterRoleBinding:*,MutatingWebhookConfiguration:*:*,ValidatingWebhookConfiguration:*:*",
+		},
+		{
+			desc:        "istiod-resource-group-workload",
+			releaseName: "istio-us-east-1a",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "*:*:*",
 		},
 		{
 			desc:        "istiod-pdb-default",

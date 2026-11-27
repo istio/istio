@@ -1,3 +1,4 @@
+{{- if include "istiod.renderShared" . }}
 {{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{- if and .Values.global.remotePilotAddress .Values.istiodRemote.enabled }}
 # if the remotePilotAddress is an IP addr (IPv4 or IPv6)
@@ -37,6 +38,7 @@ ports:
   name: tcp-webhook
   protocol: TCP
 ---
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

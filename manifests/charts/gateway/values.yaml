@@ -12,6 +12,8 @@ _internal_defaults_do_not_set:
 
   kind: Deployment
 
+  resourceGroup: default
+
   rbac:
     # If enabled, roles will be created to enable accessing certificates from Gateways. This is not needed
     # when using http://gateway-api.org/.

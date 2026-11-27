@@ -1,7 +1,8 @@
+{{- if include "gateway.renderWorkload" . }}
 apiVersion: apps/v1
 kind: {{ .Values.kind | default "Deployment" }}
 metadata:
-  name: {{ include "gateway.name" . }}
+  name: {{ include "gateway.workloadName" . }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
     app.kubernetes.io/name: {{ include "gateway.name" . }}
@@ -29,6 +30,9 @@ spec:
   selector:
     matchLabels:
       {{- include "gateway.selectorLabels" . | nindent 6 }}
+      {{- if and (eq (include "gateway.resourceGroup" .) "workload") (not (hasKey (.Values.selectorLabels | default dict) "app.kubernetes.io/instance")) }}
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
+      {{- end }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -154,3 +158,4 @@ spec:
       {{- with .Values.priorityClassName }}
       priorityClassName: {{ . }}
       {{- end }}
+{{- end }}

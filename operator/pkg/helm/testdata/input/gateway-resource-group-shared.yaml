@@ -1,0 +1,7 @@
+spec:
+  values:
+    resourceGroup: shared
+    podDisruptionBudget:
+      minAvailable: 1
+    autoscaling:
+      minReplicas: 2

@@ -36,6 +36,7 @@ a unique prefix to each. */}}
   admissionReviewVersions: ["v1"]
 {{- end }}
 
+{{- if include "istiod.renderShared" . }}
 {{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 {{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
 {{- if not .Values.global.operatorManageWebhooks }}
@@ -171,6 +172,7 @@ webhooks:
       operator: DoesNotExist
 {{- end }}
 
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

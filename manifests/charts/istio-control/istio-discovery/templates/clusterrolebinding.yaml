@@ -1,4 +1,5 @@
 # Created if cluster resources are not omitted
+{{- if include "istiod.renderShared" . }}
 {{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 # Created if this is not a remote istiod, OR if it is and is also a config cluster
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled (or .Values.global.configCluster .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
@@ -38,6 +39,7 @@ subjects:
 - kind: ServiceAccount
   name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Values.global.istioNamespace | quote }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

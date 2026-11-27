@@ -1,0 +1,8 @@
+spec:
+  values:
+    revision: prod
+    resourceGroup: workload
+    nodeSelector:
+      topology.kubernetes.io/zone: us-east-1a
+    autoscaleMin: 1
+    autoscaleMax: 5

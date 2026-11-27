@@ -46,3 +46,27 @@ Render resource requirements, omitting any nil values.
   {{- end }}
 {{- end }}
 {{- end -}}
+
+{{- define "istiod.resourceGroup" -}}
+{{- $group := .Values.resourceGroup | default "default" -}}
+{{- if not (has $group (list "default" "shared" "workload")) -}}
+{{- fail (printf "resourceGroup must be one of default, shared or workload, got %q" $group) -}}
+{{- end -}}
+{{- $group -}}
+{{- end }}
+
+{{- define "istiod.renderShared" -}}
+{{- if ne (include "istiod.resourceGroup" .) "workload" -}}true{{- end -}}
+{{- end }}
+
+{{- define "istiod.renderWorkload" -}}
+{{- if ne (include "istiod.resourceGroup" .) "shared" -}}true{{- end -}}
+{{- end }}
+
+{{- define "istiod.workloadName" -}}
+{{- if eq (include "istiod.resourceGroup" .) "workload" -}}
+{{- .Release.Name -}}
+{{- else -}}
+istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+{{- end -}}
+{{- end }}

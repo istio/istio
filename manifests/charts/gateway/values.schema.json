@@ -37,6 +37,14 @@
             "DaemonSet"
           ]
         },
+        "resourceGroup": {
+          "type": "string",
+          "enum": [
+            "default",
+            "shared",
+            "workload"
+          ]
+        },
         "annotations": {
           "additionalProperties": {
             "type": [

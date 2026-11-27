@@ -3341,6 +3341,7 @@ type PilotConfig struct {
 	TrafficDistribution string `protobuf:"bytes,72,opt,name=trafficDistribution,proto3" json:"trafficDistribution,omitempty"`
 	// The terminationMessagePolicy of the discovery container.
 	TerminationMessagePolicy string `protobuf:"bytes,73,opt,name=terminationMessagePolicy,proto3" json:"terminationMessagePolicy,omitempty"`
+	ResourceGroup            string `protobuf:"bytes,74,opt,name=resourceGroup,proto3" json:"resourceGroup,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -3730,6 +3731,13 @@ func (x *PilotConfig) GetTrafficDistribution() string {
 func (x *PilotConfig) GetTerminationMessagePolicy() string {
 	if x != nil {
 		return x.TerminationMessagePolicy
+	}
+	return ""
+}
+
+func (x *PilotConfig) GetResourceGroup() string {
+	if x != nil {
+		return x.ResourceGroup
 	}
 	return ""
 }
@@ -6251,7 +6259,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04mode\x18\x02 \x01(\x0e29.istio.operator.v1alpha1.OutboundTrafficPolicyConfig.ModeR\x04mode\"(\n" +
 	"\x04Mode\x12\r\n" +
 	"\tALLOW_ANY\x10\x00\x12\x11\n" +
-	"\rREGISTRY_ONLY\x10\x01\"\xd8\x17\n" +
+	"\rREGISTRY_ONLY\x10\x01\"\xfe\x17\n" +
 	"\vPilotConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12F\n" +
 	"\x10autoscaleEnabled\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
@@ -6306,7 +6314,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x12trustedZtunnelName\x18E \x01(\tR\x12trustedZtunnelName\x12(\n" +
 	"\x0fminReadySeconds\x18G \x01(\x05R\x0fminReadySeconds\x120\n" +
 	"\x13trafficDistribution\x18H \x01(\tR\x13trafficDistribution\x12:\n" +
-	"\x18terminationMessagePolicy\x18I \x01(\tR\x18terminationMessagePolicy\"\xea\x02\n" +
+	"\x18terminationMessagePolicy\x18I \x01(\tR\x18terminationMessagePolicy\x12$\n" +
+	"\rresourceGroup\x18J \x01(\tR\rresourceGroup\"\xea\x02\n" +
 	"\x19PodDisruptionBudgetConfig\x12:\n" +
 	"\fminAvailable\x18\x01 \x01(\v2\x16.google.protobuf.ValueR\fminAvailable\x12>\n" +
 	"\x0emaxUnavailable\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x0emaxUnavailable\x12>\n" +

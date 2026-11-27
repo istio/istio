@@ -1078,6 +1078,8 @@ message PilotConfig {
 
   // The terminationMessagePolicy of the discovery container.
   string terminationMessagePolicy = 73;
+
+  string resourceGroup = 74;
 }
 
 // Configuration for the istiod PodDisruptionBudget.

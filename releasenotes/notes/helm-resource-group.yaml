@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+    **Added** a `resourceGroup` value to the `istiod` and `gateway` charts, so a revision can be installed
+    as one `shared` release plus several `workload` releases. `default` renders everything as before,
+    `shared` renders everything except the Deployment and HorizontalPodAutoscaler, and `workload` renders
+    only the Deployment and HorizontalPodAutoscaler, named after the release and selecting only its own
+    pods. For example, an `istiod` revision can run one `workload` release per zone with `nodeSelector`,
+    behind a `shared` release that sets `trafficDistribution: PreferSameZone`.

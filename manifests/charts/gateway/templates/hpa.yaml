@@ -1,8 +1,9 @@
+{{- if include "gateway.renderWorkload" . }}
 {{- if and (.Values.autoscaling.enabled) (eq .Values.kind "Deployment") }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "gateway.name" . }}
+  name: {{ include "gateway.workloadName" . }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
     app.kubernetes.io/name: {{ include "gateway.name" . }}
@@ -14,7 +15,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: {{ .Values.kind | default "Deployment" }}
-    name: {{ include "gateway.name" . }}
+    name: {{ include "gateway.workloadName" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:
@@ -37,4 +38,5 @@ spec:
   {{- if .Values.autoscaling.autoscaleBehavior }}
   behavior: {{ toYaml .Values.autoscaling.autoscaleBehavior | nindent 4 }}
   {{- end }}
+{{- end }}
 {{- end }}

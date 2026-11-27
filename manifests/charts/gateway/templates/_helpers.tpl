@@ -61,7 +61,7 @@ istio.io/rev: {{ . | quote }}
 {{- end }}
 
 {{- define "gateway.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
+{{- if or .Values.serviceAccount.create (eq (include "gateway.resourceGroup" .) "workload") }}
 {{- .Values.serviceAccount.name | default (include "gateway.name" .)    }}
 {{- else }}
 {{- .Values.serviceAccount.name | default "default" }}
@@ -107,3 +107,30 @@ Render resource requirements, omitting any nil values.
   {{- end }}
 {{- end }}
 {{- end -}}
+
+{{- define "gateway.resourceGroup" -}}
+{{- $group := .Values.resourceGroup | default "default" -}}
+{{- if not (has $group (list "default" "shared" "workload")) -}}
+{{- fail (printf "resourceGroup must be one of default, shared or workload, got %q" $group) -}}
+{{- end -}}
+{{- $group -}}
+{{- end }}
+
+{{- define "gateway.renderShared" -}}
+{{- if ne (include "gateway.resourceGroup" .) "workload" -}}true{{- end -}}
+{{- end }}
+
+{{- define "gateway.renderWorkload" -}}
+{{- if ne (include "gateway.resourceGroup" .) "shared" -}}true{{- end -}}
+{{- end }}
+
+{{- define "gateway.workloadName" -}}
+{{- if eq (include "gateway.resourceGroup" .) "workload" -}}
+{{- if not .Values.name -}}
+{{- fail "name must be set to the gateway name of the shared release when resourceGroup is workload" -}}
+{{- end -}}
+{{- .Release.Name -}}
+{{- else -}}
+{{- include "gateway.name" . -}}
+{{- end -}}
+{{- end }}

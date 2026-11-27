@@ -78,6 +78,7 @@
 {{- $originalMesh := include "mesh" . | fromYaml }}
 {{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
 
+{{- if include "istiod.renderShared" . }}
 {{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{- if .Values.configMap }}
 apiVersion: v1
@@ -110,5 +111,6 @@ data:
 {{- include "mesh" . }}
 {{- end }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}
