@@ -39,6 +39,7 @@ const (
 	NamespaceController          = "istio-namespace-controller-election"
 	ClusterTrustBundleController = "istio-clustertrustbundle-controller-election"
 	ServiceExportController      = "istio-serviceexport-controller-election"
+	TrustDomainsController       = "istio-trust-domains-controller-election"
 	// This holds the legacy name to not conflict with older control plane deployments which are just
 	// doing the ingress syncing.
 	IngressController = "istio-leader"

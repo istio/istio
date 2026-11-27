@@ -155,6 +155,9 @@ func Test_KubeSecretController(t *testing.T) {
 	_ = s.Start(stop)
 
 	verifyControllers(t, mc, 1, "create local controller")
+	// The local cluster's trust domains controller starts asynchronously once it wins leader election. Wait
+	// until it is writing, so its goroutines are not counted by the leak check below.
+	waitForTrustDomainsController(t, clientset)
 	t.Run("multicluster secret added", func(t *testing.T) {
 		// Verify that we only leaked the expected number of goroutines.
 		// 1. MeshNetworks event handler for the remote cluster
