@@ -283,6 +283,10 @@ var (
 	// EnvoyFilterMayClearRouteCache defines a diag.MessageType for message "EnvoyFilterMayClearRouteCache".
 	// Description: Using EnvoyFilters with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run.
 	EnvoyFilterMayClearRouteCache = diag.NewMessageType(diag.Warning, "IST0178", "Using an EnvoyFilter with route-dependent filters may cause the routing cache to be cleared after the route-dependent filter has run. This can cause a request to be routed differently than it was when the route-dependent filter was evaluated. See https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_filters.html#security-considerations.")
+
+	// EnvoyFilterExtProcNameCollision defines a diag.MessageType for message "EnvoyFilterExtProcNameCollision".
+	// Description: An EnvoyFilter adds a gRPC ext_proc filter under the name Istio uses for InferencePool ext_proc on a Gateway that serves an InferencePool.
+	EnvoyFilterExtProcNameCollision = diag.NewMessageType(diag.Warning, "IST0180", "EnvoyFilter adds a gRPC ext_proc filter named envoy.filters.http.ext_proc (target %q) to Gateway %q, which serves InferencePool %s. Istio keys the pool's per-route settings by that name, so this filter can call the endpoint picker or be disabled. Use a distinct name.")
 )
 
 // All returns a list of all known message types.
@@ -357,6 +361,7 @@ func All() []*diag.MessageType {
 		GatewayAPICRDVersionBelowMinimum,
 		ConflictingServiceEntryProtocol,
 		EnvoyFilterMayClearRouteCache,
+		EnvoyFilterExtProcNameCollision,
 	}
 }
 
@@ -1037,5 +1042,16 @@ func NewEnvoyFilterMayClearRouteCache(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		EnvoyFilterMayClearRouteCache,
 		r,
+	)
+}
+
+// NewEnvoyFilterExtProcNameCollision returns a new diag.Message based on EnvoyFilterExtProcNameCollision.
+func NewEnvoyFilterExtProcNameCollision(r *resource.Instance, target string, gateway string, pools string) diag.Message {
+	return diag.NewMessage(
+		EnvoyFilterExtProcNameCollision,
+		r,
+		target,
+		gateway,
+		pools,
 	)
 }

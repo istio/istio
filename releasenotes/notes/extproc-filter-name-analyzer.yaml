@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 62556
+releaseNotes:
+- |
+  **Added** an `istioctl analyze` check (`IST0180`) that warns when an EnvoyFilter adds a gRPC ext_proc filter named `envoy.filters.http.ext_proc` to a Gateway that serves an InferencePool.

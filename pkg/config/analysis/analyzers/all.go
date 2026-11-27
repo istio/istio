@@ -53,6 +53,7 @@ func All() []analysis.Analyzer {
 		&destinationrule.PodNotSelectedAnalyzer{},
 		&deprecation.FieldAnalyzer{},
 		&envoyfilter.EnvoyPatchAnalyzer{},
+		&envoyfilter.ExtProcNameCollisionAnalyzer{},
 		&envoyfilter.RouteCacheAnalyzer{},
 		&externalcontrolplane.ExternalControlPlaneAnalyzer{},
 		&gateway.IngressGatewayPortAnalyzer{},
