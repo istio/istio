@@ -1,0 +1,5 @@
+spec:
+  values:
+    global:
+      proxy:
+        clusterDomain: multicluster.local

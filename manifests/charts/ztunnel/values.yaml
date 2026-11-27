@@ -22,6 +22,11 @@ _internal_defaults_do_not_set:
     networkPolicy:
       enabled: false
 
+    proxy:
+      # CAUTION: It is important to ensure that all Istio helm charts specify the same clusterDomain value
+      # cluster domain. Default value is "cluster.local".
+      clusterDomain: "cluster.local"
+
   # resourceName, if set, will override the naming of resources. If not set, will default to 'ztunnel'.
   # If you set this, you MUST also set `trustedZtunnelName` in the `istiod` chart.
   resourceName: ""
