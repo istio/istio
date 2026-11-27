@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -264,6 +265,22 @@ var services = []*model.Service{
 		},
 		Ports:    ports,
 		Hostname: "google.com",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "apple",
+			ExportTo:  sets.New(visibility.Public),
+		},
+		Ports:    ports,
+		Hostname: "exported.example.com",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "apple",
+			ExportTo:  sets.New(visibility.Private),
+		},
+		Ports:    ports,
+		Hostname: "private.example.com",
 	},
 	{
 		Attributes: model.ServiceAttributes{
