@@ -34,9 +34,19 @@ import (
 const acceptPrometheusNative = `application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;` +
 	`encoding=delimited;q=0.6,application/openmetrics-text;version=1.0.0;q=0.5,text/plain;version=1.0.0;q=0.4,*/*;q=0.1`
 
-// upconversionServer starts a protobuf Envoy upstream carrying a native histogram and a
-// text application upstream, and returns a Server merging both.
-func upconversionServer(t *testing.T, noEnvoy bool) *Server {
+const (
+	textAppBody = "# TYPE app_requests_total counter\napp_requests_total 3\n" +
+		"# TYPE app_latency_seconds histogram\napp_latency_seconds_bucket{le=\"0.1\"} 1\n" +
+		"app_latency_seconds_bucket{le=\"+Inf\"} 2\napp_latency_seconds_sum 0.3\napp_latency_seconds_count 2\n"
+	// OpenMetrics names the counter family without _total; the sample keeps it.
+	openMetricsAppBody = "# TYPE app_requests counter\napp_requests_total 3\n" +
+		"# TYPE app_latency_seconds histogram\napp_latency_seconds_bucket{le=\"0.1\"} 1\n" +
+		"app_latency_seconds_bucket{le=\"+Inf\"} 2\napp_latency_seconds_sum 0.3\napp_latency_seconds_count 2\n# EOF\n"
+)
+
+// upconversionServer starts a protobuf Envoy upstream carrying a native histogram and an
+// application upstream serving appBody as appFormat, and returns a Server merging both.
+func upconversionServer(t *testing.T, noEnvoy bool, appFormat expfmt.Format, appBody string) *Server {
 	t.Helper()
 	envoyBody := encodeProtoFamilies(t,
 		classicCounterFamily("envoy_classic_counter"),
@@ -48,10 +58,8 @@ func upconversionServer(t *testing.T, noEnvoy bool) *Server {
 	}))
 	t.Cleanup(envoySrv.Close)
 	appSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", FmtText)
-		_, _ = io.WriteString(w, "# TYPE app_requests_total counter\napp_requests_total 3\n"+
-			"# TYPE app_latency_seconds histogram\napp_latency_seconds_bucket{le=\"0.1\"} 1\n"+
-			"app_latency_seconds_bucket{le=\"+Inf\"} 2\napp_latency_seconds_sum 0.3\napp_latency_seconds_count 2\n")
+		w.Header().Set("Content-Type", string(appFormat))
+		_, _ = io.WriteString(w, appBody)
 	}))
 	t.Cleanup(appSrv.Close)
 
@@ -81,36 +89,48 @@ func scrapeWithAccept(server *Server, accept string) *httptest.ResponseRecorder 
 	return rec
 }
 
-// TestHandleStats_UpconvertTextApp verifies that with upconversion enabled, a
-// protobuf-preferring scrape of Envoy (protobuf) plus a text app is answered in
-// protobuf: Envoy's native histogram survives unchanged instead of collapsing to
-// +Inf/_sum/_count, and the app's text families are converted.
-func TestHandleStats_UpconvertTextApp(t *testing.T) {
-	test.SetForTest(t, &features.AgentMetricsProtobufUpconversion, true)
-	rec := scrapeWithAccept(upconversionServer(t, false), acceptPrometheusNative)
+// TestHandleStats_UpconvertApp verifies that with upconversion enabled, a
+// protobuf-preferring scrape of Envoy (protobuf) plus a text or OpenMetrics app is
+// answered in protobuf: Envoy's native histogram survives unchanged instead of
+// collapsing to +Inf/_sum/_count, and the app's families are converted with their
+// sample names intact (an OpenMetrics counter keeps its _total suffix).
+func TestHandleStats_UpconvertApp(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		format expfmt.Format
+		body   string
+	}{
+		{"text", FmtText, textAppBody},
+		{"OpenMetrics", FmtOpenMetrics_1_0_0, openMetricsAppBody},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.SetForTest(t, &features.AgentMetricsProtobufUpconversion, true)
+			rec := scrapeWithAccept(upconversionServer(t, false, tc.format, tc.body), acceptPrometheusNative)
 
-	if rec.Code != 200 {
-		t.Fatalf("status = %d; want 200", rec.Code)
-	}
-	if got := negotiateMetricsFormat(rec.Header().Get("Content-Type")); got != FmtProtoDelim {
-		t.Fatalf("Content-Type negotiated %q; want protobuf", got)
-	}
-	mfs := decodeProtoFamilies(t, rec.Body.Bytes())
-	want := nativeHistogramFamily()
-	if got := findFamily(mfs, want.GetName()); !proto.Equal(got, want) {
-		t.Errorf("native histogram not preserved:\n got  %v\n want %v", got, want)
-	}
-	if findFamily(mfs, "envoy_classic_counter") == nil {
-		t.Errorf("envoy_classic_counter missing; got %v", familyNames(mfs))
-	}
-	if got := findFamily(mfs, "app_requests_total"); got.GetMetric()[0].GetCounter().GetValue() != 3 {
-		t.Errorf("app_requests_total not converted: %v", got)
-	}
-	if got := findFamily(mfs, "app_latency_seconds"); len(got.GetMetric()[0].GetHistogram().GetBucket()) != 2 {
-		t.Errorf("app_latency_seconds classic buckets not converted: %v", got)
-	}
-	if findFamily(mfs, "istio_agent_scrapes_total") == nil {
-		t.Errorf("agent self-metrics missing; got %v", familyNames(mfs))
+			if rec.Code != 200 {
+				t.Fatalf("status = %d; want 200", rec.Code)
+			}
+			if got := negotiateMetricsFormat(rec.Header().Get("Content-Type")); got != FmtProtoDelim {
+				t.Fatalf("Content-Type negotiated %q; want protobuf", got)
+			}
+			mfs := decodeProtoFamilies(t, rec.Body.Bytes())
+			want := nativeHistogramFamily()
+			if got := findFamily(mfs, want.GetName()); !proto.Equal(got, want) {
+				t.Errorf("native histogram not preserved:\n got  %v\n want %v", got, want)
+			}
+			if findFamily(mfs, "envoy_classic_counter") == nil {
+				t.Errorf("envoy_classic_counter missing; got %v", familyNames(mfs))
+			}
+			if got := findFamily(mfs, "app_requests_total").GetMetric(); len(got) != 1 || got[0].GetCounter().GetValue() != 3 {
+				t.Errorf("app_requests_total not converted; got %v", familyNames(mfs))
+			}
+			if got := findFamily(mfs, "app_latency_seconds").GetMetric(); len(got) != 1 || len(got[0].GetHistogram().GetBucket()) != 2 {
+				t.Errorf("app_latency_seconds classic buckets not converted: %v", got)
+			}
+			if findFamily(mfs, "istio_agent_scrapes_total") == nil {
+				t.Errorf("agent self-metrics missing; got %v", familyNames(mfs))
+			}
+		})
 	}
 }
 
@@ -133,7 +153,7 @@ func TestHandleStats_UpconvertNegotiation(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			test.SetForTest(t, &features.AgentMetricsProtobufUpconversion, tc.enabled)
-			rec := scrapeWithAccept(upconversionServer(t, false), tc.accept)
+			rec := scrapeWithAccept(upconversionServer(t, false, FmtText, textAppBody), tc.accept)
 			if rec.Code != 200 {
 				t.Fatalf("status = %d; want 200", rec.Code)
 			}
@@ -148,7 +168,7 @@ func TestHandleStats_UpconvertNegotiation(t *testing.T) {
 // not merged, a protobuf-preferring scrape of a text app is still answered in protobuf.
 func TestHandleStats_UpconvertWithoutEnvoy(t *testing.T) {
 	test.SetForTest(t, &features.AgentMetricsProtobufUpconversion, true)
-	rec := scrapeWithAccept(upconversionServer(t, true), acceptPrometheusNative)
+	rec := scrapeWithAccept(upconversionServer(t, true, FmtText, textAppBody), acceptPrometheusNative)
 
 	if got := negotiateMetricsFormat(rec.Header().Get("Content-Type")); got != FmtProtoDelim {
 		t.Fatalf("Content-Type negotiated %q; want protobuf", got)
