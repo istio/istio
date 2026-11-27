@@ -15,7 +15,9 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -425,6 +427,57 @@ func TestVerifyAndSetAll(t *testing.T) {
 	}
 	if len(b.GetCRLPem()) != 0 {
 		t.Fatalf("CRL not cleared, got %q", b.GetCRLPem())
+	}
+}
+
+func TestUpdateVerifiedKeyCertBundleFromFileWithInvalidCRL(t *testing.T) {
+	b, err := NewVerifiedKeyCertBundleFromFile(crlCertFile, crlKeyFile, []string{crlCertChainFile}, crlRootCertFile, crlFile)
+	if err != nil {
+		t.Fatalf("Unexpected err: %v", err)
+	}
+	existingCRL := b.GetCRLPem()
+	if len(existingCRL) == 0 {
+		t.Fatalf("expected CRL to be set")
+	}
+
+	// An invalid CRL must not prevent the key material from being rotated.
+	err = b.UpdateVerifiedKeyCertBundleFromFile(intCertFile, intKeyFile, []string{intCertChainFile}, rootCertFile, badCrlFile)
+	if err == nil {
+		t.Fatal("expected an error for an invalid CRL")
+	}
+
+	cert, key, certChain, root := b.GetAllPem()
+	expectedCert, err := os.ReadFile(intCertFile)
+	if err != nil {
+		t.Fatalf("Unexpected err: %v", err)
+	}
+	expectedKey, err := os.ReadFile(intKeyFile)
+	if err != nil {
+		t.Fatalf("Unexpected err: %v", err)
+	}
+	expectedCertChain, err := os.ReadFile(intCertChainFile)
+	if err != nil {
+		t.Fatalf("Unexpected err: %v", err)
+	}
+	expectedRoot, err := os.ReadFile(rootCertFile)
+	if err != nil {
+		t.Fatalf("Unexpected err: %v", err)
+	}
+
+	if !bytes.Equal(cert, expectedCert) {
+		t.Errorf("cert was not rotated despite the invalid CRL")
+	}
+	if !bytes.Equal(key, expectedKey) {
+		t.Errorf("private key was not rotated despite the invalid CRL")
+	}
+	if !bytes.Equal(certChain, expectedCertChain) {
+		t.Errorf("cert chain was not rotated despite the invalid CRL")
+	}
+	if !bytes.Equal(root, expectedRoot) {
+		t.Errorf("root cert was not rotated despite the invalid CRL")
+	}
+	if !bytes.Equal(b.GetCRLPem(), existingCRL) {
+		t.Errorf("CRL should not be updated when the provided CRL is invalid")
 	}
 }
 
