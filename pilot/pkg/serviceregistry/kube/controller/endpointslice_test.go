@@ -734,6 +734,8 @@ func TestPodLabelUpdatePreservesUnchangedSlices(t *testing.T) {
 
 func TestEndpointSliceContainsPod(t *testing.T) {
 	pod := generatePod([]string{"10.0.0.1", "2001:db8::1"}, "pod", "ns", "", "", nil, nil)
+	// A second pod in another namespace, to check that references are matched by namespace and name together.
+	other := generatePod([]string{"10.0.1.1"}, "other-pod", "other", "", "", nil, nil)
 	for _, tt := range []struct {
 		name      string
 		namespace string
@@ -749,13 +751,17 @@ func TestEndpointSliceContainsPod(t *testing.T) {
 		{"manual other namespace", "other", "10.0.0.1", nil, false},
 		{"manual other address", "ns", "10.0.0.2", nil, false},
 		{"non-pod reference", "ns", "10.0.0.1", &corev1.ObjectReference{Kind: "Node", Name: "node"}, true},
+		{"cross-namespace pod reference", "ns", "10.0.0.99", &corev1.ObjectReference{Kind: "Pod", Name: "other-pod", Namespace: "other"}, true},
+		{"pod name in wrong namespace", "ns", "10.0.0.99", &corev1.ObjectReference{Kind: "Pod", Name: "other-pod", Namespace: "ns"}, false},
+		{"manual IP of pod in other namespace", "ns", "10.0.1.1", nil, false},
+		{"manual IP of second pod", "other", "10.0.1.1", nil, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			slice := &discovery.EndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{Namespace: tt.namespace},
 				Endpoints:  []discovery.Endpoint{{Addresses: []string{tt.address}, TargetRef: tt.ref}},
 			}
-			assert.Equal(t, endpointSliceContainsPod(slice, pod), tt.want)
+			assert.Equal(t, endpointSliceContainsPods(slice, newPodRefs(other, pod)), tt.want)
 		})
 	}
 }

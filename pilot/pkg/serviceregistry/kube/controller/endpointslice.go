@@ -360,34 +360,55 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 // updateEndpointCacheForPod rebuilds only slices whose endpoint metadata may depend on pod.
 // Preserve cached endpoints in other slices to avoid rebuilding metadata unrelated to this pod.
 func (esc *endpointSliceController) updateEndpointCacheForPod(svc *model.Service, pod *corev1.Pod) {
+	refs := newPodRefs(pod)
 	for _, slice := range esc.slices.List(svc.Attributes.Namespace, endpointSliceSelectorForService(svc.Attributes.Name)) {
-		if endpointSliceContainsPod(slice, pod) {
+		if endpointSliceContainsPods(slice, refs) {
 			esc.updateEndpointCacheForSlice(svc.Hostname, slice)
 		}
 	}
 }
 
-func endpointSliceContainsPod(slice *v1.EndpointSlice, pod *corev1.Pod) bool {
+// podRefs is a set of pods matched against EndpointSlice endpoints by endpointSliceContainsPods.
+type podRefs struct {
+	names sets.Set[types.NamespacedName]
+	// ips holds pod IPs keyed by pod namespace, as manually managed endpoints are matched within the slice namespace.
+	ips map[string]sets.String
+}
+
+func newPodRefs(pods ...*corev1.Pod) podRefs {
+	refs := podRefs{names: sets.New[types.NamespacedName](), ips: map[string]sets.String{}}
+	for _, pod := range pods {
+		refs.names.Insert(config.NamespacedName(pod))
+		ips := refs.ips[pod.Namespace]
+		if ips == nil {
+			ips = sets.New[string]()
+			refs.ips[pod.Namespace] = ips
+		}
+		if pod.Status.PodIP != "" {
+			ips.Insert(pod.Status.PodIP)
+		}
+		for _, ip := range pod.Status.PodIPs {
+			ips.Insert(ip.IP)
+		}
+	}
+	return refs
+}
+
+// endpointSliceContainsPods reports whether the slice has an endpoint referencing any of the pods.
+func endpointSliceContainsPods(slice *v1.EndpointSlice, refs podRefs) bool {
+	ips := refs.ips[slice.Namespace]
 	for _, endpoint := range slice.Endpoints {
 		// Match getPod's name-based lookup when an explicit Pod reference is present.
 		if ref := endpoint.TargetRef; ref != nil && ref.Kind == kind.Pod.String() {
-			if ref.Name == pod.Name && ref.Namespace == pod.Namespace {
+			if refs.names.Contains(types.NamespacedName{Namespace: ref.Namespace, Name: ref.Name}) {
 				return true
 			}
 			continue
 		}
 		// Manually managed endpoints use an IP lookup scoped to the slice namespace.
-		if slice.Namespace != pod.Namespace {
-			continue
-		}
 		for _, address := range endpoint.Addresses {
-			if address == pod.Status.PodIP {
+			if ips.Contains(address) {
 				return true
-			}
-			for _, ip := range pod.Status.PodIPs {
-				if address == ip.IP {
-					return true
-				}
 			}
 		}
 	}
