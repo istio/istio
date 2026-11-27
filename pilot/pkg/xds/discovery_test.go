@@ -21,6 +21,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -527,5 +528,66 @@ func BenchmarkPushRequest(b *testing.B) {
 		for p := 0; p < proxies; p++ {
 			recordPushTriggers(req.Reason)
 		}
+	}
+}
+
+// Workload updates share the debounce queue with endpoint churn. Even when the
+// queue never becomes quiet, the maximum debounce delay must bound their wait.
+func TestDebounceWorkloadDeadline(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		after time.Duration
+		churn bool
+	}{
+		{name: "continuous churn", after: 200 * time.Millisecond, churn: true},
+		{name: "quiet period exceeds maximum", after: time.Second},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				stop := make(chan struct{})
+				defer close(stop)
+				updates := make(chan *model.PushRequest)
+				pushed := make(chan *model.PushRequest, 10)
+				opts := DebounceOptions{
+					DebounceAfter:     tt.after,
+					debounceMax:       250 * time.Millisecond,
+					enableEDSDebounce: true,
+					enableWDSDebounce: true,
+				}
+				go debounce(updates, stop, opts, func(req *model.PushRequest, initialize bool) {
+					pushed <- req
+				}, uatomic.NewInt64(0))
+				updates <- &model.PushRequest{
+					ConfigsUpdated:   sets.New(model.ConfigKey{Kind: kind.Address, Name: "pod"}),
+					AddressesUpdated: sets.New("Kubernetes//Pod/default/pod"),
+				}
+				if tt.churn {
+					go func() {
+						for {
+							select {
+							case <-stop:
+								return
+							case <-time.After(150 * time.Millisecond):
+							}
+							select {
+							case updates <- &model.PushRequest{
+								ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "service"}),
+							}:
+							case <-stop:
+								return
+							}
+						}
+					}()
+				}
+				time.Sleep(opts.debounceMax)
+				synctest.Wait()
+				select {
+				case req := <-pushed:
+					assert.Equal(t, req.AddressesUpdated, sets.New("Kubernetes//Pod/default/pod"))
+				default:
+					t.Fatal("workload update was not pushed by the maximum debounce deadline")
+				}
+			})
+		})
 	}
 }
