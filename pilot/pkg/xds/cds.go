@@ -77,8 +77,11 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	// For sidecars: Clusters are ORIGINAL_DST (no endpoints) or EDS type.
 	// In both cases, cluster definitions are static when only endpoints change.
 	// However, if ServiceUpdate is also present, the service definition changed
-	// (ports, labels, etc.) and we need to push CDS.
-	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
+	// (ports, labels, etc.) and we need to push CDS. The same applies when the endpoints
+	// changed the auto-mTLS mode inferred for the service (EndpointMTLSChange).
+	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) &&
+		!req.Reason.Has(model.ServiceUpdate) &&
+		!req.Reason.Has(model.EndpointMTLSChange)
 
 	relevantUpdates := make(sets.Set[model.ConfigKey])
 	filtered := false
