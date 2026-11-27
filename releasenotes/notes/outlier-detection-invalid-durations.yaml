@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** cluster generation to use Envoy defaults for non-positive outlier detection intervals and base ejection times instead of sending durations that Envoy rejects.
