@@ -23,6 +23,7 @@ const (
 	GatewayClass
 	HTTPRoute
 	HorizontalPodAutoscaler
+	IPAddress
 	InferencePool
 	Ingress
 	IngressClass
@@ -43,6 +44,7 @@ const (
 	Secret
 	Service
 	ServiceAccount
+	ServiceCIDR
 	ServiceEntry
 	Sidecar
 	StatefulSet
@@ -101,6 +103,8 @@ func (k Kind) String() string {
 		return "HTTPRoute"
 	case HorizontalPodAutoscaler:
 		return "HorizontalPodAutoscaler"
+	case IPAddress:
+		return "IPAddress"
 	case InferencePool:
 		return "InferencePool"
 	case Ingress:
@@ -141,6 +145,8 @@ func (k Kind) String() string {
 		return "Service"
 	case ServiceAccount:
 		return "ServiceAccount"
+	case ServiceCIDR:
+		return "ServiceCIDR"
 	case ServiceEntry:
 		return "ServiceEntry"
 	case Sidecar:
@@ -218,6 +224,8 @@ func FromString(s string) Kind {
 		return HTTPRoute
 	case "HorizontalPodAutoscaler":
 		return HorizontalPodAutoscaler
+	case "IPAddress":
+		return IPAddress
 	case "InferencePool":
 		return InferencePool
 	case "Ingress":
@@ -258,6 +266,8 @@ func FromString(s string) Kind {
 		return Service
 	case "ServiceAccount":
 		return ServiceAccount
+	case "ServiceCIDR":
+		return ServiceCIDR
 	case "ServiceEntry":
 		return ServiceEntry
 	case "Sidecar":

@@ -38,6 +38,7 @@ var (
 	HTTPRoute_v1alpha2             = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "HTTPRoute"}
 	HTTPRoute_v1beta1              = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "HTTPRoute"}
 	HorizontalPodAutoscaler        = config.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: "HorizontalPodAutoscaler"}
+	IPAddress                      = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1beta1", Kind: "IPAddress"}
 	InferencePool                  = config.GroupVersionKind{Group: "inference.networking.k8s.io", Version: "v1", Kind: "InferencePool"}
 	Ingress                        = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "Ingress"}
 	IngressClass                   = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "IngressClass"}
@@ -63,6 +64,7 @@ var (
 	Secret                         = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
 	Service                        = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}
 	ServiceAccount                 = config.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
+	ServiceCIDR                    = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1beta1", Kind: "ServiceCIDR"}
 	ServiceEntry                   = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "ServiceEntry"}
 	ServiceEntry_v1alpha3          = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "ServiceEntry"}
 	ServiceEntry_v1beta1           = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "ServiceEntry"}
@@ -150,6 +152,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.HTTPRoute_v1beta1, true
 	case HorizontalPodAutoscaler:
 		return gvr.HorizontalPodAutoscaler, true
+	case IPAddress:
+		return gvr.IPAddress, true
 	case InferencePool:
 		return gvr.InferencePool, true
 	case Ingress:
@@ -200,6 +204,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.Service, true
 	case ServiceAccount:
 		return gvr.ServiceAccount, true
+	case ServiceCIDR:
+		return gvr.ServiceCIDR, true
 	case ServiceEntry:
 		return gvr.ServiceEntry, true
 	case ServiceEntry_v1alpha3:
@@ -297,6 +303,8 @@ func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
 		return kind.HTTPRoute, true
 	case HorizontalPodAutoscaler:
 		return kind.HorizontalPodAutoscaler, true
+	case IPAddress:
+		return kind.IPAddress, true
 	case InferencePool:
 		return kind.InferencePool, true
 	case Ingress:
@@ -337,6 +345,8 @@ func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
 		return kind.Service, true
 	case ServiceAccount:
 		return kind.ServiceAccount, true
+	case ServiceCIDR:
+		return kind.ServiceCIDR, true
 	case ServiceEntry:
 		return kind.ServiceEntry, true
 	case Sidecar:
@@ -427,6 +437,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return HTTPRoute, true
 	case gvr.HorizontalPodAutoscaler:
 		return HorizontalPodAutoscaler, true
+	case gvr.IPAddress:
+		return IPAddress, true
 	case gvr.InferencePool:
 		return InferencePool, true
 	case gvr.Ingress:
@@ -467,6 +479,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return Service, true
 	case gvr.ServiceAccount:
 		return ServiceAccount, true
+	case gvr.ServiceCIDR:
+		return ServiceCIDR, true
 	case gvr.ServiceEntry:
 		return ServiceEntry, true
 	case gvr.Sidecar:
@@ -550,6 +564,8 @@ func KebabKind(k string) string {
 		return "http-route"
 	case "HorizontalPodAutoscaler":
 		return "horizontal-pod-autoscaler"
+	case "IPAddress":
+		return "i-p-address"
 	case "InferencePool":
 		return "inference-pool"
 	case "Ingress":
@@ -588,6 +604,8 @@ func KebabKind(k string) string {
 		return "service"
 	case "ServiceAccount":
 		return "service-account"
+	case "ServiceCIDR":
+		return "service-c-i-d-r"
 	case "ServiceEntry":
 		return "service-entry"
 	case "Sidecar":

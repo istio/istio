@@ -55,10 +55,11 @@ const (
 	// * Others use configmap for backwards compatibility
 	// * This type is per-revision, so it is higher cost. Leases are cheaper
 	// * Other types use "prioritized leader election", which isn't implemented for Lease
-	GatewayDeploymentController = "istio-gateway-deployment"
-	InferencePoolController     = "istio-gateway-inferencepool"
-	NodeUntaintController       = "istio-node-untaint"
-	IPAutoallocateController    = "istio-ip-autoallocate"
+	GatewayDeploymentController     = "istio-gateway-deployment"
+	InferencePoolController         = "istio-gateway-inferencepool"
+	NodeUntaintController           = "istio-node-untaint"
+	IPAutoallocateController        = "istio-ip-autoallocate"
+	RemoteServicesAddressController = "istio-remote-svc-address"
 )
 
 // Leader election key prefix for remote istiod managed clusters

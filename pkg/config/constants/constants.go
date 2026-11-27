@@ -129,6 +129,13 @@ const (
 	// Label to skip config comparison.
 	AlwaysPushLabel = "internal.istio.io/always-push"
 
+	// Labels used to identify remote services
+	RemoteServiceNamespaceLabel = "networking.istio.io/remote-ns"
+	RemoteServiceNameLabel      = "networking.istio.io/remote-service"
+	RemoteServiceNetworkLabel   = "networking.istio.io/remote-network"
+
+	RemoteServiceRetiredAtAnnotation = "networking.istio.io/retired-at"
+
 	// InternalParentNames declares the original resources of an internally-generated config.
 	// This is used by k8s gateway-api.
 	// It is a comma separated list. For example, "HTTPRoute/foo.default,HTTPRoute/bar.default"

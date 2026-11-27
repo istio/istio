@@ -15,6 +15,8 @@
 package features
 
 import (
+	"time"
+
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/env"
@@ -64,6 +66,12 @@ var (
 
 	EnableAmbientMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK", false, false,
 		"If true, the multi-network functionality will be enabled.")
+
+	EnableAmbientRemoteServiceIPAllocation = registerAmbient("AMBIENT_ENABLE_REMOTE_SERVICE_IP_ALLOCATION", false, false,
+		"If true, enables the controller that allocates IPAddress resources for remote global services.")
+
+	AmbientRemoteServiceIPRetirementTimeout = registerAmbient("AMBIENT_REMOTE_SERVICE_IP_RETIREMENT_TIMEOUT", time.Duration(0), time.Duration(0),
+		"How long retired remote-service IPAddresses remain reserved before deletion, for example 24h. Non-positive values disable automatic deletion.")
 
 	EnableAmbientBaggage = registerAmbient("AMBIENT_ENABLE_BAGGAGE", false, false,
 		"If true, enables waypoints to use baggage header to discover and propagate peer metadata for metrics.")

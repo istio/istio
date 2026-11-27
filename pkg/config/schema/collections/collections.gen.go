@@ -16,6 +16,7 @@ import (
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
+	k8sioapinetworkingv1beta1 "k8s.io/api/networking/v1beta1"
 	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiinferenceextensionapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -310,6 +311,21 @@ var (
 		ReflectType: reflect.TypeOf(&k8sioapiautoscalingv2.HorizontalPodAutoscalerSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapiautoscalingv2.HorizontalPodAutoscalerStatus{}).Elem(),
 		ProtoPackage: "k8s.io/api/autoscaling/v2", StatusPackage: "k8s.io/api/autoscaling/v2",
 		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
+	IPAddress = resource.Builder{
+		Identifier:    "IPAddress",
+		Group:         "networking.k8s.io",
+		Kind:          "IPAddress",
+		Plural:        "ipaddresses",
+		Version:       "v1beta1",
+		Proto:         "k8s.io.api.networking.v1beta1.IPAddressSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapinetworkingv1beta1.IPAddressSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/networking/v1beta1",
+		ClusterScoped: true,
 		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
@@ -628,6 +644,21 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
+	ServiceCIDR = resource.Builder{
+		Identifier:    "ServiceCIDR",
+		Group:         "networking.k8s.io",
+		Kind:          "ServiceCIDR",
+		Plural:        "servicecidrs",
+		Version:       "v1beta1",
+		Proto:         "k8s.io.api.networking.v1beta1.ServiceCIDRSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapinetworkingv1beta1.ServiceCIDRSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/networking/v1beta1",
+		ClusterScoped: true,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	ServiceEntry = resource.Builder{
 		Identifier: "ServiceEntry",
 		Group:      "networking.istio.io",
@@ -901,6 +932,7 @@ var (
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
 		MustAdd(HorizontalPodAutoscaler).
+		MustAdd(IPAddress).
 		MustAdd(InferencePool).
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
@@ -921,6 +953,7 @@ var (
 		MustAdd(Secret).
 		MustAdd(Service).
 		MustAdd(ServiceAccount).
+		MustAdd(ServiceCIDR).
 		MustAdd(ServiceEntry).
 		MustAdd(Sidecar).
 		MustAdd(StatefulSet).
@@ -953,6 +986,7 @@ var (
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
 		MustAdd(HorizontalPodAutoscaler).
+		MustAdd(IPAddress).
 		MustAdd(InferencePool).
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
@@ -968,6 +1002,7 @@ var (
 		MustAdd(Secret).
 		MustAdd(Service).
 		MustAdd(ServiceAccount).
+		MustAdd(ServiceCIDR).
 		MustAdd(StatefulSet).
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).

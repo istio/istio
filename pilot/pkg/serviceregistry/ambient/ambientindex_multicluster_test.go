@@ -16,12 +16,14 @@ package ambient
 import (
 	"cmp"
 	"fmt"
+	"net/netip"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -757,6 +759,71 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		}
 		return nil
 	})
+
+	ipAddresses := clienttest.NewWriter[*netv1.IPAddress](t, s.mcController.ConfigCluster().Client())
+	serviceAddresses := func() []string {
+		svc := s.lookupService(s.svcXdsName("svc2"))
+		if svc == nil {
+			return nil
+		}
+		return slices.Sort(slices.Map(svc.Service.Addresses, func(address *workloadapi.NetworkAddress) string {
+			ip, _ := netip.AddrFromSlice(address.Address)
+			return address.Network + "/" + ip.String()
+		}))
+	}
+	baseAddresses := []string{string(testNW) + "/10.0.0.1", remoteNetwork + "/127.1.0.1"}
+	assert.EventuallyEqual(t, serviceAddresses, slices.Sort(baseAddresses))
+	allocatedV4 := &netv1.IPAddress{ObjectMeta: metav1.ObjectMeta{
+		Name: "240.0.0.1",
+		Labels: map[string]string{
+			"networking.istio.io/remote-service": "svc2",
+			"networking.istio.io/remote-ns":      testNS,
+		},
+	}}
+	ipAddresses.Create(allocatedV4)
+	withAllocatedV4 := append(slices.Clone(baseAddresses), string(testNW)+"/240.0.0.1")
+	assert.EventuallyEqual(t, serviceAddresses, slices.Sort(withAllocatedV4))
+	s.assertEvent(t, s.svcXdsName("svc2"))
+	allocatedV6 := &netv1.IPAddress{ObjectMeta: metav1.ObjectMeta{
+		Name: "2001:db8::1",
+		Labels: map[string]string{
+			constants.RemoteServiceNameLabel:      "svc2",
+			constants.RemoteServiceNamespaceLabel: testNS,
+		},
+	}}
+	ipAddresses.Create(allocatedV6)
+	withAllocatedV6 := append(slices.Clone(withAllocatedV4), string(testNW)+"/2001:db8::1")
+	assert.EventuallyEqual(t, serviceAddresses, slices.Sort(withAllocatedV6))
+	s.assertEvent(t, s.svcXdsName("svc2"))
+	for _, address := range []*netv1.IPAddress{allocatedV4, allocatedV6} {
+		address.Annotations = map[string]string{constants.RemoteServiceRetiredAtAnnotation: "2026-11-27T00:00:00Z"}
+		ipAddresses.Update(address)
+		wantAddresses := slices.Clone(baseAddresses)
+		if address == allocatedV4 {
+			wantAddresses = append(wantAddresses, string(testNW)+"/2001:db8::1")
+		}
+		assert.EventuallyEqual(t, serviceAddresses, slices.Sort(wantAddresses))
+		s.assertEvent(t, s.svcXdsName("svc2"))
+		retained, err := s.mcController.ConfigCluster().Client().Kube().NetworkingV1beta1().IPAddresses().Get(t.Context(), address.Name, metav1.GetOptions{})
+		assert.NoError(t, err)
+		assert.Equal(t, retained.Annotations[constants.RemoteServiceRetiredAtAnnotation], address.Annotations[constants.RemoteServiceRetiredAtAnnotation])
+	}
+	for _, address := range []*netv1.IPAddress{allocatedV4, allocatedV6} {
+		delete(address.Annotations, constants.RemoteServiceRetiredAtAnnotation)
+		ipAddresses.Update(address)
+		wantAddresses := withAllocatedV4
+		if address == allocatedV6 {
+			wantAddresses = withAllocatedV6
+		}
+		assert.EventuallyEqual(t, serviceAddresses, slices.Sort(wantAddresses))
+		s.assertEvent(t, s.svcXdsName("svc2"))
+	}
+	allocatedV6.Labels[constants.RemoteServiceNamespaceLabel] = "other"
+	ipAddresses.Update(allocatedV6)
+	assert.EventuallyEqual(t, serviceAddresses, slices.Sort(withAllocatedV4))
+	ipAddresses.Delete(allocatedV4.Name, "")
+	assert.EventuallyEqual(t, serviceAddresses, slices.Sort(baseAddresses))
+	s.assertEvent(t, s.svcXdsName("svc2"))
 
 	// Remove network gateway: Split horizon workload should be removed
 	s.deleteNetworkGatewayForClient(t, "east-west", remoteClient.grc)
