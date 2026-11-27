@@ -18,6 +18,8 @@ import (
 	"crypto/tls"
 	"errors"
 
+	cliflag "k8s.io/component-base/cli/flag"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/sets"
@@ -72,8 +74,14 @@ func validateFlags(serverArgs *bootstrap.PilotArgs) error {
 		return err
 	}
 
-	_, err := bootstrap.TLSCipherSuites(serverArgs.ServerOptions.TLSOptions.TLSCipherSuites)
+	if _, err := bootstrap.TLSCipherSuites(serverArgs.ServerOptions.TLSOptions.TLSCipherSuites); err != nil {
+		return err
+	}
+
+	if _, err := cliflag.TLSCurvePreferences(serverArgs.ServerOptions.TLSOptions.TLSCurvePreferences); err != nil {
+		return err
+	}
 
 	// TODO: add validation for other flags
-	return err
+	return nil
 }

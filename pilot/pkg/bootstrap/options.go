@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	cliflag "k8s.io/component-base/cli/flag"
+
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/ctrlz"
@@ -104,14 +106,15 @@ const (
 
 // TLSOptions is optional TLS parameters for Istiod server.
 type TLSOptions struct {
-	// CaCertFile and related are set using CLI flags.
-	CaCertFile      string
-	CertFile        string
-	KeyFile         string
-	TLSCipherSuites []string
-	CipherSuites    []uint16 // This is the parsed cipher suites
-	TLSMinVersion   string   // Minimum TLS version for the server (e.g., "1.2", "1.3")
-	MinVersion      uint16   // This is the parsed minimum TLS version
+	CaCertFile          string
+	CertFile            string
+	KeyFile             string
+	TLSCipherSuites     []string
+	CipherSuites        []uint16      // This is the parsed cipher suites
+	TLSCurvePreferences []int32       // Numeric Go crypto/tls CurveID values
+	CurvePreferences    []tls.CurveID // These are the parsed curve preferences
+	TLSMinVersion       string        // Minimum TLS version for the server (e.g., "1.2", "1.3")
+	MinVersion          uint16        // This is the parsed minimum TLS version
 }
 
 var (
@@ -159,11 +162,19 @@ func (p *PilotArgs) Complete() error {
 		return err
 	}
 	p.ServerOptions.TLSOptions.CipherSuites = cipherSuites
+
 	minVersion, err := TLSMinVersion(p.ServerOptions.TLSOptions.TLSMinVersion)
 	if err != nil {
 		return err
 	}
 	p.ServerOptions.TLSOptions.MinVersion = minVersion
+
+	curvePreferences, err := cliflag.TLSCurvePreferences(p.ServerOptions.TLSOptions.TLSCurvePreferences)
+	if err != nil {
+		return err
+	}
+	p.ServerOptions.TLSOptions.CurvePreferences = curvePreferences
+
 	return nil
 }
 

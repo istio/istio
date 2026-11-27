@@ -829,8 +829,9 @@ func (s *Server) newSecureGrpcServer(args *PilotArgs, trustDomain string) (*grpc
 			}
 			return err
 		},
-		MinVersion:   tls.VersionTLS12,
-		CipherSuites: args.ServerOptions.TLSOptions.CipherSuites,
+		MinVersion:       tls.VersionTLS12,
+		CipherSuites:     args.ServerOptions.TLSOptions.CipherSuites,
+		CurvePreferences: args.ServerOptions.TLSOptions.CurvePreferences,
 	}
 	if args.ServerOptions.TLSOptions.MinVersion != 0 {
 		cfg.MinVersion = args.ServerOptions.TLSOptions.MinVersion
