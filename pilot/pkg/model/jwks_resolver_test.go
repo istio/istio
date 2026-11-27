@@ -341,7 +341,7 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 		},
 		{
 			in:                []string{"", mockCertURL}, // Send two same request, mock server is expected to hit only once because of the cache.
-			expectedJwtPubkey: test.JwtPubKey1Reordered,
+			expectedJwtPubkey: test.JwtPubKey1,
 		},
 	}
 	for _, c := range cases {
@@ -404,6 +404,40 @@ func TestJwtPubKeyRefreshRejectsInvalidJWKS(t *testing.T) {
 	}
 	if got, want := r.refreshJobKeyChangedCount, uint64(0); got != want {
 		t.Errorf("expected refreshJobKeyChangedCount %d after refresh rejected an invalid JWKS body, got %d", want, got)
+	}
+}
+
+func TestBuildLocalJwksStableAfterReorderedRefresh(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, testRetryInterval*20, testRetryInterval*10, testRetryInterval)
+	defer r.Close()
+
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+	ms.ReturnReorderedKeyAfterFirstNumHits = 1
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+
+	inline := func() string {
+		return r.BuildLocalJwks(mockCertURL, "", "", testRequestTimeout).LocalJwks.GetInlineString()
+	}
+
+	before := inline()
+	if before != test.JwtPubKey1 {
+		t.Fatalf("unexpected initial JWKS: %s", before)
+	}
+
+	// The refresh fetches the same keys in a different order. It must not push, and the JWKS
+	// embedded in the proxy config must stay byte-identical, otherwise any later push
+	// (e.g. triggered by a ServiceEntry change) would rebuild the listener.
+	r.refresh(false)
+
+	if got := r.refreshJobKeyChangedCount; got != 0 {
+		t.Errorf("refreshJobKeyChangedCount: want 0, got %d", got)
+	}
+	if after := inline(); after != before {
+		t.Errorf("inline JWKS changed after reordered refresh:\nbefore: %s\nafter: %s", before, after)
 	}
 }
 
