@@ -1,0 +1,31 @@
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: {{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .To.ServiceName }}
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "{{ .JWTServer.JwksURI }}"
+    presence: PERMISSIVE
+    failedStatusMetadataKey: jwt-failed-status/test-issuer-1
+    fromHeaders:
+    - name: "authorization"
+      prefix: "Bearer "
+---
+# Surface the JWT verification failure metadata in the target's access logs,
+# using the jwt-failure-log provider from main_test.go. The provider logs the
+# failedStatusMetadataKey of each rule in its own field.
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: {{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .To.ServiceName }}
+  accessLogging:
+  - providers:
+    - name: jwt-failure-log
