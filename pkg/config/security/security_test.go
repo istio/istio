@@ -243,6 +243,16 @@ func TestValidateCondition(t *testing.T) {
 			wantError: true,
 		},
 		{
+			key:       "source.trustDomain",
+			values:    []string{"cluster.local/ns/foo"},
+			wantError: true,
+		},
+		{
+			key:       "source.trustDomain",
+			values:    []string{"*/ns/foo"},
+			wantError: true,
+		},
+		{
 			key:    "request.auth.principal",
 			values: []string{"value"},
 		},
