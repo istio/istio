@@ -838,17 +838,30 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 		}
 		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
 	} else if !gateway.IsPassThroughServer(server) {
-		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
-		// and forward to backend
-		// Validation ensures that non-passthrough servers will have certs
+		// TLSRoutes select their backends by SNI, while TCP routes provide a fallback
+		// for the listener's remaining hostnames.
+		filterChains := lb.buildGatewayNetworkFiltersFromTLSRoutes(server, listenerPort, gatewayName, tlsHostsByPort)
 		if filters := lb.buildGatewayNetworkFiltersFromTCPRoutes(server, gatewayName); len(filters) > 0 {
-			return []*filterChainOpts{
-				{
-					sniHosts:       lb.node.MergedGateway.TLSServerInfo[server].SNIHosts,
+			sniHosts := lb.node.MergedGateway.TLSServerInfo[server].SNIHosts
+			// A host list containing "*" has the same catchall match as an empty list.
+			if len(sniHosts) == 0 || slices.Contains(sniHosts, "*") {
+				sniHosts = []string{"*"}
+			}
+			sniHosts = slices.Filter(sniHosts, func(h string) bool {
+				return !slices.ContainsFunc(filterChains, func(fc *filterChainOpts) bool {
+					return len(fc.sniHosts) == 0 || slices.Contains(fc.sniHosts, "*") || slices.Contains(fc.sniHosts, h)
+				})
+			})
+			if len(sniHosts) > 0 || len(filterChains) == 0 {
+				filterChains = append(filterChains, &filterChainOpts{
+					sniHosts:       sniHosts,
 					tlsContext:     buildGatewayListenerTLSContext(lb.push, server, lb.node, istionetworking.TransportProtocolTCP),
 					networkFilters: filters,
-				},
+				})
 			}
+		}
+		if len(filterChains) > 0 {
+			return filterChains
 		}
 		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
 	} else {
@@ -879,7 +892,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 	return lb.buildOutboundNetworkFilters(routes, port, configMeta, includeMx)
 }
 
-// gatewayTCPRoutes returns the routes of the first VirtualService TCP rule (or TLSRoute rule, for TLS termination)
+// gatewayTCPRoutes returns the routes of the first VirtualService TCP rule
 // that is bound to the server, and the metadata of that VirtualService.
 func gatewayTCPRoutes(
 	node *model.Proxy, server *networking.Server, gatewayName string,
@@ -918,20 +931,6 @@ func gatewayTCPRoutes(
 			}
 		}
 
-		// Fallback to TLS blocks for TLSRoute with TLS termination.
-		// TLSRoute-sourced VirtualServices always have Tls blocks (not Tcp blocks),
-		// so we need to handle them here when the server is in terminate mode.
-		if parentName, ok := v.Annotations[constants.InternalParentNames]; ok &&
-			strings.HasPrefix(parentName, "TLSRoute/") &&
-			!gateway.IsPassThroughServer(server) {
-			for _, tls := range vsvc.Tls {
-				for _, match := range tls.Match {
-					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
-						return tls.Route, v.Meta, true
-					}
-				}
-			}
-		}
 	}
 	return nil, config.Meta{}, false
 }
@@ -958,8 +957,17 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 		filterChains = append(filterChains, builtAutoPassthroughFilterChains(lb.push, lb.node, lb.node.MergedGateway.TLSServerInfo[server].SNIHosts)...)
 	} else {
+		terminate := !gateway.IsPassThroughServer(server)
+		var tlsContext *tls.DownstreamTlsContext
+		if terminate {
+			tlsContext = buildGatewayListenerTLSContext(lb.push, server, lb.node, istionetworking.TransportProtocolTCP)
+		}
 		virtualServices := lb.node.SidecarScope.GatewayVirtualServices(gatewayName)
 		for _, v := range virtualServices {
+			if terminate && !strings.HasPrefix(v.Annotations[constants.InternalParentNames], "TLSRoute/") {
+				// Traditional VirtualService TLS blocks only apply to passthrough listeners.
+				continue
+			}
 			vsvc := v.Spec.(*networking.VirtualService)
 			// We have two cases here:
 			// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and gateway's hosts are ns/*.foo.com
@@ -982,14 +990,27 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 				}
 				for i, match := range tls.Match {
 					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
-						// The SNI dynamic forward proxy resolves any SNI that the chain matches, so the chain must only
-						// match SNIs under the wildcard host. Checked first, so a skipped rule does not reserve its SNIs.
-						if svc, _ := gatewayWildcardDestination(lb.node, tls.Route, port.Port); svc != nil && !sniHostsUnder(match.SniHosts, svc.Hostname) {
-							log.Warnf(
-								"skipping VirtualService %s rule #%v on server port %d of gateway %s, SNI host names %v are not all under the destination host %s",
-								v.Meta.Name, i, port.Port, gatewayName, match.SniHosts, svc.Hostname)
-							model.RecordRejectedConfig(gatewayName)
-							continue
+						sniHosts := match.SniHosts
+						if terminate {
+							// The controller creates one VirtualService per route hostname, while retaining
+							// all SNI matches. Match each hostname independently so duplicate route hosts
+							// do not discard other, non-conflicting hosts from the same TLSRoute.
+							sniHosts = slices.Map(host.NewNames(vsvc.Hosts).Intersection(host.NewNames(sniHosts)),
+								func(h host.Name) string { return string(h) })
+							sniHosts = lb.filterTLSRouteSNIHosts(server, listenerPort, sniHosts)
+							if len(sniHosts) == 0 {
+								continue
+							}
+						} else {
+							// The SNI dynamic forward proxy resolves any SNI that the chain matches, so the chain must only
+							// match SNIs under the wildcard host. Checked first, so a skipped rule does not reserve its SNIs.
+							if svc, _ := gatewayWildcardDestination(lb.node, tls.Route, port.Port); svc != nil && !sniHostsUnder(sniHosts, svc.Hostname) {
+								log.Warnf(
+									"skipping VirtualService %s rule #%v on server port %d of gateway %s, SNI host names %v are not all under the destination host %s",
+									v.Meta.Name, i, port.Port, gatewayName, sniHosts, svc.Hostname)
+								model.RecordRejectedConfig(gatewayName)
+								continue
+							}
 						}
 						// Envoy will reject config that has multiple filter chain matches with the same matching rules
 						// To avoid this, we need to make sure we don't have duplicated SNI hosts, which will become
@@ -997,7 +1018,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 						if tlsHostsByPort[listenerPort] == nil {
 							tlsHostsByPort[listenerPort] = make(map[string]string)
 						}
-						if duplicateSniHosts := model.CheckDuplicates(match.SniHosts, server.Bind, tlsHostsByPort[listenerPort]); len(duplicateSniHosts) != 0 {
+						if duplicateSniHosts := model.CheckDuplicates(sniHosts, server.Bind, tlsHostsByPort[listenerPort]); len(duplicateSniHosts) != 0 {
 							log.Warnf(
 								"skipping VirtualService %s rule #%v on server port %d of gateway %s, duplicate SNI host names: %v",
 								v.Meta.Name, i, port.Port, gatewayName, duplicateSniHosts)
@@ -1005,11 +1026,22 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 							continue
 						}
 
+						var networkFilters []*listener.Filter
+						if target, ok := gatewayWildcardTLSTargetForServer(lb.node, server, tls.Route); ok {
+							networkFilters = lb.buildGatewayWildcardTLSFilters(target, port)
+						} else {
+							networkFilters = lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta,
+								server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL)
+							if !terminate {
+								networkFilters = lb.withGatewaySNIDFPFilter(networkFilters, tls.Route, port)
+							}
+						}
+
 						// the sni hosts in the match will become part of a filter chain match
 						filterChains = append(filterChains, &filterChainOpts{
-							sniHosts:       match.SniHosts,
-							tlsContext:     nil, // NO TLS context because this is passthrough
-							networkFilters: lb.withGatewaySNIDFPFilter(lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false), tls.Route, port),
+							sniHosts:       sniHosts,
+							tlsContext:     tlsContext,
+							networkFilters: networkFilters,
 						})
 					}
 				}
@@ -1018,6 +1050,39 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 	}
 
 	return filterChains
+}
+
+// filterTLSRouteSNIHosts preserves the precedence of more specific listeners when
+// a TLSRoute narrows a wildcard listener's filter chain to a route hostname.
+func (lb *ListenerBuilder) filterTLSRouteSNIHosts(server *networking.Server, listenerPort uint32, sniHosts []string) []string {
+	return slices.Filter(sniHosts, func(sni string) bool {
+		candidate := host.Name(sni)
+		currentHost := host.Name("*")
+		for _, h := range lb.node.MergedGateway.TLSServerInfo[server].SNIHosts {
+			hostname := host.Name(h)
+			if candidate.SubsetOf(hostname) && hostname.SubsetOf(currentHost) {
+				currentHost = hostname
+			}
+		}
+		for port, merged := range lb.node.MergedGateway.MergedServers {
+			if port.Number != listenerPort || port.Bind != server.Bind {
+				continue
+			}
+			for _, sibling := range merged.Servers {
+				info := lb.node.MergedGateway.TLSServerInfo[sibling]
+				if sibling == server || info == nil {
+					continue
+				}
+				for _, h := range info.SNIHosts {
+					hostname := host.Name(h)
+					if hostname != currentHost && hostname.SubsetOf(currentHost) && candidate.SubsetOf(hostname) {
+						return false
+					}
+				}
+			}
+		}
+		return true
+	})
 }
 
 // withGatewaySNIDFPFilter inserts an SNI dynamic forward proxy filter before the TCP proxy when a passthrough

@@ -44,6 +44,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -639,11 +640,39 @@ func TestGatewayMutualTLSWildcardDynamicDNS(t *testing.T) {
 		},
 	})
 
-	for _, enabled := range []bool{false, true} {
-		t.Run(fmt.Sprintf("flag=%v", enabled), func(t *testing.T) {
+	for _, tc := range []struct {
+		enabled   bool
+		tlsRoutes bool
+	}{
+		{},
+		{enabled: true},
+		{tlsRoutes: true},
+		{enabled: true, tlsRoutes: true},
+	} {
+		enabled, tlsRoutes := tc.enabled, tc.tlsRoutes
+		t.Run(fmt.Sprintf("flag=%v/tlsRoutes=%v", enabled, tlsRoutes), func(t *testing.T) {
 			g := NewWithT(t)
 			test.SetForTest(t, &features.EnableWildcardHostServiceEntriesForTLS, enabled)
-			cg := NewConfigGenTest(t, TestOptions{Configs: configs, MeshConfig: mc})
+			testConfigs := configs
+			if tlsRoutes {
+				testConfigs = slices.Map(configs, func(c config.Config) config.Config {
+					c = c.DeepCopy()
+					vs, ok := c.Spec.(*networking.VirtualService)
+					if !ok {
+						return c
+					}
+					c.Annotations = map[string]string{constants.InternalParentNames: "TLSRoute/" + c.Name + "." + c.Namespace}
+					for _, tcpRoute := range vs.Tcp {
+						matches := slices.Map(tcpRoute.Match, func(m *networking.L4MatchAttributes) *networking.TLSMatchAttributes {
+							return &networking.TLSMatchAttributes{SniHosts: vs.Hosts, Port: m.Port, Gateways: m.Gateways}
+						})
+						vs.Tls = append(vs.Tls, &networking.TLSRoute{Match: matches, Route: tcpRoute.Route})
+					}
+					vs.Tcp = nil
+					return c
+				})
+			}
+			cg := NewConfigGenTest(t, TestOptions{Configs: testConfigs, MeshConfig: mc})
 			proxy := cg.SetupProxy(&model.Proxy{
 				Type:     model.Router,
 				Labels:   map[string]string{"istio": "egressgateway"},
