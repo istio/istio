@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 62618
+
+releaseNotes:
+- |
+  **Fixed** the Endpoint Picker being silently ignored when the pods behind an InferencePool are in ambient mode.
+  Gateways reach those pods over HBONE, so their endpoints are internal addresses and never matched the picker's `ip:port`;
+  traffic fell back to round robin. The gateway now lets override_host match those endpoints.
+  This can be turned off with `PILOT_INFERENCE_POOL_HBONE_OVERRIDE_HOST=false`.
