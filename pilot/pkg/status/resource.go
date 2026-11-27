@@ -40,6 +40,7 @@ type Resource struct {
 	schema.GroupVersionResource
 	Namespace  string
 	Name       string
+	UID        string
 	Generation string
 }
 
@@ -73,6 +74,7 @@ func ResourceFromModelConfig(c config.Config) Resource {
 		GroupVersionResource: gvr,
 		Namespace:            c.Namespace,
 		Name:                 c.Name,
+		UID:                  c.UID,
 		Generation:           strconv.FormatInt(c.Generation, 10),
 	}
 }
