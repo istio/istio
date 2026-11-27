@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 62938
+
+releaseNotes:
+  - |
+    **Fixed** an issue where deleting resources with pending status updates could eventually stop Istiod from writing status updates.
