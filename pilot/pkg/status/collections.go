@@ -75,40 +75,73 @@ func (s *StatusCollections) SetQueue(queue Queue) []krt.Syncer {
 // krt.ObjectWithStatus, in theory, can contain anything in the "object" field. This function requires it to contain
 // the current live *status*, and a passed in getStatus to extract it from the object.
 // It will then compare the live status to the desired status to determine whether to write or not.
+// Status is also reconciled when this revision gains ownership through a tag update. Ownership lives
+// in the status registration so that a tag change can generate a status event even when the resource,
+// desired status and config are identical.
 func RegisterStatus[I controllers.Object, IS any](
 	s *StatusCollections,
 	statusCol krt.StatusCollection[I, IS],
 	getStatus func(I) IS,
+	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
+	opts ...krt.CollectionOption,
+) {
+	withOwnership := krt.NewCollection(statusCol, func(ctx krt.HandlerContext, o krt.ObjectWithStatus[I, IS]) *statusWithOwnership[I, IS] {
+		return &statusWithOwnership[I, IS]{
+			ObjectWithStatus: o,
+			Owned:            ownsStatus(tagWatcher.Get(ctx), o.Obj),
+		}
+	}, opts...)
+	s.Register(func(statusWriter Queue) krt.HandlerRegistration {
+		return withOwnership.Register(func(o krt.Event[statusWithOwnership[I, IS]]) {
+			latest := o.Latest()
+			if !latest.Owned {
+				return
+			}
+			reconcileStatus(statusWriter, latest.ObjectWithStatus, o.Event, getStatus, tagWatcher.AccessUnprotected())
+		})
+	})
+}
+
+type statusWithOwnership[I controllers.Object, IS any] struct {
+	krt.ObjectWithStatus[I, IS]
+	Owned bool
+}
+
+func (s statusWithOwnership[I, IS]) Equals(other statusWithOwnership[I, IS]) bool {
+	return s.Owned == other.Owned && s.ObjectWithStatus.Equals(other.ObjectWithStatus)
+}
+
+func reconcileStatus[I controllers.Object, IS any](
+	statusWriter Queue,
+	desired krt.ObjectWithStatus[I, IS],
+	event controllers.EventType,
+	getStatus func(I) IS,
 	tagWatcher revisions.TagWatcher,
 ) {
-	reg := func(statusWriter Queue) krt.HandlerRegistration {
-		h := statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[I, IS]]) {
-			l := o.Latest()
-			liveStatus := getStatus(l.Obj)
-			if krt.Equal(liveStatus, l.Status) {
-				// We want the same status we already have! No need for a write so skip this.
-				// Note: the Equals() function on ObjectWithStatus does not compare these. It only compares "old live + desired" == "new live + desired".
-				// So if either the live OR the desired status changes, this callback will trigger.
-				// Here, we do smarter filtering and can just check whether we meet the desired state.
-				log.Debugf("suppress change for %v %v", l.ResourceName(), l.Obj.GetResourceVersion())
-				return
-			}
-			if !tagWatcher.IsMine(metav1.ObjectMeta{Namespace: l.Obj.GetNamespace(), Name: l.Obj.GetName(), Labels: l.Obj.GetLabels()}) {
-				log.Debugf("suppress change for %v %v because it does not belong to my revision", l.ResourceName(), l.Obj.GetResourceVersion())
-				return
-			}
-			status := &l.Status
-			if o.Event == controllers.EventDelete {
-				// if the object is being deleted, we should not reset status
-				var empty IS
-				status = &empty
-			}
-			enqueueStatus(statusWriter, l.Obj, status)
-			log.Debugf("Enqueued status update for %v %v: %v", l.ResourceName(), l.Obj.GetResourceVersion(), status)
-		})
-		return h
+	if krt.Equal(getStatus(desired.Obj), desired.Status) {
+		// We want the same status we already have! No need for a write so skip this.
+		// Note: the Equals() function on ObjectWithStatus does not compare these. It only compares "old live + desired" == "new live + desired".
+		// So if either the live OR the desired status changes, this callback will trigger.
+		// Here, we do smarter filtering and can just check whether we meet the desired state.
+		log.Debugf("suppress change for %v %v", desired.ResourceName(), desired.Obj.GetResourceVersion())
+		return
 	}
-	s.Register(reg)
+	if !ownsStatus(tagWatcher, desired.Obj) {
+		log.Debugf("suppress change for %v %v because it does not belong to my revision", desired.ResourceName(), desired.Obj.GetResourceVersion())
+		return
+	}
+	wanted := &desired.Status
+	if event == controllers.EventDelete {
+		// if the object is being deleted, we should not reset status
+		var empty IS
+		wanted = &empty
+	}
+	enqueueStatus(statusWriter, desired.Obj, wanted)
+	log.Debugf("Enqueued status update for %v %v: %v", desired.ResourceName(), desired.Obj.GetResourceVersion(), wanted)
+}
+
+func ownsStatus(watcher revisions.TagWatcher, obj controllers.Object) bool {
+	return watcher.IsMine(metav1.ObjectMeta{Namespace: obj.GetNamespace(), Name: obj.GetName(), Labels: obj.GetLabels()})
 }
 
 func enqueueStatus[T any](sw Queue, obj controllers.Object, ws T) {

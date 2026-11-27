@@ -17,22 +17,143 @@ package gateway
 import (
 	"testing"
 
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	gw "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+func TestStatusAfterRevisionTagRepoint(t *testing.T) {
+	tag := &admissionv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "istio-revision-tag-default",
+			Labels: map[string]string{
+				label.IoIstioTag.Name: "default",
+				label.IoIstioRev.Name: "stable",
+			},
+		},
+	}
+	gateway := &gw.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gwspec", Namespace: "ns1",
+			Labels: map[string]string{label.IoIstioRev.Name: "default"},
+		},
+		Spec: *gatewaySpec.DeepCopy(),
+		Status: gw.GatewayStatus{Conditions: []metav1.Condition{
+			{Type: "Accepted", Status: metav1.ConditionFalse, Reason: "Stale"},
+		}},
+	}
+	gateway.Spec.AllowedListeners = &gw.AllowedListeners{
+		Namespaces: &gw.ListenerNamespaces{From: ptr.Of(gw.NamespacesFromAll)},
+	}
+	listenerSet := &gw.ListenerSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "set", Namespace: "ns1"},
+		Spec: gw.ListenerSetSpec{
+			ParentRef: gw.ParentGatewayReference{Name: gw.ObjectName(gateway.Name)},
+			Listeners: []gw.ListenerEntry{{Name: "extra", Port: 8080, Protocol: gw.HTTPProtocolType}},
+		},
+		Status: gw.ListenerSetStatus{Conditions: []metav1.Condition{
+			{Type: "Accepted", Status: metav1.ConditionFalse, Reason: "Stale"},
+		}},
+	}
+	c := setupControllerWithRevision(t, "canary", tag, gateway, listenerSet,
+		// ListenerSets inherit tag ownership from their namespace when unlabeled.
+		&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns1", Labels: map[string]string{label.IoIstioRev.Name: "default"}}},
+		&gw.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: "gwclass"}, Spec: *gatewayClassSpec},
+		&gw.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "ns1"}, Spec: *httpRouteSpec},
+	)
+	q := &TestStatusQueue{state: map[status.Resource]any{}}
+	setAndWait(t, c, q)
+	for _, written := range q.Statuses() {
+		switch written.(type) {
+		case *gw.GatewayStatus, *gw.ListenerSetStatus, *gw.HTTPRouteStatus:
+			t.Fatalf("unexpected status write before ownership transfer: %+v", written)
+		}
+	}
+	listConfigs := func() []string {
+		return slices.Sort(slices.Map(c.List(gvk.Gateway, "ns1"), func(c config.Config) string { return c.Name }))
+	}
+	gatewayConfigs := listConfigs()
+	assert.Equal(t, len(gatewayConfigs), 2)
+
+	// Repoint the real tag watched by the controller. Leave both objects untouched.
+	tag = tag.DeepCopy()
+	tag.Labels[label.IoIstioRev.Name] = "canary"
+	clienttest.NewWriter[*admissionv1.MutatingWebhookConfiguration](t, c.client).Update(tag)
+	assert.EventuallyEqual(t, func() bool {
+		return c.tagWatcher.AccessUnprotected().IsMine(gateway.ObjectMeta)
+	}, true)
+
+	t.Run("Gateway", func(t *testing.T) {
+		assert.EventuallyEqual(t, func() string {
+			for _, written := range q.Statuses() {
+				if s, ok := written.(*gw.GatewayStatus); ok &&
+					meta.IsStatusConditionTrue(s.Conditions, "Accepted") &&
+					len(s.Listeners) == 1 && s.Listeners[0].AttachedRoutes == 1 {
+					return "corrected Gateway status with attached route"
+				}
+			}
+			return "no corrected Gateway status"
+		}, "corrected Gateway status with attached route")
+	})
+	t.Run("ListenerSet", func(t *testing.T) {
+		assert.EventuallyEqual(t, func() string {
+			for _, written := range q.Statuses() {
+				if s, ok := written.(*gw.ListenerSetStatus); ok &&
+					meta.IsStatusConditionTrue(s.Conditions, "Accepted") &&
+					len(s.Listeners) == 1 && s.Listeners[0].Name == "extra" {
+					return "corrected ListenerSet status"
+				}
+			}
+			return "no corrected ListenerSet status"
+		}, "corrected ListenerSet status")
+	})
+	t.Run("HTTPRoute", func(t *testing.T) {
+		assert.EventuallyEqual(t, func() string {
+			for _, written := range q.Statuses() {
+				if s, ok := written.(*gw.HTTPRouteStatus); ok &&
+					len(s.Parents) == 1 && meta.IsStatusConditionTrue(s.Parents[0].Conditions, "Accepted") {
+					return "corrected HTTPRoute status"
+				}
+			}
+			return "no corrected HTTPRoute status"
+		}, "corrected HTTPRoute status")
+	})
+	t.Run("loses ownership", func(t *testing.T) {
+		tag = tag.DeepCopy()
+		tag.Labels[label.IoIstioRev.Name] = "stable"
+		clienttest.NewWriter[*admissionv1.MutatingWebhookConfiguration](t, c.client).Update(tag)
+		assert.EventuallyEqual(t, func() bool {
+			return c.tagWatcher.AccessUnprotected().IsMine(gateway.ObjectMeta)
+		}, false)
+
+		// A revision that lost the tag must stop writing status for the tagged namespace.
+		before := len(q.Statuses())
+		mutated := gateway.DeepCopy()
+		mutated.Spec.Listeners[0].Name = "renamed"
+		clienttest.NewWriter[*gw.Gateway](t, c.client).Update(mutated)
+		assert.Equal(t, len(q.Statuses()), before)
+	})
+	assert.Equal(t, listConfigs(), gatewayConfigs)
+}
 
 func TestStatusCollections(t *testing.T) {
 	stop := test.NewStop(t)
@@ -51,7 +172,7 @@ func TestStatusCollections(t *testing.T) {
 	fakeCol := krt.NewMutableCollection[Status](nil, []Status{obj1}, krt.WithStop(stop))
 	status.RegisterStatus(c.status, fakeCol.AsCollection(), func(i *v1.ConfigMap) string {
 		return ""
-	}, c.tagWatcher.AccessUnprotected())
+	}, c.tagWatcher, krt.WithStop(stop))
 
 	sq1 := &TestStatusQueue{state: map[status.Resource]any{}}
 	setAndWait(t, c, sq1)

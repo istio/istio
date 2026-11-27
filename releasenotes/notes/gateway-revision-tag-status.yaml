@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62969
+releaseNotes:
+  - |
+    **Fixed** stale Gateway and ListenerSet status after a revision tag moves to a different istiod revision.
