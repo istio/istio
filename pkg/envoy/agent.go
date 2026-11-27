@@ -162,7 +162,10 @@ func (a *Agent) terminate() {
 		a.abortCh <- errAbort
 		return
 	}
-	e := a.proxy.Drain(false)
+	// With exitOnZeroActiveConnections we end Envoy ourselves once its connections close, which can
+	// be long after its drain time. Drain with skip_exit, as DrainNow does, so that Envoy doesn't stop
+	// its listeners (the Prometheus listener among them) when the drain time ends.
+	e := a.proxy.Drain(a.exitOnZeroActiveConnections)
 	if e != nil {
 		log.Warnf("Error in invoking drain listeners endpoint: %v", e)
 	}
