@@ -303,6 +303,7 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		},
 		FilterEnabledMetadata: generateFilterMatcher(wellknown.HTTPRoleBasedAccessControl),
 		WithRequestBody:       withBodyRequest(config.IncludeRequestBodyInCheck),
+		ClearRouteCache:       config.ClearRouteCache,
 	}
 	if allowedHeaders != nil {
 		http.AllowedHeaders = allowedHeaders
@@ -334,6 +335,7 @@ func generateGRPCConfig(
 		FilterEnabledMetadata: generateFilterMatcher(wellknown.HTTPRoleBasedAccessControl),
 		TransportApiVersion:   core.ApiVersion_V3,
 		WithRequestBody:       withBodyRequest(config.IncludeRequestBodyInCheck),
+		ClearRouteCache:       config.ClearRouteCache,
 	}
 	tcp := &extauthztcp.ExtAuthz{
 		StatPrefix:            "tcp.",
