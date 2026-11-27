@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 62811
+releaseNotes:
+  - |
+    **Fixed** repeated application metrics scrape failure logs in pilot-agent.
+    Each application target now logs its first failure and at most once every five
+    minutes while failures persist. A successful scrape resets this limit.
+    Scraping, failure counters, and merged endpoint HTTP responses are unchanged.
+    Use `rate(istio_agent_scrape_failures_total{type="application"}[5m]) /
+    rate(istio_agent_scrapes_total[5m])` to monitor application scrape failures
+    independently of log volume. With multiple targets, this measures failed
+    targets per merged scrape and can exceed one.
