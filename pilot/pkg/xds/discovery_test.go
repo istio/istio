@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -42,6 +43,68 @@ func createProxies(n int) []*Connection {
 		proxies = append(proxies, conn)
 	}
 	return proxies
+}
+
+func TestProxyUpdateByIP(t *testing.T) {
+	s := NewDiscoveryServer(&model.Environment{}, nil, nil)
+	t.Cleanup(s.Shutdown)
+
+	const primaryIP = "10.0.0.1"
+	const secondaryIP = "2001:db8::1"
+	addClient := func(id string, clusterID cluster.ID, ip string, initialized bool) *Connection {
+		con := newConnection("", nil)
+		con.SetID(id)
+		con.proxy = &model.Proxy{
+			ID:          "proxy",
+			IPAddresses: []string{ip, secondaryIP},
+			Metadata:    &model.NodeMetadata{ClusterID: clusterID},
+		}
+		s.addCon(con)
+		if initialized {
+			con.MarkInitialized()
+		}
+		return con
+	}
+
+	first := addClient("proxy-1", "cluster-a", primaryIP, true)
+	reconnect := addClient("proxy-2", "cluster-a", primaryIP, false)
+	otherCluster := addClient("proxy-3", "cluster-b", primaryIP, true)
+	otherIP := addClient("proxy-4", "cluster-a", "10.0.0.2", true)
+
+	assert.Equal(t, s.adsClientCount(), 4)
+	assert.Equal(t, len(s.AllClients()), 4)
+	assert.Equal(t, len(s.Clients()), 3)
+
+	s.ProxyUpdate("cluster-c", primaryIP)
+	s.ProxyUpdate("cluster-a", secondaryIP)
+	assert.Equal(t, s.pushQueue.Pending(), 0)
+
+	assertPush := func(clusterID cluster.ID, want *Connection) {
+		t.Helper()
+		s.ProxyUpdate(clusterID, primaryIP)
+		assert.Equal(t, s.pushQueue.Pending(), 1)
+		got, _, _ := s.pushQueue.Dequeue()
+		assert.Equal(t, got.ID(), want.ID())
+		s.pushQueue.MarkDone(got)
+	}
+	assertPush("cluster-a", first)
+	assertPush("cluster-b", otherCluster)
+
+	s.removeCon(first)
+	s.ProxyUpdate("cluster-a", primaryIP)
+	assert.Equal(t, s.pushQueue.Pending(), 0)
+	reconnect.MarkInitialized()
+	assertPush("cluster-a", reconnect)
+
+	s.removeCon(reconnect)
+	s.removeCon(otherCluster)
+	assert.Equal(t, s.adsClientCount(), 1)
+	assert.Equal(t, len(s.adsClients), 1)
+	s.ProxyUpdate("cluster-a", primaryIP)
+	assert.Equal(t, s.pushQueue.Pending(), 0)
+	s.removeCon(otherIP)
+	assert.Equal(t, s.adsClientCount(), 0)
+	assert.Equal(t, len(s.adsClients), 0)
 }
 
 func wgDoneOrTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {

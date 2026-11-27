@@ -271,7 +271,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	// a better choice, it introduces a race condition; If we complete initialization of a new push
 	// context between initializeProxy and addCon, we would not get any pushes triggered for the new
 	// push context, leading the proxy to have a stale state until the next push.
-	s.addCon(con.ID(), con)
+	s.addCon(con)
 	// Register that initialization is complete. This triggers to calls that it is safe to access the
 	// proxy
 	defer con.MarkInitialized()
@@ -288,7 +288,7 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 	if con.ID() == "" {
 		return
 	}
-	s.removeCon(con.ID())
+	s.removeCon(con)
 	s.WorkloadEntryController.OnDisconnect(con)
 }
 
@@ -528,19 +528,27 @@ var KnownOrderedTypeUrls = sets.New(PushOrder...)
 func (s *DiscoveryServer) adsClientCount() int {
 	s.adsClientsMutex.RLock()
 	defer s.adsClientsMutex.RUnlock()
-	return len(s.adsClients)
+	return s.numAdsClients
+}
+
+func (s *DiscoveryServer) findClientByIP(clusterID cluster.ID, ip string) *Connection {
+	s.adsClientsMutex.RLock()
+	defer s.adsClientsMutex.RUnlock()
+
+	for _, con := range s.adsClients[ip] {
+		select {
+		case <-con.InitializedCh():
+			if con.proxy.Metadata.ClusterID == clusterID {
+				return con
+			}
+		default:
+		}
+	}
+	return nil
 }
 
 func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
-	var connection *Connection
-
-	for _, v := range s.Clients() {
-		if v.proxy.Metadata.ClusterID == clusterID && v.proxy.IPAddresses[0] == ip {
-			connection = v
-			break
-		}
-	}
-
+	connection := s.findClientByIP(clusterID, ip)
 	// It is possible that the envoy has not connected to this pilot, maybe connected to another pilot
 	if connection == nil {
 		return
@@ -600,24 +608,38 @@ func (s *DiscoveryServer) StartPush(req *model.PushRequest) {
 	}
 }
 
-func (s *DiscoveryServer) addCon(conID string, con *Connection) {
+func (s *DiscoveryServer) addCon(con *Connection) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
-	s.adsClients[conID] = con
+	ip := con.proxy.IPAddresses[0]
+	clients := s.adsClients[ip]
+	if clients == nil {
+		clients = make(map[string]*Connection)
+		s.adsClients[ip] = clients
+	}
+	clients[con.ID()] = con
+	s.numAdsClients++
 	recordXDSClients(con.proxy.Metadata.IstioVersion, 1)
 }
 
-func (s *DiscoveryServer) removeCon(conID string) {
+func (s *DiscoveryServer) removeCon(con *Connection) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
 
-	if con, exist := s.adsClients[conID]; !exist {
+	ip := con.proxy.IPAddresses[0]
+	clients := s.adsClients[ip]
+	conID := con.ID()
+	if _, exists := clients[conID]; !exists {
 		log.Errorf("ADS: Removing connection for non-existing node:%v.", conID)
 		xds.TotalXDSInternalErrors.Increment()
-	} else {
-		delete(s.adsClients, conID)
-		recordXDSClients(con.proxy.Metadata.IstioVersion, -1)
+		return
 	}
+	delete(clients, conID)
+	if len(clients) == 0 {
+		delete(s.adsClients, ip)
+	}
+	s.numAdsClients--
+	recordXDSClients(con.proxy.Metadata.IstioVersion, -1)
 }
 
 func (conn *Connection) Clusters() []string {

@@ -129,8 +129,9 @@ type DiscoveryServer struct {
 	// debugHandlers is the list of all the supported debug handlers.
 	debugHandlers map[string]string
 
-	// adsClients reflect active gRPC channels, for both ADS and EDS.
-	adsClients      map[string]*Connection
+	// adsClients tracks active gRPC channels by primary proxy IP and connection ID.
+	adsClients      map[string]map[string]*Connection
+	numAdsClients   int
 	adsClientsMutex sync.RWMutex
 
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
@@ -181,7 +182,7 @@ func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string
 		pushChannel:         make(chan *model.PushRequest, 10),
 		pushQueue:           NewPushQueue(),
 		debugHandlers:       map[string]string{},
-		adsClients:          map[string]*Connection{},
+		adsClients:          map[string]map[string]*Connection{},
 		krtDebugger:         debugger,
 		DebounceOptions: DebounceOptions{
 			DebounceAfter:     features.DebounceAfter,
@@ -597,19 +598,7 @@ func (s *DiscoveryServer) Shutdown() {
 // but care should be taken with the underlying objects (ie model.Proxy) to ensure proper locking.
 // This method returns only fully initialized connections; for all connections, use AllClients
 func (s *DiscoveryServer) Clients() []*Connection {
-	s.adsClientsMutex.RLock()
-	defer s.adsClientsMutex.RUnlock()
-	clients := make([]*Connection, 0, len(s.adsClients))
-	for _, con := range s.adsClients {
-		select {
-		case <-con.InitializedCh():
-		default:
-			// Initialization not complete, skip
-			continue
-		}
-		clients = append(clients, con)
-	}
-	return clients
+	return s.clients(false)
 }
 
 // SortedClients returns all currently connected clients in an ordered manner.
@@ -631,9 +620,26 @@ func (s *DiscoveryServer) SortedClients() []*Connection {
 // AllClients returns all connected clients, per Clients, but additionally includes uninitialized connections
 // Warning: callers must take care not to rely on the con.proxy field being set
 func (s *DiscoveryServer) AllClients() []*Connection {
+	return s.clients(true)
+}
+
+func (s *DiscoveryServer) clients(includeUninitialized bool) []*Connection {
 	s.adsClientsMutex.RLock()
 	defer s.adsClientsMutex.RUnlock()
-	return maps.Values(s.adsClients)
+	clients := make([]*Connection, 0, s.numAdsClients)
+	for _, connections := range s.adsClients {
+		for _, con := range connections {
+			if !includeUninitialized {
+				select {
+				case <-con.InitializedCh():
+				default:
+					continue
+				}
+			}
+			clients = append(clients, con)
+		}
+	}
+	return clients
 }
 
 func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
