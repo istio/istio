@@ -44,6 +44,11 @@ import (
 // Counter/Histogram/Summary CreatedTimestamp field and the _created series itself
 // is suppressed via WithOMParserSTSeriesSkipped.
 //
+// A counter family is named after its _total sample (OM "# TYPE x counter" with
+// sample x_total yields family x_total), matching client_golang and the text
+// decoder: the protobuf and text encoders write the family name verbatim as the
+// series name, so the bare OM family name would drop _total downstream.
+//
 // Malformed bodies surface as a returned error along with whatever families were
 // successfully parsed before the failure, matching the failure semantics of the
 // expfmt text decoder used elsewhere in the merger.
@@ -58,9 +63,10 @@ func decodeOpenMetricsToFamilies(body io.Reader) ([]*dto.MetricFamily, error) {
 
 	parser := textparse.NewOpenMetricsParser(buf, promLabels.NewSymbolTable())
 	a := &omAssembler{
-		families:   map[string]*dto.MetricFamily{},
-		createdSec: map[string]float64{},
-		metricIdx:  map[string]map[string]int{},
+		families:      map[string]*dto.MetricFamily{},
+		createdSec:    map[string]float64{},
+		metricIdx:     map[string]map[string]int{},
+		totalSuffixed: map[string]bool{},
 	}
 
 	for {
@@ -92,11 +98,15 @@ func decodeOpenMetricsToFamilies(body io.Reader) ([]*dto.MetricFamily, error) {
 // metricIdx maps family-name → (label-key → index in fam.Metric). This keeps
 // findOrCreateMetric O(1) per call even when a family has thousands of
 // distinct label sets.
+//
+// totalSuffixed marks counter families whose samples carried _total; materialize
+// renames them to the sample name.
 type omAssembler struct {
-	families   map[string]*dto.MetricFamily
-	order      []string
-	createdSec map[string]float64
-	metricIdx  map[string]map[string]int
+	families      map[string]*dto.MetricFamily
+	order         []string
+	createdSec    map[string]float64
+	metricIdx     map[string]map[string]int
+	totalSuffixed map[string]bool
 }
 
 func (a *omAssembler) getOrCreate(name string) *dto.MetricFamily {
@@ -116,6 +126,9 @@ func (a *omAssembler) materialize() []*dto.MetricFamily {
 		fam := a.families[name]
 		if ts, ok := a.createdSec[name]; ok {
 			a.applyCreated(fam, ts)
+		}
+		if a.totalSuffixed[name] {
+			fam.Name = proto.String(name + "_total")
 		}
 		out = append(out, fam)
 	}
@@ -225,6 +238,9 @@ func (a *omAssembler) ingestSeries(parser textparse.Parser) error {
 			metric.Counter = &dto.Counter{}
 		}
 		metric.Counter.Value = proto.Float64(val)
+		if kind == suffixTotal {
+			a.totalSuffixed[familyName] = true
+		}
 		if exemplarOpt != nil {
 			metric.Counter.Exemplar = exemplarOpt
 		}
@@ -319,8 +335,11 @@ const (
 // series uses (if any). It collapses _total / _count / _sum / _bucket / _created
 // onto the parent family name iff a family with the matching type has been
 // observed via a prior # TYPE entry. Otherwise the series stands on its own
-// family.
+// family. A family typed under the exact series name wins over suffix stripping.
 func (a *omAssembler) resolveFamily(metricName string) (string, suffix) {
+	if fam, ok := a.families[metricName]; ok && fam.Type != nil {
+		return metricName, suffixNone
+	}
 	for _, s := range []struct {
 		suffix string
 		kind   suffix

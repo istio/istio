@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 49950
+
+releaseNotes:
+  - |
+    **Fixed** merged metrics dropping the `_total` suffix from OpenMetrics application counters (for example, `app_requests_total` reached Prometheus as `app_requests`) when a protobuf scrape of Envoy was merged with an OpenMetrics application.

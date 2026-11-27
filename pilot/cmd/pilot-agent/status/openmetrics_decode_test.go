@@ -53,8 +53,8 @@ func TestDecodeOpenMetrics_CounterWithCreatedAndUnit(t *testing.T) {
 		t.Fatalf("expected 1 family, got %d", len(mfs))
 	}
 	fam := mfs[0]
-	if fam.GetName() != "http_requests" {
-		t.Errorf("name = %q; want http_requests", fam.GetName())
+	if fam.GetName() != "http_requests_total" {
+		t.Errorf("name = %q; want http_requests_total", fam.GetName())
 	}
 	if fam.GetType() != dto.MetricType_COUNTER {
 		t.Errorf("type = %v; want COUNTER", fam.GetType())
@@ -98,7 +98,10 @@ func TestDecodeOpenMetrics_CounterWithExemplar(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode error: %v", err)
 	}
-	fam := findFamilyByName(t, mfs, "requests")
+	if len(mfs) != 1 {
+		t.Fatalf("expected 1 family, got %v", mfs)
+	}
+	fam := findFamilyByName(t, mfs, "requests_total")
 	if fam.GetType() != dto.MetricType_COUNTER {
 		t.Errorf("type = %v; want COUNTER", fam.GetType())
 	}

@@ -535,8 +535,8 @@ func TestHandleStats_ProtobufEnvoyOMApp_DecoderPreservesExemplars(t *testing.T) 
 		t.Fatalf("expected 1 family, got %d", len(mfs))
 	}
 	fam := mfs[0]
-	if fam.GetName() != "app_requests" {
-		t.Errorf("family name = %q; want app_requests", fam.GetName())
+	if fam.GetName() != "app_requests_total" {
+		t.Errorf("family name = %q; want app_requests_total", fam.GetName())
 	}
 	if fam.GetUnit() != "requests" {
 		t.Errorf("Unit = %q; want %q (was silently dropped by expfmt textDecoder before this PR)", fam.GetUnit(), "requests")
