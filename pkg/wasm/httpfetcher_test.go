@@ -266,3 +266,67 @@ func TestWasmHTTPFetchCompressedOrTarFile(t *testing.T) {
 		})
 	}
 }
+
+// createTarWithRawSize builds a single-entry tar stream whose size field is written
+// verbatim, so tests can declare sizes that tar.Writer refuses to emit.
+func createTarWithRawSize(t *testing.T, name string, typeflag byte, size []byte) []byte {
+	t.Helper()
+	b := make([]byte, 512)
+	copy(b[0:100], name)
+	copy(b[100:108], "0000644\x00")
+	copy(b[124:136], size)
+	copy(b[136:148], "00000000000\x00")
+	b[156] = typeflag
+	copy(b[257:263], "ustar\x00")
+	copy(b[263:265], "00")
+	for i := 148; i < 156; i++ {
+		b[i] = ' '
+	}
+	sum := 0
+	for _, c := range b {
+		sum += int(c)
+	}
+	copy(b[148:156], fmt.Sprintf("%06o\x00 ", sum))
+	// A tar stream is terminated by two zero blocks.
+	return append(b, make([]byte, 1024)...)
+}
+
+// negativeSize is the GNU base-256 encoding of -1, which the octal size field cannot express.
+func negativeSize() []byte {
+	return bytes.Repeat([]byte{0xff}, 12)
+}
+
+// oversizeSize is the GNU base-256 encoding of 1<<60, far above the Wasm size limit.
+func oversizeSize() []byte {
+	b := make([]byte, 12)
+	b[0] = 0x80
+	b[4] = 0x10
+	return b
+}
+
+func TestGetFirstFileFromTarRejectsUnreasonableSize(t *testing.T) {
+	cases := []struct {
+		name     string
+		typeflag byte
+		size     []byte
+	}{
+		// A directory is a header-only type, so archive/tar leaves Size unvalidated.
+		{"negative", tar.TypeDir, negativeSize()},
+		{"oversize", tar.TypeReg, oversizeSize()},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			b := createTarWithRawSize(t, "plugin.wasm", c.typeflag, c.size)
+			if !isPosixTar(b) {
+				t.Fatal("expected the crafted archive to be detected as a tar")
+			}
+			if got := getFirstFileFromTar(b); got != nil {
+				t.Errorf("expected nil, got %d bytes", len(got))
+			}
+			// unboxIfPossible must fall back to the original bytes rather than loop.
+			if got := unboxIfPossible(b); !bytes.Equal(got, b) {
+				t.Errorf("expected the original bytes back, got %d bytes", len(got))
+			}
+		})
+	}
+}
