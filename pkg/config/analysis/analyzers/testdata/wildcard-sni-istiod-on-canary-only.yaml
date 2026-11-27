@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod-canary
+  namespace: istio-system
+  labels:
+    app: istiod
+    istio.io/rev: canary
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+    istio.io/rev: canary
+  template:
+    metadata:
+      labels:
+        app: istiod
+    istio.io/rev: canary
+    spec:
+      containers:
+        - name: discovery
+          image: registry.istio.io/testing/pilot:1.33.0
+          env:
+            - name: ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS
+              value: "true"

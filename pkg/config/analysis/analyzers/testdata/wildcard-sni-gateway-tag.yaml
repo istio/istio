@@ -1,0 +1,54 @@
+# Gateway pod on revision tag "prod", which points to the default revision: istiod with the flag serves it, warning.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-revision-tag-prod
+  labels:
+    istio.io/tag: prod
+    istio.io/rev: default
+webhooks: []
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: istio-egressgateway-prod-1
+  namespace: istio-egress
+  labels:
+    istio: egressgateway-prod
+    istio.io/rev: prod
+spec:
+  containers: [{name: istio-proxy, image: proxyv2}]
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wikipedia
+  namespace: istio-egress
+spec:
+  hosts: ["*.wikipedia.org"]
+  ports: [{number: 443, name: tls, protocol: TLS}]
+  resolution: DYNAMIC_DNS
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: egressgateway-prod
+  namespace: istio-egress
+spec:
+  selector: {istio: egressgateway-prod}
+  servers:
+  - port: {number: 443, name: tls-passthrough, protocol: TLS}
+    hosts: ["*"]
+    tls: {mode: PASSTHROUGH}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: tag
+  namespace: istio-egress
+spec:
+  hosts: ["*"]
+  gateways: [egressgateway-prod]
+  tls:
+  - match: [{port: 443, sniHosts: ["*"]}]
+    route: [{destination: {host: "*.wikipedia.org", port: {number: 443}}}]

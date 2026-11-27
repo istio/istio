@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 62674
+releaseNotes:
+- |
+  **Added** `istioctl analyze` warnings for TLS routes (`VirtualService` or `TLSRoute`) to wildcard `DYNAMIC_DNS`
+  ServiceEntries. The warnings apply when `ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS` is true on istiod.
+  IST0179 shows when a gateway ignores a route because its SNI hosts are not all under the ServiceEntry host.
+  IST0180 shows when a waypoint ignores a route because no match of the route has SNI hosts that are exactly
+  the ServiceEntry host.
