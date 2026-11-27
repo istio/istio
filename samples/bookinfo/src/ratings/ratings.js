@@ -17,7 +17,9 @@ var dispatcher = require('httpdispatcher')
 
 var port = parseInt(process.argv[2])
 
-var userAddedRatings = [] // used to demonstrate POST functionality
+var userAddedRatings = new Map() // used to demonstrate POST functionality
+var maxUserAddedRatings = 100 // oldest entries are dropped beyond this
+var maxBodySize = 64 * 1024 // larger POST bodies are rejected with 413
 
 var unavailable = false
 var healthy = true
@@ -47,7 +49,7 @@ if (process.env.SERVICE_VERSION === 'v-unhealthy') {
  */
 if (process.env.SERVICE_VERSION === 'v2') {
   if (process.env.DB_TYPE === 'mysql') {
-    var mysql = require('mysql')
+    var mysql = require('mysql2')
     var hostName = process.env.MYSQL_DB_HOST
     var portNumber = process.env.MYSQL_DB_PORT
     var username = process.env.MYSQL_DB_USER
@@ -71,6 +73,9 @@ dispatcher.onPost(/^\/ratings\/[0-9]*/, function (req, res) {
 
   try {
     ratings = JSON.parse(req.body)
+    if (!isValidRatings(ratings)) {
+      throw new Error('ratings must be an object of integer ratings from 0 to 5')
+    }
   } catch (error) {
     res.writeHead(400, {'Content-type': 'application/json'})
     res.end(JSON.stringify({error: 'please provide valid ratings JSON'}))
@@ -108,6 +113,7 @@ dispatcher.onGet(/^\/ratings\/[0-9]*/, function (req, res) {
 
       connection.connect(function(err) {
           if (err) {
+              res.writeHead(500, {'Content-type': 'application/json'})
               res.end(JSON.stringify({error: 'could not connect to ratings database'}))
               console.log(err)
               return
@@ -218,10 +224,21 @@ dispatcher.onGet('/health', function (req, res) {
     }
 })
 
+function isValidRatings (ratings) {
+  return ratings !== null && typeof ratings === 'object' && !Array.isArray(ratings) &&
+    Object.keys(ratings).every(function (reviewer) {
+      var stars = ratings[reviewer]
+      return Number.isInteger(stars) && stars >= 0 && stars <= 5
+    })
+}
+
 function putLocalReviews (productId, ratings) {
-  userAddedRatings[productId] = {
+  userAddedRatings.set(productId, {
     id: productId,
     ratings: ratings
+  })
+  if (userAddedRatings.size > maxUserAddedRatings) {
+    userAddedRatings.delete(userAddedRatings.keys().next().value)
   }
   return getLocalReviews(productId)
 }
@@ -237,8 +254,8 @@ function getLocalReviewsServiceUnavailable(res) {
 }
 
 function getLocalReviews (productId) {
-  if (typeof userAddedRatings[productId] !== 'undefined') {
-      return userAddedRatings[productId]
+  if (userAddedRatings.has(productId)) {
+      return userAddedRatings.get(productId)
   }
   return {
     id: productId,
@@ -252,9 +269,30 @@ function getLocalReviews (productId) {
 function handleRequest (request, response) {
   try {
     console.log(request.method + ' ' + request.url)
+    if (request.method !== 'GET' && request.method !== 'POST') {
+      response.writeHead(405, {'Content-type': 'application/json', 'Allow': 'GET, POST'})
+      response.end(JSON.stringify({error: 'Method not allowed'}))
+      return
+    }
+    if (request.method === 'POST') {
+      var bodySize = 0
+      request.on('data', function (chunk) {
+        bodySize += chunk.length
+        if (bodySize > maxBodySize && !response.headersSent) {
+          // stop reading so the rest of the body is never buffered or dispatched
+          request.pause()
+          response.writeHead(413, {'Content-type': 'application/json', 'Connection': 'close'})
+          response.end(JSON.stringify({error: 'Request body too large'}))
+        }
+      })
+    }
     dispatcher.dispatch(request, response)
   } catch (err) {
     console.log(err)
+    if (!response.headersSent) {
+      response.writeHead(500, {'Content-type': 'application/json'})
+      response.end(JSON.stringify({error: 'Internal server error'}))
+    }
   }
 }
 

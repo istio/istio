@@ -55,6 +55,7 @@ paths:
         required: true
         type: "integer"
         format: "int32"
+        minimum: 0
       responses:
         200:
           description: "successful operation"
@@ -80,6 +81,7 @@ paths:
         required: true
         type: "integer"
         format: "int32"
+        minimum: 0
       responses:
         200:
           description: "successful operation"
@@ -105,6 +107,7 @@ paths:
         required: true
         type: "integer"
         format: "int32"
+        minimum: 0
       responses:
         200:
           description: "successful operation"
