@@ -311,6 +311,138 @@ func TestController_GetPodLocality(t *testing.T) {
 	}
 }
 
+func TestNodeLocalityChangeRefreshesEndpoints(t *testing.T) {
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+
+	nodeLabels := func(region, zone string) map[string]string {
+		return map[string]string{NodeRegionLabelGA: region, NodeZoneLabelGA: zone}
+	}
+	addNodes(t, controller,
+		generateNode("node1", nodeLabels("region1", "zone1")),
+		generateNode("node2", nodeLabels("region2", "zone2")),
+		generateNode("node3", nodeLabels("region4", "zone4")),
+	)
+	pod1 := generatePod([]string{"128.0.0.1"}, "pod1", "nsa", "", "node1", map[string]string{"app": "prod-app"}, nil)
+	pod2 := generatePod([]string{"128.0.0.2"}, "pod2", "nsa", "", "node2", map[string]string{"app": "prod-app"}, nil)
+	// pod3 pins its locality with the istio-locality label, so node3's labels do not affect it.
+	pod3 := generatePod([]string{"128.0.0.3"}, "pod3", "nsa", "", "node3",
+		map[string]string{"app": "prod-app", "istio-locality": "pinned.zone"}, nil)
+	addPods(t, controller, fx, pod1, pod2, pod3)
+
+	createServiceWait(controller, "svc1", "nsa", []string{"10.0.0.1"}, nil, nil,
+		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+	refs := []*corev1.ObjectReference{
+		{Kind: "Pod", Namespace: "nsa", Name: "pod1"},
+		{Kind: "Pod", Namespace: "nsa", Name: "pod2"},
+		{Kind: "Pod", Namespace: "nsa", Name: "pod3"},
+	}
+	createEndpoints(t, controller, "svc1", "nsa", []string{"tcp-port"}, []string{"128.0.0.1", "128.0.0.2", "128.0.0.3"}, refs, nil)
+	fx.WaitOrFail(t, "eds")
+
+	host := string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix))
+	localities := func(eps []*model.IstioEndpoint) map[string]string {
+		res := map[string]string{}
+		for _, ep := range eps {
+			res[ep.FirstAddressOrNil()] = ep.Locality.Label
+		}
+		return res
+	}
+
+	workloadLocalities := make(chan string, 10)
+	controller.AppendWorkloadHandler(func(wi *model.WorkloadInstance, ev model.Event) {
+		workloadLocalities <- wi.Endpoint.FirstAddressOrNil() + "=" + wi.Endpoint.Locality.Label
+	})
+	noUpdates := func() {
+		t.Helper()
+		fx.AssertNoMatch(t, 100*time.Millisecond,
+			xdsfake.EventMatcher{Type: "eds cache", IDPrefix: host},
+			xdsfake.EventMatcher{Type: "proxy", IDPrefix: "128.0.0."})
+		select {
+		case wl := <-workloadLocalities:
+			t.Fatalf("unexpected workload instance update %v", wl)
+		default:
+		}
+	}
+
+	// Changing unrelated node labels must not rebuild endpoints or push proxies.
+	unrelated := nodeLabels("region1", "zone1")
+	unrelated["foo"] = "bar"
+	clienttest.Wrap(t, controller.nodes).Update(generateNode("node1", unrelated))
+	noUpdates()
+
+	// Relabeling a node whose only pod has an explicit istio-locality label must not rebuild endpoints or push proxies.
+	clienttest.Wrap(t, controller.nodes).Update(generateNode("node3", nodeLabels("region5", "zone5")))
+	noUpdates()
+
+	// Relabel node1's topology; endpoints on node1 must pick up the new locality, others are untouched.
+	clienttest.Wrap(t, controller.nodes).Update(generateNode("node1", nodeLabels("region3", "zone3")))
+	ev := fx.WaitOrFail(t, "eds cache")
+	assert.Equal(t, ev.ID, host)
+	assert.Equal(t, localities(ev.Endpoints), map[string]string{
+		"128.0.0.1": "region3/zone3/",
+		"128.0.0.2": "region2/zone2/",
+		"128.0.0.3": "pinned/zone",
+	})
+	// The proxy on node1 is pushed so it recomputes its own locality, and its workload instance is refreshed.
+	fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: host}, xdsfake.Event{Type: "proxy", ID: "128.0.0.1"})
+	assert.Equal(t, <-workloadLocalities, "128.0.0.1=region3/zone3/")
+	assert.Equal(t, controller.GetProxyWorkloadLabels(&model.Proxy{
+		ID:          "pod1.nsa",
+		IPAddresses: []string{"128.0.0.1"},
+		Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: controller.Cluster()},
+	})[NodeZoneLabelGA], "zone3")
+	noUpdates()
+}
+
+func TestNodeLocalityChangeRefreshesSelectorlessServiceEndpoints(t *testing.T) {
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+
+	addNodes(t, controller, generateNode("node1", map[string]string{NodeRegionLabelGA: "region1", NodeZoneLabelGA: "zone1"}))
+	pod := generatePod([]string{"128.0.0.1"}, "pod1", "nsa", "", "node1", map[string]string{"app": "prod-app"}, nil)
+	addPods(t, controller, fx, pod)
+
+	// A service without a selector, backed by a manually managed slice that references the pod by IP only.
+	createServiceWait(controller, "svc1", "nsa", []string{"10.0.0.1"}, nil, nil, []int32{8080}, nil, t)
+	createEndpoints(t, controller, "svc1", "nsa", []string{"tcp-port"}, []string{"128.0.0.1"}, nil, nil)
+	fx.WaitOrFail(t, "eds")
+	fx.Clear()
+
+	host := string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix))
+	clienttest.Wrap(t, controller.nodes).Update(generateNode("node1", map[string]string{NodeRegionLabelGA: "region2", NodeZoneLabelGA: "zone2"}))
+	ev := fx.WaitOrFail(t, "eds cache")
+	assert.Equal(t, ev.ID, host)
+	assert.Equal(t, len(ev.Endpoints), 1)
+	assert.Equal(t, ev.Endpoints[0].Locality.Label, "region2/zone2/")
+	fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: host}, xdsfake.Event{Type: "proxy", ID: "128.0.0.1"})
+}
+
+func TestNodeReAddRefreshesEndpoints(t *testing.T) {
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+
+	addNodes(t, controller, generateNode("node1", map[string]string{NodeRegionLabelGA: "region1", NodeZoneLabelGA: "zone1"}))
+	pod := generatePod([]string{"128.0.0.1"}, "pod1", "nsa", "", "node1", map[string]string{"app": "prod-app"}, nil)
+	addPods(t, controller, fx, pod)
+
+	createServiceWait(controller, "svc1", "nsa", []string{"10.0.0.1"}, nil, nil,
+		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+	refs := []*corev1.ObjectReference{{Kind: "Pod", Namespace: "nsa", Name: "pod1"}}
+	createEndpoints(t, controller, "svc1", "nsa", []string{"tcp-port"}, []string{"128.0.0.1"}, refs, nil)
+	fx.WaitOrFail(t, "eds")
+
+	host := string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix))
+	// Deleting the node keeps the existing endpoints, the pod survives.
+	clienttest.Wrap(t, controller.nodes).Delete("node1", "")
+	fx.AssertNoMatch(t, 100*time.Millisecond, xdsfake.EventMatcher{Type: "eds cache", IDPrefix: host})
+
+	// Re-adding the node with different topology labels must refresh the surviving pod's locality.
+	clienttest.Wrap(t, controller.nodes).Create(generateNode("node1", map[string]string{NodeRegionLabelGA: "region2", NodeZoneLabelGA: "zone2"}))
+	ev := fx.WaitOrFail(t, "eds cache")
+	assert.Equal(t, ev.ID, host)
+	assert.Equal(t, len(ev.Endpoints), 1)
+	assert.Equal(t, ev.Endpoints[0].Locality.Label, "region2/zone2/")
+	fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: host}, xdsfake.Event{Type: "proxy", ID: "128.0.0.1"})
+}
+
 func TestProxyK8sHostnameLabel(t *testing.T) {
 	clusterID := cluster.ID("fakeCluster")
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{

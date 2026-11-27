@@ -22,6 +22,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -129,6 +131,39 @@ func TestDeleteImportedService(t *testing.T) {
 
 	// Delete the k8s service and verify that all internal services are removed.
 	ic.deleteKubeService(t, c2)
+}
+
+func TestNodeLocalityChangeRefreshesImportedServiceEndpoints(t *testing.T) {
+	c, ic := newTestServiceImportCache(t)
+	fx := c.opts.XDSUpdater.(*xdsfake.Updater)
+
+	nodeLabels := func(region, zone string) map[string]string {
+		return map[string]string{NodeRegionLabelGA: region, NodeZoneLabelGA: zone}
+	}
+	addNodes(t, c, generateNode("node1", nodeLabels("region1", "zone1")))
+	pod := generatePod([]string{serviceImportPodIP}, "pod1", serviceImportNamespace, "", "node1",
+		map[string]string{"app": "prod-app"}, nil)
+	addPods(t, c, fx, pod)
+
+	createServiceWait(c, serviceImportName, serviceImportNamespace, []string{"10.0.0.1"}, nil, nil,
+		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+	refs := []*corev1.ObjectReference{{Kind: "Pod", Namespace: serviceImportNamespace, Name: "pod1"}}
+	createEndpoints(t, c, serviceImportName, serviceImportNamespace, []string{"tcp-port"}, []string{serviceImportPodIP}, refs, nil)
+	ic.createServiceImport(t, mcsapi.ClusterSetIP, serviceImportVIPs)
+	fx.Clear()
+
+	// Relabel the node; both the cluster.local and clusterset.local hosts must pick up the new locality.
+	clienttest.Wrap(t, c.nodes).Update(generateNode("node1", nodeLabels("region2", "zone2")))
+	want := map[string]bool{ic.clusterLocalHost().String(): true, serviceImportClusterSetHost.String(): true}
+	for len(want) > 0 {
+		ev := fx.WaitOrFail(t, "eds cache")
+		if !want[ev.ID] {
+			continue
+		}
+		assert.Equal(t, len(ev.Endpoints), 1)
+		assert.Equal(t, ev.Endpoints[0].Locality.Label, "region2/zone2/")
+		delete(want, ev.ID)
+	}
 }
 
 func TestUnimportService(t *testing.T) {

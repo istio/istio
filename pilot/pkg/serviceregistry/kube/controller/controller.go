@@ -239,6 +239,8 @@ type Controller struct {
 	meshWatcher         mesh.RestrictedConfigWatcher
 
 	podsClient kclient.Client[*v1.Pod]
+	// podsByNode indexes pods by spec.nodeName, used to refresh endpoint locality on node label changes.
+	podsByNode kclient.Index[string, *v1.Pod]
 
 	networksHandlerRegistration *mesh.WatcherHandlerRegistration
 }
@@ -316,6 +318,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		c.queue.Push(func() error {
 			return c.endpoints.podArrived(key.Name, key.Namespace)
 		})
+	})
+	c.podsByNode = kclient.CreateStringIndex(c.podsClient, "spec.nodeName", func(pod *v1.Pod) []string {
+		if pod.Spec.NodeName == "" {
+			return nil
+		}
+		return []string{pod.Spec.NodeName}
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
@@ -566,7 +574,17 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 	return endpoints
 }
 
-func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
+func (c *Controller) onNodeEvent(old, node *v1.Node, event model.Event) error {
+	switch {
+	case event == model.EventUpdate && old != nil && nodeLocality(old) != nodeLocality(node):
+		c.onNodeLocalityChange(node.Name)
+	case event == model.EventAdd && c.queue.HasSynced():
+		// A node added after the initial sync may be a deleted node re-added with different labels, while pods
+		// scheduled on it survived and still carry the old locality. Pods on a brand new node are rare, so
+		// this is cheap; during the initial sync endpoints are built with the current node labels anyway.
+		c.onNodeLocalityChange(node.Name)
+	}
+
 	var updatedNeeded bool
 	if event == model.EventDelete {
 		updatedNeeded = true
@@ -605,6 +623,73 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 		})
 	}
 	return nil
+}
+
+// onNodeLocalityChange refreshes everything derived from the locality of pods scheduled on the given node:
+// the endpoints of services backed by those pods, workload instances (used by ServiceEntry workloadSelector),
+// and the locality of the proxies themselves, which is only recomputed on connect or on a proxy update.
+func (c *Controller) onNodeLocalityChange(nodeName string) {
+	var affected []*v1.Pod
+	for _, pod := range c.podsByNode.Lookup(nodeName) {
+		// Pods with an explicit locality label do not depend on node locality.
+		if pm.GetLocalityLabel(pod.Labels) == "" {
+			affected = append(affected, pod)
+		}
+	}
+	if len(affected) == 0 {
+		return
+	}
+
+	c.recomputeEndpointsForPods(affected)
+
+	for _, pod := range affected {
+		// Only pods tracked by the pod cache have workload instances and may have connected proxies.
+		ip := c.pods.getIPByPod(config.NamespacedName(pod))
+		if ip == "" {
+			continue
+		}
+		// Refresh workload instances, e.g. for ServiceEntries selecting this pod via workloadSelector.
+		c.pods.notifyWorkloadHandlers(pod, model.EventUpdate, ip)
+		// Push the proxy so its locality is recomputed from the new node labels.
+		c.opts.XDSUpdater.ProxyUpdate(c.Cluster(), ip)
+	}
+}
+
+// recomputeEndpointsForPods rebuilds the cached endpoints of every EndpointSlice referencing one of the pods and
+// pushes the affected services. Slices are matched directly rather than through service selectors, so selectorless
+// services with manually managed slices are covered, and only the slices containing the pods are rebuilt.
+func (c *Controller) recomputeEndpointsForPods(pods []*v1.Pod) {
+	refs := newPodRefs(pods...)
+	updated := map[host.Name]*model.Service{}
+	// List slices in all namespaces, as a slice may reference a pod in another namespace.
+	for _, slice := range c.endpoints.slices.List(metav1.NamespaceAll, endpointSliceSelector) {
+		svcName := serviceNameForEndpointSlice(slice.Labels)
+		if svcName == "" || !endpointSliceContainsPods(slice, refs) {
+			continue
+		}
+		// Includes the clusterset.local service when MCS is enabled, which has its own endpoint cache entry.
+		for _, svc := range c.servicesForNamespacedName(types.NamespacedName{Namespace: slice.Namespace, Name: svcName}) {
+			c.endpoints.updateEndpointCacheForSlice(svc.Hostname, slice)
+			updated[svc.Hostname] = svc
+		}
+	}
+	if len(updated) == 0 {
+		return
+	}
+
+	shard := model.ShardKeyFromRegistry(c)
+	cu := sets.New[model.ConfigKey]()
+	for hostname, svc := range updated {
+		ns := svc.Attributes.Namespace
+		if endpoints := c.buildEndpointsForService(svc, false); len(endpoints) > 0 {
+			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(hostname), ns, endpoints)
+		}
+		cu.Insert(model.ConfigKey{Kind: kind.Endpoints, Name: string(hostname), Namespace: ns})
+	}
+	c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+		ConfigsUpdated: cu,
+		Reason:         model.NewReasonStats(model.EndpointUpdate),
+	})
 }
 
 // FilterOutFunc func for filtering out objects during update callback
@@ -764,6 +849,11 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 		return ""
 	}
 
+	return nodeLocality(node)
+}
+
+// nodeLocality returns the locality derived from the node's topology labels.
+func nodeLocality(node *v1.Node) string {
 	region := getLabelValue(node.ObjectMeta, NodeRegionLabelGA, NodeRegionLabel)
 	zone := getLabelValue(node.ObjectMeta, NodeZoneLabelGA, NodeZoneLabel)
 	subzone := getLabelValue(node.ObjectMeta, label.TopologySubzone.Name, "")
