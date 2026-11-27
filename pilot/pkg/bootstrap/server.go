@@ -477,8 +477,18 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		log.Warn("Server is starting with unsafe features enabled")
 	}
 
+	// Components are stopped only once the gRPC servers have stopped, so that nothing is served
+	// from state that is being torn down. If we fail to start, stop them right away.
+	componentStop := make(chan struct{})
+	started := false
+	defer func() {
+		if !started {
+			close(componentStop)
+		}
+	}()
+
 	// Now start all of the components.
-	if err := s.server.Start(stop); err != nil {
+	if err := s.server.Start(componentStop); err != nil {
 		return err
 	}
 	if !s.waitForCacheSync(stop) {
@@ -533,7 +543,8 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		s.httpsAddr = httpsListener.Addr().String()
 	}
 
-	s.waitForShutdown(stop)
+	s.waitForShutdown(stop, componentStop)
+	started = true
 
 	return nil
 }
@@ -711,8 +722,8 @@ func (s *Server) initDiscoveryService() {
 	})
 }
 
-// Wait for the stop, and do cleanups
-func (s *Server) waitForShutdown(stop <-chan struct{}) {
+// Wait for the stop, and do cleanups. componentStop is closed once the gRPC servers have stopped.
+func (s *Server) waitForShutdown(stop <-chan struct{}, componentStop chan struct{}) {
 	go func() {
 		<-stop
 		close(s.internalStop)
@@ -737,10 +748,10 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 					close(stopped)
 				}
 			}()
-			s.grpcServer.GracefulStop()
 			if s.secureGrpcServer != nil {
-				s.secureGrpcServer.GracefulStop()
+				s.secureGrpcServer.Stop()
 			}
+			s.grpcServer.GracefulStop()
 			close(stopped)
 		}()
 
@@ -754,6 +765,9 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		case <-stopped:
 			t.Stop()
 		}
+
+		// No xDS stream is open anymore; controllers can now be stopped.
+		close(componentStop)
 
 		// Stop HTTP services.
 		ctx, cancel := context.WithTimeout(context.Background(), s.shutdownDuration)
@@ -873,14 +887,6 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 
 	s.secureGrpcAddress = args.ServerOptions.SecureGRPCAddr
 	s.secureGrpcServer = secureGrpcServer
-
-	s.addStartFunc("secure gRPC", func(stop <-chan struct{}) error {
-		go func() {
-			<-stop
-			s.secureGrpcServer.Stop()
-		}()
-		return nil
-	})
 
 	return nil
 }
