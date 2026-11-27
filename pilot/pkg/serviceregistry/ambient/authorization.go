@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
+
 	"istio.io/api/annotation"
 	"istio.io/api/security/v1beta1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
@@ -588,6 +590,9 @@ func handleRule(action security.Action, rule *v1beta1.Rule, ruleNamespace string
 	l7RuleFound := false
 	httpMatch := sets.New[string]()
 	toMatches := []*security.Match{}
+	// An entry with no operation/source constraints matches everything, like in
+	// the sidecar builder, so the whole list then adds no constraint.
+	toMatchAll := false
 	for _, to := range rule.To {
 		op := to.GetOperation()
 		problems := httpOperations(op)
@@ -599,9 +604,14 @@ func handleRule(action security.Action, rule *v1beta1.Rule, ruleNamespace string
 			DestinationPorts:    stringToPort(op.GetPorts()),
 			NotDestinationPorts: stringToPort(op.GetNotPorts()),
 		}
+		if len(problems) == 0 && proto.Size(match) == 0 {
+			toMatchAll = true
+			continue
+		}
 		toMatches = append(toMatches, match)
 	}
 	fromMatches := []*security.Match{}
+	fromMatchAll := false
 	for _, from := range rule.From {
 		op := from.GetSource()
 		problems := httpSources(op)
@@ -619,14 +629,18 @@ func handleRule(action security.Action, rule *v1beta1.Rule, ruleNamespace string
 			Principals:         stringToMatch(op.GetPrincipals()),
 			NotPrincipals:      stringToMatch(op.GetNotPrincipals()),
 		}
+		if len(problems) == 0 && proto.Size(match) == 0 {
+			fromMatchAll = true
+			continue
+		}
 		fromMatches = append(fromMatches, match)
 	}
 
 	rules := []*security.Rules{}
-	if len(toMatches) > 0 {
+	if len(toMatches) > 0 && !toMatchAll {
 		rules = append(rules, &security.Rules{Matches: toMatches})
 	}
-	if len(fromMatches) > 0 {
+	if len(fromMatches) > 0 && !fromMatchAll {
 		rules = append(rules, &security.Rules{Matches: fromMatches})
 	}
 	for _, when := range rule.When {
