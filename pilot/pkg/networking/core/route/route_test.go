@@ -15,6 +15,7 @@
 package route_test
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 	"testing"
@@ -44,9 +45,85 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
+
+func TestSidecarVirtualHostWrapperOrder(t *testing.T) {
+	for _, mode := range []string{"default", "wildcard", "ports", "explicit hosts", "mixed hosts"} {
+		t.Run(mode, func(t *testing.T) {
+			registry := map[host.Name]*model.Service{}
+			var services []*model.Service
+			var want []string
+			for i := range 16 {
+				svc := &model.Service{
+					Hostname: host.Name(fmt.Sprintf("svc-%02d.default.svc.cluster.local", i)),
+					Ports:    model.PortList{{Name: "http", Port: 80, Protocol: protocol.HTTP}},
+				}
+				services = append(services, svc)
+				registry[svc.Hostname] = svc
+				want = append(want, fmt.Sprintf("80/%s", svc.Hostname))
+			}
+
+			var virtualServices []*config.Config
+			index := map[host.Name]types.NamespacedName{}
+			if mode != "default" {
+				vs := &config.Config{
+					Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: "route", Namespace: "default"},
+					Spec: &networking.VirtualService{
+						Hosts: []string{"*.default.svc.cluster.local"},
+						Http: []*networking.HTTPRoute{{Route: []*networking.HTTPRouteDestination{{
+							Destination: &networking.Destination{Host: string(services[0].Hostname)},
+						}}}},
+					},
+				}
+				virtualServices = []*config.Config{vs}
+				for name := range registry {
+					index[name] = vs.NamespacedName()
+				}
+				if mode == "explicit hosts" {
+					// Explicit host order, unlike map iteration, remains part of the input.
+					hosts := []string{}
+					want = nil
+					for i := len(services) - 1; i >= 0; i-- {
+						hosts = append(hosts, string(services[i].Hostname))
+						want = append(want, fmt.Sprintf("80/%s", services[i].Hostname))
+					}
+					vs.Spec.(*networking.VirtualService).Hosts = hosts
+				}
+				if mode == "mixed hosts" {
+					vs.Spec.(*networking.VirtualService).Hosts = []string{
+						string(services[15].Hostname), string(services[0].Hostname), "*.default.svc.cluster.local",
+					}
+					want = append([]string{want[15], want[0]}, want...)
+				}
+			}
+			listenPort := 80
+			if mode == "ports" {
+				listenPort = 0
+				services = services[:1]
+				svc := services[0]
+				registry = map[host.Name]*model.Service{svc.Hostname: svc}
+				svc.Ports = nil
+				want = nil
+				for i := range 16 {
+					svc.Ports = append(svc.Ports, &model.Port{Name: fmt.Sprintf("http-%d", i), Port: 8095 - i, Protocol: protocol.HTTP})
+					want = append(want, fmt.Sprintf("%d/%s", 8080+i, svc.Hostname))
+				}
+			}
+			cg := core.NewConfigGenTest(t, core.TestOptions{Services: services})
+			wrappers := route.BuildSidecarVirtualHostWrapper(cg.SetupProxy(nil), cg.PushContext(), registry, virtualServices, listenPort, index)
+			var got []string
+			for _, wrapper := range wrappers {
+				for _, svc := range wrapper.Services {
+					got = append(got, fmt.Sprintf("%d/%s", wrapper.Port, svc.Hostname))
+				}
+			}
+			assert.Equal(t, got, want)
+		})
+	}
+}
 
 func buildRouteOpts(sr map[host.Name]*model.Service, hash route.DestinationHashMap) route.RouteOptions {
 	return route.RouteOptions{
