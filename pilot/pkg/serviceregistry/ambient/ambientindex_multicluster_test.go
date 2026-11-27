@@ -22,6 +22,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -55,6 +56,7 @@ type ambientclients struct {
 	we    clienttest.TestWriter[*apiv1alpha3.WorkloadEntry]
 	pa    clienttest.TestWriter[*clientsecurityv1beta1.PeerAuthentication]
 	authz clienttest.TestWriter[*clientsecurityv1beta1.AuthorizationPolicy]
+	es    clienttest.TestWriter[*discovery.EndpointSlice]
 }
 
 type remoteAmbientClients struct {
@@ -121,6 +123,8 @@ func (s *ambientTestServer) newClusterClients(t *testing.T, stop <-chan struct{}
 			localCollection,
 			func(ctx krt.HandlerContext, c multicluster.ClusterCollections) *krt.Collection[*remoteAmbientClients] {
 				cl := c.Client()
+				// ambient uses EndpointSlices to find a Service's pods, which fake clients do not create.
+				clienttest.RunEndpointSliceController(t, cl)
 				// krt.NewStaticCollection returns a concrete StaticCollection, so the interface value
 				// has to be named to take its address.
 				col := krt.NewStaticCollection(nil, []*remoteAmbientClients{{

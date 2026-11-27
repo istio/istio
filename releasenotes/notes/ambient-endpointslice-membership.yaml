@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62891
+releaseNotes:
+  - |
+    **Fixed** a bug where ambient mode chose a Kubernetes Service's pods by matching its label selector,
+    so ztunnel kept sending traffic to pods that had been removed from the Service's EndpointSlices.
+    Istiod now uses EndpointSlices as the single source of truth for which pods back a Kubernetes
+    Service, the same as kube-proxy. ServiceEntries with a `workloadSelector` still select pods by label.

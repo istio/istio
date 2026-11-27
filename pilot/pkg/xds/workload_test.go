@@ -34,6 +34,7 @@ import (
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	xdspkg "istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config"
@@ -64,6 +65,30 @@ func buildExpect(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, name
 		}
 		assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
 	}
+}
+
+// expectAcrossResponses is like expect, but allows the resources to arrive split across several responses.
+// Changes that propagate through EndpointSlices may update workloads in more than one push.
+func expectAcrossResponses(t *testing.T, ads *xdspkg.DeltaAdsTest, names ...string) {
+	t.Helper()
+	want := sets.New(names...)
+	have := sets.New[string]()
+	for range names {
+		resp := ads.ExpectResponse()
+		if len(resp.RemovedResources) > 0 {
+			t.Fatalf("unexpected removals: %v", resp.RemovedResources)
+		}
+		for _, r := range resp.Resources {
+			if !want.Contains(r.Name) {
+				t.Fatalf("unexpected resource: %v", r.Name)
+			}
+			have.Insert(r.Name)
+		}
+		if have.Equals(want) {
+			return
+		}
+	}
+	assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
 }
 
 func buildExpectExpectRemoved(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
@@ -329,6 +354,8 @@ func TestWorkload(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			DebounceTime: time.Millisecond * 25,
 		})
+		// ambient uses EndpointSlices to find a Service's pods, which fake clients do not create.
+		clienttest.RunEndpointSliceController(t, s.KubeClient())
 		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 		spamDebugEndpointsToDetectRace(t, s)
 
@@ -380,7 +407,7 @@ func TestWorkload(t *testing.T) {
 
 		// Make service not select workload should also update things
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
+		expectAcrossResponses(t, ads, "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
 
 		// Now create pods in the service...
 		createPod(s, "pod4", "not-sa", "127.0.0.4", "not-node")
@@ -408,6 +435,8 @@ func TestWorkload(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			DebounceTime: time.Millisecond * 25,
 		})
+		// ambient uses EndpointSlices to find a Service's pods, which fake clients do not create.
+		clienttest.RunEndpointSliceController(t, s.KubeClient())
 		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 		spamDebugEndpointsToDetectRace(t, s)
 
@@ -430,14 +459,14 @@ func TestWorkload(t *testing.T) {
 
 		// Add service: we should not get any new resources, but updates to existing ones
 		createService(s, "svc1", "default", map[string]string{"app": "sa"})
-		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod2", "default/svc1.default.svc.cluster.local")
+		expectAcrossResponses(t, ads, "Kubernetes//Pod/default/pod2", "default/svc1.default.svc.cluster.local")
 		// Creating a pod in the service should send an update as usual
 		createPod(s, "pod", "sa", "127.0.0.3", "node")
 		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
 
 		// Make service not select workload should also update things
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
+		expectAcrossResponses(t, ads, "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
 	})
 }
 
