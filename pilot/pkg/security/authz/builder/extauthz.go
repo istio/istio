@@ -22,9 +22,12 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
+	mutationrules "github.com/envoyproxy/go-control-plane/envoy/config/common/mutation_rules/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	extauthzhttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
+	headermutation "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_mutation/v3"
 	extauthztcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/ext_authz/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoytypev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/hashicorp/go-multierror"
@@ -33,6 +36,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/wellknown"
@@ -56,6 +60,29 @@ type builtExtAuthz struct {
 	http *extauthzhttp.ExtAuthz
 	tcp  *extauthztcp.ExtAuthz
 	err  error
+}
+
+// Internal listeners have no peer TLS certificate for ext_authz to derive source.principal
+// from. Export the authenticated identity saved by the terminating listener instead.
+func buildExtAuthzPeerPrincipalFilter() *hcm.HttpFilter {
+	return &hcm.HttpFilter{
+		Name: "istio.ext_authz.peer_principal",
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&headermutation.HeaderMutation{
+			Mutations: &headermutation.Mutations{
+				RequestMutations: []*mutationrules.HeaderMutation{{
+					Action: &mutationrules.HeaderMutation_Append{Append: &core.HeaderValueOption{
+						Header: &core.HeaderValue{
+							Key:   "x-istio-peer-principal",
+							Value: "%FILTER_STATE(io.istio.peer_principal:PLAIN)%",
+						},
+						AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+						// Do not preserve a client-supplied identity when filter state is empty.
+						KeepEmptyValue: true,
+					}},
+				}},
+			},
+		})},
+	}
 }
 
 func processExtensionProvider(push *model.PushContext) map[string]*builtExtAuthz {
