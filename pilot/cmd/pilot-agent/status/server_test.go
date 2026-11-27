@@ -523,6 +523,12 @@ func TestHTTPCompressionOnStats(t *testing.T) {
 			if err != nil {
 				t.Fatal("request failed: ", err)
 			}
+			defer resp.Body.Close()
+			// Read the whole body: an unread uncompressed response blocks the status server's
+			// handler, and with it the fake Envoy's, so envoyServer.Close never returns.
+			if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+				t.Fatal("reading response failed: ", err)
+			}
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("[%v] unexpected status code, want = %v, got = %v", "/stats/prometheus", http.StatusOK, resp.StatusCode)
 			}
