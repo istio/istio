@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 63021
+releaseNotes:
+- |
+  **Fixed** the `istio-ca-crl` ConfigMap not being mounted into waypoints, Gateway API gateways and injected gateways, so a CRL configured for a plugged-in CA was not applied by those proxies. Sidecars already mounted it.
