@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 61399
+releaseNotes:
+  - |
+    **Fixed** a misleading ztunnel status warning for HTTP authorization policies.
+    Ingress gateways can enforce HTTP rules on their own HTTP listeners.

@@ -493,13 +493,14 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 
 const (
 	httpRuleFmt string = "ztunnel does not support HTTP attributes (found: %s). " +
-		"In ambient mode you must use a waypoint proxy to enforce HTTP rules. %s"
+		"Use a waypoint proxy to enforce HTTP rules for ambient workloads. " +
+		"Ingress gateways can enforce HTTP rules on their own HTTP listeners. %s"
 
-	httpDenyNoEffectBoilerplate string = "After omitting unsupported HTTP attributes, this DENY policy has no enforceable rules at ztunnel " +
-		"and will have no effect. Deploy a waypoint proxy and use a targetRef to enforce this policy."
-	httpDenyMixedBoilerplate string = "DENY policy with HTTP attributes is enforced without the HTTP rules. " +
+	httpDenyNoEffectBoilerplate string = "At ztunnel, this DENY policy has no effect after omitting unsupported HTTP attributes. " +
+		"To attach this policy to a waypoint proxy, use a targetRef."
+	httpDenyMixedBoilerplate string = "At ztunnel, DENY policy with HTTP attributes is enforced without the HTTP rules. " +
 		"This will be more restrictive than requested."
-	httpAllowRuleBoilerplate string = "Within an ALLOW policy, rules matching HTTP attributes are omitted. " +
+	httpAllowRuleBoilerplate string = "At ztunnel, rules matching HTTP attributes are omitted from ALLOW policies. " +
 		"This will be more restrictive than requested."
 )
 

@@ -205,8 +205,9 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 			expectStatusMessage: &model.StatusMessage{
 				Reason: "UnsupportedValue",
 				Message: "ztunnel does not support HTTP attributes (found: methods, request.auth.presenter, requestPrincipals). " +
-					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
-					"Within an ALLOW policy, rules matching HTTP attributes are omitted. " +
+					"Use a waypoint proxy to enforce HTTP rules for ambient workloads. " +
+					"Ingress gateways can enforce HTTP rules on their own HTTP listeners. " +
+					"At ztunnel, rules matching HTTP attributes are omitted from ALLOW policies. " +
 					"This will be more restrictive than requested.",
 			},
 		},
@@ -255,9 +256,10 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 			expectStatusMessage: &model.StatusMessage{
 				Reason: "UnsupportedValue",
 				Message: "ztunnel does not support HTTP attributes (found: notRequestPrincipals). " +
-					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
-					"After omitting unsupported HTTP attributes, this DENY policy has no enforceable rules at ztunnel and will have no effect. " +
-					"Deploy a waypoint proxy and use a targetRef to enforce this policy.",
+					"Use a waypoint proxy to enforce HTTP rules for ambient workloads. " +
+					"Ingress gateways can enforce HTTP rules on their own HTTP listeners. " +
+					"At ztunnel, this DENY policy has no effect after omitting unsupported HTTP attributes. " +
+					"To attach this policy to a waypoint proxy, use a targetRef.",
 			},
 			checkEffectiveRules:  true,
 			expectEffectiveRules: false,
@@ -288,8 +290,9 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 			expectStatusMessage: &model.StatusMessage{
 				Reason: "UnsupportedValue",
 				Message: "ztunnel does not support HTTP attributes (found: notRequestPrincipals). " +
-					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
-					"DENY policy with HTTP attributes is enforced without the HTTP rules. " +
+					"Use a waypoint proxy to enforce HTTP rules for ambient workloads. " +
+					"Ingress gateways can enforce HTTP rules on their own HTTP listeners. " +
+					"At ztunnel, DENY policy with HTTP attributes is enforced without the HTTP rules. " +
 					"This will be more restrictive than requested.",
 			},
 			checkEffectiveRules:  true,
@@ -329,8 +332,9 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 			expectStatusMessage: &model.StatusMessage{
 				Reason: "UnsupportedValue",
 				Message: "ztunnel does not support HTTP attributes (found: notRequestPrincipals). " +
-					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
-					"DENY policy with HTTP attributes is enforced without the HTTP rules. " +
+					"Use a waypoint proxy to enforce HTTP rules for ambient workloads. " +
+					"Ingress gateways can enforce HTTP rules on their own HTTP listeners. " +
+					"At ztunnel, DENY policy with HTTP attributes is enforced without the HTTP rules. " +
 					"This will be more restrictive than requested.",
 			},
 			checkEffectiveRules:  true,
@@ -360,8 +364,9 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 			expectStatusMessage: &model.StatusMessage{
 				Reason: "UnsupportedValue",
 				Message: "ztunnel does not support HTTP attributes (found: notRequestPrincipals). " +
-					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
-					"DENY policy with HTTP attributes is enforced without the HTTP rules. " +
+					"Use a waypoint proxy to enforce HTTP rules for ambient workloads. " +
+					"Ingress gateways can enforce HTTP rules on their own HTTP listeners. " +
+					"At ztunnel, DENY policy with HTTP attributes is enforced without the HTTP rules. " +
 					"This will be more restrictive than requested.",
 			},
 			checkEffectiveRules:  true,
@@ -396,9 +401,10 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 			expectStatusMessage: &model.StatusMessage{
 				Reason: "UnsupportedValue",
 				Message: "ztunnel does not support HTTP attributes (found: request.headers[x-token]). " +
-					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
-					"After omitting unsupported HTTP attributes, this DENY policy has no enforceable rules at ztunnel and will have no effect. " +
-					"Deploy a waypoint proxy and use a targetRef to enforce this policy.",
+					"Use a waypoint proxy to enforce HTTP rules for ambient workloads. " +
+					"Ingress gateways can enforce HTTP rules on their own HTTP listeners. " +
+					"At ztunnel, this DENY policy has no effect after omitting unsupported HTTP attributes. " +
+					"To attach this policy to a waypoint proxy, use a targetRef.",
 			},
 			checkEffectiveRules:  true,
 			expectEffectiveRules: false,
@@ -433,9 +439,10 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 			expectStatusMessage: &model.StatusMessage{
 				Reason: "UnsupportedValue",
 				Message: "ztunnel does not support HTTP attributes (found: methods). " +
-					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
-					"After omitting unsupported HTTP attributes, this DENY policy has no enforceable rules at ztunnel and will have no effect. " +
-					"Deploy a waypoint proxy and use a targetRef to enforce this policy.",
+					"Use a waypoint proxy to enforce HTTP rules for ambient workloads. " +
+					"Ingress gateways can enforce HTTP rules on their own HTTP listeners. " +
+					"At ztunnel, this DENY policy has no effect after omitting unsupported HTTP attributes. " +
+					"To attach this policy to a waypoint proxy, use a targetRef.",
 			},
 			checkEffectiveRules:  true,
 			expectEffectiveRules: false,
