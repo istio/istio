@@ -333,6 +333,68 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 	}
 }
 
+func TestInsertCNIConfigMapNetworkName(t *testing.T) {
+	cases := []struct {
+		name         string
+		existingConf string
+		expectedName string
+	}{
+		{
+			name:         "legacy flannel",
+			existingConf: `{"name":"cb0","cniVersion":"0.3.0","type":"flannel","delegate":{"isDefaultGateway":true},"ipam":{"type":"host-local","dataDir":"/var/run/cni/networks"}}`,
+			expectedName: "cb0",
+		},
+		{
+			name:         "custom network name",
+			existingConf: `{"name":"custom-network","cniVersion":"0.3.0","type":"bridge"}`,
+			expectedName: "custom-network",
+		},
+		{
+			name:         "missing network name",
+			existingConf: `{"cniVersion":"0.3.0","type":"bridge"}`,
+			expectedName: "k8s-pod-network",
+		},
+		{
+			name:         "empty network name",
+			existingConf: `{"name":"","cniVersion":"0.3.0","type":"bridge"}`,
+			expectedName: "k8s-pod-network",
+		},
+		{
+			name:         "null network name",
+			existingConf: `{"name":null,"cniVersion":"0.3.0","type":"bridge"}`,
+			expectedName: "k8s-pod-network",
+		},
+		{
+			name:         "non-string network name",
+			existingConf: `{"name":42,"cniVersion":"0.3.0","type":"bridge"}`,
+			expectedName: "k8s-pod-network",
+		},
+	}
+	istioConf := testutils.ReadFile(t, filepath.Join("testdata", "istio-cni.conf"))
+	for _, testcase := range cases {
+		t.Run(testcase.name, func(t *testing.T) {
+			var existingConf map[string]any
+			assert.NoError(t, json.Unmarshal([]byte(testcase.existingConf), &existingConf))
+			combined, err := insertCNIConfigMap(istioConf, existingConf)
+			assert.NoError(t, err)
+			assert.Equal(t, combined["name"], any(testcase.expectedName))
+			assert.Equal(t, combined["cniVersion"], any("0.3.1"))
+			assert.Equal(t, existingConf["cniVersion"], any("0.3.0"))
+			plugins, err := util.GetPlugins(combined)
+			assert.NoError(t, err)
+			assert.Equal(t, len(plugins), 2)
+			delete(existingConf, "cniVersion")
+			assert.Equal(t, plugins[0], any(existingConf))
+			istioPlugin, err := util.GetPlugin(plugins[1])
+			assert.NoError(t, err)
+			assert.Equal(t, istioPlugin["type"], any("istio-cni"))
+			reinstalled, err := insertCNIConfigMap(istioConf, combined)
+			assert.NoError(t, err)
+			assert.Equal(t, reinstalled, combined)
+		})
+	}
+}
+
 func TestInsertCNIConfigMap(t *testing.T) {
 	cases := []struct {
 		name                 string
@@ -464,6 +526,14 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
 		{
+			name:              "single-plugin config with .conflist extension",
+			chainedCNIPlugin:  true,
+			specifiedConfName: "bridge.conflist",
+			expectedConfName:  "bridge.conflist",
+			goldenConfName:    "bridge.conf.golden",
+			existingConfFiles: map[string]string{"bridge.conf": "bridge.conflist"},
+		},
+		{
 			name:              "specified CNI config file never created",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "never-created.conf",
@@ -537,6 +607,16 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			expectedConfName:    "02-istio-conf.conflist",
 			goldenConfName:      "istio-owned-bridge.conflist.golden",
 			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "single-plugin config with .conflist extension - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "bridge.conflist",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned-bridge.conflist.golden",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conflist"},
 			ambientEnabled:      true,
 			istioOwnedCNIConfig: true,
 		},
