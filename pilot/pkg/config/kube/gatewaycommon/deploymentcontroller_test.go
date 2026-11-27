@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -1637,5 +1638,38 @@ func TestExtractServicePortsUniqueNames(t *testing.T) {
 	}
 	if len(ports) != 5 { // status-port + 4 listeners
 		t.Fatalf("expected 5 ports, got %d", len(ports))
+	}
+}
+
+func TestExtractServicePortsStableAcrossListenerSetOrder(t *testing.T) {
+	cases := []struct {
+		name string
+		a, b k8s.Listener
+	}{
+		{
+			name: "different names, same port",
+			a:    k8s.Listener{Name: "a-host", Port: 443, Protocol: k8s.HTTPSProtocolType},
+			b:    k8s.Listener{Name: "b-host", Port: 443, Protocol: k8s.HTTPSProtocolType},
+		},
+		{
+			name: "same name, different ports",
+			a:    k8s.Listener{Name: "web", Port: 80, Protocol: k8s.HTTPSProtocolType},
+			b:    k8s.Listener{Name: "web", Port: 443, Protocol: k8s.HTTPSProtocolType},
+		},
+		{
+			name: "same name and port, different protocols",
+			a:    k8s.Listener{Name: "web", Port: 443, Protocol: k8s.HTTPProtocolType},
+			b:    k8s.Listener{Name: "web", Port: 443, Protocol: k8s.HTTPSProtocolType},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			gw := k8s.Gateway{}
+			first := extractServicePorts(gw, []k8s.Listener{tt.a, tt.b})
+			second := extractServicePorts(gw, []k8s.Listener{tt.b, tt.a})
+			if !reflect.DeepEqual(first, second) {
+				t.Fatalf("ports depend on listener set order: %v vs %v", first, second)
+			}
+		})
 	}
 }
