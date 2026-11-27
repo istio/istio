@@ -460,6 +460,264 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "", warning: ""},
+		{name: "waypoint with missing applyTo", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: missing applyTo"},
+		{name: "waypoint with nil patch", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
+						},
+					},
+				},
+			},
+		}, error: "Envoy filter: missing patch"},
+		{name: "waypoint with invalid patch operation", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_INVALID,
+					},
+				},
+			},
+		}, error: "Envoy filter: missing patch operation"},
+		{name: "waypoint with nil patch value", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+					},
+				},
+			},
+		}, error: "Envoy filter: missing patch value for non-remove operation"},
+		{name: "waypoint with non-waypoint match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: only support waypoint match when context is WAYPOINT"},
+		{name: "non-waypoint with waypoint match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: only support waypoint match when context is WAYPOINT"},
+		{name: "waypoint with invalid port", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{
+								PortNumber: 70000,
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: port must be between 1-65535"},
+		{name: "waypoint with filter match without name", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{
+								Filter: &networking.EnvoyFilter_WaypointMatch_FilterMatch{},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: filter match has no name to match on"},
+		{name: "waypoint with sub filter match and invalid applyTo", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{
+								Filter: &networking.EnvoyFilter_WaypointMatch_FilterMatch{
+									Name:      wellknown.HTTPConnectionManager,
+									SubFilter: &networking.EnvoyFilter_WaypointMatch_FilterMatch_SubFilterMatch{Name: "router"},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"},
+		{name: "waypoint with sub filter match and invalid filter name", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{
+								Filter: &networking.EnvoyFilter_WaypointMatch_FilterMatch{
+									Name:      "random",
+									SubFilter: &networking.EnvoyFilter_WaypointMatch_FilterMatch_SubFilterMatch{Name: "router"},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: subfilter match requires filter match with envoy.filters.network.http_connection_manager"},
+		{name: "waypoint with sub filter match and no sub filter name", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{
+								Filter: &networking.EnvoyFilter_WaypointMatch_FilterMatch{
+									Name:      wellknown.HTTPConnectionManager,
+									SubFilter: &networking.EnvoyFilter_WaypointMatch_FilterMatch_SubFilterMatch{},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: subfilter match has no name to match on"},
+		{name: "waypoint with deprecated filter name", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{
+								Filter: &networking.EnvoyFilter_WaypointMatch_FilterMatch{
+									Name: "envoy.http_connection_manager",
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "", warning: "using deprecated filter name"},
+		{name: "waypoint valid config", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{
+								PortNumber: 8080,
+								Filter: &networking.EnvoyFilter_WaypointMatch_FilterMatch{
+									Name: wellknown.HTTPConnectionManager,
+									SubFilter: &networking.EnvoyFilter_WaypointMatch_FilterMatch_SubFilterMatch{
+										Name: "envoy.filters.http.router",
+									},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: ""},
+		{name: "waypoint invalid patch value", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_WAYPOINT,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
+								"name": {
+									Kind: &structpb.Value_BoolValue{BoolValue: false},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, error: `Envoy filter: json: cannot unmarshal bool into Go value of type string`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
