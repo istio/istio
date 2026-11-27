@@ -15,7 +15,8 @@
 ##################################################################################################
 # This file defines the same services, service accounts, and deployments as bookinfo.yaml with
 # added securityContext fields to allow the bookinfo demo to run on a PodSecurityAdmission
-# enabled cluster that enforces the baseline policy.
+# enabled cluster that enforces the baseline or restricted policy. When using sidecars, either
+# policy requires the Istio CNI plugin; no extra setup is needed in ambient mode.
 ##################################################################################################
 
 ##################################################################################################
@@ -62,6 +63,9 @@ spec:
         version: v1
     spec:
       serviceAccountName: bookinfo-details
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: details
         image: docker.io/istio/examples-bookinfo-details-v1:1.20.3
@@ -72,7 +76,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - all
+              - ALL
           runAsNonRoot: true
 ---
 ##################################################################################################
@@ -119,6 +123,9 @@ spec:
         version: v1
     spec:
       serviceAccountName: bookinfo-ratings
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: ratings
         image: docker.io/istio/examples-bookinfo-ratings-v1:1.20.3
@@ -129,7 +136,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - all
+              - ALL
           runAsNonRoot: true
 ---
 ##################################################################################################
@@ -176,6 +183,9 @@ spec:
         version: v1
     spec:
       serviceAccountName: bookinfo-reviews
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: reviews
         image: docker.io/istio/examples-bookinfo-reviews-v1:1.20.3
@@ -189,15 +199,19 @@ spec:
         - name: tmp
           mountPath: /tmp
         - name: wlp-output
-          mountPath: /opt/ibm/wlp/output
+          mountPath: /opt/ol/wlp/output
+        - name: config-dropins
+          mountPath: /opt/ol/wlp/usr/servers/defaultServer/configDropins/defaults
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - all
+              - ALL
           runAsNonRoot: true
       volumes:
       - name: wlp-output
+        emptyDir: {}
+      - name: config-dropins
         emptyDir: {}
       - name: tmp
         emptyDir: {}
@@ -222,6 +236,9 @@ spec:
         version: v2
     spec:
       serviceAccountName: bookinfo-reviews
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: reviews
         image: docker.io/istio/examples-bookinfo-reviews-v2:1.20.3
@@ -235,15 +252,19 @@ spec:
         - name: tmp
           mountPath: /tmp
         - name: wlp-output
-          mountPath: /opt/ibm/wlp/output
+          mountPath: /opt/ol/wlp/output
+        - name: config-dropins
+          mountPath: /opt/ol/wlp/usr/servers/defaultServer/configDropins/defaults
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - all
+              - ALL
           runAsNonRoot: true
       volumes:
       - name: wlp-output
+        emptyDir: {}
+      - name: config-dropins
         emptyDir: {}
       - name: tmp
         emptyDir: {}
@@ -268,6 +289,9 @@ spec:
         version: v3
     spec:
       serviceAccountName: bookinfo-reviews
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: reviews
         image: docker.io/istio/examples-bookinfo-reviews-v3:1.20.3
@@ -281,15 +305,19 @@ spec:
         - name: tmp
           mountPath: /tmp
         - name: wlp-output
-          mountPath: /opt/ibm/wlp/output
+          mountPath: /opt/ol/wlp/output
+        - name: config-dropins
+          mountPath: /opt/ol/wlp/usr/servers/defaultServer/configDropins/defaults
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - all
+              - ALL
           runAsNonRoot: true
       volumes:
       - name: wlp-output
+        emptyDir: {}
+      - name: config-dropins
         emptyDir: {}
       - name: tmp
         emptyDir: {}
@@ -342,6 +370,9 @@ spec:
         version: v1
     spec:
       serviceAccountName: bookinfo-productpage
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: productpage
         image: docker.io/istio/examples-bookinfo-productpage-v1:1.20.3
@@ -355,7 +386,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - all
+              - ALL
           runAsNonRoot: true
       volumes:
       - name: tmp
