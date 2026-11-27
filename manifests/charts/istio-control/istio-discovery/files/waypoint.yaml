@@ -254,6 +254,8 @@ spec:
           name: workload-socket
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
+        - mountPath: /var/run/secrets/istio/crl
+          name: istio-ca-crl
         - mountPath: /var/lib/istio/data
           name: istio-data
         - mountPath: /etc/istio/proxy
@@ -302,6 +304,10 @@ spec:
         configMap:
           name: {{ .Values.global.trustBundleName | default "istio-ca-root-cert" }}
       {{- end }}
+      - name: istio-ca-crl
+        configMap:
+          name: {{ (.Values.pilot).crlConfigMapName | default "istio-ca-crl" }}
+          optional: true
       {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- range .Values.global.imagePullSecrets }}
