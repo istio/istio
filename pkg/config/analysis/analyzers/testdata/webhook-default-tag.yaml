@@ -1,0 +1,82 @@
+# A revisioned injector, a non-default tag, and the default tag, which injects into istio-injection=enabled namespaces.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-sidecar-injector-1-24
+  labels:
+    istio.io/rev: 1-24
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: istiod-1-24
+      namespace: istio-system
+  name: rev.namespace.sidecar-injector.istio.io
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: In
+      values:
+      - 1-24
+    - key: istio-injection
+      operator: DoesNotExist
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-revision-tag-canary
+  labels:
+    istio.io/rev: 1-24
+    istio.io/tag: canary
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: istiod-1-24
+      namespace: istio-system
+  name: rev.namespace.sidecar-injector.istio.io
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: In
+      values:
+      - canary
+    - key: istio-injection
+      operator: DoesNotExist
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod-1-24
+  namespace: istio-system
+spec: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-revision-tag-default
+  labels:
+    istio.io/rev: 1-24
+    istio.io/tag: default
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: istiod-1-24
+      namespace: istio-system
+  name: namespace.sidecar-injector.istio.io
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"

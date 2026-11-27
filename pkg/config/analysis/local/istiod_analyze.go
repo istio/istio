@@ -359,9 +359,13 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 	namespaceFieldSelector := ignoredNamespacesSelectorForField("metadata.name")
 	generalSelectors := ignoredNamespacesSelectorForField("metadata.namespace")
 
+	// Webhooks are read for every revision, so the webhook analyzer can find the default revision or tag even when
+	// another revision is analyzed.
+	revisionless := kuberesource.DefaultExcludedSchemas().Add(collections.MutatingWebhookConfiguration)
+
 	// TODO: are either of these string constants intended to vary?
 	// We gets Istio CRD resources with a specific revision.
-	krs := sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...)
+	krs := sa.kubeResources.Remove(revisionless.All()...)
 	if remote {
 		krs = krs.Remove(kuberesource.DefaultRemoteClusterExcludedSchemas().All()...)
 	}
@@ -379,7 +383,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 	sa.stores = append(sa.stores, store)
 
 	// We gets service discovery resources without a specific revision.
-	krs = sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas())
+	krs = sa.kubeResources.Intersect(revisionless)
 	if remote {
 		krs = krs.Remove(kuberesource.DefaultRemoteClusterExcludedSchemas().All()...)
 	}
