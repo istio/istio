@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -26,9 +27,6 @@ import (
 )
 
 const (
-	// The name of the ClusterTrustBundle resource that will store Istio's root certificate
-	istioClusterTrustBundleName = "istio.io:istiod-ca:root-cert"
-
 	// The signerName of the ClusterTrustBundle
 	istioClusterTrustBundleSignerName = "istio.io/istiod-ca"
 
@@ -48,12 +46,14 @@ type Controller struct {
 	caBundleWatcher     *keycertbundle.Watcher
 	queue               controllers.Queue
 	clustertrustbundles kclient.Client[*certificatesv1beta1.ClusterTrustBundle]
+	trustBundleName     string
 }
 
 // NewController creates a new ClusterTrustBundleController
 func NewController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher) *Controller {
 	c := &Controller{
 		caBundleWatcher: caBundleWatcher,
+		trustBundleName: features.ClusterTrustBundleName,
 	}
 
 	c.queue = controllers.NewQueue("clustertrustbundle controller",
@@ -61,7 +61,7 @@ func NewController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watche
 		controllers.WithMaxAttempts(maxRetries))
 
 	c.clustertrustbundles = kclient.NewFiltered[*certificatesv1beta1.ClusterTrustBundle](kubeClient, kclient.Filter{
-		FieldSelector: "metadata.name=" + istioClusterTrustBundleName,
+		FieldSelector: "metadata.name=" + c.trustBundleName,
 		ObjectFilter:  kubeClient.ObjectFilter(),
 	})
 
@@ -79,7 +79,7 @@ func (c *Controller) startCaBundleWatcher(stop <-chan struct{}) {
 		case <-watchCh:
 			c.queue.AddObject(&certificatesv1beta1.ClusterTrustBundle{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: istioClusterTrustBundleName,
+					Name: c.trustBundleName,
 				},
 			})
 		case <-stop:
@@ -89,7 +89,7 @@ func (c *Controller) startCaBundleWatcher(stop <-chan struct{}) {
 }
 
 func (c *Controller) reconcileClusterTrustBundle(o types.NamespacedName) error {
-	if o.Name == istioClusterTrustBundleName {
+	if o.Name == c.trustBundleName {
 		return c.updateClusterTrustBundle(c.caBundleWatcher.GetCABundle())
 	}
 	return nil
@@ -105,7 +105,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	// queue an initial event
 	c.queue.AddObject(&certificatesv1beta1.ClusterTrustBundle{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: istioClusterTrustBundleName,
+			Name: c.trustBundleName,
 		},
 	})
 
@@ -117,7 +117,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 func (c *Controller) updateClusterTrustBundle(rootCert []byte) error {
 	bundle := &certificatesv1beta1.ClusterTrustBundle{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: istioClusterTrustBundleName,
+			Name: c.trustBundleName,
 		},
 		Spec: certificatesv1beta1.ClusterTrustBundleSpec{
 			SignerName:  istioClusterTrustBundleSignerName,
@@ -125,7 +125,7 @@ func (c *Controller) updateClusterTrustBundle(rootCert []byte) error {
 		},
 	}
 
-	existing := c.clustertrustbundles.Get(istioClusterTrustBundleName, "")
+	existing := c.clustertrustbundles.Get(c.trustBundleName, "")
 	if existing != nil {
 		if existing.Spec.TrustBundle == string(rootCert) {
 			// trustbundle is up to date. nothing to do

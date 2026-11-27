@@ -21,7 +21,7 @@ spec:
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
         PILOT_ENABLE_ALPHA_GATEWAY_API: "true"
-        ENABLE_CLUSTER_TRUST_BUNDLE_API: "true"
+        ENABLE_CLUSTER_TRUST_BUNDLE_API: true
     global:
       proxy:
         resources:
