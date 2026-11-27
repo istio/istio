@@ -38,7 +38,7 @@ import (
 // The following is the merge logic:
 // 1. Unique subsets (based on subset name) are concatenated to the original rule's list of subsets
 // 2. If the original rule did not have any top level traffic policy, traffic policies from the new rule will be
-// used.
+// used. Port level settings for distinct ports are concatenated; the first setting wins for duplicate ports.
 // 3. If the original rule did not have any exportTo, exportTo settings from the new rule will be used.
 //
 // When a user authored DestinationRule and a DestinationRule synthesized from a Gateway API backend policy
@@ -103,8 +103,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			}
 			// we have another destination rule for same host.
 			// concatenate both of them -- essentially add subsets from one to other.
-			// Note: we only add the subsets and do not overwrite anything else like exportTo or top level
-			// traffic policies if they already exist
+			// Existing subsets are not overwritten. Traffic policies are merged separately below.
 			for _, subset := range rule.Subsets {
 				if !existingSubset.Contains(subset.Name) {
 					// if not duplicated, append
@@ -122,10 +121,21 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			switch {
 			case existingIsBackendPolicy == incomingIsBackendPolicy:
 				// Both rules have the same origin (both user authored or both synthesized).
-				// Keep the first-wins behavior: only adopt the incoming top level policy when
-				// the merged rule does not have one yet.
+				// Keep the first-wins behavior for top level fields and duplicate ports,
+				// but retain incoming settings for ports not yet configured.
 				if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
 					mergedRule.TrafficPolicy = rule.TrafficPolicy
+				} else if rule.TrafficPolicy != nil {
+					existingPorts := sets.New[uint32]()
+					for _, setting := range mergedRule.TrafficPolicy.PortLevelSettings {
+						existingPorts.Insert(setting.GetPort().GetNumber())
+					}
+					for _, setting := range rule.TrafficPolicy.PortLevelSettings {
+						if !existingPorts.Contains(setting.GetPort().GetNumber()) {
+							mergedRule.TrafficPolicy.PortLevelSettings = append(mergedRule.TrafficPolicy.PortLevelSettings, setting)
+							existingPorts.Insert(setting.GetPort().GetNumber())
+						}
+					}
 				}
 			case incomingIsBackendPolicy:
 				// The merged rule is user authored and the incoming one is synthesized from a

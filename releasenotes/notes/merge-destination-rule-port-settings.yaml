@@ -1,0 +1,18 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60169
+releaseNotes:
+  - |
+    **Fixed** merging of DestinationRules for the same host to retain traffic policies
+    for distinct ports. When multiple rules configure the same port, the first rule's
+    entire port policy continues to take precedence. Other destination-level settings
+    retain their existing precedence, including user rules taking precedence over
+    synthesized Gateway API backend policies.
+upgradeNotes:
+  - title: DestinationRule port settings are merged across rules
+    content: |
+      Port-level traffic settings from later DestinationRules for the same host are now
+      applied when earlier rules do not configure that port. Previously these settings
+      were ignored if an earlier rule already had a traffic policy.
