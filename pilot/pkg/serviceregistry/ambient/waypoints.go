@@ -62,7 +62,7 @@ type Waypoint struct {
 	// waypoint. Must be one of "all", "service", "workload".
 	TrafficType string
 
-	// ServiceAccounts from instances of the waypoint.
+	// Unique, sorted ServiceAccounts from instances of the waypoint.
 	// This only handles Pods. If we wish to support non-pod waypoints, we'll
 	// want to index ServiceEntry/WorkloadEntry or possibly allow specifying
 	// the ServiceAccounts directly on a Gateway resource.
@@ -557,7 +557,7 @@ func makeWaypoint(
 		DefaultBinding:  binding,
 		AllowedRoutes:   makeAllowedRoutes(gateway, binding),
 		TrafficType:     trafficType,
-		ServiceAccounts: slices.Sort(serviceAccounts),
+		ServiceAccounts: slices.FilterDuplicatesPresorted(slices.Sort(serviceAccounts)),
 	}
 }
 
