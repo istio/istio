@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** a case where CDS did not update when the auto-mTLS mode inferred for a headless Service,
+    or a Service whose DestinationRule uses a `PASSTHROUGH` load balancer, changed.
+    The mode depends on the endpoints in all clusters, so it can change when endpoints appear, disappear, or change TLS mode.
