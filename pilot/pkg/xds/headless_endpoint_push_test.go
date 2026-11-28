@@ -183,6 +183,53 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 	}
 }
 
+func TestFilterNdsPushCoalescedEndpointUpdates(t *testing.T) {
+	service := model.ConfigKey{Kind: kind.ServiceEntry, Name: "db.default.svc.cluster.local", Namespace: "default"}
+	endpoint := model.ConfigKey{Kind: kind.Endpoints, Name: service.Name, Namespace: service.Namespace}
+	request := &model.PushRequest{
+		Reason:         model.NewReasonStats(model.HeadlessEndpointUpdate, model.EndpointUpdate),
+		ConfigsUpdated: sets.New(service, endpoint),
+	}
+
+	filtered, needsPush := filterNdsPush(request, &model.Proxy{Type: model.SidecarProxy})
+	if !needsPush {
+		t.Fatal("coalesced headless endpoint update did not trigger NDS")
+	}
+	if len(filtered.ConfigsUpdated) != 1 || !filtered.ConfigsUpdated.Contains(service) {
+		t.Fatalf("filtered updates = %v, want only %v", filtered.ConfigsUpdated, service)
+	}
+	if !filtered.Reason.Has(model.HeadlessEndpointUpdate) || !filtered.Reason.Has(model.EndpointUpdate) {
+		t.Fatalf("filtered reasons = %v, want both endpoint reasons", filtered.Reason)
+	}
+}
+
+func TestSupportsDeltaNDS(t *testing.T) {
+	proxy := func(autoAllocate bool) *model.Proxy {
+		return &model.Proxy{
+			Metadata:     &model.NodeMetadata{DeltaNDS: true, DNSAutoAllocate: model.StringBool(autoAllocate), IstioVersion: "1.33.0"},
+			IstioVersion: model.ParseIstioVersion("1.33.0"),
+		}
+	}
+	tests := []struct {
+		name         string
+		ipAutoAlloc  bool
+		autoAllocate bool
+		want         bool
+	}{
+		{name: "new allocator", ipAutoAlloc: true, autoAllocate: true, want: true},
+		{name: "legacy allocator", autoAllocate: true},
+		{name: "no auto allocation", want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableIPAutoallocate, tt.ipAutoAlloc)
+			if got := supportsDeltaNDS(proxy(tt.autoAllocate)); got != tt.want {
+				t.Fatalf("supportsDeltaNDS() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRdsNeedsPushCoalescedHeadlessUpdate(t *testing.T) {
 	// ConfigsUpdated filtering is only exercised by true delta route generation
 	// (BuildDeltaHTTPRoutes); it is skipped as a no-op fast path otherwise.

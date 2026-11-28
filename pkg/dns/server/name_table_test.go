@@ -15,6 +15,7 @@
 package server_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -30,7 +31,10 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	dnsServer "istio.io/istio/pkg/dns/server"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestNameTable(t *testing.T) {
@@ -1105,5 +1109,94 @@ func TestNameTableGatewayMultiAddressServiceEntry(t *testing.T) {
 	}
 	if diff := cmp.Diff(build(withEmptyEgressListener(newProxy(model.Router))), sidecarTable, protocmp.Transform()); diff != "" {
 		t.Errorf("gateway (with empty egress listener) name table differs from sidecar name table (-gateway +sidecar):\n%s", diff)
+	}
+}
+
+// TestNameTablesByHostnameGateway verifies that the per-hostname (Delta NDS) name tables of a gateway hold the
+// same names as its SotW name table, one resource per hostname.
+func TestNameTablesByHostnameGateway(t *testing.T) {
+	newService := func(hostname, namespace, address string, registry provider.ID) *model.Service {
+		return &model.Service{
+			Hostname:       host.Name(hostname),
+			DefaultAddress: address,
+			Ports:          model.PortList{&model.Port{Name: "http-port", Port: 8080, Protocol: protocol.HTTP}},
+			Resolution:     model.ClientSideLB,
+			Attributes: model.ServiceAttributes{
+				Name:            strings.Split(hostname, ".")[0],
+				Namespace:       namespace,
+				ServiceRegistry: registry,
+			},
+		}
+	}
+	headless := newService("headless-svc.testns.svc.cluster.local", "testns", constants.UnspecifiedIP, provider.Kubernetes)
+	headless.Resolution = model.Passthrough
+	clusterIP := newService("clusterip-svc.testns.svc.cluster.local", "testns", "10.0.0.10", provider.Kubernetes)
+	// A ServiceEntry with multiple addresses has one service per address.
+	mysqlVIP1 := newService("mysql.foo.bar", "testns", "10.0.0.5", provider.External)
+	mysqlVIP2 := mysqlVIP1.ShallowCopy()
+	mysqlVIP2.DefaultAddress = "10.0.0.6"
+	// ServiceEntries for the same hostname in different namespaces.
+	sharedA := newService("shared.example.com", "ns-a", "192.0.2.1", provider.External)
+	sharedB := newService("shared.example.com", "ns-b", "192.0.2.2", provider.External)
+
+	push := model.NewPushContext()
+	push.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+	push.AddPublicServices([]*model.Service{headless, clusterIP, mysqlVIP1, mysqlVIP2, sharedA, sharedB})
+	pod := &model.Proxy{IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{}, Type: model.SidecarProxy}
+	push.AddServiceInstances(headless, makeServiceInstances(pod, headless, "pod1", "headless-svc", model.Healthy))
+
+	newGateway := func() *model.Proxy {
+		p := &model.Proxy{
+			IPAddresses:     []string{"9.9.9.9"},
+			Metadata:        &model.NodeMetadata{Namespace: "testns"},
+			Type:            model.Router,
+			ConfigNamespace: "testns",
+			DNSDomain:       "testns.svc.cluster.local",
+		}
+		p.SetSidecarScope(push)
+		p.DiscoverIPMode()
+		return p
+	}
+	ignoreAliases := protocmp.IgnoreFields(&dnsProto.NameTable_NameInfo{}, "aliases")
+
+	for name, gateway := range map[string]*model.Proxy{
+		"default":               newGateway(),
+		"empty egress listener": withEmptyEgressListener(newGateway()),
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := dnsServer.Config{Node: gateway, Push: push, MulticlusterHeadlessEnabled: true}
+			tables := dnsServer.BuildNameTablesByHostname(cfg, nil)
+
+			wantHostnames := []string{
+				clusterIP.Hostname.String(), headless.Hostname.String(), mysqlVIP1.Hostname.String(), sharedA.Hostname.String(),
+			}
+			if diff := cmp.Diff(wantHostnames, slices.Sort(maps.Keys(tables))); diff != "" {
+				t.Fatalf("unexpected hostnames (-want +got):\n%s", diff)
+			}
+			merged := &dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{}}
+			for _, table := range tables {
+				for name, info := range table.Table {
+					merged.Table[name] = info
+				}
+			}
+			if diff := cmp.Diff(dnsServer.BuildNameTable(cfg), merged, protocmp.Transform(), ignoreAliases); diff != "" {
+				t.Fatalf("per-hostname tables differ from the SotW table (-sotw +delta):\n%s", diff)
+			}
+			if _, f := tables[headless.Hostname.String()].Table["pod1.headless-svc.testns.svc.cluster.local"]; !f {
+				t.Fatalf("headless resource is missing its pod name: %v", nameTableKeys(tables[headless.Hostname.String()]))
+			}
+			wantAliases := []string{"clusterip-svc", "clusterip-svc.testns", "clusterip-svc.testns.svc"}
+			if diff := cmp.Diff(wantAliases, tables[clusterIP.Hostname.String()].Table[clusterIP.Hostname.String()].GetAliases()); diff != "" {
+				t.Fatalf("unexpected aliases (-want +got):\n%s", diff)
+			}
+
+			partial := dnsServer.BuildNameTablesByHostname(cfg, sets.New(sharedA.Hostname.String(), "missing.example.com"))
+			want := map[string]*dnsProto.NameTable{sharedA.Hostname.String(): {Table: map[string]*dnsProto.NameTable_NameInfo{
+				sharedA.Hostname.String(): {Ips: []string{"192.0.2.1", "192.0.2.2"}, Registry: provider.External.String()},
+			}}}
+			if diff := cmp.Diff(want, partial, protocmp.Transform()); diff != "" {
+				t.Fatalf("unexpected partial tables (-want +got):\n%s", diff)
+			}
+		})
 	}
 }

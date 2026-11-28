@@ -21,6 +21,7 @@ import (
 	"net/netip"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	dnsutil "istio.io/istio/pkg/dns"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
@@ -46,6 +48,9 @@ type LocalDNSServer struct {
 
 	// nameTable holds the original NameTable, for debugging
 	nameTable atomic.Value
+	// nameIndex builds the lookup table from Delta NDS resources; indexMu guards it.
+	indexMu   sync.Mutex
+	nameIndex *nameIndex
 
 	dnsProxies []*dnsProxy
 
@@ -80,6 +85,15 @@ type LookupTable struct {
 	// The cname records here (comprised of different variants of the hosts above,
 	// expanded by the search namespaces) pointing to the actual host.
 	cname map[string][]dns.RR
+}
+
+func newLookupTable() *LookupTable {
+	return &LookupTable{
+		allHosts: sets.String{},
+		name4:    map[string][]dns.RR{},
+		name6:    map[string][]dns.RR{},
+		cname:    map[string][]dns.RR{},
+	}
 }
 
 const (
@@ -214,16 +228,45 @@ func (h *LocalDNSServer) StartDNS() {
 }
 
 func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
-	lookupTable := &LookupTable{
-		allHosts: sets.String{},
-		name4:    map[string][]dns.RR{},
-		name6:    map[string][]dns.RR{},
-		cname:    map[string][]dns.RR{},
-	}
+	lookupTable := newLookupTable()
 	h.BuildAlternateHosts(nt, lookupTable.buildDNSAnswers)
+	h.indexMu.Lock()
+	// A full table replaces any Delta NDS state.
+	h.nameIndex = nil
 	h.lookupTable.Store(lookupTable)
+	h.indexMu.Unlock()
 	h.nameTable.Store(nt)
 	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
+}
+
+// ApplyNameTables applies Delta NDS resources, keyed by service hostname, and removed hostnames to the lookup table.
+// Istiod sends every name and alias each hostname produces, so names claimed by several resources are resolved here.
+// Only the names affected by the change are recomputed. Like UpdateLookupTable, the changes are applied to a copy
+// that is then published, so queries never wait for an update.
+func (h *LocalDNSServer) ApplyNameTables(updated map[string]*dnsProto.NameTable, removed []string) {
+	h.indexMu.Lock()
+	defer h.indexMu.Unlock()
+	var lookupTable *LookupTable
+	if h.nameIndex == nil {
+		// Start from an empty table rather than one published by UpdateLookupTable.
+		h.nameIndex = newNameIndex(h.searchNamespaces)
+		lookupTable = newLookupTable()
+	}
+	records := h.nameIndex.apply(updated, removed)
+	if lookupTable == nil {
+		// Skip names whose answers are unchanged, such as when only a losing candidate changed.
+		current := h.lookupTable.Load().(*LookupTable)
+		records = slices.FilterInPlace(records, func(r nameRecord) bool { return !current.holds(r) })
+		if len(records) == 0 {
+			return
+		}
+		lookupTable = current.clone()
+	}
+	for _, r := range records {
+		lookupTable.set(r)
+	}
+	h.lookupTable.Store(lookupTable)
+	log.Debugf("updated %d names from %d resources, %d removed", len(records), len(updated), len(removed))
 }
 
 // BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and
@@ -238,7 +281,7 @@ func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
 		// shortname+. is only for hosts in current namespace
 		var altHosts sets.String
 		if ni.Registry == string(provider.Kubernetes) {
-			altHosts = generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
+			altHosts = dnsutil.GenerateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
 			if !strings.HasSuffix(hostname, ".") {
 				hostname += "."
@@ -342,11 +385,22 @@ func (h *LocalDNSServer) IsReady() bool {
 }
 
 func (h *LocalDNSServer) NameTable() *dnsProto.NameTable {
+	table, _ := h.NameTableSnapshot()
+	return table
+}
+
+// NameTableSnapshot returns the current table and whether it already holds every final name.
+func (h *LocalDNSServer) NameTableSnapshot() (table *dnsProto.NameTable, resolved bool) {
+	h.indexMu.Lock()
+	defer h.indexMu.Unlock()
+	if h.nameIndex != nil {
+		return h.nameIndex.nameTable(), true
+	}
 	lt := h.nameTable.Load()
 	if lt == nil {
-		return nil
+		return nil, false
 	}
-	return lt.(*dnsProto.NameTable)
+	return lt.(*dnsProto.NameTable), false
 }
 
 // Inspired by https://github.com/coredns/coredns/blob/master/plugin/loadbalance/loadbalance.go
@@ -503,37 +557,6 @@ func serverFailure(req *dns.Msg) *dns.Msg {
 	response.SetReply(req)
 	response.Rcode = dns.RcodeServerFailure
 	return response
-}
-
-func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, proxyNamespace, proxyDomain string,
-	proxyDomainParts []string,
-) sets.String {
-	out := sets.New[string]()
-	if strings.HasSuffix(hostname, ".") {
-		return out
-	}
-	out.Insert(hostname + ".")
-	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
-	// as we have no way to resolve conflicts on name.namespace entries across clusters of different domains
-	if proxyDomain == "" || !strings.HasSuffix(hostname, proxyDomain) {
-		return out
-	}
-	out.Insert(nameinfo.Shortname + "." + nameinfo.Namespace + ".")
-	if proxyNamespace == nameinfo.Namespace {
-		out.Insert(nameinfo.Shortname + ".")
-	}
-	// Do we need to generate entries for name.namespace.svc, name.namespace.svc.cluster, etc. ?
-	// If these are not that frequently used, then not doing so here will save some space and time
-	// as some people have very long proxy domains with multiple dots
-	// For now, we will generate just one more domain (which is usually the .svc piece).
-	out.Insert(nameinfo.Shortname + "." + nameinfo.Namespace + "." + proxyDomainParts[0] + ".")
-
-	// Add any additional alt hostnames.
-	// nolint: staticcheck
-	for _, altHost := range nameinfo.AltHosts {
-		out.Insert(altHost + ".")
-	}
-	return out
 }
 
 // Given a host, this function first decides if the host is part of our service registry.

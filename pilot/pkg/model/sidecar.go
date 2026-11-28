@@ -905,6 +905,21 @@ func (sc *SidecarScope) ServicesByHostname() map[host.Name]*Service {
 	return sc.servicesByHostname
 }
 
+// ServicesForEgressHostname returns the egress listener services for the hostname, in listener order, including
+// those shadowed by ServicesByHostname.
+func (sc *SidecarScope) ServicesForEgressHostname(hostname host.Name) []*Service {
+	if sc.shadowedServicesByHostname == nil {
+		return nil
+	}
+	if services, f := sc.shadowedServicesByHostname[hostname]; f {
+		return services
+	}
+	if svc := sc.servicesByHostname[hostname]; svc != nil {
+		return []*Service{svc}
+	}
+	return nil
+}
+
 // Testing Only. This allows tests to inject a config without having the mock.
 func (sc *SidecarScope) SetDestinationRulesForTesting(configs []config.Config) {
 	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)

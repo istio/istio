@@ -54,6 +54,20 @@ func filterRelevantUpdates(proxy *model.Proxy, req *model.PushRequest) *model.Pu
 				continue
 			}
 		}
+		// A filtered key can still be needed to fix a stale Delta NDS entry of the proxy. It is requeued as DNSName,
+		// which only NDS pushes. For example:
+		//   - Renaming a ServiceEntry host from old.com to new.com publishes new.com, then old.com. If they land in
+		//     separate pushes, the first sends only new.com and by the second neither scope has old.com. old.com is
+		//     requeued and removed.
+		//   - On a gateway with PILOT_FILTER_GATEWAY_CLUSTER_CONFIG, a stale hostname that a VirtualService of the
+		//     gateway routes to is requeued and removed. Other stale hostnames are left to the next full push.
+		//   - Renaming h.com in namespace b, when a also has it, leaves b's address in h.com. h.com is requeued and
+		//     rebuilt with only a's address.
+		if key, ok := staleNameTableKey(proxy, config, req.Push); ok {
+			relevantUpdates.Insert(key)
+			changed = true
+			continue
+		}
 
 		// we have filtered out a config
 		changed = true
@@ -100,10 +114,7 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	// Detailed config dependencies check.
 	switch proxy.Type {
 	case model.Router:
-		// With filtered gateway clusters, only services referenced by the proxy's gateways are pushed,
-		// whatever their visibility. The ServiceEntry key names the service's FQDN.
-		if config.Kind == kind.ServiceEntry && features.FilterGatewayClusterConfig &&
-			!push.ServiceAttachedToGateway(config.Name, config.Namespace, proxy) {
+		if filteredForGateway(proxy, config, push) {
 			return false
 		}
 		// fallthrough to the standard sidecar proxy dependency check.
@@ -119,6 +130,31 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 		return true
 	}
 	return false
+}
+
+// filteredForGateway reports whether a gateway with filtered gateway clusters skips the config. Only services
+// referenced by the proxy's gateways are pushed, whatever their visibility. The ServiceEntry key names the FQDN.
+func filteredForGateway(proxy *model.Proxy, config model.ConfigKey, push *model.PushContext) bool {
+	return proxy.Type == model.Router && config.Kind == kind.ServiceEntry && features.FilterGatewayClusterConfig &&
+		!push.ServiceAttachedToGateway(config.Name, config.Namespace, proxy)
+}
+
+// staleNameTableKey returns the DNSName key for a ServiceEntry or DNSName key of a hostname the proxy has a Delta NDS
+// resource for.
+func staleNameTableKey(proxy *model.Proxy, config model.ConfigKey, push *model.PushContext) (model.ConfigKey, bool) {
+	if (config.Kind != kind.ServiceEntry && config.Kind != kind.DNSName) ||
+		!proxyNameTableHasHostname(proxy, config.Name) || filteredForGateway(proxy, config, push) {
+		return model.ConfigKey{}, false
+	}
+	return model.ConfigKey{Kind: kind.DNSName, Name: config.Name, Namespace: config.Namespace}, true
+}
+
+// proxyNameTableHasHostname reports whether the proxy has a Delta NDS resource for the hostname.
+func proxyNameTableHasHostname(proxy *model.Proxy, hostname string) bool {
+	proxy.RLock()
+	defer proxy.RUnlock()
+	wr := proxy.WatchedResources[v3.NameTableType]
+	return wr != nil && wr.ResourceNames.Contains(hostname)
 }
 
 // DefaultProxyNeedsPush check if a proxy needs push for this push event and returns a new PushRequest in the case
