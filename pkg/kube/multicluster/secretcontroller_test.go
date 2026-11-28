@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -1290,4 +1291,43 @@ func TestMeshConfigMapName(t *testing.T) {
 			assert.Equal(t, meshConfigMapName(revision), want)
 		})
 	}
+}
+
+type testShutdownHandler struct {
+	testHandler
+	Shutdowns *uberatomic.Int32
+}
+
+func (h testShutdownHandler) Shutdown() {
+	h.Shutdowns.Inc()
+}
+
+// A component implementing Shutdowner is shut down, not closed, when the controller stops, and stays registered.
+func TestShutdownUsesShutdowner(t *testing.T) {
+	stop := make(chan struct{})
+	closeStop := sync.OnceFunc(func() { close(stop) })
+	t.Cleanup(closeStop)
+	c := buildTestController(t, true)
+	component := BuildMultiClusterComponent(c.controller, func(cluster *Cluster) testShutdownHandler {
+		return testShutdownHandler{
+			testHandler: testHandler{ID: cluster.ID, Closed: uberatomic.NewBool(false), Synced: uberatomic.NewBool(true)},
+			Shutdowns:   uberatomic.NewInt32(0),
+		}
+	})
+	c.Run(stop)
+	retry.UntilOrFail(t, c.controller.HasSynced, retry.Timeout(2*time.Second))
+	config := *component.ForCluster("config")
+
+	closeStop()
+	select {
+	case <-c.controller.stop:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for shutdown")
+	}
+
+	assert.Equal(t, config.Shutdowns.Load(), int32(1))
+	assert.Equal(t, config.Closed.Load(), false)
+	assert.Equal(t, component.ForCluster("config") != nil, true)
+	// Components without Shutdown are still closed.
+	assert.Equal(t, c.ConfigClusterHandler().Closed.Load(), true)
 }

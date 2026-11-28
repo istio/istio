@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62993
+releaseNotes:
+  - |
+    **Fixed** an issue where istiod could send EDS responses with no endpoints to connected proxies while shutting down,
+    causing `503 UH` errors until those proxies reconnected to another istiod instance.

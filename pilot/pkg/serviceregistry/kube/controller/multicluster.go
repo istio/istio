@@ -96,6 +96,16 @@ func (k *kubeController) Close() {
 	}
 }
 
+// Shutdown stops the controller when istiod is stopping. Unlike Close, the registry and its
+// endpoint shard are kept: xDS streams stay open while the server drains, and would otherwise
+// be sent empty endpoints.
+func (k *kubeController) Shutdown() {
+	close(k.stop)
+	if err := k.Controller.Cleanup(false); err != nil {
+		log.Warnf("failed cleaning up services in %s: %v", k.Controller.clusterID, err)
+	}
+}
+
 // liveServiceHosts returns the hostname/namespace pairs registry currently knows about, for use
 // as the "keep" set passed to XDSUpdater.PruneShard once registry's initial sync completes.
 func liveServiceHosts(registry *Controller) map[string]sets.String {

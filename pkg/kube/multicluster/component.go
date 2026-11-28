@@ -35,6 +35,13 @@ type ComponentConstraint interface {
 	HasSynced() bool
 }
 
+// Shutdowner is optionally implemented by components to distinguish controller shutdown from
+// cluster deletion. Shutdown must stop the component without removing state it serves.
+// Components without it are closed.
+type Shutdowner interface {
+	Shutdown()
+}
+
 // pendingSwap wraps a new component during an update operation.
 // It tracks both the old and new components, completing the swap only after the new one syncs.
 //

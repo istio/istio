@@ -288,7 +288,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
 		c.queue.Run(stopCh)
-		c.handleDelete(c.configClusterID)
+		c.shutdownConfigCluster()
 	}()
 
 	return nil
@@ -510,6 +510,18 @@ func (c *Controller) handleAdd(cluster *Cluster) []ComponentConstraint {
 func (c *Controller) handleDelete(key cluster.ID) {
 	for _, handler := range c.handlers {
 		handler.clusterDeleted(key)
+	}
+}
+
+// shutdownConfigCluster stops the config cluster's components when the controller stops.
+// The cluster has not been deleted, so the components stay registered.
+func (c *Controller) shutdownConfigCluster() {
+	for _, comp := range c.configClusterSyncers {
+		if s, ok := comp.(Shutdowner); ok {
+			s.Shutdown()
+		} else {
+			comp.Close()
+		}
 	}
 }
 
