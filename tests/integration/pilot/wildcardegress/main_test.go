@@ -17,6 +17,7 @@
 package wildcardegress
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -37,13 +38,21 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.ControlPlaneValues = `
+	cfg.ControlPlaneValues = fmt.Sprintf(`
+meshConfig:
+  serviceSettings:
+  # Keep sidecar to egress gateway traffic in the cluster. Cross cluster pod traffic can be SNATed to the
+  # node IP (e.g. on kind), so ipBlocks at the gateway would not see the caller's pod IP.
+  - settings:
+      clusterLocal: true
+    hosts:
+    - %s.%s.svc.cluster.local
 values:
   pilot:
     env:
       # Gateway support for TLS wildcard DYNAMIC_DNS ServiceEntries is alpha and gated by this flag.
       ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: "true"
-`
+`, cfg.EgressGatewayServiceName, cfg.EgressGatewayServiceNamespace)
 }
 
 func TestMain(m *testing.M) {
