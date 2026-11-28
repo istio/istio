@@ -599,8 +599,8 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir, endpoint, names
 		scopes.Framework.Warnf("failed dumping %s (cluster %s): %v", endpoint, c.Name(), err)
 		return
 	}
-	outputs := map[string]string{}
-	if err := json.Unmarshal([]byte(stdout), &outputs); err != nil {
+	outputs, err := parseDebugOutput(stdout)
+	if err != nil {
 		scopes.Framework.Warnf("failed dumping %s (cluster %s): %v", endpoint, c.Name(), err)
 		return
 	}
@@ -611,6 +611,27 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir, endpoint, names
 			return
 		}
 	}
+}
+
+// parseDebugOutput returns the responses that `istioctl x internal-debug --all` printed, by the name it printed
+// each one under. The output is a JSON object: a response that is JSON is a value in it as it is, and any other
+// response is a JSON string.
+func parseDebugOutput(stdout string) (map[string]string, error) {
+	values := map[string]json.RawMessage{}
+	if err := json.Unmarshal([]byte(stdout), &values); err != nil {
+		return nil, err
+	}
+	outputs := make(map[string]string, len(values))
+	for istiod, value := range values {
+		out := string(value)
+		if strings.HasPrefix(out, `"`) {
+			if err := json.Unmarshal(value, &out); err != nil {
+				return nil, err
+			}
+		}
+		outputs[istiod] = out
+	}
+	return outputs, nil
 }
 
 func DumpPodAgent(ctx resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
