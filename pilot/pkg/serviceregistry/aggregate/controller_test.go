@@ -324,6 +324,77 @@ func TestAddRegistry(t *testing.T) {
 	}
 }
 
+// A service defined differently across clusters must merge the same way regardless of the order
+// the clusters were registered in.
+func TestKubeRegistryOrder(t *testing.T) {
+	const hostname = "istiod-remote.istio-system.svc.cluster.local"
+	kubeRegistry := func(id cluster.ID, address string, resolution model.Resolution) serviceregistry.Simple {
+		svc := mock.MakeService(mock.ServiceArgs{Hostname: hostname, Address: address, ClusterID: id})
+		svc.Resolution = resolution
+		return serviceregistry.Simple{
+			ProviderID:          provider.Kubernetes,
+			ClusterID:           id,
+			DiscoveryController: memory.NewServiceDiscovery(svc),
+		}
+	}
+	external := serviceregistry.Simple{
+		ProviderID:          provider.External,
+		ClusterID:           "cluster-a",
+		DiscoveryController: memory.NewServiceDiscovery(),
+	}
+	clusterA := kubeRegistry("cluster-a", "10.0.0.10", model.ClientSideLB)
+	clusterB := kubeRegistry("cluster-b", "0.0.0.0", model.Passthrough)
+
+	cases := []struct {
+		name           string
+		configCluster  cluster.ID
+		wantOrder      []cluster.ID
+		wantResolution model.Resolution
+	}{
+		{
+			name:           "ordered by cluster ID",
+			configCluster:  "cluster-c",
+			wantOrder:      []cluster.ID{"cluster-a", "cluster-b"},
+			wantResolution: model.ClientSideLB,
+		},
+		{
+			name:           "config cluster first",
+			configCluster:  "cluster-b",
+			wantOrder:      []cluster.ID{"cluster-b", "cluster-a"},
+			wantResolution: model.Passthrough,
+		},
+	}
+	for _, tt := range cases {
+		for _, added := range [][]serviceregistry.Simple{{external, clusterA, clusterB}, {external, clusterB, clusterA}} {
+			t.Run(fmt.Sprintf("%s/added %s then %s", tt.name, added[1].ClusterID, added[2].ClusterID), func(t *testing.T) {
+				ctrl := NewController(Options{ConfigClusterID: tt.configCluster})
+				for _, r := range added {
+					ctrl.AddRegistry(r)
+				}
+
+				registries := ctrl.GetRegistries()
+				if len(registries) != 3 || registries[2].Provider() != provider.External {
+					t.Fatalf("expected the external registry after the 2 Kubernetes registries, got %v", registries)
+				}
+				if got := []cluster.ID{registries[0].Cluster(), registries[1].Cluster()}; !reflect.DeepEqual(got, tt.wantOrder) {
+					t.Errorf("expected Kubernetes registry order %v, got %v", tt.wantOrder, got)
+				}
+
+				if got := ctrl.GetService(hostname).Resolution; got != tt.wantResolution {
+					t.Errorf("GetService: expected resolution %v, got %v", tt.wantResolution, got)
+				}
+				services := ctrl.Services()
+				if len(services) != 1 {
+					t.Fatalf("expected 1 merged service, got %d", len(services))
+				}
+				if got := services[0].Resolution; got != tt.wantResolution {
+					t.Errorf("Services: expected resolution %v, got %v", tt.wantResolution, got)
+				}
+			})
+		}
+	}
+}
+
 func TestGetDeleteRegistry(t *testing.T) {
 	registries := []serviceregistry.Simple{
 		{
