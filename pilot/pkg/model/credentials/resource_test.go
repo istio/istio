@@ -89,6 +89,42 @@ func TestParseResourceName(t *testing.T) {
 			err:              true,
 		},
 		{
+			name:             "clustertrustbundle",
+			resource:         "clustertrustbundle://bundle",
+			defaultNamespace: "default",
+			expected: SecretResource{
+				ResourceType: KubernetesClusterTrustBundleType,
+				ResourceKind: kind.ClusterTrustBundle,
+				Name:         "bundle",
+				ResourceName: "clustertrustbundle://bundle",
+				Cluster:      "config",
+			},
+		},
+		{
+			name:             "clustertrustbundle with signer name",
+			resource:         "clustertrustbundle://example.com:internal-signer:v1",
+			defaultNamespace: "default",
+			expected: SecretResource{
+				ResourceType: KubernetesClusterTrustBundleType,
+				ResourceKind: kind.ClusterTrustBundle,
+				Name:         "example.com:internal-signer:v1",
+				ResourceName: "clustertrustbundle://example.com:internal-signer:v1",
+				Cluster:      "config",
+			},
+		},
+		{
+			name:             "clustertrustbundle with empty name",
+			resource:         "clustertrustbundle://",
+			defaultNamespace: "default",
+			err:              true,
+		},
+		{
+			name:             "clustertrustbundle with namespace",
+			resource:         "clustertrustbundle://ns/bundle",
+			defaultNamespace: "default",
+			err:              true,
+		},
+		{
 			name:             "kubernetes-gateway without namespace",
 			resource:         "kubernetes-gateway://cert",
 			defaultNamespace: "default",
@@ -140,6 +176,8 @@ func TestToResourceName(t *testing.T) {
 		{"foo", "kubernetes://foo"},
 		{"kubernetes://bar", "kubernetes://bar"},
 		{"kubernetes-gateway://bar", "kubernetes-gateway://bar"},
+		{"configmap://ns/bar", "configmap://ns/bar"},
+		{"clustertrustbundle://bar", "clustertrustbundle://bar"},
 		{"builtin://", "default"},
 		{"builtin://extra", "default"},
 	}

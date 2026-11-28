@@ -38,6 +38,7 @@ var skippedRdsConfigs = func() sets.Set[kind.Kind] {
 		kind.PeerAuthentication,
 		kind.Secret,
 		kind.ConfigMap,
+		kind.ClusterTrustBundle,
 		kind.WasmPlugin,
 		kind.TrafficExtension,
 		kind.Telemetry,

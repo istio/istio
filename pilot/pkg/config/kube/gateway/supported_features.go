@@ -36,7 +36,7 @@ var skippedExtendedFeatures = []features.Feature{
 	// Address allocation does not implement the requested routability scope.
 	features.GatewayAddressRoutabilityFeature,
 	features.GatewayAddressRoutabilityClusterFeature,
-	// Gateway frontend and BackendTLSPolicy CA references do not resolve ClusterTrustBundles.
+	// Conformance suites enable this when the cluster serves certificates.k8s.io/v1 ClusterTrustBundles.
 	features.ClusterTrustBundleFeature,
 }
 

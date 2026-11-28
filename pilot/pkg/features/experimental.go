@@ -173,6 +173,11 @@ var (
 	EnableGatewayAPIGatewayClassController = env.Register("PILOT_ENABLE_GATEWAY_API_GATEWAYCLASS_CONTROLLER", true,
 		"If this is set to true, istiod will create and manage its default GatewayClasses").Get()
 
+	EnableGatewayAPIClusterTrustBundle = env.Register("PILOT_ENABLE_GATEWAY_API_CLUSTER_TRUST_BUNDLE", true,
+		"If this is set to true, Gateway API caCertificateRefs (BackendTLSPolicy validation and Gateway frontend TLS validation) "+
+			"may reference ClusterTrustBundle (certificates.k8s.io/v1) resources. "+
+			"This only takes effect when the cluster serves the certificates.k8s.io/v1 ClusterTrustBundle API.").Get()
+
 	DeltaXds = env.Register("ISTIO_DELTA_XDS", true,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world configuration on a Resource Request. "+
 			"While this feature uses the delta xds api, it may still occasionally send unchanged configurations instead of just the actual deltas.").Get()

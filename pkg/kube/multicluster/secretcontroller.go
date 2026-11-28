@@ -276,6 +276,8 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	c.configClusterSyncers = c.handleAdd(c.configCluster)
 	go func() {
 		defer close(c.stop)
+		// The config cluster is not in the cluster store, so its background work needs explicit shutdown.
+		defer c.configCluster.Stop()
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
 

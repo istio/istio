@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/tests/integration/pilot/gatewayconformance"
 )
 
 // GatewayConformanceInputs defines inputs to the gateway conformance test.
@@ -71,7 +72,8 @@ var skippedTests = map[string]string{
 	// The following tests were added in v1.7.0
 	// Istio derives the upstream protocol from the Service port; the test Service has no appProtocol,
 	// so we send HTTP/1.1 (no h2 ALPN) to the TLS gRPC backend.
-	"BackendTLSPolicyGRPCRoute": "TODO",
+	"BackendTLSPolicyGRPCRoute":                   "TODO",
+	"BackendTLSPolicyClusterTrustBundleGRPCRoute": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
@@ -100,6 +102,10 @@ func TestGatewayConformance(t *testing.T) {
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
 			supported := gateway.SupportedFeatures.Clone().Delete(gwfeatures.MeshConsumerRouteFeature)
+			// ClusterTrustBundle support depends on the installation and the cluster, so it is not in the shared set.
+			if ok, _ := gatewayconformance.ClusterTrustBundleSupported(ctx); ok {
+				supported.Insert(gwfeatures.ClusterTrustBundleFeature)
+			}
 			opts := suite.ConformanceOptions{
 				ConfigurableOptions: suite.ConfigurableOptions{
 					GatewayClassName:         "istio",

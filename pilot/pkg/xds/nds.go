@@ -45,6 +45,7 @@ var skippedNdsConfigs = func() sets.Set[kind.Kind] {
 		kind.DestinationRule,
 		kind.Secret,
 		kind.ConfigMap,
+		kind.ClusterTrustBundle,
 		kind.Telemetry,
 		kind.EnvoyFilter,
 		kind.WorkloadEntry,

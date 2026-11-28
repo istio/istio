@@ -2178,6 +2178,7 @@ func buildListener(
 	ctx krt.HandlerContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
+	clusterTrustBundles gatewaycommon.ClusterTrustBundles,
 	grants gatewaycommon.ReferenceGrants,
 	namespaces krt.Collection[*corev1.Namespace],
 	obj controllers.Object,
@@ -2209,7 +2210,8 @@ func buildListener(
 	}
 
 	ok := true
-	tls, err := buildTLS(ctx, configMaps, secrets, grants, resolveGatewayTLS(l.Port, gw.TLS), l.TLS, obj, kube.IsAutoPassthrough(obj.GetLabels(), l))
+	tls, err := buildTLS(ctx, configMaps, secrets, clusterTrustBundles, grants, resolveGatewayTLS(l.Port, gw.TLS), l.TLS, obj,
+		kube.IsAutoPassthrough(obj.GetLabels(), l))
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].Error = &gatewaycommon.ListenerStatusConfigError{
 			Reason: err.Reason, Message: err.Message,
@@ -2402,6 +2404,7 @@ func buildTLS(
 	ctx krt.HandlerContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
+	clusterTrustBundles gatewaycommon.ClusterTrustBundles,
 	grants gatewaycommon.ReferenceGrants,
 	gatewayTLS *k8s.TLSConfig,
 	tls *k8s.ListenerTLSConfig,
@@ -2495,21 +2498,32 @@ func buildTLS(
 				}
 			}
 			caCertRef := gatewayTLS.Validation.CACertificateRefs[0]
-			// Authorize cross-namespace refs before resolving the target, so status never
-			// reveals whether the referent exists when no ReferenceGrant allows it (CWE-203).
-			caNamespace, caResourceName := caCertificateResourceName(caCertRef, gw)
-			if caNamespace != namespace && !grants.SecretAllowed(ctx, schematypes.GvkFromObject(gw), caResourceName, namespace) {
-				return out, &ConfigError{
-					Reason: InvalidListenerRefNotPermitted,
-					Message: fmt.Sprintf(
-						"caCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
-						caNamespace, caCertRef.Name, namespace,
-					),
+			var caCredentialName string
+			if gatewaycommon.IsClusterTrustBundleRef(string(caCertRef.Group), string(caCertRef.Kind)) {
+				// ClusterTrustBundles are cluster-scoped, so a ReferenceGrant can neither be required nor applied.
+				name, err := buildClusterTrustBundleReference(ctx, caCertRef, clusterTrustBundles)
+				if err != nil {
+					return out, err
 				}
-			}
-			cred, err := buildCaCertificateReference(ctx, caCertRef, gw, configMaps, secrets)
-			if err != nil {
-				return out, err
+				caCredentialName = name
+			} else {
+				// Authorize cross-namespace refs before resolving the target, so status never
+				// reveals whether the referent exists when no ReferenceGrant allows it (CWE-203).
+				caNamespace, caResourceName := caCertificateResourceName(caCertRef, gw)
+				if caNamespace != namespace && !grants.SecretAllowed(ctx, schematypes.GvkFromObject(gw), caResourceName, namespace) {
+					return out, &ConfigError{
+						Reason: InvalidListenerRefNotPermitted,
+						Message: fmt.Sprintf(
+							"caCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
+							caNamespace, caCertRef.Name, namespace,
+						),
+					}
+				}
+				cred, err := buildCaCertificateReference(ctx, caCertRef, gw, configMaps, secrets)
+				if err != nil {
+					return out, err
+				}
+				caCredentialName = cred.ResourceName
 			}
 
 			out.Mode = istio.ServerTLSSettings_MUTUAL
@@ -2518,7 +2532,7 @@ func buildTLS(
 				out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
 				out.InsecureSkipVerify = proto.BoolTrue
 			}
-			out.CaCertCredentialName = cred.ResourceName
+			out.CaCertCredentialName = caCredentialName
 			if tls.Options != nil {
 				switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {
 				case "MUTUAL":
@@ -2603,6 +2617,36 @@ func caCertificateResourceName(ref k8s.ObjectReference, gw controllers.Object) (
 	return namespace, resourceName
 }
 
+func buildClusterTrustBundleReference(
+	ctx krt.HandlerContext,
+	ref k8s.ObjectReference,
+	clusterTrustBundles gatewaycommon.ClusterTrustBundles,
+) (string, *ConfigError) {
+	res := clusterTrustBundles.Resolve(ctx, string(ref.Name))
+	refStr := fmt.Sprintf("%s/%s/%s", ref.Group, ref.Kind, ref.Name)
+	if res.Unsupported() {
+		return "", &ConfigError{
+			Reason:  InvalidCACertificateKind,
+			Message: fmt.Sprintf("invalid CA certificate reference %v, %s", refStr, res.Message),
+		}
+	}
+	// The standard Gateway API CRD does not reject this; only the experimental channel's CEL validation does.
+	if ptr.OrEmpty(ref.Namespace) != "" {
+		return "", &ConfigError{
+			Reason: InvalidCACertificateRef,
+			Message: fmt.Sprintf("invalid CA certificate reference %v, ClusterTrustBundle references must not set namespace",
+				refStr),
+		}
+	}
+	if res.Outcome != gatewaycommon.ClusterTrustBundleResolved {
+		return "", &ConfigError{
+			Reason:  InvalidCACertificateRef,
+			Message: fmt.Sprintf("invalid CA certificate reference %v, %s", refStr, res.Message),
+		}
+	}
+	return res.CredentialName, nil
+}
+
 func buildCaCertificateReference(
 	ctx krt.HandlerContext,
 	ref k8s.ObjectReference,
@@ -2663,7 +2707,6 @@ func buildCaCertificateReference(
 			Message: fmt.Sprintf("invalid CA certificate reference %v, the bundle is malformed", objectReferenceString(ref)),
 		}
 	}
-	log.Warnf("buildCaCertificateReference %s://%s/%s%s", resourceType, namespace, ref.Name, creds.SdsCaSuffix)
 	return &creds.SecretResource{
 		ResourceType: resourceType,
 		ResourceKind: resourceKind,
