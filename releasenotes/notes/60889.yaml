@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 60889
+releaseNotes:
+- |
+    **Added** support for setting locality (region/zone/subzone) on an ambient east-west gateway via the
+    `topology.istio.io/locality` label (or the legacy `istio-locality` label). The locality is now propagated
+    to remote ztunnels, enabling full locality-aware load balancing across networks in ambient mesh.
