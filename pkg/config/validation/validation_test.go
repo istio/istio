@@ -6183,6 +6183,54 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			Warning: true,
 		},
 		{
+			name: "DenyWithTrustDomains",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									TrustDomains: []string{"untrusted.example.com"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: false,
+		},
+		{
+			name: "DenyWithNotTrustDomains",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									NotTrustDomains: []string{"cluster.local"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: false,
+		},
+		{
 			name: "L7DenyWithFromAndToWithPort",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,

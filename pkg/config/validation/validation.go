@@ -1623,7 +1623,8 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 					if src.NotPrincipals != nil || src.Principals != nil || src.IpBlocks != nil ||
 						src.NotIpBlocks != nil || src.Namespaces != nil ||
 						src.NotNamespaces != nil || src.RemoteIpBlocks != nil || src.NotRemoteIpBlocks != nil ||
-						src.ServiceAccounts != nil || src.NotServiceAccounts != nil {
+						src.ServiceAccounts != nil || src.NotServiceAccounts != nil ||
+						src.TrustDomains != nil || src.NotTrustDomains != nil {
 						tcpRulesInFrom = true
 					}
 				}
