@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 43972
+releaseNotes:
+  - |
+    **Fixed** an issue where the configuration generated for a Service defined differently across clusters
+    (for example, headless in one cluster and `ClusterIP` in another) depended on the order in which Istiod
+    discovered the clusters. The definition from the config cluster is now preferred, followed by the cluster
+    with the lowest cluster ID, and a warning is logged when the resolution differs between clusters.

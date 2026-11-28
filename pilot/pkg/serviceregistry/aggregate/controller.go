@@ -76,22 +76,29 @@ func NewController(opt Options) *Controller {
 }
 
 func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan struct{}) {
-	added := false
+	insertAt := len(c.registries)
 	if registry.Provider() == provider.Kubernetes {
-		for i, r := range c.registries {
-			if r.Provider() != provider.Kubernetes {
-				// insert the registry in the position of the first non kubernetes registry
-				c.registries = slices.Insert(c.registries, i, &registryEntry{Instance: registry, stop: stop})
-				added = true
-				break
-			}
+		// Kubernetes registries precede all others and are kept in a stable order, so merging a
+		// service across clusters does not depend on the order the clusters were registered in.
+		if i := slices.IndexFunc(c.registries, func(existing *registryEntry) bool {
+			return existing.Provider() != provider.Kubernetes || c.kubeClusterPrecedes(registry.Cluster(), existing.Cluster())
+		}); i >= 0 {
+			insertAt = i
 		}
 	}
-	if !added {
-		c.registries = append(c.registries, &registryEntry{Instance: registry, stop: stop})
-	}
+	c.registries = slices.Insert(c.registries, insertAt, &registryEntry{Instance: registry, stop: stop})
 
 	c.appendHandlers(registry)
+}
+
+// kubeClusterPrecedes reports whether cluster a's Kubernetes registry is ordered before cluster b's:
+// the config cluster first, then ascending cluster ID.
+func (c *Controller) kubeClusterPrecedes(a, b cluster.ID) bool {
+	aIsConfig, bIsConfig := a == c.configClusterID, b == c.configClusterID
+	if aIsConfig != bIsConfig {
+		return aIsConfig
+	}
+	return a < b
 }
 
 // appendHandlers must be called for every registry added to or swapped into c.registries,
@@ -249,10 +256,9 @@ func (c *Controller) Services() []*model.Service {
 			for _, s := range svcs {
 				previous, ok := smap[s.Hostname]
 				if !ok {
-					// First time we see a service. The result will have a single service per hostname
-					// The first cluster will be listed first, so the services in the primary cluster
-					// will be used for default settings. If a service appears in multiple clusters,
-					// the order is less clear.
+					// First time we see a service. The result will have a single service per hostname.
+					// Registries are ordered (see addRegistry), so default settings come from the
+					// config cluster if it has the service, else from the lowest cluster ID.
 					smap[s.Hostname] = index
 					index++
 					services = append(services, s)
@@ -298,6 +304,11 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance) {
 	if !src.Ports.EqualsIgnoringTargetPorts(dst.Ports) {
 		log.Debugf("service %s defined from cluster %s is different from others", src.Hostname, srcRegistry.Cluster())
+	}
+	if src.Resolution != dst.Resolution {
+		// For example headless in one cluster and ClusterIP in another.
+		log.Warnf("service %s resolution %v in cluster %s is different from others, keeping %v",
+			src.Hostname, src.Resolution, srcRegistry.Cluster(), dst.Resolution)
 	}
 	// Prefer the k8s HostVIPs where possible
 	clusterID := srcRegistry.Cluster()
