@@ -20,8 +20,10 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
+	qat "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/qat/v3alpha"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
@@ -35,6 +37,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/log"
 	ca2 "istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var (
@@ -158,6 +161,57 @@ func setupSDS(t *testing.T) *TestServer {
 		server:  server,
 		store:   st,
 		udsPath: ca2.GetIstioSDSServerSocketPath(),
+	}
+}
+
+func TestPrivateKeyProviderFallback(t *testing.T) {
+	for _, providerName := range []string{"cryptomb", "qat"} {
+		for _, tt := range []struct {
+			name     string
+			fallback *wrappers.BoolValue
+		}{
+			{name: "default"},
+			{name: "disabled", fallback: wrappers.Bool(false)},
+			{name: "enabled", fallback: wrappers.Bool(true)},
+		} {
+			t.Run(providerName+"/"+tt.name, func(t *testing.T) {
+				config := &meshconfig.PrivateKeyProvider{}
+				if providerName == "cryptomb" {
+					config.Provider = &meshconfig.PrivateKeyProvider_Cryptomb{
+						Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
+							PollDelay: durationpb.New(2 * time.Millisecond),
+							Fallback:  tt.fallback,
+						},
+					}
+				} else {
+					config.Provider = &meshconfig.PrivateKeyProvider_Qat{
+						Qat: &meshconfig.PrivateKeyProvider_QAT{
+							PollDelay: durationpb.New(2 * time.Millisecond),
+							Fallback:  tt.fallback,
+						},
+					}
+				}
+				cert := toEnvoySecret(pushSecret, "", config).GetTlsCertificate()
+				provider := cert.GetPrivateKeyProvider()
+				assert.Equal(t, provider.GetProviderName(), providerName)
+				assert.Equal(t, provider.GetFallback(), tt.fallback.GetValue())
+				assert.Equal(t, cert.GetCertificateChain().GetInlineBytes(), fakePushCertificateChain)
+				var fallbackKey []byte
+				if tt.fallback.GetValue() {
+					fallbackKey = fakePushPrivateKey
+				}
+				assert.Equal(t, cert.GetPrivateKey().GetInlineBytes(), fallbackKey)
+				if providerName == "cryptomb" {
+					config := &cryptomb.CryptoMbPrivateKeyMethodConfig{}
+					assert.NoError(t, provider.GetTypedConfig().UnmarshalTo(config))
+					assert.Equal(t, config.GetPrivateKey().GetInlineBytes(), fakePushPrivateKey)
+				} else {
+					config := &qat.QatPrivateKeyMethodConfig{}
+					assert.NoError(t, provider.GetTypedConfig().UnmarshalTo(config))
+					assert.Equal(t, config.GetPrivateKey().GetInlineBytes(), fakePushPrivateKey)
+				}
+			})
+		}
 	}
 }
 

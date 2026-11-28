@@ -21,7 +21,10 @@ import (
 	"testing"
 	"time"
 
+	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
+	qat "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/qat/v3alpha"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -546,6 +549,76 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	for _, scrt := range raw {
 		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {
 			t.Fatal("expect no private key provider in secret")
+		}
+	}
+}
+
+func TestPrivateKeyProviderFallback(t *testing.T) {
+	for _, providerName := range []string{"cryptomb", "qat"} {
+		for _, tt := range []struct {
+			name     string
+			fallback *wrapperspb.BoolValue
+		}{
+			{name: "default"},
+			{name: "disabled", fallback: wrapperspb.Bool(false)},
+			{name: "enabled", fallback: wrapperspb.Bool(true)},
+		} {
+			t.Run(providerName+"/"+tt.name, func(t *testing.T) {
+				config := &meshconfig.PrivateKeyProvider{}
+				if providerName == "cryptomb" {
+					config.Provider = &meshconfig.PrivateKeyProvider_Cryptomb{
+						Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
+							PollDelay: durationpb.New(2 * time.Millisecond),
+							Fallback:  tt.fallback,
+						},
+					}
+				} else {
+					config.Provider = &meshconfig.PrivateKeyProvider_Qat{
+						Qat: &meshconfig.PrivateKeyProvider_QAT{
+							PollDelay: durationpb.New(2 * time.Millisecond),
+							Fallback:  tt.fallback,
+						},
+					}
+				}
+				s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+					KubernetesObjects:          []runtime.Object{genericCert},
+					DisableSecretAuthorization: true,
+				})
+				proxy := s.SetupProxy(&model.Proxy{
+					VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+					Type:             model.Router,
+					Metadata: &model.NodeMetadata{
+						ClusterID:   constants.DefaultClusterName,
+						ProxyConfig: &model.NodeMetaProxyConfig{PrivateKeyProvider: config},
+					},
+				})
+				gen := s.Discovery.Generators[v3.SecretType]
+				secrets, _, err := gen.Generate(proxy, &model.WatchedResource{
+					ResourceNames: sets.New("kubernetes://generic"),
+				}, &model.PushRequest{Start: time.Now(), Forced: true})
+				assert.NoError(t, err)
+				raw := xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
+				assert.Equal(t, len(raw), 1)
+				cert := raw["kubernetes://generic"].GetTlsCertificate()
+				provider := cert.GetPrivateKeyProvider()
+				assert.Equal(t, provider.GetProviderName(), providerName)
+				assert.Equal(t, provider.GetFallback(), tt.fallback.GetValue())
+				assert.Equal(t, cert.GetCertificateChain().GetInlineBytes(), genericCert.Data[credentials.GenericScrtCert])
+				var fallbackKey []byte
+				if tt.fallback.GetValue() {
+					fallbackKey = genericCert.Data[credentials.GenericScrtKey]
+				}
+				assert.Equal(t, cert.GetPrivateKey().GetInlineBytes(), fallbackKey)
+				if providerName == "cryptomb" {
+					config := &cryptomb.CryptoMbPrivateKeyMethodConfig{}
+					assert.NoError(t, provider.GetTypedConfig().UnmarshalTo(config))
+					assert.Equal(t, config.GetPrivateKey().GetInlineBytes(), genericCert.Data[credentials.GenericScrtKey])
+				} else {
+					config := &qat.QatPrivateKeyMethodConfig{}
+					assert.NoError(t, provider.GetTypedConfig().UnmarshalTo(config))
+					assert.Equal(t, config.GetPrivateKey().GetInlineBytes(), genericCert.Data[credentials.GenericScrtKey])
+				}
+			})
 		}
 	}
 }

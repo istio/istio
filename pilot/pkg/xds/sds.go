@@ -353,6 +353,13 @@ func toEnvoyCaSecret(name string, certInfo *credscontroller.CertInfo) *discovery
 func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
 	var res *anypb.Any
 	pkpConf := proxy.Metadata.ProxyConfigOrDefault(meshConfig.GetDefaultConfig()).GetPrivateKeyProvider()
+	var fallbackKey *core.DataSource
+	// Envoy does not read the provider's private key when falling back to BoringSSL.
+	if pkpConf.GetCryptomb().GetFallback().GetValue() || pkpConf.GetQat().GetFallback().GetValue() {
+		fallbackKey = &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{InlineBytes: certInfo.Key},
+		}
+	}
 	switch pkpConf.GetProvider().(type) {
 	case *mesh.PrivateKeyProvider_Cryptomb:
 		crypto := pkpConf.GetCryptomb()
@@ -368,6 +375,7 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{
 				TlsCertificate: &envoytls.TlsCertificate{
+					PrivateKey: fallbackKey,
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_InlineBytes{
 							InlineBytes: certInfo.Cert,
@@ -397,6 +405,7 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{
 				TlsCertificate: &envoytls.TlsCertificate{
+					PrivateKey: fallbackKey,
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_InlineBytes{
 							InlineBytes: certInfo.Cert,
