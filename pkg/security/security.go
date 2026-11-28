@@ -16,6 +16,7 @@ package security
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -129,7 +130,7 @@ const (
 	GkeWorkloadCertificateProvider = "GkeWorkloadCertificate"
 
 	// FileRootSystemCACert is a unique resource name signaling that the system CA certificate should be used
-	FileRootSystemCACert = "file-root:system"
+	FileRootSystemCACert = fileRootResourcePrefix + "system"
 
 	// CACRLFilePath is the well-known path for the plugged-in CA's CRL file
 	CACRLFilePath = "/var/run/secrets/istio/crl/ca-crl.pem"
@@ -528,16 +529,20 @@ type SdsCertificateConfig struct {
 	CertificatePath   string
 	PrivateKeyPath    string
 	CaCertificatePath string
+	CRLPath           string
 }
 
 const (
-	ResourceSeparator = "~"
+	ResourceSeparator         = "~"
+	fileCertResourcePrefix    = "file-cert:"
+	fileRootResourcePrefix    = "file-root:"
+	fileRootCRLResourcePrefix = "file-root-crl:"
 )
 
 // GetResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name
 func (s SdsCertificateConfig) GetResourceName() string {
 	if s.IsKeyCertificate() {
-		return "file-cert:" + s.CertificatePath + ResourceSeparator + s.PrivateKeyPath // Format: file-cert:%s~%s
+		return fileCertResourcePrefix + s.CertificatePath + ResourceSeparator + s.PrivateKeyPath // Format: file-cert:%s~%s
 	}
 	return ""
 }
@@ -545,7 +550,11 @@ func (s SdsCertificateConfig) GetResourceName() string {
 // GetRootResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name for the root
 func (s SdsCertificateConfig) GetRootResourceName() string {
 	if s.IsRootCertificate() {
-		return "file-root:" + s.CaCertificatePath // Format: file-root:%s
+		if s.CRLPath != "" {
+			return fileRootCRLResourcePrefix + base64.RawURLEncoding.EncodeToString([]byte(s.CaCertificatePath)) + ResourceSeparator +
+				base64.RawURLEncoding.EncodeToString([]byte(s.CRLPath))
+		}
+		return fileRootResourcePrefix + s.CaCertificatePath // Format: file-root:%s
 	}
 	return ""
 }
@@ -563,21 +572,32 @@ func (s SdsCertificateConfig) IsKeyCertificate() bool {
 // SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
 // If the resource name is not valid, false is returned.
 func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
-	if after, ok := strings.CutPrefix(resource, "file-cert:"); ok {
+	if after, ok := strings.CutPrefix(resource, fileRootCRLResourcePrefix); ok {
+		paths := strings.Split(after, ResourceSeparator)
+		if len(paths) != 2 {
+			return SdsCertificateConfig{}, false
+		}
+		ca, caErr := base64.RawURLEncoding.DecodeString(paths[0])
+		crl, crlErr := base64.RawURLEncoding.DecodeString(paths[1])
+		if caErr != nil || crlErr != nil || len(ca) == 0 || len(crl) == 0 {
+			return SdsCertificateConfig{}, false
+		}
+		return SdsCertificateConfig{CaCertificatePath: string(ca), CRLPath: string(crl)}, true
+	} else if after, ok := strings.CutPrefix(resource, fileCertResourcePrefix); ok {
 		filesString := after
 		split := strings.Split(filesString, ResourceSeparator)
 		if len(split) != 2 {
 			return SdsCertificateConfig{}, false
 		}
-		return SdsCertificateConfig{split[0], split[1], ""}, true
-	} else if after, ok := strings.CutPrefix(resource, "file-root:"); ok {
+		return SdsCertificateConfig{CertificatePath: split[0], PrivateKeyPath: split[1]}, true
+	} else if after, ok := strings.CutPrefix(resource, fileRootResourcePrefix); ok {
 		filesString := after
 		split := strings.Split(filesString, ResourceSeparator)
 
 		if len(split) != 1 {
 			return SdsCertificateConfig{}, false
 		}
-		return SdsCertificateConfig{"", "", split[0]}, true
+		return SdsCertificateConfig{CaCertificatePath: split[0]}, true
 	}
 	return SdsCertificateConfig{}, false
 }
@@ -587,5 +607,5 @@ func SdsCertificateConfigFromResourceNameForOSCACert(resource string) (SdsCertif
 	if resource == "" {
 		return SdsCertificateConfig{}, false
 	}
-	return SdsCertificateConfig{"", "", resource}, true
+	return SdsCertificateConfig{CaCertificatePath: resource}, true
 }

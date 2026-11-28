@@ -311,7 +311,11 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 			},
 		}
 
-		if features.EnableCACRL {
+		if cfg.CRLPath != "" {
+			secretValidationContext.ValidationContext.Crl = &core.DataSource{
+				Specifier: &core.DataSource_Filename{Filename: cfg.CRLPath},
+			}
+		} else if features.EnableCACRL {
 			// Check if the plugged-in CA CRL file is present and update the secretValidationContext accordingly.
 			if isCrlFileProvided() {
 				secretValidationContext.ValidationContext.Crl = &core.DataSource{
