@@ -560,7 +560,7 @@ func buildAgwGRPCDestination(
 			Filters:    nil, // GRPC filters are handled separately
 		}, ns, gvk.GRPCRoute)
 		if err != nil {
-			log.Errorf("error building agent gateway destination", "error", err)
+			log.WithLabels("error", err).Error("error building agent gateway destination")
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
 				// keep going, we will gracefully drop invalid backends
