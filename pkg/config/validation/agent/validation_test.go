@@ -1866,6 +1866,34 @@ func TestValidateLocalities(t *testing.T) {
 	}
 }
 
+// The "to" localities of a distribute rule come from a map, so they are visited in a random order. Overlapping
+// localities must be rejected no matter which one comes first.
+func TestValidateLocalityLbSettingDistributeToOverlapIsDeterministic(t *testing.T) {
+	cases := []struct {
+		name string
+		to   map[string]uint32
+	}{
+		{name: "zone wildcard and region", to: map[string]uint32{"a/b": 50, "a/*": 50}},
+		{name: "subzone wildcard and subzone", to: map[string]uint32{"a/b/c": 50, "a/b/*": 50}},
+		{name: "zone wildcard and subzone", to: map[string]uint32{"a/b/c": 50, "a/*": 50}},
+		{name: "wildcard and subzone", to: map[string]uint32{"a/b/c": 50, "*": 50}},
+		{name: "wildcard and region", to: map[string]uint32{"a": 50, "*": 50}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			lb := &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{{From: "x/y/z", To: c.to}},
+			}
+			// Map iteration order is random, so validate many times to see both orders.
+			for i := 0; i < 200; i++ {
+				if err := ValidateLocalityLbSetting(lb, nil).Err; err == nil {
+					t.Fatalf("expected overlapping localities %v to be rejected (accepted on attempt %d)", c.to, i+1)
+				}
+			}
+		})
+	}
+}
+
 func TestValidationIPAddress(t *testing.T) {
 	tests := []struct {
 		name string
