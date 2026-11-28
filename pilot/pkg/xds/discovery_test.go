@@ -25,15 +25,43 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	uatomic "go.uber.org/atomic"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
+
+func TestWaitForRequestLimitMetric(t *testing.T) {
+	mt := monitortest.New(t)
+
+	// A positive limit with zero burst rejects immediately, which is the same error path as a
+	// full token bucket timing out the one-second wait.
+	rejected := &DiscoveryServer{RequestRateLimit: rate.NewLimiter(1, 0)}
+	if err := rejected.WaitForRequestLimit(context.Background()); err == nil {
+		t.Fatal("expected the rate limiter to reject the stream")
+	}
+	mt.Assert(xdsRequestRateLimitExceeded.Name(), nil, monitortest.Exactly(1))
+
+	// An infinite limiter admits the stream and must not count it as a rejection.
+	admitted := &DiscoveryServer{RequestRateLimit: rate.NewLimiter(rate.Inf, 1)}
+	if err := admitted.WaitForRequestLimit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	mt.Assert(xdsRequestRateLimitExceeded.Name(), nil, monitortest.Exactly(1))
+
+	// A zero limit opts out of rate limiting.
+	disabled := &DiscoveryServer{RequestRateLimit: rate.NewLimiter(0, 1)}
+	if err := disabled.WaitForRequestLimit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	mt.Assert(xdsRequestRateLimitExceeded.Name(), nil, monitortest.Exactly(1))
+}
 
 func createProxies(n int) []*Connection {
 	proxies := make([]*Connection, 0, n)

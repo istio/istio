@@ -99,6 +99,13 @@ var (
 		"Total number of failures to fetch SDS key and certificate.",
 	)
 
+	// xdsRequestRateLimitExceeded counts new ADS and Delta ADS streams that were closed
+	// because they could not get a token from PILOT_MAX_REQUESTS_PER_SECOND within the wait.
+	xdsRequestRateLimitExceeded = monitoring.NewSum(
+		"pilot_xds_request_rate_limit_exceeded_total",
+		"Total number of new XDS streams rejected because the incoming request rate limit was exceeded.",
+	)
+
 	inboundConfigUpdates  = inboundUpdates.With(typeTag.Value("config"))
 	inboundEDSUpdates     = inboundUpdates.With(typeTag.Value("eds"))
 	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))
