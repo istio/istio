@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Fixed** an issue where `istio-cni` did not notice a CNI config file being moved out of the CNI config directory until another change happened there.
