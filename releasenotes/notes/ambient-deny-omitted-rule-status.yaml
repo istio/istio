@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+
+releaseNotes:
+  - |
+    **Fixed** the status of ambient DENY AuthorizationPolicies reporting the policy as more restrictive
+    than requested when some, but not all, of its rules could only be enforced by a waypoint.
