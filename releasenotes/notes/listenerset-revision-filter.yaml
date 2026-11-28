@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 60388
+
+releaseNotes:
+  - |
+    **Fixed** an issue where a Gateway API ListenerSet whose `istio.io/rev` label pointed to a
+    different revision was dropped by the informer-level revision filter, so the previously-owning
+    control plane stripped the ListenerSet's listeners from gateway pods still running on the old
+    revision during canary upgrades. ListenerSets are now exempt from the informer-level revision
+    filter, matching Gateways: every revision processes them for config purposes, while status
+    writes and Deployment management remain gated to the owning revision. This also makes
+    ListenerSets labeled with a revision tag (e.g. `istio.io/rev: default`) visible to the istiod
+    that owns the tag.

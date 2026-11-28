@@ -185,6 +185,87 @@ func TestListGatewayResourceAcrossRevisions(t *testing.T) {
 	assert.Equal(t, got.Spec, any(expectedgw))
 }
 
+// TestListListenerSetResourceAcrossRevisions is the ListenerSet counterpart of
+// TestListGatewayResourceAcrossRevisions. A ListenerSet whose istio.io/rev label points to a
+// different revision must still be emitted as config by this control plane. Unlike Gateways,
+// ListenerSets were not exempt from the informer-level revision filter in buildClient: the
+// relabeled object was filtered out before it ever reached ListenerSetCollection (delivered as
+// a deletion), so the old control plane stripped the ListenerSet's listeners from gateway pods
+// still running on the old revision -- the same failure mode #59959 described for Gateways.
+// See #60388.
+func TestListListenerSetResourceAcrossRevisions(t *testing.T) {
+	controller := setupControllerWithRevision(t, "stable",
+		&k8s.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "gwclass",
+			},
+			Spec: *gatewayClassSpec,
+		},
+		&k8s.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "gwspec",
+				Namespace: "ns1",
+			},
+			Spec: k8s.GatewaySpec{
+				GatewayClassName: "gwclass",
+				AllowedListeners: &k8s.AllowedListeners{
+					Namespaces: &k8s.ListenerNamespaces{From: ptr.Of(k8s.NamespacesFromAll)},
+				},
+				Listeners: []k8s.Listener{
+					{
+						Name:     "default",
+						Port:     9009,
+						Protocol: "HTTP",
+					},
+				},
+			},
+		},
+		// ListenerSet labeled for a *different* revision than the one we're running.
+		// Pre-fix, this object was dropped by the informer-level revision filter in
+		// buildClient, so its listener never made it into the emitted config.
+		&k8s.ListenerSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "canary-ls",
+				Namespace: "ns1",
+				Labels: map[string]string{
+					label.IoIstioRev.Name: "canary",
+				},
+			},
+			Spec: k8s.ListenerSetSpec{
+				ParentRef: k8s.ParentGatewayReference{
+					Group: ptr.Of(k8s.Group("gateway.networking.k8s.io")),
+					Kind:  ptr.Of(k8s.Kind("Gateway")),
+					Name:  "gwspec",
+				},
+				Listeners: []k8s.ListenerEntry{
+					{
+						Name:     "ls",
+						Port:     9010,
+						Protocol: "HTTP",
+					},
+				},
+			},
+		},
+	)
+
+	dumpOnFailure(t, krt.GlobalDebugHandler)
+	cfg := controller.List(gvk.Gateway, "ns1")
+	// The Gateway's own listener plus the ListenerSet's listener.
+	assert.Equal(t, len(cfg), 2)
+	var lsCfg *config.Config
+	for i := range cfg {
+		if cfg[i].Name == "canary-ls"+"~"+constants.KubernetesGatewayName+"~ls" {
+			lsCfg = &cfg[i]
+		}
+	}
+	if lsCfg == nil {
+		t.Fatalf("ListenerSet-derived config %q not found in %v",
+			"canary-ls~"+constants.KubernetesGatewayName+"~ls", cfg)
+	}
+	assert.Equal(t, lsCfg.GroupVersionKind, gvk.Gateway)
+	assert.Equal(t, lsCfg.Namespace, "ns1")
+}
+
 // TestHTTPRouteAndGRPCRouteWithSameName verifies that an HTTPRoute and a GRPCRoute that share a
 // name and namespace are both programmed when they attach to the same Gateway and hostname, even
 // when the GRPCRoute is created after the HTTPRoute. See https://github.com/istio/istio/issues/61191.
