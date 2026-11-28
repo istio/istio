@@ -839,6 +839,10 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	}
 
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, req.valuesConfig.asStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe().GetValue())
+	// A status port of 0 means the sidecar runs no status server, so there is nothing to send the probes to.
+	if sidecarStatusPort(pod.Annotations, req.meshConfig.GetDefaultConfig().GetStatusPort()) == 0 {
+		rewrite = false
+	}
 	// We don't have to escape json encoding here when using golang libraries.
 	if rewrite {
 		if prober := DumpAppProbers(pod, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
