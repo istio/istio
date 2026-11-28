@@ -45,6 +45,8 @@ type endpointSliceController struct {
 	endpointCache *endpointSliceCache
 	slices        kclient.Client[*v1.EndpointSlice]
 	c             *Controller
+	// batcher defers endpoint updates of large Services when features.BatchLargeEndpointUpdates is on.
+	batcher *endpointBatcher
 }
 
 var (
@@ -59,6 +61,7 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 		slices:        slices,
 		endpointCache: newEndpointSliceCache(),
 	}
+	out.batcher = newEndpointBatcher(out)
 	registerHandlers[*v1.EndpointSlice](c, slices, "EndpointSlice", out.onEvent, endpointSliceUnchanged)
 	return out
 }
@@ -132,8 +135,12 @@ func (esc *endpointSliceController) onEventInternal(old, ep *v1.EndpointSlice, e
 
 	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
 	log.Debugf("triggering EDS push for %s in namespace %s", hostnames, namespacedName.Namespace)
-	// Trigger EDS push for all hostnames.
-	esc.pushEDS(hostnames, namespacedName.Namespace)
+	// Trigger EDS push for all hostnames. For a large Service this may be deferred and batched.
+	for _, hostname := range hostnames {
+		if !esc.batcher.batch(hostname, namespacedName.Namespace, true, false) {
+			esc.pushEDS([]host.Name{hostname}, namespacedName.Namespace)
+		}
+	}
 
 	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone || svc.Spec.Type == corev1.ServiceTypeExternalName {
 		return
@@ -515,6 +522,18 @@ func (e *endpointSliceCache) get(hostname host.Name) []*model.IstioEndpoint {
 		}
 	}
 	return endpoints
+}
+
+// count returns the number of cached endpoints of the Service. An endpoint that is present in two
+// slices is counted twice.
+func (e *endpointSliceCache) count(hostname host.Name) int {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	n := 0
+	for _, eps := range e.endpointsByServiceAndSlice[hostname] {
+		n += len(eps)
+	}
+	return n
 }
 
 func (e *endpointSliceCache) Has(hostname host.Name) bool {

@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** the `BATCH_LARGE_ENDPOINT_UPDATES` environment variable for istiod, disabled by default. When enabled,
+    endpoint updates for a Kubernetes Service with more than 5000 endpoints are batched: istiod waits up to
+    `BATCH_LARGE_ENDPOINT_UPDATES_DEBOUNCE_TIME` (default `1s`) and then recomputes the endpoint list of the Service
+    once, instead of on every EndpointSlice or pod label event. This keeps the registry queue from backing up during
+    rollouts and relabeling of very large Services, at the cost of endpoint changes for those Services reaching
+    proxies up to that much later.
