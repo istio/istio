@@ -22,6 +22,7 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -29,6 +30,8 @@ import (
 	upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -1648,4 +1651,110 @@ func TestWaypointConnectOriginateHasHTTP2Keepalive(t *testing.T) {
 	g.Expect(keepalive).NotTo(BeNil(), "connect_originate must send HTTP/2 PINGs to detect dead peers")
 	g.Expect(keepalive.GetInterval().AsDuration()).To(Equal(10 * time.Second))
 	g.Expect(keepalive.GetTimeout().AsDuration()).To(Equal(20 * time.Second))
+}
+
+func TestConnectOriginateTCPKeepalive(t *testing.T) {
+	meshKeepalive := &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+		Probes:   3,
+		Time:     durationpb.New(30 * time.Second),
+		Interval: durationpb.New(5 * time.Second),
+	}
+	wantKeepalive := &core.TcpKeepalive{
+		KeepaliveProbes:   wrapperspb.UInt32(3),
+		KeepaliveTime:     wrapperspb.UInt32(30),
+		KeepaliveInterval: wrapperspb.UInt32(5),
+	}
+	waypoint := func() *model.Proxy {
+		return &model.Proxy{
+			Type:            model.Waypoint,
+			ConfigNamespace: "default",
+			Labels: map[string]string{
+				label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint",
+				label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+			},
+			IPAddresses: []string{"3.0.0.1"},
+		}
+	}
+	gateway := func() *model.Proxy {
+		labels := map[string]string{
+			"istio":                    "ingressgateway",
+			label.TopologyNetwork.Name: "network-1",
+		}
+		return &model.Proxy{
+			Type:            model.Router,
+			ConfigNamespace: "istio-system",
+			Labels:          labels,
+			IPAddresses:     []string{"10.0.0.1"},
+			Metadata:        &model.NodeMetadata{Labels: labels},
+		}
+	}
+	cases := []struct {
+		name         string
+		proxy        func() *model.Proxy
+		configs      string
+		tcpKeepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive
+		// clusters that own a TCP connection to the HBONE peer
+		clusters []string
+		want     *core.TcpKeepalive
+	}{
+		{
+			name:         "waypoint with mesh keepalive",
+			proxy:        waypoint,
+			configs:      joinYaml(waypointGateway, waypointSvc, waypointInstance),
+			tcpKeepalive: meshKeepalive,
+			clusters:     []string{"connect_originate"},
+			want:         wantKeepalive,
+		},
+		{
+			name:     "waypoint without mesh keepalive",
+			proxy:    waypoint,
+			configs:  joinYaml(waypointGateway, waypointSvc, waypointInstance),
+			clusters: []string{"connect_originate"},
+			want:     nil,
+		},
+		{
+			name:         "gateway with mesh keepalive",
+			proxy:        gateway,
+			tcpKeepalive: meshKeepalive,
+			clusters:     []string{"connect_originate", "outer_connect_originate"},
+			want:         wantKeepalive,
+		},
+		{
+			name:     "gateway without mesh keepalive",
+			proxy:    gateway,
+			clusters: []string{"connect_originate", "outer_connect_originate"},
+			want:     nil,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableDualStack, true)
+			test.SetForTest(t, &features.EnableIngressWaypointRouting, true)
+			test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+			test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+			test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, true)
+			test.SetForTest(t, &features.EnableHBONESend, true)
+
+			mc := mesh.DefaultMeshConfig()
+			mc.TcpKeepalive = tt.tcpKeepalive
+			d := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				ConfigString:           tt.configs,
+				KubernetesObjectString: tt.configs,
+				MeshConfig:             mc,
+			})
+			clusters := xdstest.ExtractClusters(d.Clusters(d.SetupProxy(tt.proxy())))
+
+			for _, name := range tt.clusters {
+				c := clusters[name]
+				if c == nil {
+					t.Fatalf("cluster %s not found", name)
+				}
+				assert.Equal(t, c.GetUpstreamConnectionOptions().GetTcpKeepalive(), tt.want)
+			}
+			// The inner tunnel of double HBONE connects to an internal listener, so it never gets TCP keepalive.
+			if c := clusters["inner_connect_originate"]; c != nil {
+				assert.Equal(t, c.GetUpstreamConnectionOptions().GetTcpKeepalive(), nil)
+			}
+		})
+	}
 }

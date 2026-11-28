@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 62334
+releaseNotes:
+  - |
+    **Fixed** an issue where `meshConfig.tcpKeepalive` was not applied to the outbound HBONE connections of ambient waypoints and gateways.
